@@ -1,0 +1,10 @@
+#!/usr/bin/env python
+#-*- coding:utf-8 -*-
+
+
+def build(bld):
+    # install *all* Python files of this module.
+    # this will not go into dirs deeper down the hierarchy.
+    # sub-packages have to built separately
+    for py_file in bld.path.ant_glob("*.py"):
+        bld(features="py", source=py_file, install_path="${PYTHONDIR}/pyoptics")
