@@ -8,6 +8,15 @@ import numpy as np
 from numpy.fft import fftfreq, fftshift
 from scipy.signal import savgol_coeffs
 
+def grid1d(extent, N, x_min=None):
+    pass
+
+
+def grid2d(x, y):
+    [X, Y] = np.meshgrid(x, y)
+
+    return X, Y
+
 
 def freq_grid(x, y, wavenumbers=True, normal_order=True):
     """Compute a Fourier frequency grid corresponding to given x, y.
@@ -30,8 +39,8 @@ def freq_grid(x, y, wavenumbers=True, normal_order=True):
     """
 
     dx, dy = abs(x[1] - x[0]), abs(y[1] - y[0])
-
-    freq_x, freq_y = fftfreq(len(x), dx), fftfreq(len(y), dy)
+    N_x, N_y = len(x), len(y)
+    freq_x, freq_y = fftfreq(N_x, dx), fftfreq(N_y, dy)
 
     if(wavenumbers):
         freq_x, freq_y = 2*np.pi*freq_x, 2*np.pi*freq_y
@@ -44,9 +53,10 @@ def freq_grid(x, y, wavenumbers=True, normal_order=True):
     return out
 
 
-def get_length_scales(wavelength, NA, n=1.0):
-    """Return two length scales for an imaging system: the Airy diameter and
-    the Rayleigh unit.
+def get_length_scales(wavelength, NA, n=1.0, use_small_NA=False):
+    """Return two length scales for an imaging system: the resolution
+    limit/Airy diameter and depth of focus (DOF, for small NA known as the
+    Rayleigh unit).
 
     Parameters
     ----------
@@ -55,16 +65,22 @@ def get_length_scales(wavelength, NA, n=1.0):
     NA : double
     n : double, optional
         Refractive index of the medium. Defaults to 1 (air/vacuum).
+    use_small_NA : boolean, optional
+        If True, use the small NA approximation commonly used in microscopy for
+        the DOF.
 
     Returns
     -------
     airy : double
         The Airy *diameter* (not radius!).
-    RU : double
+    DOF : double
         The Rayleigh unit.
     """
 
-    return 1.22*n*wavelength/NA, n*wavelength/NA**2  # TODO: check
+    airy_diameter = 1.22*n*wavelength/NA
+    DOF = n*wavelength/NA**2  # TODO: better formula for DOF, case distinction
+
+    return airy_diameter, DOF
 
 
 def get_z_derivative(stack, dz, order):
@@ -94,6 +110,8 @@ def get_z_derivative(stack, dz, order):
         z-derivative in the central z-plane.
     """
 
+    # TODO: implement default behaviour for order
+
     num_images = np.size(stack, 2)
     deriv_coeffs = savgol_coeffs(num_images, order, 1, delta=dz, use="dot")
 
@@ -110,10 +128,18 @@ def add_camera_noise():
     """Apply a simple noise model to an image stack.
     """
 
-    # TODO: implement a noise model Poissonian photon noise, and Gaussian
+    # TODO: implement a noise model with Poissonian photon noise, and Gaussian
     # other noise
     pass
 
 
 def scalar_product(field1, field2, x, y):
-    pass
+    """Compute the scalar product <field_1|field_2>.
+    """
+
+    # use the simplest integration scheme possible
+    prod = np.sum(np.conj(field1)*field2)*x*y/np.prod(np.shape(field1) - 1)
+
+    # TODO: implement more precise schemes (2d Simpson?)
+
+    return prod

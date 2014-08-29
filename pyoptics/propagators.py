@@ -43,6 +43,7 @@ def prop_free_space(u0, x, y, delta_z, k, from_spectrum=False):
     # TODO: think about maximum safe propagation distance (Nyquist!)
     # TODO: explain use of scimath's sqrt function here
     # (evanescent field components!)
+    # TODO: implement a switch that discards evanescent components
 
     # checks:
     check_free_space_sampling(x, y, k)
@@ -51,7 +52,6 @@ def prop_free_space(u0, x, y, delta_z, k, from_spectrum=False):
         U0 = u0
     else:
         U0 = fftshift(fft2(ifftshift(u0)))
-
 
     K_X, K_Y = freq_grid(x, y, wavenumbers=True, normal_order=False)
 
@@ -74,8 +74,8 @@ def prop_free_space(u0, x, y, delta_z, k, from_spectrum=False):
 
 def check_free_space_sampling(x, y, k):
     """Check whether the x,y sampling is such that all frequencies (that may or
-    may not be present) that propagate non-evanescently present in the given
-    position space sampling.
+    may not be present) that propagate non-evanescently are present in the
+    given position space sampling.
 
     Note that this is not necessarily a problem as actual frequency spectrum
     may be narrower.
