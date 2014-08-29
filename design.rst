@@ -19,9 +19,9 @@ Imager
 
   TODO: is it convenient to differentiate the mask defining the aperture,
   and two real valued functions for each apodisation and wavefront?
-  --> probably yes as in that case different subclasses may take of defining
-      features separately (e.g. a subclass for typical optical systems with
-      circular aperture stops)
+  --> probably yes as in that case different subclasses may take care of
+      defining features separately (e.g. a subclass for typical optical systems
+      with circular aperture stops)
 
   Parameters defining the basic system:
   - NA defining the pupil dimension
@@ -31,22 +31,35 @@ Imager
 
   Use:
   - Chirp z transform as a zoom FFT for better pupil sampling
-  - classes for each ingredient (mask, wavefront, apodisation)
-    (allows to store a state [e.g. Zernike basis sizes, norms or ordering conventions] as
-    well as easy usage [when the object are callable])
+  - classes for each ingredient (mask, wavefront, apodisation) (allows to store
+    a state [e.g. Zernike basis sizes, norms or ordering conventions] as well as
+    easy usage [when the object are callable])
   - describe each defining component by only one vector (for optimization
     purposes - however, we might be able to write a calling function that
     does unpacking magic)
 
   Capabilities:
-  - compute a PSF (how to deal with 2d/3d? propagate?)
+  - allow object and image side defocus
+  - compute a PSF
   - compute images
-    - how to do that in a sensible way? Incoherent: from PSF? Coherent: PSF or
-      by CZT?
+    - how to do that in a sensible way? Incoherent: from PSF? Coherent:
+      convolution with the PSF or by going to the pupil using a CZT?
       Arguments for PSF:  may be needed anyway (incoherent imaging)
       Against PSF: for large NA, we may seriously lose information when the PSF
-      extends over only a few pixels [can we help ourselves with a CZT here?]
+      extends over only a few pixels [can we help ourselves with a CZT here?
+      Or do we just want to sample a bit better?]
   - perspectively is able to deal with polarization/vectorial imaging as well
+  - checks sampling and prints a warning in case the grid is such that
+    pixel size > Airy diameter
+  - partial coherence: implement Abbe's method, later Hopkins etc.
+
+Illumination pupil:
+-------------------
+
+- allow definition of an illumination pupil as known from lithography tools
+  (in sigma space - with polarization per point, Jones matrices per point...)
+- How to use this in imaging? Generate k_x, k_y from an appropriate sampling
+  recipe?
 
 Source
 ------
@@ -57,6 +70,13 @@ Source
   - Spatial extent
   - Phase?? Some other information related to coherence (sigma?)?
   - Intensity?
+- Does it make sense to define a source by electric field strength at the object
+  plane?
+
+Object
+------
+
+- Objects may be defined by transmittivity and phase shift.
 
 Other abstractions
 ------------------
@@ -85,6 +105,8 @@ Utils
   - implement smoothing derivatives (because Scipy is fucking awesome it comes
     with a Savitzky-Golay filter!)
 - scalar product for 2d fields
+- Waves and beams: Plane waves (with tilt, 1d and 2d), Gaussian beams, Airy
+  beams...
 
 Propagator
 ----------
