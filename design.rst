@@ -56,27 +56,23 @@ Imager
 Illumination pupil:
 -------------------
 
-- allow definition of an illumination pupil as known from lithography tools
-  (in sigma space - with polarization per point, Jones matrices per point...)
-- How to use this in imaging? Generate k_x, k_y from an appropriate sampling
-  recipe?
-
-Source
-------
-
-- Define a source for imaging purposes by the source spectrum (defines pupil
-  filling!)
-- Which information do we need?
-  - Spatial extent
-  - Phase?? Some other information related to coherence (sigma?)?
-  - Intensity?
-- Does it make sense to define a source by electric field strength at the object
-  plane?
+- Define a source for imaging purposes by the source spectrum/illumination
+  pupil. The pupil is defined in sigma space / parametrized by sigma.
+- Information to use:
+  - pupil mask geometry (circular/annular/dipole/quadrupole/disar/quasar)
+  - polarization (TE/TM or x/y, degree of polarization)
+  - intensity ([0;1])
+- Create a routine that samples the pupil evenly
+  (define number of samples per axis, let illumination pupil objects decide
+  whether the sigma values are valid or not)
+- In a later (!) version, allow for vector aberrations (Jones and Müller
+  matrices)
 
 Object
 ------
 
-- Objects may be defined by transmittivity and phase shift.
+- Objects may be defined by transmittivity and phase shift ("Kirchhoff
+  approximation"/"thin object approximation"/"ideal mask" approximation")
 
 Other abstractions
 ------------------
@@ -94,8 +90,8 @@ Methods:
 - fit_to_field(): take a field and perform a least-squares fit of basis to
   field (alternatively evaluate scalar product c_i = <i|field>
 
-This class can be used in the imager for the mask and specifically for the
-wavefront and the apodisation.
+This class can be used in the imager for the pupil mask and specifically for
+the wavefront and the apodisation.
 
 Utils
 -----
@@ -104,15 +100,22 @@ Utils
   - define all operators needed in their Fourier version
   - implement smoothing derivatives (because Scipy is fucking awesome it comes
     with a Savitzky-Golay filter!)
+  - implement two TIEs: an ordinary one and the repeated one from recent L.
+    Waller papers
 - scalar product for 2d fields
 - Waves and beams: Plane waves (with tilt, 1d and 2d), Gaussian beams, Airy
   beams...
+- polarization converter (?): convert from Ex Ey representations to E_TM and
+  E_TM ones - can this be done spectrally?
+- reflection and transmission coefficients (for both complex fields and
+  intensities) in both polarizations
 
 Propagator
 ----------
 
 - propagates fields
 - carefully checks sampling!
+- allows to choose how evanescent waves are dealt with
 
 Processors
 ----------
