@@ -19,7 +19,7 @@ class BasisSet(object):
     # domains, e.g. the Zernike polynomials that have a circular domain of
     # definition. the specific mask is used in scalar products.
 
-    def __init__(self, x, y):
+    def __init__(self, x, y, pre_sample=True):
         """Define grid the basis functions are defined on.
         """
         # TODO: implement here or in subclasses?
@@ -31,6 +31,8 @@ class BasisSet(object):
         """
 
         # distinguish scalar coeff (np.isscalar) and array
+
+        # TODO: give __mul__() to evaluated objects (scalar product)?
 
         pass
 
@@ -44,7 +46,7 @@ class BasisSet(object):
         """Expand a given field in the basis set.
         """
 
-        # TODO: offer expansion by least square fits and expansion by evalutaion of scalar products
+        # TODO: offer expansion by least square fits and expansion by evaluation of scalar products
 
         pass
 
@@ -73,6 +75,19 @@ class FringeZernikes(BasisSet):
         pass
 
     # TODO: find map (n, m) --> fringe index
+
+
+class Polynomials(BasisSet):
+    """Polynomials in x and y.
+    """
+
+    pass
+
+
+def poly_basis_size(order):
+    # Number of nonomials up to given order.
+
+    pass
 
 
 class NumericallyOrthogonalized(BasisSet):
