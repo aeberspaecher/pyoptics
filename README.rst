@@ -21,3 +21,5 @@ Documentation
 
 License
 -------
+
+Should it be named pyoptikum instead?

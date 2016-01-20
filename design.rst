@@ -11,6 +11,10 @@ General design
 - Utils: TIE, helpers related to CZT zoom factors, interpolator for complex
   fields (TODO: find FOSS code to incorporate!), stack_rescale
 
+- BPM
+
+- Vector wave propagation method (?)
+
 Imager
 ------
 
@@ -31,15 +35,16 @@ Imager
 
   Use:
   - Chirp z transform as a zoom FFT for better pupil sampling
-  - classes for each ingredient (mask, wavefront, apodisation) (allows to store
-    a state [e.g. Zernike basis sizes, norms or ordering conventions] as well as
-    easy usage [when the object are callable])
+  - classes for each ingredient (aperture mask, wavefront, apodisation) (allows
+    to store a state [e.g. Zernike basis sizes, norms or ordering conventions] as
+    well as easy usage [when the object are callable])
   - describe each defining component by only one vector (for optimization
     purposes - however, we might be able to write a calling function that
     does unpacking magic)
 
   Capabilities:
-  - allow object and image side defocus
+  - allow object and image side defocus (really?)
+  - use correct radiometric correction
   - compute a PSF
   - compute images
     - how to do that in a sensible way? Incoherent: from PSF? Coherent:
@@ -52,6 +57,14 @@ Imager
   - checks sampling and prints a warning in case the grid is such that
     pixel size > Airy diameter
   - partial coherence: implement Abbe's method, later Hopkins etc.
+  - In a later (!) version, allow for vector aberrations (Jones and Müller
+    matrices)
+
+  Analysis:
+  - PSF
+  - OTF
+  - MTF
+
 
 Illumination pupil:
 -------------------
@@ -65,14 +78,21 @@ Illumination pupil:
 - Create a routine that samples the pupil evenly
   (define number of samples per axis, let illumination pupil objects decide
   whether the sigma values are valid or not)
-- In a later (!) version, allow for vector aberrations (Jones and Müller
-  matrices)
 
 Object
 ------
 
+Relevant for imaging is the field distribution in the front focal plane. Thus,
+an object for imaging can be modelled by a function that returns the complex
+valued field in the focal plane.
+
+Wether the field got there from a self-radiating object or from a transparent
+object being lit by an external source doesn'matter in the first place. The
+imaging systems job is to define something that can deliever a field.
+
 - Objects may be defined by transmittivity and phase shift ("Kirchhoff
   approximation"/"thin object approximation"/"ideal mask" approximation")
+
 
 Other abstractions
 ------------------
@@ -106,9 +126,16 @@ Utils
 - Waves and beams: Plane waves (with tilt, 1d and 2d), Gaussian beams, Airy
   beams...
 - polarization converter (?): convert from Ex Ey representations to E_TM and
-  E_TM ones - can this be done spectrally?
+  E_TM ones - can this be done spectrally (ExEy -> TE,TM: is this more than a
+  projection onto radial and tangential basis vectors in k-space)?
 - reflection and transmission coefficients (for both complex fields and
   intensities) in both polarizations
+- symmetrization and desymmetrization of images
+- trigonometric interpolation of bandlimited images (enter NA, get interpolator
+  that works on physical coordinates!)
+- map: entries of parameter vector to values spatially resolved (e.g. for
+  optmization in an SLM)
+- Gerchberg-Saxton algorithm
 
 Propagator
 ----------
@@ -116,6 +143,20 @@ Propagator
 - propagates fields
 - carefully checks sampling!
 - allows to choose how evanescent waves are dealt with
+- implement different diffraction integrals in their Fourier formulation:
+  - Rayleigh-Sommerfeld I
+  - Fresnel
+  - Fraunhofer
+- where appropriate, both the transfer function propagator as well as the
+  impulse response ones are implemented
+- vectorial Fraunhofer?
+- Smyte's formula?
+
+Thin films
+----------
+
+Offer routines for reflectivity and transmittivity (both complex amplitude and
+intensity) for thin film stacks.
 
 Processors
 ----------
@@ -123,6 +164,40 @@ Processors
 Processors are objects that take an image or an image stack process it. A prime
 example would be the Scaler class that may scale images to a certain maximum
 value, to a given energy or related.
+
+- ideas for processors:
+    - scaler (scale to one of max, energy, average)
+    - shifter (subpixel by using FFT)
+    - background remover (subtract average computed outside a given mask/ROI)
+    - low-pass filter (defined by NA, performed by CZT)
+    - noise adder (using a simple camera model)
+
+Datasets
+--------
+
+Implement a data set - a compound data type that holds both data and
+meta-information such as
+- dimensionality
+- the grid it is defined on (callable?)
+- units
+- flags (is_periodic, is_vector_valued, is_defined_on_uniform_grid, is_complex...)
+- names
+
+The awesome way would allow to use elementary operations such as +, -, *, : or
+even complex ones (exp(), ...). Could we therefore sub-class np.ndarray?
+
+Measurement functions
+---------------------
+
+Implement a few measurement tools centrally:
+
+- max, avg and energy (with automagic switching to abs values if given complex
+  fields?)
+- cutlines (define positions, make routine interpolate the image along a line
+  from starting position to end position): as measured images in optical
+  systems are always bandlimited, it should be safe to use trigonometric
+  interpolation (compute Fourier spectrum and store it, then use a truncated
+  Fourier series for interpolation. Offer using symmetrized images?)
 
 Dependencies
 ------------
@@ -136,10 +211,11 @@ Prerequisites and order of work
 Write those in roughly that order:
 
 1. czt
-2. Basis, specifically Zernikes and a Grating (define by two
+2. Propagator
+3. Basis, specifically Zernikes and a grating (define by two
    frequencies/lattice constants and two amplitudes)
-3. Source and Imager
-5. Propagator
+4. Source and Imager
+
 
 Fill utils as needed.
 
@@ -147,3 +223,27 @@ Side notes
 ----------
 
 tfftw should probably have an pyfftw accelerated fftconvolve.
+
+Ideas
+-----
+
+- rotations from czt as in that paper
+- different phase tools (parabolic phase front, spherical ones)
+- accuracy improved FFT as in Numerical Recipes
+- Rayleigh-Sommerfeld direct integration as in that paper
+- PSF tool as an iteractive IPython Notebook thingy
+- simple aperture masks: circle, rectangle
+
+- simmulated annealing with pixelated photomasks to arrive at target intensity distributions?
+
+
+License
+-------
+
+Choose a license:
+
+- BSD? BSD is awesome, but it is hard to protect code against the employer
+  [not assured changes made on the job go back to the project]
+- GPL? Better with the employer, but probably hard for everyone else.
+- GPL with the option the re-license???
+- LGPL?
