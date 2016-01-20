@@ -8,8 +8,30 @@ import numpy as np
 from numpy.fft import fftfreq, fftshift
 from scipy.signal import savgol_coeffs
 
-def grid1d(extent, N, x_min=None):
-    pass
+# TODO: add convenience routines the create complete grids? like a routine
+# that returns the unit square from [-1, +1, -1, +1] input
+
+def new_2d_grid(x_min, x_max, y_min, y_max, Nx, Ny=None,
+                assume_periodicity=True):
+    """Generate a two-dimensional grid...
+    """
+
+    if(Ny is None):
+        Ny = Nx
+
+    x = grid1d((x_min, x_max), Nx, assume_periodicity)
+    y = grid1d((y_min, x_max), Ny, assume_periodicity)
+
+    X, Y = grid2d(x, y)
+
+    return x, y, X, Y
+
+
+def grid1d(extent, N, x_min=0.0, assume_periodicity=True):
+    x = np.linspace(extent[0] + x_min, extent[1] + x_miin,
+                    endpoint=assume_periodicity)
+
+    return x
 
 
 def grid2d(x, y):
@@ -87,7 +109,7 @@ def get_z_derivative(stack, dz, order):
     r"""Get the derivative \partial_z I for an image stack. This quantity may
     be used in transport of intensity computations.
 
-    Finite difference quotients are used in the computation. Finite difference
+    Finite difference quotients are used in the computation. Finite differences
     amplfiy noise. To avoid this, a Savitzky-Golay filter is used here for a
     noise smoothing derivative. The idea is to approximate the the derivative
     by a low order polynomial and use a larger number of samples (here: images)
@@ -117,6 +139,7 @@ def get_z_derivative(stack, dz, order):
 
     stack_work = stack.copy()
 
+    # TODO: can this be replaced by einsum()?
     for i in range(num_images):
         stack_work[:, :, i] = deriv_coeffs[i]*stack_work[:, :, i]
         # TODO: write more elegantly, check what coeffs*stack_work does
@@ -143,3 +166,44 @@ def scalar_product(field1, field2, x, y):
     # TODO: implement more precise schemes (2d Simpson?)
 
     return prod
+
+
+def local_momentum(field, wavelength):
+    # TODO: implement a sensible notion of local momentum / direction cosines
+    pass
+
+
+def simpson_weights(N):
+    w = np.zeros(N)
+
+    w[0], w[-1] = 2, 2
+    w[1::2] = 8
+    w[2:-1:2] = 4
+
+    if(N % 2 == 0):
+        w[-3:] += np.array([-1.0, 8, 5])/2
+        # TODO: also treat "left" interval similarly?
+        # or return average of left and right treatment?
+
+    w /= 6.0
+
+    return w
+
+
+def weight_grid(func, Nx, Ny):
+    wx = func(Nx)
+    wy = func(Ny)
+
+    w = np.einsum("i,j -> ij", wy, wx)
+    # TODO: np.outer() seems faster from some N on...
+
+    return w
+
+
+#def trapz_weights(N):
+
+
+if(__name__ == '__main__'):
+    w = weight_grid(simpson_weights, 128, 128)
+    import matplotlib.pyplot as plt
+    plt.imshow(w, origin="lower", interpolation="none"); plt.show()
