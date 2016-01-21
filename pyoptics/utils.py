@@ -4,12 +4,26 @@
 """Utils for pyoptics.
 """
 
+from math import pi
+
 import numpy as np
 from numpy.fft import fftfreq, fftshift
+from numpy.lib.scimath import sqrt as complex_sqrt
 from scipy.signal import savgol_coeffs
 
 # TODO: add convenience routines the create complete grids? like a routine
 # that returns the unit square from [-1, +1, -1, +1] input
+
+TWOPI = 2*pi
+
+
+def wavenumber(wavelength, n=1.0):
+    return 2*pi*n/wavelength
+
+
+def k_z(k, k_x, k_y):
+    return complex_sqrt(k**2 - k_x**2 - k_y**2)
+
 
 def new_2d_grid(x_min, x_max, y_min, y_max, Nx, Ny=None,
                 assume_periodicity=True):
@@ -19,8 +33,8 @@ def new_2d_grid(x_min, x_max, y_min, y_max, Nx, Ny=None,
     if(Ny is None):
         Ny = Nx
 
-    x = grid1d((x_min, x_max), Nx, assume_periodicity)
-    y = grid1d((y_min, x_max), Ny, assume_periodicity)
+    x = grid1d((x_min, x_max), Nx, endpoint=~assume_periodicity)
+    y = grid1d((y_min, x_max), Ny, endpoint=~assume_periodicity)
 
     X, Y = grid2d(x, y)
 
@@ -28,8 +42,8 @@ def new_2d_grid(x_min, x_max, y_min, y_max, Nx, Ny=None,
 
 
 def grid1d(extent, N, x_min=0.0, assume_periodicity=True):
-    x = np.linspace(extent[0] + x_min, extent[1] + x_miin,
-                    endpoint=assume_periodicity)
+    x = np.linspace(extent[0] + x_min, extent[1] + x_min,
+                    endpoint=~assume_periodicity)
 
     return x
 
