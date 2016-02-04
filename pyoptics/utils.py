@@ -15,6 +15,30 @@ from scipy.signal import savgol_coeffs
 # that returns the unit square from [-1, +1, -1, +1] input
 
 TWOPI = 2*pi
+epsilon_0 = 8.854187817620E-12  #  A^2 s^4 kg^−1 m^−3
+mu_0 = 4*pi*1E-7  # V s / A m
+Z_0 =  sqrt(mu_0/epsilon_0)  # vacuum impedance
+
+
+def I(E, n=1.0):
+    """Get intensity from field amplitude. Returns correct result as obtained by time-avergaing the Poynting vector.
+
+    Parameters
+    ----------
+    E : array
+        Field amplitude
+    n : double, optional
+        Refractive index of medium
+
+    Returns
+    -------
+    I : array
+        Field amplitude E**2*n/(2*Z_0)
+    """
+
+    intensity = E**2*n/(2*Z_0)
+
+    return intensity
 
 
 def wavenumber(wavelength, n=1.0):
@@ -64,9 +88,9 @@ def freq_grid(x, y, wavenumbers=True, normal_order=True):
     wavenumbers, boolean, optional
         If True, wavenumbers instead of spatial frequencies will be returned.
     normal_order : bool, optional
-        If False, the grid is not returned in 'normal' order, but rather in
-        'real' order (with increasing frequencies/wavenumbers; zero-frequency
-        in the middle).
+        If True, the grid is  returned in 'normal' order with zero frequency
+        components centered and increasing frequencies. If False, the zero
+        frequency component is to the 'left'.
 
     Returns
     -------
@@ -81,7 +105,7 @@ def freq_grid(x, y, wavenumbers=True, normal_order=True):
     if(wavenumbers):
         freq_x, freq_y = 2*np.pi*freq_x, 2*np.pi*freq_y
 
-    if(not normal_order):
+    if(normal_order):
         freq_x, freq_y = fftshift(freq_x), fftshift(freq_y)
 
     out = np.meshgrid(freq_x, freq_y)
