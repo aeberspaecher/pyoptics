@@ -66,8 +66,8 @@ Imager
   - MTF
 
 
-Illumination pupil:
--------------------
+Illumination pupil
+------------------
 
 - Define a source for imaging purposes by the source spectrum/illumination
   pupil. The pupil is defined in sigma space / parametrized by sigma.
@@ -78,6 +78,9 @@ Illumination pupil:
 - Create a routine that samples the pupil evenly
   (define number of samples per axis, let illumination pupil objects decide
   whether the sigma values are valid or not)
+- illumination pupil designer: basic geometric
+  entities (spokes, annular, circle), sampled. Use shapely?
+
 
 Object
 ------
@@ -125,9 +128,6 @@ Utils
 - scalar product for 2d fields
 - Waves and beams: Plane waves (with tilt, 1d and 2d), Gaussian beams, Airy
   beams...
-- polarization converter (?): convert from Ex Ey representations to E_TM and
-  E_TM ones - can this be done spectrally (ExEy -> TE,TM: is this more than a
-  projection onto radial and tangential basis vectors in k-space)?
 - reflection and transmission coefficients (for both complex fields and
   intensities) in both polarizations
 - symmetrization and desymmetrization of images
@@ -136,6 +136,21 @@ Utils
 - map: entries of parameter vector to values spatially resolved (e.g. for
   optmization in an SLM)
 - Gerchberg-Saxton algorithm
+
+
+Polarization
+------------
+
+- polarization converter (?): convert from Ex Ey representations to E_TM and
+  E_TM ones - can this be done spectrally (ExEy -> TE,TM: is this more than a
+  projection onto radial and tangential basis vectors in k-space)?
+- Jones and Müller matrices:
+    - Müller matrices for general polarisers, general retarders
+    - Jones matrices for common elements
+- Stokes vectors:
+  - Polarization ellipse parameters to Stokes parameters and vice versa
+    (s_i <-> I, chi, delta)
+
 
 Propagator
 ----------
@@ -198,6 +213,8 @@ Implement a few measurement tools centrally:
   systems are always bandlimited, it should be safe to use trigonometric
   interpolation (compute Fourier spectrum and store it, then use a truncated
   Fourier series for interpolation. Offer using symmetrized images?)
+- CD evaluations
+- Bossung plots
 
 Dependencies
 ------------
@@ -235,6 +252,18 @@ Ideas
 - simple aperture masks: circle, rectangle
 
 - simmulated annealing with pixelated photomasks to arrive at target intensity distributions?
+
+
+Neat checks or illustrations
+----------------------------
+
+- Propagator matching: match all propagators somewhere in the regime of Fresnel
+  number around ~ 0.1
+- Through focus behaviour of lines and spaces patterns
+- Apodization can help!
+- Simulated Annealing: can we have the algorithm design a Fresnel lens?
+- Something with Talbot imaging
+- Phantasy litho mask materials: optimisation for 6% / pi?
 
 
 License
