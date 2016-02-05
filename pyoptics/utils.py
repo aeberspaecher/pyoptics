@@ -17,7 +17,21 @@ from scipy.signal import savgol_coeffs
 TWOPI = 2*pi
 epsilon_0 = 8.854187817620E-12  #  A^2 s^4 kg^−1 m^−3
 mu_0 = 4*pi*1E-7  # V s / A m
-Z_0 =  sqrt(mu_0/epsilon_0)  # vacuum impedance
+Z_0 =  np.sqrt(mu_0/epsilon_0)  # vacuum impedance
+
+deg_to_rad = lambda d: d/180.0*pi
+
+
+rad_to_deg = lambda r: r/pi*180.0
+
+
+def Z(n):
+    """Impedance of medium of (possbily complex) refractive index.
+    """
+
+    impedance = Z_0/n   # TODO: is it really abs(n) or rather complex_sqrt(epsilon)?
+
+    return impedance
 
 
 def I(E, n=1.0):
