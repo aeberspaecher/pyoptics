@@ -4,10 +4,13 @@
 """Thin film reflection and transmission coefficients.
 """
 
+from functools import reduce  # Python 3 compatibility
+
 import numpy as np
+from numpy.lib.scimath import sqrt as complex_sqrt
 from numpy import sin, cos
 
-from utils import Z_0 as Z_vac, Z, wavenumber
+from utils import Z_0 as Z_vac, wavenumber
 from interfaces import refracted_angle
 
 
@@ -36,35 +39,42 @@ def r_t_coeffs(angle, n, k, t, pol, wavelength):
     assert(len(n) >= 3)
     assert(len(k) >= 3)
     assert(len(t) == len(k) - 2)
-    assert(pol in ("s", "p"))
 
-    n = n + 1j*k
-
-    # assign impedances of source and substrate media:
-    Z_0 = Z(n[0])  # embedding medium impedance
-    Z_N = Z(n[-1])  # substrate impedance
+    complex_n = n + 1j*k
+    Z = Z_vac/complex_n  # complex impedance for all media
 
     # build A B C D matrices for each layer:
     N_max = len(n) - 1
-    M = []
+
+    ##note: cos(theta) = sqrt(1 - sin(theta)); sin(theta) is found from Snell's law:
+    ##TODO: why complex_n[0]/complex_n[i] and not complex_n[i-1]/complex_n[i]?
+    #cos_theta = complex_sqrt(1.0-(complex_n[0])/complex_n*sin(angle))**2
+
+    # FIXME: which angle thingy is correct?
 
     # compute angles in layers using Snell's law:
-    angles = [angle,]
-    for i in range(N_max):
-        angles.append( refracted_angle(angles[i], n[i], n[i+1]) )
-    angles = np.asarray(angles, dtype=np.complex)
+    angles = [ angle, ]
+    for i in range(1, N_max+1):
+        angles.append( refracted_angle(angles[i-1], complex_n[i-1], complex_n[i]) )
+    #angles = np.asarray(angles)
+    cos_theta = np.cos(angles)
 
-    # modify n by polarization dependent term as in Brooker's excercise:
-    # NOTE: impedances are constructed with the unmodified n values. all code
-    # below these lines uses n only in the transfer matrices. in that case,
-    # it's okay to use modified n values.
-    n_pol_modified = n*cos(angles) if pol == "s" else n/cos(angles)
+    # FIXME: which cos_theta is to use?
+
+    # compute 'tilted addmittances:
+    if(pol in ("s", "TE")):
+        Z *= cos_theta
+    elif(pol in ("p", "TM")):
+        Z /= cos_theta
+    else:
+        raise ValueError("'pol' must be on of 's'/'TE', 'p'/'TM'")
 
     # construct transfer matrices for all layers:
+    M = []
     for j in range(1, N_max):
-        phi_j = t[j-1]*wavenumber(wavelength, n_pol_modified[j])  # 'phase' accumulated in layer j
+        phi_j = t[j-1]*wavenumber(wavelength, complex_n[j])*cos_theta[j]  # 'phase' accumulated in layer j
 
-        M_curr = np.array( [ [cos(phi_j), -1j/n_pol_modified[j]*sin(phi_j)], [-1j*n_pol_modified[j]*sin(phi_j), cos(phi_j)] ] )
+        M_curr = np.array( [ [cos(phi_j), -1j*Z[j]*sin(phi_j)], [-1j/Z[j]*sin(phi_j), cos(phi_j)] ] )
         M.append(M_curr)
 
     M_total = reduce(np.dot, M)  # multiply all M matrices
@@ -72,25 +82,30 @@ def r_t_coeffs(angle, n, k, t, pol, wavelength):
 
     A, B, C, D = M_total.flatten()  # unpack layer stack matrix
 
-    # Brooker, eq (6.7) solved for r and t:
-    # different notation: we use Z_vac for vacuum impedance, Brooker uses Z_0.
-    # we use Z_0 for the embedding medium impedance, Brooker uses Z_1.
-    # Brooker in his example uses Z_4 for the substrate impedance, we use Z_N.
-    r = (-Z_0*(C*Z_N + D*Z_vac) + Z_vac*(A*Z_N + B*Z_vac))/(Z_0*(C*Z_N + D*Z_vac) + Z_vac*(A*Z_N + B*Z_vac))
-    t = 2*Z_N*Z_vac/(Z_0*(C*Z_N + D*Z_vac) + Z_vac*(A*Z_N + B*Z_vac))
+    # solve Zangwill's eq. (17.92) for r and t:
+    r = (A*Z[-1] + B - Z[0]*(C*Z[-1] + D))/(A*Z[-1] + B + Z[0]*(C*Z[-1] + D))
+    t = 2*Z[-1]/(A*Z[-1] + B + Z[0]*(C*Z[-1] + D))
 
     return r, t
 
 
-def R_T_coeffs(angle, n, k, t, pol, wavelength):
-    """Same as r_t_coeffs, but for intensity reflectivity and transmittivity.
+def R_T_A_coeffs(angle, n, k, t, pol, wavelength):
+    """Same as r_t_coeffs, but for intensity reflectance and transmittance. Also
+    return 'absorptance' such that R + T + A = 1.
+
+    Note
+    ----
+    A = 0 can only be expected for losless media under the condition that the
+    embeddig medium is equal to the substrate.
     """
 
     r, t = r_t_coeffs(angle, n, k, t, pol, wavelength)
-    R, T = np.abs(r)**2, np.abs(t)**2
 
-    return R, T
+    R = np.abs(r)**2
+    T = n[-1]/n[0]*np.abs(t)**2  # TODO: can we interpret the prefactor as a radiometric correction?
+    A = 1.0 - R - T
 
+    return R, T, A
 
 
 # test code:
@@ -109,16 +124,16 @@ if(__name__ == '__main__'):
 
     wl = 0.905
 
-    d = np.array( [0.135, 0.200] )
-    n = np.array([ 1.0, AlOx_n, Ag_n, 1.0 ] )
-    k = np.array([ 0.0, AlOx_k, Ag_k, 0.0 ] )
+    d = np.array( [0.135, 0.005, 0.200] )
+    n = np.array([ 1.0, AlOx_n, Al_n, Ag_n, 1.0 ] )
+    k = np.array([ 0.0, AlOx_k, Al_k, Ag_k, 0.0 ] )
 
-    AOI_vals = np.linspace(0, 60, 200)
+    AOI_vals = np.linspace(0, 90, 200)
 
     R_p_vals, R_s_vals, T_s_vals, T_p_vals = [], [], [], []
     for AOI in AOI_vals:
-        R_s, T_s = R_T_coeffs(deg_to_rad(AOI), n, k, d, "s", wl)
-        R_p, T_p = R_T_coeffs(deg_to_rad(AOI), n, k, d, "p", wl)
+        R_s, T_s, _ = R_T_A_coeffs(deg_to_rad(AOI), n, k, d, "s", wl)
+        R_p, T_p, _ = R_T_A_coeffs(deg_to_rad(AOI), n, k, d, "p", wl)
 
         R_p_vals.append(R_p)
         R_s_vals.append(R_s)
@@ -138,7 +153,6 @@ if(__name__ == '__main__'):
     plt.plot(AOI_vals, T_p_vals, ls="--", color="red", lw=1.5, label="$T_p$")
     plt.legend()
     plt.show()
-
 
     #print("R = {:.3f}%".format(100*R))
     #print("T = {:.3f}%".format(100*T))
