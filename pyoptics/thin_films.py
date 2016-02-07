@@ -14,18 +14,20 @@ from utils import Z_0 as Z_vac, wavenumber
 from interfaces import refracted_angle
 
 
-def r_t_coeffs(angle, n, k, t, pol, wavelength):
+def r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
+               substrate_k, pol, wavelength):
     """Reflection and transmission coefficients for a thin film stack.
 
     Parameters
     ----------
     n , k : arrays
-        Real and imaginary parts of the refractive indices in the order [layer
-        0 = source_medium, layer 1, layer 2, ..., layer N, layer N+1 =
-        substrate]. The substrate and the source medium are taken to be
-        infinitely extended: layer 0 extends to -oo, layer N+1 to +oo.
+        Real and imaginary parts of the refractive indices of the thin film stack.
     t : arrays
         Thicknesses of the layers. The length of T needs to be size(n) - 2.
+    embedding_n, embedding_k, substrate_n, substrate_k : double
+        Real and imaginary parts of the embedding medium's and the substrate's
+        refractive index. Both the embedding medium and the substrate are taken
+        be infinitely extend.
     pol : string
         "s" or "p" polarization.
 
@@ -36,9 +38,12 @@ def r_t_coeffs(angle, n, k, t, pol, wavelength):
     """
 
     # TODO: make checks more verbose and raise sensible exceptions
-    assert(len(n) >= 3)
-    assert(len(k) >= 3)
-    assert(len(t) == len(k) - 2)
+    assert(len(n) >= 1)
+    assert(len(k) >= 1)
+    assert(len(t) == len(n) == len(k))
+
+    n = np.asarray( [embedding_n] + list(n) + [substrate_n] )
+    k = np.asarray( [embedding_k] + list(k) + [substrate_k] )
 
     complex_n = n + 1j*k
     Z = Z_vac/complex_n  # complex impedance for all media
@@ -61,7 +66,7 @@ def r_t_coeffs(angle, n, k, t, pol, wavelength):
 
     # FIXME: which cos_theta is to use?
 
-    # compute 'tilted addmittances:
+    # compute 'tilted' addmittances:
     if(pol in ("s", "TE")):
         Z *= cos_theta
     elif(pol in ("p", "TM")):
@@ -89,7 +94,8 @@ def r_t_coeffs(angle, n, k, t, pol, wavelength):
     return r, t
 
 
-def R_T_A_coeffs(angle, n, k, t, pol, wavelength):
+def R_T_A_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
+                 substrate_k, pol, wavelength):
     """Same as r_t_coeffs, but for intensity reflectance and transmittance. Also
     return 'absorptance' such that R + T + A = 1.
 
@@ -99,10 +105,11 @@ def R_T_A_coeffs(angle, n, k, t, pol, wavelength):
     embeddig medium is equal to the substrate.
     """
 
-    r, t = r_t_coeffs(angle, n, k, t, pol, wavelength)
+    r, t = r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
+                      substrate_k, pol, wavelength)
 
     R = np.abs(r)**2
-    T = n[-1]/n[0]*np.abs(t)**2  # TODO: can we interpret the prefactor as a radiometric correction?
+    T = substrate_n/embedding_n*np.abs(t)**2  # TODO: can we interpret the prefactor as a radiometric correction?
     A = 1.0 - R - T
 
     return R, T, A
@@ -125,15 +132,19 @@ if(__name__ == '__main__'):
     wl = 0.905
 
     d = np.array( [0.135, 0.005, 0.200] )
-    n = np.array([ 1.0, AlOx_n, Al_n, Ag_n, 1.0 ] )
-    k = np.array([ 0.0, AlOx_k, Al_k, Ag_k, 0.0 ] )
+    n = np.array([ AlOx_n, Al_n, Ag_n ] )
+    k = np.array([ AlOx_k, Al_k, Ag_k ] )
 
     AOI_vals = np.linspace(0, 90, 200)
 
     R_p_vals, R_s_vals, T_s_vals, T_p_vals = [], [], [], []
     for AOI in AOI_vals:
-        R_s, T_s, _ = R_T_A_coeffs(deg_to_rad(AOI), n, k, d, "s", wl)
-        R_p, T_p, _ = R_T_A_coeffs(deg_to_rad(AOI), n, k, d, "p", wl)
+        R_s, T_s, _ = R_T_A_coeffs(deg_to_rad(AOI), n, k, d, embedding_n=1.0,
+                                   embedding_k=0.0, substrate_n=1.0, substrate_k=0.0,
+                                   pol="s", wavelength=wl)
+        R_p, T_p, _ = R_T_A_coeffs(deg_to_rad(AOI), n, k, d, embedding_n=1.0,
+                                   embedding_k=0.0, substrate_n=1.0, substrate_k=0.0,
+                                   pol="p", wavelength=wl)
 
         R_p_vals.append(R_p)
         R_s_vals.append(R_s)
