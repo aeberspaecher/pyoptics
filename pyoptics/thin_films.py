@@ -4,6 +4,11 @@
 """Thin film reflection and transmission coefficients.
 """
 
+# Literature:
+# Zangwill, Modern Electrodynamics, CUP, 2013
+# Brooker, Modern Classical Optics, OUP, 2002
+# McLeod, Thin Film Optical Filters, Institute of Physics Publishing, 2001
+
 from copy import copy
 from functools import reduce  # Python 3 compatibility
 
@@ -12,49 +17,76 @@ from numpy.lib.scimath import sqrt as complex_sqrt
 from numpy import sin, cos
 
 from utils import Z_0 as Z_vac, wavenumber
-from interfaces import refracted_angle
 
 
 def _n_k_arrays(n, k, embedding_n, embedding_k, substrate_n, substrate_k):
+    """Extend n and k arrays by embedding medium and substrate values.
+    """
 
-    n = np.asarray( [embedding_n] + list(n) + [substrate_n] )
-    k = np.asarray( [embedding_k] + list(k) + [substrate_k] )
+    n_extended = np.asarray( [embedding_n] + list(n) + [substrate_n] )
+    k_extended = np.asarray( [embedding_k] + list(k) + [substrate_k] )
 
-    return n, k
+    return n_extended, k_extended
 
 
 def _impedances(complex_n):
+    """Return impedances for stack defined by (complex) refractive indices.
+    """
+
     return Z_vac/complex_n
 
 
 def _cos_theta(theta_0, complex_n):
-    """Compute cosine of complex propagation angles in all media.
+    """Compute cosines of complex propagation angles in all media of a given
+    stack.
+
+    Parameters
+    ----------
+    theta_0 : double
+        Angle in embedding medium.
+    complex_n : array
+        Refractive indices for whole stack.
+
+    Returns
+    -------
+    angles : array
+        Array cos(theta_i).
     """
 
-    ##note: cos(theta) = sqrt(1 - sin(theta)); sin(theta) is found from Snell's law:
-    ##TODO: why complex_n[0]/complex_n[i] and not complex_n[i-1]/complex_n[i]?
-    #cos_theta = complex_sqrt(1.0-(complex_n[0])/complex_n*sin(angle))**2
+    # cos(theta) = sqrt(1 - sin(theta)); sin(theta) is found from Snell's law:
+    cos_theta = complex_sqrt(1.0-(complex_n[0]/complex_n*sin(theta_0))**2)
 
-    # compute angles in layers using Snell's law:
-    angles = [ theta_0, ]
-    for i in range(1, len(complex_n)):
-        angles.append( refracted_angle(angles[i-1], complex_n[i-1], complex_n[i]) )
-    cos_theta = cos(angles)
-
-    # FIXME: which cos_theta is to use?
+    # NOTE: n_i sin(theta_i) = n_j sin(theta_j) for any j, i! thus, we can use
+    # any layer (here: the embedding medium) to compute angles in any other
+    # layer.
 
     return cos_theta
 
 
 def _tilted_Z(Z_in, cos_theta, pol):
+    """Compute 'tilted admitances' for a stack.
+
+    Parameters
+    ----------
+    Z_in, cos_theta : arrays
+        (Complex) impedances of layer stack and cosines of propagation angles.
+    pol : string
+        One of {'s','TE'; 'p', 'TM'}.
+
+    Returns
+    -------
+    Z_tilted : array
+        Polarization dependent tilted impedances.
+    """
+
     Z = copy(Z_in)
     # compute 'tilted' addmittances:
-    if(pol in ("s", "TE")):
-        Z *= cos_theta
-    elif(pol in ("p", "TM")):
-        Z /= cos_theta
+    if pol in ("s", "TE"):
+        Z *= cos_theta  # McLeod, eq. (8.5)
+    elif pol in ("p", "TM"):
+        Z /= cos_theta  # McLeod, eq. (8.6)
     else:
-        raise ValueError("'pol' must be on of 's'/'TE', 'p'/'TM'")
+        raise ValueError("'pol' must be one of 's'/'TE', 'p'/'TM'")
 
     return Z
 
@@ -65,16 +97,18 @@ def r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
 
     Parameters
     ----------
+    angle : double
+        Incident angle in embedding medium.
     n , k : arrays
         Real and imaginary parts of the refractive indices of the thin film stack.
     t : arrays
-        Thicknesses of the layers. The length of T needs to be size(n) - 2.
+        Thicknesses of the layers.
     embedding_n, embedding_k, substrate_n, substrate_k : double
         Real and imaginary parts of the embedding medium's and the substrate's
         refractive index. Both the embedding medium and the substrate are taken
         be infinitely extend.
     pol : string
-        "s" or "p" polarization.
+        "s" or "p" polarization. Also accepted: "TE" or "TM".
 
     Returns
     -------
@@ -83,9 +117,9 @@ def r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
     """
 
     # TODO: make checks more verbose and raise sensible exceptions
-    assert(len(n) >= 1)
-    assert(len(k) >= 1)
-    assert(len(t) == len(n) == len(k))
+    assert len(n) >= 1
+    assert len(k) >= 1
+    assert len(t) == len(n) == len(k)
 
     n, k = _n_k_arrays(n, k, embedding_n, embedding_k, substrate_n, substrate_k)  # extend n, k arrays by embedding medium and substrate
     complex_n = n + 1j*k
@@ -98,7 +132,9 @@ def r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
     for j in range(1, len(n) - 1):
         phi_j = t[j-1]*wavenumber(wavelength, complex_n[j])*cos_theta[j]  # 'phase' accumulated in layer j
 
-        M_curr = np.array( [ [cos(phi_j), -1j*Z[j]*sin(phi_j)], [-1j/Z[j]*sin(phi_j), cos(phi_j)] ] )
+        M_curr = np.array(
+                          [ [cos(phi_j), -1j*Z[j]*sin(phi_j)], [-1j/Z[j]*sin(phi_j), cos(phi_j)] ]
+                         )
         M.append(M_curr)
 
     M_total = reduce(np.dot, M)  # multiply all M matrices
@@ -127,14 +163,14 @@ def R_T_A_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
                       substrate_k, pol, wavelength)
 
     # prepare data for T correction:
-    n, k = _n_k_arrays(n, k, embedding_n, embedding_k, substrate_n, substrate_k)
-    complex_n = n + 1j*k
+    n_extended, k_extended = _n_k_arrays(n, k, embedding_n, embedding_k, substrate_n, substrate_k)
+    complex_n = n_extended + 1j*k_extended
     Z = _impedances(complex_n)  # complex impedance for all media
     cos_theta = _cos_theta(angle, complex_n)
     Z = _tilted_Z(Z, cos_theta, pol)
 
     R = np.abs(r)**2
-    T = np.real(Z[-1])/np.real(Z[0])*np.abs(t)**2  # TODO: can we interpret the prefactor as a radiometric correction?
+    T = np.real(Z[-1])/np.real(Z[0])*np.abs(t)**2
     A = 1.0 - R - T
 
     return R, T, A
@@ -145,20 +181,20 @@ if(__name__ == '__main__'):
     from utils import deg_to_rad
     import matplotlib.pyplot as plt
 
-    AlOx_n = 1.635
+    AlOx_n = 1.634
     AlOx_k = 0.0
 
     Al_n = 1.6024
     Al_k = 7.4395
 
-    Ag_n = 0.076220
+    Ag_n = 0.180
     Ag_k = 6.5084
 
     wl = 0.905
 
     d = np.array( [0.135, 0.005, 0.200] )
-    n = np.array([ AlOx_n, Al_n, Ag_n ] )
-    k = np.array([ AlOx_k, Al_k, Ag_k ] )
+    n = np.array([AlOx_n, Al_n, Ag_n] )
+    k = np.array([AlOx_k, Al_k, Ag_k] )
 
     AOI_vals = np.linspace(0, 40, 200)
 
@@ -177,8 +213,8 @@ if(__name__ == '__main__'):
         T_p_vals.append(T_p)
         T_s_vals.append(T_s)
 
-    #print(np.array(R_s_vals) + np.array(T_s_vals))
-    #print(np.array(R_p_vals) + np.array(T_p_vals))
+    print(np.array(R_s_vals) + np.array(T_s_vals))
+    print(np.array(R_p_vals) + np.array(T_p_vals))
 
     plt.plot(AOI_vals, R_s_vals, ls="-", color="blue", lw=1.5, label="$R_s$")
     plt.plot(AOI_vals, R_p_vals, ls="-", color="red", lw=1.5, label="$R_p$")
