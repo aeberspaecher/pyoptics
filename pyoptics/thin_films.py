@@ -23,8 +23,8 @@ def _n_k_arrays(n, k, embedding_n, embedding_k, substrate_n, substrate_k):
     """Extend n and k arrays by embedding medium and substrate values.
     """
 
-    n_extended = np.asarray( [embedding_n] + list(n) + [substrate_n] )
-    k_extended = np.asarray( [embedding_k] + list(k) + [substrate_k] )
+    n_extended = np.asarray([embedding_n] + list(n) + [substrate_n])
+    k_extended = np.asarray([embedding_k] + list(k) + [substrate_k])
 
     return n_extended, k_extended
 
@@ -132,8 +132,9 @@ def r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
     for j in range(1, len(n) - 1):
         phi_j = t[j-1]*wavenumber(wavelength, complex_n[j])*cos_theta[j]  # 'phase' accumulated in layer j
 
-        M_curr = np.array(
-                          [ [cos(phi_j), -1j*Z[j]*sin(phi_j)], [-1j/Z[j]*sin(phi_j), cos(phi_j)] ]
+        M_curr = np.array([[cos(phi_j), -1j*Z[j]*sin(phi_j)],
+                           [-1j/Z[j]*sin(phi_j), cos(phi_j)]
+                          ]
                          )
         M.append(M_curr)
 
@@ -150,8 +151,8 @@ def r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
 
 def R_T_A_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
                  substrate_k, pol, wavelength):
-    """Same as r_t_coeffs, but for intensity reflectance and transmittance. Also
-    return 'absorbtance' such that R + T + A = 1.
+    """Same as r_t_coeffs, but for intensity reflectance and transmittance.
+    Also return 'absorbtance' such that R + T + A = 1.
 
     Note
     ----
