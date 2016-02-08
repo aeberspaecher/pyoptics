@@ -117,3 +117,13 @@ def brewster(n_1, n_2):
     b = arctan2(n_2, n_1)
 
     return b
+
+
+def critical_angle(n_1, n_2):
+    """Return critical angle for total internal reflection.
+    """
+
+    phi_c = arcsin(n_2/n_1)
+    # TODO: how to handle n_2 > n_1?
+
+    return phi_c
