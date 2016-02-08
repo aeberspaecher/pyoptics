@@ -15,7 +15,7 @@ The following propagators are available:
 
 The propagators share a common interface:
 
-x, y, field = propagator_func(field, x_prime, y_prime, z, wavelength),
+propagated_field, x, y = propagator_func(field, x_prime, y_prime, z, wavelength),
 
 but individual propagators may accept further arguments.
 """
@@ -25,12 +25,11 @@ import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
-from numpy.fft import fft2, ifft2, fftshift, ifftshift
 from numpy.lib.scimath import sqrt as complex_sqrt
 
+from fft import fft2, ifft2, fftshift, ifftshift, FT, inv_FT
 from utils import freq_grid, wavenumber, k_z
 
-from fft import FT, inv_FT
 
 # TODO: account for n properly: lambda -> lambda/n
 
@@ -44,7 +43,7 @@ def rayleigh_sommerfeld_I_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
 
     field_propagated = inv_FT(FT(field)*FT(IR))
 
-    return field_propagated
+    return field_propagated, x_prime, y_prime
 
 
 def rayleigh_sommerfeld_I_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
@@ -56,7 +55,7 @@ def rayleigh_sommerfeld_I_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
 
     field_propagated = inv_FT(FT(field)*TF)
 
-    return field_propagated
+    return field_propagated, x_prime, y_prime
 
 
 def fresnel_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
@@ -67,7 +66,7 @@ def fresnel_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
 
     field_propagated = inv_FT(FT(field)*FT(IR))
 
-    return field_propagated
+    return field_propagated, x_prime, y_prime
 
 
 def fresnel_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
@@ -78,21 +77,54 @@ def fresnel_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
 
     field_propagated = inv_FT(FT(field)*TF)
 
-    return field_propagated
+    return field_propagated, x_prime, y_prime
 
 
 def fresnel_rescaling(field, x_prime, y_prime, z, wavelength):
-    # TODO: implement
-    pass
+
+    #X_prime, Y_prime, x_new, y_new, X_new, Y_new = _new_coordinates_mesh(x_prime, y_prime, z, wavelength)
+
+    prefactor = np.exp(1j*k*z)/(1j*k*z)*np.exp(1j*k/(2*z)*(X_new**2 + Y_new**2))
+    dx = x_prime[1] - x_prime[0]
+    dy = y_prime[1] - y_prime[0]
+
+    field_propagated = prefactor*FT(field*np.exp(1j/(2*z)*(X_prime**2 + Y_prime**2)))*dx*dy
+
+    return field_propagated, x_new, y_new
 
 
 def fraunhofer(field, x_prime, y_prime, z, wavelength):
-    pass
+    X_prime, Y_prime, x_new, y_new, X_new, Y_new = _new_coordinates_mesh(x_prime, y_prime, z, wavelength)
+
+    prefactor = np.exp(1j*k*z)/(1j*k*z)*np.exp(1j*k/(2*z)*(X_new**2 + Y_new**2))
+    dx = x_prime[1] - x_prime[0]
+    dy = y_prime[1] - y_prime[0]
+
+    field_propagated = prefactor*FT(field)*dx*dy
+
+    return field_propagated, x_new, y_new
 
 
-def _fraunhofer_coord_scale(x, y):
-    # TODO: implement
-    pass
+def _new_coordinates_mesh(x_prime, y_prime, z, wavelength):
+    # create coordinates meshes for both "object" (primed coordinates) and
+    # "image" space ("new" coordinates):
+    X_prime, Y_prime = np.meshgrid(x_prime, y_prime)
+    x_new, y_new = _fraunhofer_coord_scale(x_prime, y_prime, z, wavelength)
+    X_new, Y_new = np.meshgrid(x_new, y_new)
+
+    return X_prime, Y_prime, x_new, y_new, X_new, Y_new
+
+
+def _fraunhofer_coord_scale(x, y, z, wavelength):
+    """Scaled coordinates for Fraunhofer & coordinate scaling Fresnel propagator.
+
+    Uses the factor that x = f_x*lambda*z with f_x as usual in FFT computations.
+    """
+
+    f_x, f_y = map(lambda item: fftshift(fftfreq(len(item), dx=(item[1] - item[0]))), (x, y))
+    x_new, y_new = wavelength*z*f_x, wavelength*z*f_y
+
+    return x_new, y_new
 
 
 def prop_free_space(u0, x, y, delta_z, k, from_spectrum=False):
