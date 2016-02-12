@@ -74,22 +74,48 @@ def new_2d_grid(x_min, x_max, y_min, y_max, Nx, Ny=None,
     x = grid1d((x_min, x_max), Nx, endpoint=~assume_periodicity)
     y = grid1d((y_min, x_max), Ny, endpoint=~assume_periodicity)
 
-    X, Y = grid2d(x, y)
+    X, Y = np.meshgrid(x, y)
 
     return x, y, X, Y
 
 
 def grid1d(extent, N, x_min=0.0, assume_periodicity=True):
-    x = np.linspace(extent[0] + x_min, extent[1] + x_min,
-                    endpoint=~assume_periodicity)
+    x = np.linspace(extent[0] + x_min, extent[1] + x_min, N,
+                    endpoint=(not assume_periodicity))
 
     return x
 
 
-def grid2d(x, y):
-    [X, Y] = np.meshgrid(x, y)
+def frequencies(x, wavenumbers=True, normal_order=True):
+    """Return frequencies as used in DFTs.
 
-    return X, Y
+    Parameters
+    ----------
+    x : array
+    wavenumbers, boolean, optional
+        If True, wavenumbers instead of spatial frequencies will be returned.
+    normal_order : bool, optional
+        If True, the grid is  returned in 'normal' order with zero frequency
+        components centered and increasing frequencies. If False, the zero
+        frequency component is to the 'left'.
+
+    Returns
+    -------
+    freq_x : arrays
+        Arrays of frequencies/wavenumbers.
+    """
+
+    dx = abs(x[1] - x[0])
+    N_x = len(x)
+    freq_x = fftfreq(N_x, dx)
+
+    if(wavenumbers):
+        freq_x = 2*pi*freq_x
+
+    if(normal_order):
+        freq_x = fftshift(freq_x)
+
+    return freq_x
 
 
 def freq_grid(x, y, wavenumbers=True, normal_order=True):
@@ -112,15 +138,9 @@ def freq_grid(x, y, wavenumbers=True, normal_order=True):
         Meshed spatial frequencies/wavenumbers.
     """
 
-    dx, dy = abs(x[1] - x[0]), abs(y[1] - y[0])
-    N_x, N_y = len(x), len(y)
-    freq_x, freq_y = fftfreq(N_x, dx), fftfreq(N_y, dy)
-
-    if(wavenumbers):
-        freq_x, freq_y = 2*np.pi*freq_x, 2*np.pi*freq_y
-
-    if(normal_order):
-        freq_x, freq_y = fftshift(freq_x), fftshift(freq_y)
+    freq_x, freq_y = (frequencies(x, wavenumbers, normal_order),
+                      frequencies(y, wavenumbers, normal_order),
+                      )  # TODO: use map() instead? or a list comprehension?
 
     out = np.meshgrid(freq_x, freq_y)
 
@@ -243,6 +263,10 @@ def simpson_weights(N):
 
 
 def weight_grid(func, Nx, Ny):
+    """Create a meshed weight grid from a funtion weights(N) that returns
+    a weight vector of length N.
+    """
+
     wx = func(Nx)
     wy = func(Ny)
 
@@ -258,4 +282,5 @@ def weight_grid(func, Nx, Ny):
 if(__name__ == '__main__'):
     w = weight_grid(simpson_weights, 128, 128)
     import matplotlib.pyplot as plt
-    plt.imshow(w, origin="lower", interpolation="none"); plt.show()
+    plt.imshow(w, origin="lower", interpolation="none")
+    plt.show()
