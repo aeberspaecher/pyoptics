@@ -48,7 +48,7 @@ def rayleigh_sommerfeld_I_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
 
 def rayleigh_sommerfeld_I_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
     k = wavenumber(wavelength, n)
-    K_X, K_Y = freq_grid(x_prime, y_prime, wavenumbers=True)
+    K_X, K_Y = freq_grid(x_prime, y_prime, wavenumbers=True, normal_order=True)
     KZ = k_z(k, K_X, K_Y)
 
     TF = np.exp(1j*KZ*z)
@@ -62,7 +62,7 @@ def fresnel_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
     k = wavenumber(wavelength, n)
     X_prime, Y_prime = np.meshgrid(x_prime, y_prime)
 
-    IR = np.exp(1j*k*z)/(1j*wavelength*z)*np.exp(1j*k/(2*z)*(X_prime**2 + Y_prime**2))
+    IR = np.exp(1j*k*z)/(1j*wavelength*z)*np.exp(1j*k/(2.0*z)*(X_prime**2 + Y_prime**2))
 
     field_propagated = inv_FT(FT(field)*FT(IR))
 
@@ -118,7 +118,7 @@ def _new_coordinates_mesh(x_prime, y_prime, z, wavelength):
 def _fraunhofer_coord_scale(x, y, z, wavelength):
     """Scaled coordinates for Fraunhofer & coordinate scaling Fresnel propagator.
 
-    Uses the factor that x = f_x*lambda*z with f_x as usual in FFT computations.
+    Uses the fact that x = f_x*lambda*z with f_x as usual in FFT computations.
     """
 
     f_x, f_y = map(lambda item: fftshift(fftfreq(len(item), dx=(item[1] - item[0]))), (x, y))
