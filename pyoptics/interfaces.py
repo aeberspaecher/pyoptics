@@ -6,6 +6,7 @@
 
 import numpy as np
 from numpy import cos, sin, arcsin, arctan2  # those allow complex arguments
+import numpy.lib.scimath as scimath
 
 
 def refracted_angle(phi_in, n_in, n_out):
@@ -21,13 +22,11 @@ def refracted_angle(phi_in, n_in, n_out):
     Returns
     -------
     phi_out : double
-        Refracted angle.
+        Refracted angle. Complex phi_out indicates total internal reflection if
+        all input arguments are real.
     """
 
-    phi_out = arcsin(n_in*sin(phi_in)/n_out)
-    # TODO: how to handle total internal reflection gracefully?
-    # in that case n_in*sin(phi_in)/n_out > 1
-    # ==> sin(phi_in) > n_out/n_in
+    phi_out = scimath.arcsin(n_in*sin(phi_in)/n_out)
 
     return phi_out
 
@@ -123,7 +122,7 @@ def critical_angle(n_1, n_2):
     """Return critical angle for total internal reflection.
     """
 
-    phi_c = arcsin(n_2/n_1)
-    # TODO: how to handle n_2 > n_1?
+    phi_c = scimath.arcsin(n_2/n_1)
+    # TODO: how to handle n_2 > n_1? does this treatment here make sense?
 
     return phi_c
