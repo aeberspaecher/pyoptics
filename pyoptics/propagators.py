@@ -184,6 +184,18 @@ def prop_free_space(u0, x, y, delta_z, k, from_spectrum=False):
     return out
 
 
+# TODO: also provide error term for Fresnel approxmiation?
+def fresnel_number(aperture_diameter, z, wavelength):
+    return aperture_diameter**2/(wavelength*z)
+
+
+def z_from_fresnel_number(F, aperture_diameter, wavelength):
+    z = aperture_diameter**2/(wavelength*F)
+
+    return z
+
+
+
 def check_free_space_sampling(x, y, k):
     """Check whether the x,y sampling is such that all frequencies (that may or
     may not be present) that propagate non-evanescently are present in the
