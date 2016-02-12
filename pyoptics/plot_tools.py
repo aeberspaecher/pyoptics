@@ -23,5 +23,7 @@ def plot_image(I, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
         plt.ylabel(ylabel)
     if(title is not None):
         plt.title(title)
+    if(colorbar is not None):
+        plt.colorbar()
     plt.tight_layout()
     plt.show()
