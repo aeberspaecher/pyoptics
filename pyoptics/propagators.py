@@ -37,7 +37,7 @@ from utils import freq_grid, wavenumber, k_z
 def rayleigh_sommerfeld_I_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
     k = wavenumber(wavelength, n)
     X_prime, Y_prime = np.meshgrid(x_prime, y_prime)
-    r = np.sqrt(z**2 + X_prime**2, Y_prime**2)
+    r = np.sqrt(z**2 + X_prime**2 + Y_prime**2)
 
     IR = z/(1j*wavelength)*np.exp(1j*k*r)/r**2
 
@@ -71,9 +71,9 @@ def fresnel_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
 
 def fresnel_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
     k = wavenumber(wavelength, n)
-    F_x, F_y = freq_grid(x_prime, y_prime, wavenumbers=False)
+    F_x, F_y = freq_grid(x_prime, y_prime, wavenumbers=False, normal_order=True)
 
-    TF = np.exp(1j*k*z)*np.exp(1j*pi*wavelength*z*(F_x**2 + F_y**2))
+    TF = np.exp(1j*k*z)*np.exp(-1j*pi*wavelength*z*(F_x**2 + F_y**2))
 
     field_propagated = inv_FT(FT(field)*TF)
 
