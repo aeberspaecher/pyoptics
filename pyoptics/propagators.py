@@ -20,7 +20,12 @@ propagated_field, x, y = propagator_func(field, x_prime, y_prime, z, wavelength)
 but individual propagators may accept further arguments.
 """
 
-from math import pi
+# TODO: can from_spectrum switches be implemented? this might save Fourier transforms.
+# TODO: implement shifted windows
+# TODO: implement Rayleigh-Sommerfeld direct integration
+
+from math import pi, exp, sqrt
+from itertools import product
 import warnings
 
 import matplotlib.pyplot as plt
@@ -28,7 +33,7 @@ import numpy as np
 from numpy.lib.scimath import sqrt as complex_sqrt
 
 from fft import fft2, ifft2, fftshift, ifftshift, FT, inv_FT
-from utils import freq_grid, wavenumber, k_z
+from utils import freq_grid, wavenumber, k_z, TWOPI, simpson_weights, weight_grid
 
 
 # TODO: account for n properly: lambda -> lambda/n
@@ -54,6 +59,53 @@ def rayleigh_sommerfeld_I_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
     TF = np.exp(1j*KZ*z)
 
     field_propagated = inv_FT(FT(field)*TF)
+
+    return field_propagated, x_prime, y_prime
+
+
+def rayleigh_sommerfeld_I_DI(field, x_prime, y_prime, z, wavelength, n=1.0, use_simpson=True):
+    """Implement the Rayleigh-Sommerfeld direct integration method of Shen and
+    Wang.
+
+    This method expressed a numerical integration of the Rayleigh-Sommerfeld
+    diffraction formula using Simpon's rule as a convolution product which can
+    be computed by means of FFTs.
+    """
+
+    def g(x, y, z):
+        r = sqrt(x**2 + y**2 + z**2)
+        val = 1/TWOPI*exp(1j*k*r)/r**2*z*(1/r - 1j*k)   # TODO: two pi? last terms in parens?
+
+        return val
+
+    N = np.shape(field)
+    assert(N[0] == N[1])  # TODO: raise more expressive exception
+    N = N[0]
+
+    k = wavenumber(wavelength, n)
+    dx = x_prime[1] - x_prime[0]
+    dy = y_prime[1] - y_prime[0]
+
+    if(use_simpson):
+        weights = weight_grid(simpson_weights, N, N)
+    else:
+        weights = np.ones([N, N])
+
+    U = np.asarray(np.bmat([ [weights*field, np.zeros([N, N-1])],
+                             [np.zeros([N-1, N]), np.zeros([N-1, N-1])]
+                           ])
+                  )
+
+    x_vec = np.array( [x_prime[0] - x_prime[N - j] for j in range(1, N) ] +  [x_prime[j - N] - x_prime[0] for j in range(N, 2*N) ] )  # TODO: fix indices for zero-based indexing
+    y_vec = np.array( [y_prime[0] - y_prime[N - j] for j in range(1, N) ] +  [y_prime[j - N] - y_prime[0] for j in range(N, 2*N) ] )  # TODO: fix indices for zero-based indexing
+
+    H_vec = [g(x_vec[i], y_vec[j], z) for (i, j) in product(range(2*N-1), range(2*N-1))]
+    H = np.asarray(H_vec).reshape([2*N-1, 2*N-1])
+
+    # TODO: speed up H generation?
+
+    val = ifft2(fft2(U)*fft2(H))*dx*dy
+    field_propagated = val[-N:, -N:]  # lower right sub-matrix
 
     return field_propagated, x_prime, y_prime
 
