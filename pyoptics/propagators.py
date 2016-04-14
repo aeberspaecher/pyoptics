@@ -72,9 +72,10 @@ def rayleigh_sommerfeld_I_DI(field, x_prime, y_prime, z, wavelength, n=1.0, use_
     be computed by means of FFTs.
     """
 
+    # TODO: take out g(x,y,z) and decide whether to numexpress it on import...
     def g(x, y, z):
-        r = sqrt(x**2 + y**2 + z**2)
-        val = 1/TWOPI*exp(1j*k*r)/r**2*z*(1/r - 1j*k)   # TODO: two pi? last terms in parens?
+        r = np.sqrt(x**2 + y**2 + z**2)
+        val = 1/TWOPI*np.exp(1j*k*r)/r**2*z*(1/r - 1j*k)   # TODO: two pi? last terms in parens?
 
         return val
 
@@ -96,13 +97,11 @@ def rayleigh_sommerfeld_I_DI(field, x_prime, y_prime, z, wavelength, n=1.0, use_
                            ])
                   )
 
-    x_vec = np.array( [x_prime[0] - x_prime[N - j] for j in range(1, N) ] +  [x_prime[j - N] - x_prime[0] for j in range(N, 2*N) ] )  # TODO: fix indices for zero-based indexing
-    y_vec = np.array( [y_prime[0] - y_prime[N - j] for j in range(1, N) ] +  [y_prime[j - N] - y_prime[0] for j in range(N, 2*N) ] )  # TODO: fix indices for zero-based indexing
-
-    H_vec = [g(x_vec[i], y_vec[j], z) for (i, j) in product(range(2*N-1), range(2*N-1))]
-    H = np.asarray(H_vec).reshape([2*N-1, 2*N-1])
-
-    # TODO: speed up H generation?
+    # adapt Shen/Wang's indexing to zero-based indexing:
+    x_vec = np.array( [x_prime[0] - x_prime[N - j] for j in range(1, N) ] +  [x_prime[j - N] - x_prime[0] for j in range(N, 2*N) ] )
+    y_vec = np.array( [y_prime[0] - y_prime[N - j] for j in range(1, N) ] +  [y_prime[j - N] - y_prime[0] for j in range(N, 2*N) ] )
+    X, Y = np.meshgrid(x_vec, y_vec)
+    H = g(X, Y, z)
 
     val = ifft2(fft2(U)*fft2(H))*dx*dy
     field_propagated = val[-N:, -N:]  # lower right sub-matrix
