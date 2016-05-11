@@ -8,6 +8,8 @@ import numpy as np
 from numpy import cos, sin, arcsin, arctan2  # those allow complex arguments
 import numpy.lib.scimath as scimath
 
+# TODO: can we include conductivity where applicable? or can we do that in utils (e.g. with n = n(epsilon, sigma)?
+
 
 def refracted_angle(phi_in, n_in, n_out):
     """Implement Snell's law.

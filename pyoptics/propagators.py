@@ -30,7 +30,13 @@ import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
-from numpy.lib.scimath import sqrt as complex_sqrt
+
+try:
+    __numexpr_available = True
+    import numexpr as ne
+except ImportError:
+    __numexpr_available = False
+
 
 from fft import fft2, ifft2, fftshift, ifftshift, FT, inv_FT
 from utils import freq_grid, wavenumber, k_z, TWOPI, simpson_weights, weight_grid
@@ -63,6 +69,22 @@ def rayleigh_sommerfeld_I_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
     return field_propagated, x_prime, y_prime
 
 
+def _rs_di_g_np(x, y, z, k):
+        print("Using g with numpy!")
+        r = np.sqrt(x**2 + y**2 + z**2)
+        val = 1/TWOPI*np.exp(1j*k*r)/r**2*z*(1/r - 1j*k)   # TODO: two pi? last terms in parens?
+
+        return val
+
+def _rs_di_g_ne(x, y, z, k):
+        print("Using g with numexpr!")
+        r = ne.evaluate("sqrt(x**2 + y**2 + z**2)")
+        val = ne.evaluate("1/TWOPI*exp(1j*k*r)/r**2*z*(1/r - 1j*k)")
+        print("... done: g with numexpr!")
+
+        return val
+
+
 def rayleigh_sommerfeld_I_DI(field, x_prime, y_prime, z, wavelength, n=1.0, use_simpson=True):
     """Implement the Rayleigh-Sommerfeld direct integration method of Shen and
     Wang.
@@ -73,15 +95,12 @@ def rayleigh_sommerfeld_I_DI(field, x_prime, y_prime, z, wavelength, n=1.0, use_
     """
 
     # TODO: take out g(x,y,z) and decide whether to numexpress it on import...
-    def g(x, y, z):
-        r = np.sqrt(x**2 + y**2 + z**2)
-        val = 1/TWOPI*np.exp(1j*k*r)/r**2*z*(1/r - 1j*k)   # TODO: two pi? last terms in parens?
-
-        return val
 
     N = np.shape(field)
     assert(N[0] == N[1])  # TODO: raise more expressive exception
     N = N[0]
+
+    g = _rs_di_g_ne if __numexpr_available else _rs_di_g_np
 
     k = wavenumber(wavelength, n)
     dx = x_prime[1] - x_prime[0]
@@ -101,7 +120,8 @@ def rayleigh_sommerfeld_I_DI(field, x_prime, y_prime, z, wavelength, n=1.0, use_
     x_vec = np.array( [x_prime[0] - x_prime[N - j] for j in range(1, N) ] +  [x_prime[j - N] - x_prime[0] for j in range(N, 2*N) ] )
     y_vec = np.array( [y_prime[0] - y_prime[N - j] for j in range(1, N) ] +  [y_prime[j - N] - y_prime[0] for j in range(N, 2*N) ] )
     X, Y = np.meshgrid(x_vec, y_vec)
-    H = g(X, Y, z)
+
+    H = g(X, Y, z, k)
 
     val = ifft2(fft2(U)*fft2(H))*dx*dy
     field_propagated = val[-N:, -N:]  # lower right sub-matrix
@@ -132,8 +152,7 @@ def fresnel_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
 
 
 def fresnel_rescaling(field, x_prime, y_prime, z, wavelength):
-
-    #X_prime, Y_prime, x_new, y_new, X_new, Y_new = _new_coordinates_mesh(x_prime, y_prime, z, wavelength)
+    X_prime, Y_prime, x_new, y_new, X_new, Y_new = _new_coordinates_mesh(x_prime, y_prime, z, wavelength)
 
     prefactor = np.exp(1j*k*z)/(1j*k*z)*np.exp(1j*k/(2*z)*(X_new**2 + Y_new**2))
     dx = x_prime[1] - x_prime[0]

@@ -92,7 +92,7 @@ def _tilted_Z(Z_in, cos_theta, pol):
 
 
 def r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
-               substrate_k, pol, wavelength):
+               substrate_k, pol, wavelength, incoherent):
     """Reflection and transmission coefficients for a thin film stack.
 
     Parameters
@@ -121,6 +121,11 @@ def r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
     assert len(k) >= 1
     assert len(t) == len(n) == len(k)
 
+    if(incoherent is None):
+        incoherent = np.zeros(len(n)+2, dtype=np.bool)  # array of all False
+    else:
+        incoherent = np.array([False] + incoherent + [False])
+
     n, k = _n_k_arrays(n, k, embedding_n, embedding_k, substrate_n, substrate_k)  # extend n, k arrays by embedding medium and substrate
     complex_n = n + 1j*k
     Z = _impedances(complex_n)  # complex impedance for all media
@@ -132,10 +137,18 @@ def r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
     for j in range(1, len(n) - 1):
         phi_j = t[j-1]*wavenumber(wavelength, complex_n[j])*cos_theta[j]  # 'phase' accumulated in layer j
 
+        if(incoherent[j]):  # inchoherent layers lose phase information
+            phi_j = np.imag(phi_j)  # only damping remains
+
         M_curr = np.array([[cos(phi_j), -1j*Z[j]*sin(phi_j)],
                            [-1j/Z[j]*sin(phi_j), cos(phi_j)]
                           ]
                          )
+
+        #if(incoherent[j]):  # inchoherent layers lose phase information
+            #M_curr = np.abs(M_curr)  # only damping remains
+            # TODO: how to kill a phase in the incoherent case? build a test case! single film over wavelength or such...
+
         M.append(M_curr)
 
     M_total = reduce(np.dot, M)  # multiply all M matrices
@@ -150,7 +163,7 @@ def r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
 
 
 def R_T_A_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
-                 substrate_k, pol, wavelength):
+                 substrate_k, pol, wavelength, incoherent=None):
     """Same as r_t_coeffs, but for intensity reflectance and transmittance.
     Also return 'absorbtance' such that R + T + A = 1.
 
@@ -161,7 +174,7 @@ def R_T_A_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
     """
 
     r, t = r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
-                      substrate_k, pol, wavelength)
+                      substrate_k, pol, wavelength, incoherent)
 
     # prepare data for T correction:
     n_extended, k_extended = _n_k_arrays(n, k, embedding_n, embedding_k, substrate_n, substrate_k)

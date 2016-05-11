@@ -56,7 +56,7 @@ def I(E, n=1.0):
 
 
 def wavenumber(wavelength, n=1.0):
-    return 2*pi*n/wavelength
+    return TWOPI*n/wavelength
 
 
 def k_z(k, k_x, k_y):
@@ -97,7 +97,8 @@ def frequencies(x, wavenumbers=True, normal_order=True):
     normal_order : bool, optional
         If True, the grid is  returned in 'normal' order with zero frequency
         components centered and increasing frequencies. If False, the zero
-        frequency component is to the 'left'.
+        frequency component is to the 'left', which is sometimes referred to
+        as 'standard order'.
 
     Returns
     -------
@@ -130,7 +131,8 @@ def freq_grid(x, y, wavenumbers=True, normal_order=True):
     normal_order : bool, optional
         If True, the grid is  returned in 'normal' order with zero frequency
         components centered and increasing frequencies. If False, the zero
-        frequency component is to the 'left'.
+        frequency component is to the 'left', which is sometimes referred to
+        as 'standard order'.
 
     Returns
     -------
