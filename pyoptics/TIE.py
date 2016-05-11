@@ -10,10 +10,9 @@ from numpy import pi
 from numpy.fft import fft, ifft, fft2, ifft2, fftfreq, fftshift, ifftshift
 import matplotlib.pyplot as plt
 
+from fft import FT, inv_FT
 
 
-FT = lambda x: fftshift(fft2(ifftshift(x)))
-inv_FT = lambda x: ifftshift(ifft2(fftshift(x)))
 RMS = lambda x: 1.0/np.size(x)*np.sum(x**2)
 
 # TODO: kick all general deriavtive stuff out of this module
@@ -257,9 +256,9 @@ def symmetrize_image(image):
 
     symmetrized[:Ny, :Nx] = image  # upper left part, unaltered
 
-    symmetrized[:Ny, Nx:2*Nx] = image[:, ::-1]  # upper right
-    symmetrized[Ny:2*Ny, :Nx] = image[::-1, :]  # lower left
-    symmetrized[Ny:2*Ny, Nx:2*Nx] = image[::-1, ::-1]  # lower righ
+    symmetrized[:Ny, Nx:2*Nx] = -image[:, ::-1]  # upper right
+    symmetrized[Ny:2*Ny, :Nx] = -image[::-1, :]  # lower left
+    symmetrized[Ny:2*Ny, Nx:2*Nx] = image[::-1, ::-1]  # lower right
 
     return symmetrized
 

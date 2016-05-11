@@ -7,4 +7,8 @@ def build(bld):
     # this will not go into dirs deeper down the hierarchy.
     # sub-packages have to built separately
     for py_file in bld.path.ant_glob("*.py"):
-        bld(features="py", source=py_file, install_path="${PYTHONDIR}/pyoptics")
+        bld(features="py", source=py_file, install_path="${PYTHONDIR}/pyoptics",
+            install_from=".")
+
+    bld(features="pyext c cshlib", source="wpm.pyx", target="wpm",
+        install_path="${PYTHONDIR}/pyoptics", install_from=".")
