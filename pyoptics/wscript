@@ -8,7 +8,7 @@ def build(bld):
     # sub-packages have to built separately
     for py_file in bld.path.ant_glob("*.py"):
         bld(features="py", source=py_file, install_path="${PYTHONDIR}/pyoptics",
-            install_from=".")
+        install_from=".")
 
-    bld(features="pyext c cshlib", source="wpm.pyx", target="wpm",
-        install_path="${PYTHONDIR}/pyoptics", install_from=".")
+    bld(features="c cshlib pyext", source="wpm.pyx", target="wpm",
+        install_path="${PYTHONDIR}/pyoptics", install_from=".", include="complex")
