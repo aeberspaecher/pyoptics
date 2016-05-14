@@ -57,7 +57,7 @@ cpdef wpm_propagate(n_func, field_z, x, y, z, delta_z, wl):
     field_freq_space = FT_unitary(field_z)
 
     # iterate all over spatial pixels, perform k summation for each pixel:
-    for i in prange(n_sampled.shape[0], nogil=True, schedule="static", num_threads=2):
+    for i in prange(n_sampled.shape[0], nogil=True, schedule="dynamic"):
         for j in range(n_sampled.shape[1]):
             curr_x, curr_y = X[i, j], Y[i, j]
             for m in range(K_x.shape[0]):

@@ -11,4 +11,5 @@ def build(bld):
         install_from=".")
 
     bld(features="c cshlib pyext", source="wpm.pyx", target="wpm",
-        install_path="${PYTHONDIR}/pyoptics", install_from=".", include="complex")
+        install_path="${PYTHONDIR}/pyoptics", install_from=".", include="complex",
+        use=["openmp"], defines=["_OPENMP"])
