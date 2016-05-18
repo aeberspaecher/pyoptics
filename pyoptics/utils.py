@@ -250,14 +250,22 @@ def local_momentum(field, wavelength):
 def simpson_weights(N):
     w = np.zeros(N)
 
-    w[0], w[-1] = 2, 2
-    w[1::2] = 8
-    w[2:-1:2] = 4
+    # catch even number of integration points - if even, make l index of last
+    # "odd" point - compare https://github.com/scipy/scipy/issues/5618
+    l = N-1 if N%2 == 1 else N-2
+
+    w[0], w[l] = 2.0, 2.0
+    w[1:l:2] = 8.0
+    w[2:l-1:2] = 4.0
 
     if(N % 2 == 0):
         w[-3:] += np.array([-1.0, 8, 5])/2
+        #w[:3] += np.array([5, 8, -1])/2
+
         # TODO: also treat "left" interval similarly?
         # or return average of left and right treatment?
+
+        # TODO: check if gridded variants work correctly or if special corner treatment is needed!
 
     w /= 6.0
 
