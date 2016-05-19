@@ -36,10 +36,11 @@ def configure(conf):
     conf.env.append_value("INCLUDES", numpy_header_path)
     print("Using NumPy headers in %s"%numpy_header_path)  # TODO: use waf logging instead
 
-    conf.env.CFLAGS = ["-O2", "-fPIC", "-fopenmp"]
+    conf.env.CFLAGS = ["-O2", "-fPIC", "-fopenmp", "-march=native", "-ftree-vectorizer-verbose=1"]
+    conf.env.LINKFLAGS = ["-fopenmp"]
     conf.env.CYTHONFLAGS = ["--directive", "profile=False",
                             "--directive", "cdivision=True",
-                            "--directive", "boundscheck=False",
+                            #"--directive", "boundscheck=False",
                             "--directive", "wraparound=False",
                             "--directive", "nonecheck=False"]
 
