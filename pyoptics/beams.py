@@ -2,6 +2,10 @@
 #-*- coding:utf-8 -*-
 
 """Analytical beam definitions.
+
+Includes
+- Gaussian beams
+- plane waves
 """
 
 from math import sqrt, pi, factorial, sin
@@ -10,6 +14,38 @@ import numpy as np
 from scipy.special import eval_genlaguerre, eval_hermite
 
 from utils import wavenumber
+
+
+# plane waves:
+def plane_wave(A, dir_vec, x, y, z, wl, n=1.0):
+    """Return plane wave defined by direction vector.
+
+    Parameters
+    ----------
+    A : number
+        Amplitude (scalar or vector-valued).
+    dir_vec : array
+        Dimensionless direction vector of unit length. Relates to wave vector by
+        k_vector = n*2*pi/lambda  dircetion_vector.
+    x, y : arrays
+        x, y coordinate arrays.
+    z : number
+        z position.
+    wl : number
+        Vacuum wavelength.
+    n : number, optional
+        Refractive index.
+
+    Returns
+    -------
+    E : array
+        Sampled electric field E(x, y, z; k).
+    """
+
+    XX, YY = np.meshgrid(x, y)
+    E = A*np.exp(1j*2*n*pi/wl*(dir_vec[0]*XX + dir_vec[1]*YY + dir_vec[2]*z))
+
+    return E
 
 
 # Gaussian beams:
