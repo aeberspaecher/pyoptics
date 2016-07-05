@@ -11,13 +11,16 @@ from numpy.fft import fftfreq, fftshift
 from numpy.lib.scimath import sqrt as complex_sqrt
 from scipy.signal import savgol_coeffs
 
+from pyoptics.fft import FT_unitary, inv_FT_unitary
+
+
 # TODO: add convenience routines the create complete grids? like a routine
 # that returns the unit square from [-1, +1, -1, +1] input
 
 TWOPI = 2*pi
 epsilon_0 = 8.854187817620E-12  #  A^2 s^4 kg^−1 m^−3
 mu_0 = 4*pi*1E-7  # V s / A m
-Z_0 =  np.sqrt(mu_0/epsilon_0)  # vacuum impedance
+Z_0 = np.sqrt(mu_0/epsilon_0)  # vacuum impedance
 
 deg_to_rad = lambda d: d/180.0*pi
 rad_to_deg = lambda r: r/pi*180.0
@@ -255,8 +258,7 @@ def scalar_product(field1, field2, x, y, weight_func=None):
         weights = weight_grid(weight_func, len(x), len(y))
 
     dx, dy = x[1] - x[0], y[1] - y[0]
-    prod = np.sum(weights*np.conj(field1)*field2)*dx*dy  # TODO: -1?d
-
+    prod = np.sum(weights*np.conj(field1)*field2)*dx*dy
 
     return prod
 
