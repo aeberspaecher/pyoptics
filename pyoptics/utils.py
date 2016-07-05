@@ -70,8 +70,8 @@ def new_2d_grid(x_min, x_max, y_min, y_max, Nx, Ny=None,
     if(Ny is None):
         Ny = Nx
 
-    x = grid1d((x_min, x_max), Nx, endpoint=~assume_periodicity)
-    y = grid1d((y_min, x_max), Ny, endpoint=~assume_periodicity)
+    x = grid1d((x_min, x_max), Nx, assume_periodicity=assume_periodicity)
+    y = grid1d((y_min, x_max), Ny, assume_periodicity=assume_periodicity)
 
     X, Y = np.meshgrid(x, y)
 
