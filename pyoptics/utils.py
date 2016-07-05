@@ -230,20 +230,41 @@ def add_camera_noise():
     pass
 
 
-def scalar_product(field1, field2, x, y):
-    """Compute the scalar product <field_1|field_2>.
+def scalar_product(field1, field2, x, y, weight_func=None):
+    """Compute the scalar product <field_1|field_2> (using the physicist's
+    convention of complex conjugation for field1).
+
+    Parameters
+    ----------
+    field1, field2 : arrays
+        Sampled fields.
+    x, y : arrays
+        Linear x and y arrays.
+    weight_func : callable, optional
+        Function w = w(n) return weights for the one-dimensional integration
+        scheme to use. If omitted, a simple midpoint rule is used.
+
+    Returns
+    -------
+    s : complex
+        Scalar product.
     """
 
-    # use the simplest integration scheme possible
-    prod = np.sum(np.conj(field1)*field2)*x*y/np.prod(np.shape(field1) - 1)
+    if weight_func is None:
+        weights = np.ones(np.shape(field1))
+    else:
+        weights = weight_grid(weight_func, len(x), len(y))
 
-    # TODO: implement more precise schemes (2d Simpson?)
+    dx, dy = x[1] - x[0], y[1] - y[0]
+    prod = np.sum(weights*np.conj(field1)*field2)*dx*dy  # TODO: -1?d
+
 
     return prod
 
 
 def local_momentum(field, wavelength):
     # TODO: implement a sensible notion of local momentum / direction cosines
+    # use FT and get angles from frequencies? use dispersion for z-component?
     pass
 
 
