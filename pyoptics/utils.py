@@ -24,7 +24,7 @@ Z_0 = np.sqrt(mu_0/epsilon_0)  # vacuum impedance
 
 deg_to_rad = lambda d: d/180.0*pi
 rad_to_deg = lambda r: r/pi*180.0
-sin_cos = lambda phi : (np.sin(phi), np.cos(phi))
+sin_cos = lambda phi: (np.sin(phi), np.cos(phi))
 
 
 def Z(n):
@@ -37,7 +37,8 @@ def Z(n):
 
 
 def I(E, n=1.0):
-    """Get intensity from field amplitude. Returns correct result as obtained by time-avergaing the Poynting vector.
+    """Get intensity from field amplitude. Returns correct result as obtained
+    by time-avergaing the Poynting vector.
 
     Parameters
     ----------
@@ -58,32 +59,86 @@ def I(E, n=1.0):
 
 
 def wavenumber(wavelength, n=1.0):
+    """Return wavenumber from wavelength, optionally use refractive index
+    (default: vacuum, n=1).
+    """
+
     return TWOPI*n/wavelength
 
 
 def k_z(k, k_x, k_y):
+    """Return z component of k vector from k_x and k_y.
+
+    Parameters
+    ----------
+    k : number
+    k_x, k_y : arrays
+
+    Returns
+    -------
+    k_z : array
+
+    Note
+    ----
+    The function carefully handles evanescent waves.
+    """
+
     return complex_sqrt(k**2 - k_x**2 - k_y**2)
 
 
-def new_2d_grid(x_min, x_max, y_min, y_max, Nx, Ny=None,
-                assume_periodicity=True):
-    """Generate a two-dimensional grid...
+def grid2d(x_min, x_max, y_min, y_max, Nx, Ny=None, assume_periodicity=True):
+    """Generate a two-dimensional grid from boundary values and number of
+    samples.
+
+    Parameters
+    ----------
+    x_min, x_max, y_min, y_max : numbers
+        Boundary values.
+    Nx, Ny : ints
+        Number of samples (Ny is optional and defaults to a value equal to Nx).
+    assume_periodicity : boolean, optional
+        If True, the endpoints are not included in the sampled values. This
+        matches FFT conventions.
+
+    Returns
+    -------
+    x, y : arrays
+        Linear coordinate arrays.
+    X, Y : arrays
+        Meshed coordinate arrays.
     """
 
-    if(Ny is None):
+    if Ny is None:
         Ny = Nx
 
-    x = grid1d((x_min, x_max), Nx, assume_periodicity=assume_periodicity)
-    y = grid1d((y_min, x_max), Ny, assume_periodicity=assume_periodicity)
+    x = grid1d(x_min, x_max, Nx, assume_periodicity=assume_periodicity)
+    y = grid1d(y_min, y_max, Ny, assume_periodicity=assume_periodicity)
 
     X, Y = np.meshgrid(x, y)
 
     return x, y, X, Y
 
 
-def grid1d(extent, N, x_min=0.0, assume_periodicity=True):
-    x = np.linspace(extent[0] + x_min, extent[1] + x_min, N,
-                    endpoint=(not assume_periodicity))
+def grid1d(x_min, x_max, N, assume_periodicity=True):
+    """Generate a one-dimensional coordinate array from boundary values and
+    number of samples.
+
+    Parameters
+    ----------
+    x_min, x_max : numbers
+        Boundary values.
+    N  : int
+        Number of samples.
+    assume_periodicity : boolean, optional
+        If True, the endpoints are not included in the sampled values. This
+        matches FFT conventions.
+
+    Returns
+    -------
+    x : array
+        Linear coordinate array.
+    """
+    x = np.linspace(x_min, x_max, N, endpoint=(not assume_periodicity))
 
     return x
 
@@ -112,10 +167,10 @@ def frequencies(x, wavenumbers=True, normal_order=True):
     N_x = len(x)
     freq_x = fftfreq(N_x, dx)
 
-    if(wavenumbers):
+    if wavenumbers:
         freq_x = 2*pi*freq_x
 
-    if(normal_order):
+    if normal_order:
         freq_x = fftshift(freq_x)
 
     return freq_x
@@ -270,6 +325,24 @@ def local_momentum(field, wavelength):
 
 
 def simpson_weights(N):
+    """Return Simpson integration weights (for 1d integration).
+
+    Parameters
+    ----------
+    N : int
+
+    Returns
+    -------
+    w : array
+        Simpson weigths.
+
+    Note
+    ----
+    If N is even, the right-most indices will be treated by a different
+    interpolation formula (of same order). This allows Simpson integration for
+    even length sampled data.
+    """
+
     w = np.zeros(N)
 
     # catch even number of integration points - if even, make l index of last
@@ -280,14 +353,12 @@ def simpson_weights(N):
     w[1:l:2] = 8.0
     w[2:l-1:2] = 4.0
 
-    if(N % 2 == 0):
+    if N % 2 == 0:
         w[-3:] += np.array([-1.0, 8, 5])/2
         #w[:3] += np.array([5, 8, -1])/2
 
         # TODO: also treat "left" interval similarly?
         # or return average of left and right treatment?
-
-        # TODO: check if gridded variants work correctly or if special corner treatment is needed!
 
     w /= 6.0
 
@@ -312,7 +383,7 @@ def weight_grid(func, Nx, Ny):
 
 
 def super_gaussian(x, y, x0, y0, sigma_x, sigma_y, N):
-    """Compute a suüper Gaussian.
+    """Compute a super Gaussian.
     """
 
     XX, YY = np.meshgrid(x, y)
