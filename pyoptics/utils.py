@@ -20,9 +20,8 @@ mu_0 = 4*pi*1E-7  # V s / A m
 Z_0 =  np.sqrt(mu_0/epsilon_0)  # vacuum impedance
 
 deg_to_rad = lambda d: d/180.0*pi
-
-
 rad_to_deg = lambda r: r/pi*180.0
+sin_cos = lambda phi : (np.sin(phi), np.cos(phi))
 
 
 def Z(n):
