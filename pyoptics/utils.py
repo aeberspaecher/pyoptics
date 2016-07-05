@@ -311,6 +311,17 @@ def weight_grid(func, Nx, Ny):
 #def trapz_weights(N):
 
 
+def super_gaussian(x, y, x0, y0, sigma_x, sigma_y, N):
+    """Compute a suüper Gaussian.
+    """
+
+    XX, YY = np.meshgrid(x, y)
+
+    g = np.exp(-np.abs(XX - x0)**N/(2*sigma_x**N) - np.abs(YY - y0)**N/(2*sigma_y**N))
+
+    return g
+
+
 if(__name__ == '__main__'):
     w = weight_grid(simpson_weights, 128, 128)
     import matplotlib.pyplot as plt
