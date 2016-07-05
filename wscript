@@ -13,7 +13,7 @@ def options(opt):
 
 def configure(conf):
     conf.load("python")
-    conf.check_python_version((2, 6))
+    conf.check_python_version((2, 7))
     conf.check_python_module("numpy")
     conf.check_python_module("scipy")
     #conf.check_python_module("skimage")
