@@ -143,9 +143,13 @@ def plot_field(field, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
         phase_ax.set_title(phase_title)
 
     if xlabel is not None:
-        plt.xlabel(xlabel)
+        if horizontal_layout:
+            amp_ax.set_xlabel(xlabel)
+        phase_ax.set_xlabel(xlabel)
     if ylabel is not None:
-        plt.ylabel(ylabel)
+        if (not horizontal_layout):
+            phase_ax.set_ylabel(ylabel)
+        amp_ax.set_ylabel(ylabel)
 
     if title is not None:
         plt.suptitle(title)
