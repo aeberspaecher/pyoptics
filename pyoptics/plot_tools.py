@@ -85,7 +85,7 @@ def plot_field(field, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
     """
 
     # FIXME: aspect ratio & extent - images can be truncated!
-    # FIXME: fix labels for both images
+    # FIXME: size of colorbar for gridspec
 
     fig = plt.figure()
 
@@ -94,18 +94,18 @@ def plot_field(field, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
                                width_ratios=[10, 0.5, 10, 0.5],
                                height_ratios=[1],
                               )
-        amp_ax = fig.add_subplot(gs[0, 0])
-        phase_ax = fig.add_subplot(gs[0, 2], sharey=amp_ax)
-        amp_cbar_ax = fig.add_subplot(gs[0, 1])
-        phase_cbar_ax = fig.add_subplot(gs[0, 3])
+        amp_ax = fig.add_subplot(gs[0])
+        phase_ax = fig.add_subplot(gs[2], sharey=amp_ax)
+        amp_cbar_ax = fig.add_subplot(gs[1])
+        phase_cbar_ax = fig.add_subplot(gs[3])
         plt.setp(phase_ax.get_yticklabels(), visible=False)
     if (not colorbar) and horizontal_layout:
-        gs = gridspec.GridSpec(1, 2, width_ratios=[10, 10])
+        gs = gridspec.GridSpec(1, 2, width_ratios=[10, 10], height_ratios=[1])
         amp_ax = fig.add_subplot(gs[0, 0])
         phase_ax = fig.add_subplot(gs[0, 1], sharey=amp_ax)
         plt.setp(phase_ax.get_yticklabels(), visible=False)
     if colorbar and (not horizontal_layout):
-        gs = gridspec.GridSpec(2, 2, width_ratios=[10, 0.5, 10, 0.5])
+        gs = gridspec.GridSpec(2, 2, width_ratios=[10, 0.5], height_ratios=[1, 1])
         amp_ax = fig.add_subplot(gs[0, 0])
         phase_ax = fig.add_subplot(gs[1, 0], sharex=amp_ax)
         amp_cbar_ax = fig.add_subplot(gs[0, 1])
@@ -163,24 +163,23 @@ def plot_field(field, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
     else:
         im2.set_clim((-1, +1))
 
-    #if (not colorbar):
-    amp_ax.set(adjustable='box-forced')
-    phase_ax.set(adjustable='box-forced')
-    gs.tight_layout(fig, h_pad=0, w_pad=0)
+    amp_ax.set(adjustable='box-forced', aspect="equal")
+    phase_ax.set(adjustable='box-forced', aspect="equal")
+    gs.tight_layout(fig, h_pad=1, w_pad=1)
 
     plt.show()
 
 
 if(__name__ == '__main__'):
     import numpy as np
-    from pyoptics.beams import gauss_laguerre
+    from pyoptics.beams import gauss_laguerre, gauss_hermite
     from pyoptics.utils import grid1d
     wl = 0.630
     x, y = grid1d(-2, +2, 512, True), grid1d(-2, 2, 512, True)
-    psi = gauss_laguerre(2, 7, x, y, z=-0.01, w_0=0.5, z_r=1.1, wl=wl)
+    psi = gauss_hermite(0, 10 , x, y, z=-0.01, w_0=0.5, z_r=1.1, wl=wl)
 
     #plot_intensity(psi, x, y)
     plot_field(psi, x, y, title="Test", amp_title="Intensity",
                phase_title=r"Phase [$\pi$]", use_rad=False,
                xlabel="$x$ [arb. units]", ylabel="$y$ [nm]",
-               colorbar=False, horizontal_layout=True, use_intensity=True)
+               colorbar=True, horizontal_layout=False, use_intensity=True)
