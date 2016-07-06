@@ -1,30 +1,182 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
+#import matplotlib as mpl
+#mpl.rcParams["font.size"] = 16
+#mpl.rcParams["font.family"] = "serif"
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+
+from pyoptics.utils import I
 
 
 default_cmap = plt.cm.inferno
+default_cmap_phase = plt.cm.bwr
 
 
-def plot_image(I, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
-               **kwargs):
-    """Plot an image.
+def plot_intensity(psi, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
+                   n=1.0, **kwargs):
+    """Plot an intensity image.
+
+    Parameters
+    ----------
+    psi : array
+        Complex field or intensity image. psi is considered to be an intensity
+        already is if is of complex type, otherwise it's considered to be an
+        in intensity.
+    x, y : arrays
+        Linear coordinate arrays the image is sampled on.
+    xlabel, ylabel, title : strings, optional
+        Matplotlib options.
+    colorbar : boolean, optional
+        If True, a colorbar is added.
+    n : double, optional
+        Refractive index of embedding medium. Defaults to n=1.0. Used if psi is
+        complex.
+    **kwargs : keyword arguments
+        Propagated to matplotlib imshow() call.
     """
 
-    # TODO: docstring
+    if np.iscomplexobj(psi):
+        psi = I(psi, n)
+
     if "cmap" not in kwargs:
         kwargs["cmap"] = default_cmap
 
-    plt.imshow(I, extent=(x[0], x[-1], y[0], y[-1]), origin="lower",
+    plt.imshow(psi, extent=(x[0], x[-1], y[0], y[-1]), origin="lower",
                **kwargs)
-    if(xlabel is not None):
+    if xlabel is not None:
         plt.xlabel(xlabel)
-    if(ylabel is not None):
+    if ylabel is not None:
         plt.ylabel(ylabel)
-    if(title is not None):
+    if title is not None:
         plt.title(title)
-    if(colorbar is not None):
+    if colorbar is not None:
         plt.colorbar()
     plt.tight_layout()
     plt.show()
+
+
+def plot_field(field, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
+               use_intensity=True, amp_title=None, phase_title=None,
+               horizontal_layout=True,
+               use_rad=False, n=1.0, **kwargs):
+    """Plot an intensity image.
+
+    Parameters
+    ----------
+    psi : array
+        Complex field.
+    x, y : arrays
+        Linear coordinate arrays the field is sampled on.
+    xlabel, ylabel, title : strings, optional
+        Matplotlib options.
+    colorbar : boolean, optional
+        If True, a colorbar is added.
+    use_intensity : boolean, optional
+        If True (default), use intensity for the amplitude plot. Otherwise,
+        use abs(psi).
+    n : double, optional
+        Refractive index of embedding medium. Defaults to n=1.0. Used if psi is
+        complex.
+    **kwargs : keyword arguments
+        Propagated to matplotlib imshow() call. If given, phase_cmap is mapped
+        to cmap for the phas plot.
+    """
+
+    # FIXME: aspect ratio & extent - images can be truncated!
+    # FIXME: fix labels for both images
+
+    fig = plt.figure()
+
+    if colorbar and horizontal_layout:
+        gs = gridspec.GridSpec(1, 4,
+                               width_ratios=[10, 0.5, 10, 0.5],
+                               height_ratios=[1],
+                              )
+        amp_ax = fig.add_subplot(gs[0, 0])
+        phase_ax = fig.add_subplot(gs[0, 2], sharey=amp_ax)
+        amp_cbar_ax = fig.add_subplot(gs[0, 1])
+        phase_cbar_ax = fig.add_subplot(gs[0, 3])
+        plt.setp(phase_ax.get_yticklabels(), visible=False)
+    if (not colorbar) and horizontal_layout:
+        gs = gridspec.GridSpec(1, 2, width_ratios=[10, 10])
+        amp_ax = fig.add_subplot(gs[0, 0])
+        phase_ax = fig.add_subplot(gs[0, 1], sharey=amp_ax)
+        plt.setp(phase_ax.get_yticklabels(), visible=False)
+    if colorbar and (not horizontal_layout):
+        gs = gridspec.GridSpec(2, 2, width_ratios=[10, 0.5, 10, 0.5])
+        amp_ax = fig.add_subplot(gs[0, 0])
+        phase_ax = fig.add_subplot(gs[1, 0], sharex=amp_ax)
+        amp_cbar_ax = fig.add_subplot(gs[0, 1])
+        phase_cbar_ax = fig.add_subplot(gs[1, 1])
+        plt.setp(amp_ax.get_xticklabels(), visible=False)
+    if (not colorbar) and (not horizontal_layout):
+        gs = gridspec.GridSpec(2, 1, width_ratios=[10], height_ratios=[1, 1])
+        amp_ax = fig.add_subplot(gs[0, 0])
+        phase_ax = fig.add_subplot(gs[1, 0], sharex=amp_ax)
+        plt.setp(amp_ax.get_xticklabels(), visible=False)
+
+    if not np.iscomplexobj(psi):
+        raise ValueError("psi must be complex-valued")
+
+    amp = I(field, n) if use_intensity else np.abs(field)
+    phase = np.angle(field) if use_rad else np.angle(field)/np.pi
+
+    if "cmap" not in kwargs:
+        kwargs["cmap"] = default_cmap
+
+    im1 = amp_ax.imshow(amp, extent=(x[0], x[-1], y[0], y[-1]), origin="lower",
+                        **kwargs)
+
+    if "phase_cmap" not in kwargs:
+        kwargs["cmap"] = default_cmap_phase
+    else:
+        kwargs["cmap"] = kwargs.pop("phase_cmap")
+
+    im2 = phase_ax.imshow(phase, extent=(x[0], x[-1], y[0], y[-1]),
+                          origin="lower", **kwargs)
+
+    if amp_title is not None:
+        amp_ax.set_title(amp_title)
+    if phase_title is not None:
+        phase_ax.set_title(phase_title)
+
+    if xlabel is not None:
+        plt.xlabel(xlabel)
+    if ylabel is not None:
+        plt.ylabel(ylabel)
+
+    if title is not None:
+        plt.suptitle(title)
+    if colorbar:
+        plt.colorbar(im1, cax=amp_cbar_ax, use_gridspec=True)
+        plt.colorbar(im2, cax=phase_cbar_ax, use_gridspec=True)
+
+    # use full phase range for colormap:
+    if use_rad:
+        im2.set_clim((-np.pi, +np.pi))
+    else:
+        im2.set_clim((-1, +1))
+
+    #if (not colorbar):
+    amp_ax.set(adjustable='box-forced')
+    phase_ax.set(adjustable='box-forced')
+    gs.tight_layout(fig, h_pad=0, w_pad=0)
+
+    plt.show()
+
+
+if(__name__ == '__main__'):
+    import numpy as np
+    from pyoptics.beams import gauss_laguerre
+    from pyoptics.utils import grid1d
+    wl = 0.630
+    x, y = grid1d(-2, +2, 512, True), grid1d(-2, 2, 512, True)
+    psi = gauss_laguerre(2, 7, x, y, z=-0.01, w_0=0.5, z_r=1.1, wl=wl)
+
+    #plot_intensity(psi, x, y)
+    plot_field(psi, x, y, title="Test", amp_title="Intensity",
+               phase_title=r"Phase [$\pi$]", use_rad=False,
+               xlabel="$x$ [arb. units]", ylabel="$y$ [nm]",
+               colorbar=False, horizontal_layout=True, use_intensity=True)
