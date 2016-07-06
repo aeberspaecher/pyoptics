@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
-#import matplotlib as mpl
-#mpl.rcParams["font.size"] = 16
-#mpl.rcParams["font.family"] = "serif"
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from mpl_toolkits.axes_grid1 import make_axes_locatable
