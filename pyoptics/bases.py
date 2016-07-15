@@ -8,8 +8,12 @@ Zernike polynomials in the description of aberrations in systems with circular
 aperture stops. This module offers an object oriented approach such basis sets.
 """
 
+from math import sqrt, floor, ceil
 
-from .utils import scalar_product
+import numpy as np
+from scipy.misc import factorial as fac  # tolerant to negative arguments!
+
+from pyoptics.utils import scalar_product
 
 
 class BasisSet(object):
@@ -19,12 +23,13 @@ class BasisSet(object):
     # domains, e.g. the Zernike polynomials that have a circular domain of
     # definition. the specific mask is used in scalar products.
 
-    def __init__(self, x, y, pre_sample=True):
+    def __init__(self, x, y):
         """Define grid the basis functions are defined on.
         """
         # TODO: implement here or in subclasses?
-
-        pass
+        self.x = x
+        self.y = y
+        self.XX, self.YY = np.meshgrid(x, y)
 
     def __call__(self, coeffs):
         """Return a field computed from the given expansion coefficients.
@@ -70,11 +75,64 @@ class BasisSet(object):
         pass
 
 
-class FringeZernikes(BasisSet):
-    def R_nm(self, n, m):
-        pass
+class PreSampledBasisSet(BasisSet):
+    pass
 
-    # TODO: find map (n, m) --> fringe index
+
+class FringeZernikes(BasisSet):
+    """Fringe Zernike polyonimals as described in Gross' Handbook of Optics (2nd vol) or
+    http://www.jcmwave.com/JCMsuite/doc/html/ParameterReference/0c19949d2f03c5a96890075a6695b258.html
+    """
+
+    def __init__(self, x, y, R_norm):
+        super(FringeZernikes, self).__init__(x, y)
+        self.R_norm = R_norm
+        self.Rho = np.sqrt(self.XX**2 + self.YY**2)/R_norm
+        self.Phi = np.arctan2(self.YY, self.XX)
+
+        mask = np.zeros(np.shape(self.XX))
+        mask[self.Rho < 1.0] = 1.0
+        self.mask = mask
+
+    def R_nm(self, n, m):
+        # TODO: factor out?
+        #summands = [(-1)**k * binom(n-k, k) * binom(n-2*k, (n-m)//2.-k) * self.Rho**(n-2.0*k) for k in range(0, int((n-m)//2 + 1))]
+        #R = sum(summands)
+
+        N, M = int(n), int(m)
+
+        R = np.zeros_like(self.Rho)
+        for k in range((N-M)/2 + 1):
+            R += (-1.0)**k * fac(N-k) / ( fac(k) * fac( (N+M)/2.0 - k ) * fac( (N-M)/2.0 - k ) ) * self.Rho**(n-2.0*k)
+
+        return R
+
+    def Y_m(self, m):
+        # TODO: factor out?
+        if m > 0:
+            val = np.cos(m*self.Phi)
+        elif m == 0:
+            val = np.ones(np.shape(self.Phi))
+        else:
+            val = np.sin(m*self.Phi)
+
+        return val
+
+    def fringe_to_n_m(self, j):
+        d = floor(sqrt(j-1)) + 1
+        m = floor((((d**2-j)/2)) if (((int(d)**2 - j) % 2) == 0) else ceil((-(d**2) + j - 1)/2.))
+        n = round((2.0*(d-1) - abs(m)))
+
+        print("j = {}: n = {}; m = {}; d = {}".format(j, n, m, d))
+
+        return n, m
+
+    def eval_single(self, j):
+        n, m = self.fringe_to_n_m(j)
+        R = self.R_nm(n, abs(m))
+        Y = self.Y_m(m)
+
+        return R*Y*self.mask
 
 
 class Polynomials(BasisSet):
@@ -101,3 +159,17 @@ class NumericallyOrthogonalized(BasisSet):
         # run orthogonalisation:
 
         pass
+
+if(__name__ == '__main__'):
+    from pyoptics.utils import grid1d
+    from pyoptics.plot_tools import plot_intensity
+    x = grid1d(-2, +2, 512)
+    y = grid1d(-2, +2, 512)
+    R_norm = 1.5
+    Z = FringeZernikes(x, y, R_norm)
+    for j in range(1, 16+1):
+        Z_sampled = Z.eval_single(j)
+        print(Z_sampled)
+        plot_intensity(Z_sampled, x, y, title="$Z_{%s}$"%j)
+
+    # compute inner product matrix numerically:
