@@ -25,6 +25,7 @@ Z_0 = np.sqrt(mu_0/epsilon_0)  # vacuum impedance
 deg_to_rad = lambda d: d/180.0*pi
 rad_to_deg = lambda r: r/pi*180.0
 sin_cos = lambda phi: (np.sin(phi), np.cos(phi))
+kronecker_delta = lambda n, m : (1.0 if n == m else 0.0)
 
 
 def Z(n):
@@ -53,7 +54,7 @@ def I(E, n=1.0):
         Field amplitude E**2*n/(2*Z_0)
     """
 
-    intensity = E**2*n/(2*Z_0)
+    intensity = np.abs(E)**2*n/(2*Z_0)
 
     return intensity
 
