@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
+
+import matplotlib as mpl
+mpl.rcParams["font.size"] = 16
+mpl.rcParams["font.family"] = "serif"
+import matplotlib.pyplot as plt
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -127,7 +133,7 @@ def plot_field(field, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
         phase_ax = fig.add_subplot(gs[1, 0], sharex=amp_ax)
         plt.setp(amp_ax.get_xticklabels(), visible=False)
 
-    if not np.iscomplexobj(psi):
+    if not np.iscomplexobj(field):
         raise ValueError("psi must be complex-valued")
 
     amp_ax.locator_params(nbins=5)
