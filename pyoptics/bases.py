@@ -289,7 +289,9 @@ class LegendrePolynomials(BasisSet):
 
         n, m = self.single_index_to_n_m(i)
 
-        norm = 2./(2*n + 1.)  # TODO: respect rectangle area! scale by area?
+        # the Legendres are a product basis L_n(x)*L_m(y) - using Fubini's theorem, the
+        # normalization can thus be written as the product of norm norm(L_n)*norm(L_m)
+        norm = self.a*self.b*4./((2*n + 1.)*(2*m + 1.))
 
         return norm
 
