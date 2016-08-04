@@ -240,29 +240,40 @@ class LegendrePolynomials(BasisSet):
     """
 
     def __init__(self, x, y, a, b, x0=0.0, y0=0.0):
-        super(LegendrePolynomials, self).__init__((x-x0)/a, (y-y0)/b)
+        super(LegendrePolynomials, self).__init__(x, y)
         self.a = a
         self.b = b
         self.x0 = x0
         self.y0 = y0
         self._has_norm = True
 
+        # store scaled x and y arrays (should contain (-1, +1)) for NumPy legval
+        # calls:
+        self.x_scaled, self.y_scaled = (x-x0)/a, (y-y0)/b
+        self.XX_scaled, self.YY_scaled = np.meshgrid(self.x_scaled, self.y_scaled)
+
+        # mask is a rectangle x_scaled = [-1, +1], y_scaled = [-1, +1]
         mask = np.zeros_like(self.XX)
         mask[
-             (self.XX >= -1) & (self.XX <= +1)
-             & (self.YY >= -1) & (self.YY <= +1)
+             (self.XX_scaled >= -1) & (self.XX_scaled <= +1)
+             & (self.YY_scaled >= -1) & (self.YY_scaled <= +1)
             ] = 1.0
         self.mask = mask
 
     def eval_single(self, index):
         n, m = self.single_index_to_n_m(index)
-        c = np.zeros(2*(max(n, m)+1,))
-        c[n, m] = 1.0  # using legval2d, row index goes to x, column index to y
 
-        #poly_x = legval((self.x-self.x0)/self.a)  # TODO: scaling
-        #poly_y = legval((self.y-self.y0)/self.b)
-        xy_poly = legval2d(self.XX, self.YY, c)
-        #xy_poly = np.outer(poly_x, poly_y)  # TODO: order?
+        #c = np.zeros(2*(max(n, m)+1,))
+        ## using legval2d, row index goes to x polynomial, column index to y polynmomial:
+        #c[n, m] = 1.0
+        #xy_poly = legval2d(self.XX_scaled, self.YY_scaled, c)
+
+        # outer product approach:
+        cx = np.zeros(n+1)
+        cx[n] = 1.0
+        cy = np.zeros(m+1)
+        cy[m] = 1.0
+        xy_poly = np.outer(legval(self.y_scaled, cy), legval(self.x_scaled, cx))  # TODO: order?
 
         return self.mask*xy_poly
 
