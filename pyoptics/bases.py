@@ -107,7 +107,7 @@ class BasisSet(object):
         Z_i = [self.eval_single(i) for i in indices]
         N_samples = len(Z_i[0].flatten())
         N_indices = len(indices)
-        M  = np.zeros([N_samples, N_indices])
+        M = np.zeros([N_samples, N_indices])
         for i in range(N_indices):
             M[:, i] = Z_i[i].flatten()
         coeffs, _, _, _ = lstsq(M, field.flatten())
@@ -132,10 +132,11 @@ class BasisSet(object):
         """
 
         if self._has_norm:
-            norms = [self.normalization_factor(i)  for i in indices]
+            norms = [self.normalization_factor(i) for i in indices]
         else:
             norms = len(indices)*(1.0,)
 
+        # TODO: weights are hardcoded, how to change that?
         coeffs = 1.0/np.array(norms)*np.array([scalar_product(self.eval_single(i), self.mask*field, self.x, self.y, simpson_weights) for i in indices])
 
         return coeffs
@@ -260,20 +261,38 @@ class LegendrePolynomials(BasisSet):
         self.XX_scaled, self.YY_scaled = np.meshgrid(self.x_scaled, self.y_scaled)
 
         # mask is a rectangle x_scaled = [-1, +1], y_scaled = [-1, +1]
-        mask = np.zeros_like(self.XX)
-        mask[
-             (self.XX_scaled >= -1) & (self.XX_scaled <= +1)
-             & (self.YY_scaled >= -1) & (self.YY_scaled <= +1)
-            ] = 1.0
-        self.mask = mask
+        self.mask_x = np.zeros_like(x)
+        self.mask_x[(self.x_scaled >= -1) & (self.x_scaled <= +1)] = 1.0
+        self.mask_y = np.zeros_like(y)
+        self.mask_y[(self.y_scaled >= -1) & (self.y_scaled <= +1)] = 1.0
 
-    def eval_single(self, index):
+        #mask[
+             #(self.XX_scaled >= -1) & (self.XX_scaled <= +1)
+             #& (self.YY_scaled >= -1) & (self.YY_scaled <= +1)
+            #] = 1.0
+        self.mask = np.outer(self.mask_y, self.mask_x)
+
+    def __call__(self, indices, coeffs=None):
+        """Return basis functions for given indices.
+        """
+
+        if coeffs is None:
+            coeffs = np.ones(len(indices))
+
         n, m = self.single_index_to_n_m(index)
 
         #c = np.zeros(2*(max(n, m)+1,))
-        ## using legval2d, row index goes to x polynomial, column index to y polynmomial:
-        #c[n, m] = 1.0
-        #xy_poly = legval2d(self.XX_scaled, self.YY_scaled, c)
+        c = np.zeros([n, m])
+        # using legval2d, row index goes to x polynomial, column index to y polynmomial:
+        c[n, m] = 1.0
+        xy_poly = legval2d(self.XX_scaled, self.YY_scaled, c)
+
+        # TODO: fix this routine!
+
+        return xy_poly
+
+    def eval_single(self, index):
+        n, m = self.single_index_to_n_m(index)
 
         # outer product approach:
         cx = np.zeros(n+1)
@@ -292,7 +311,6 @@ class LegendrePolynomials(BasisSet):
 
         return n, m
 
-
     def normalization_factor(self, i):
         """Norm <L_i|L_i> of i-th Legendre basis function.
 
@@ -308,14 +326,10 @@ class LegendrePolynomials(BasisSet):
         n, m = self.single_index_to_n_m(i)
 
         # the Legendres are a product basis L_n(x)*L_m(y) - using Fubini's theorem, the
-        # normalization can thus be written as the product of norm norm(L_n)*norm(L_m)
+        # normalization can thus be written as the product of norms norm(L_n)*norm(L_m)
         norm = self.a*self.b*4./((2*n + 1.)*(2*m + 1.))
 
         return norm
-
-
-    # TODO: scaling function that maps (-a/2-x0, +a/2-x0) to (-1, +1)
-
 
 
 def _poly_single_index_to_n_m(single_ind):
@@ -332,13 +346,11 @@ def _poly_single_index_to_n_m(single_ind):
     order = int(floor(order_fract))
 
     element = single_ind - poly_basis_size(order-1)  # which element in the sequence of monomials up to given order?
-    elements_in_order = order + 1
 
     n = order - element
     m = element
 
     return n, m
-
 
 
 def poly_basis_size(order):
@@ -360,10 +372,12 @@ class Polynomials(BasisSet):
     pass
 
 
-class NumericallyOrthogonalized(PreSampledBasisSet):
+class NumericallyOrthogonalized(PresampledBasisSet):
     """Represents a basis set that is numerically orthogonalized through a
     Gram-Schmidt procedure on the given grid.
     """
+
+    # TODO: use Gram-Schmidt directly? Or rather use QR?
 
     def __init__(self, base_type, x, y):
         # compute all basis functions and store those as a class member
