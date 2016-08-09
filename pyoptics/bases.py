@@ -141,18 +141,25 @@ class BasisSet(object):
         return coeffs
 
 
-class PreSampledBasisSet(BasisSet):
-    def __init__(self, x, y, indices):
-         pass
+class PresampledBasisSet(BasisSet):
+    def __init__(self, x, y, basis_class, indices, **kwargs):
+        """Presample given basis function and store away for fast evaluation.
+        """
+
+        self.basis = basis_class(x, y, **kwargs)
+        self.sampled_funcs = {}
+
+        for ind in indices:
+            sampled_func = self.basis.eval_single(ind)
+            self.sampled_funcs[str(ind)] = sampled_func
 
     def eval_single(self, index):
-        if index not in self.sampled_indices:
+        if str(index) not in self.sampled_funcs.keys():
             raise ValueError("Index {} not amongst the sampled indices".format(index))
 
-        # TODO: implement
-        pass
+        sampled_func = self.sampled_funcs[str(index)]
 
-
+        return sampled_func
 
 
 class FringeZernikes(BasisSet):
