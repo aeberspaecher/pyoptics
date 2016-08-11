@@ -14,16 +14,11 @@ from math import sqrt, floor, ceil
 import numpy as np
 from numpy.polynomial.legendre import legval2d, legval
 from scipy.misc import factorial as fac  # tolerant to negative arguments!
-from scipy.linalg import lstsq
+from scipy.linalg import lstsq, qr, norm
 
-from pyoptics.utils import scalar_product, kronecker_delta
+from pyoptics.utils import scalar_product, kronecker_delta, weight_grid, simpson_weights
 
 # TODO: reintroduce scalar/inner product in BasisSet? this allowed for inner products that respected the mask/support automatically
-# TODO: in case of scaled x, y supports (Zernike R_norm or Legdendre rectangle size): which x, y to store? Scaled or unscaled? Compute scalar products in which coordinates?
-
-
-# probably keep original coordinates and use those in all computations, but also store transform x, y for eval_single().
-# this allows reuse of x, y by the user and will shift responsibilty away from the user to the developer!
 
 
 class BasisSet(object):
@@ -400,10 +395,55 @@ class NumericallyOrthogonalized(PresampledBasisSet):
 
     # TODO: use Gram-Schmidt directly? Or rather use QR?
 
-    def __init__(self, base_type, x, y):
-        # compute all basis functions and store those as a class member
+    def __init__(self, x, y, base_type, indices, weights_func=None, scale=1,
+                 **kwargs):
+        """Construct numerically orthogonalized basis function set.
+
+        Parameters
+        ----------
+        x, y : arrays
+        base_type : BasisSet class
+            Base class to instantiate, sample and orthogonalize.
+        indices : array-like
+            Array of indices to sample.
+        weights_func : callable, optional
+            Function that returns 1d weights for inner product summation. If
+            None, Simpson integration weights will be used.
+        kwargs : dict
+            Handed over to base_type object.
+        """
+
+        super(NumericallyOrthogonalized, self).__init__(x, y, base_type, indices, **kwargs)
+
+        if weights_func is None:
+            weights_func = simpson_weights
+        weights = weight_grid(weights_func, len(self.x), len(self.y))
 
         # run orthogonalisation:
+        num_samples_mask = np.sum(self.basis.mask > 0)
+
+        num_basis_funcs = len(indices)
+
+        mask = self.basis.mask > 0  # TODO: why > 0 necessary?
+        basis_funcs = np.zeros([num_samples_mask, num_basis_funcs], order="C")  # TODO: check order for best performance
+        for i, ind in enumerate(indices):
+            curr_sampled_func = self.sampled_funcs[str(ind)]
+            basis_funcs[:, i] = (weights[mask]*curr_sampled_func[mask]).flatten()
+
+        Q, _ = qr(basis_funcs, mode="economic")
+
+        for i, ind in enumerate(indices):
+            curr_orthogonalized_basis_func = Q[:, i]
+            new_norm = norm(curr_orthogonalized_basis_func)
+            old_norm = norm(basis_funcs[:, i])
+
+            # overwrite sampled_funcs by orthogonalized data,
+            # renormalize to old norm and apply scaling factor (preserve sign of first vector elements - QR decomposition may change that):
+            scale = np.sign(curr_orthogonalized_basis_func[0]/basis_funcs[0, i])
+            self.sampled_funcs[str(ind)][self.basis.mask > 0] = \
+                scale*curr_orthogonalized_basis_func/new_norm*old_norm/weights[mask]
+
+    # https://en.wikipedia.org/wiki/Gram%E2%80%93Schmidt_process#Numerical_stability
 
         pass
 
