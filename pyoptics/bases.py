@@ -143,9 +143,26 @@ class BasisSet(object):
 
 
 class PresampledBasisSet(BasisSet):
+    """Sampled basis functions.
+
+    Substitutes run-time recomputation of data by lookups of precomputed data.
+    """
+
     def __init__(self, x, y, basis_class, indices, **kwargs):
         """Presample given basis function and store away for fast evaluation.
+
+        Parameters
+        ----------
+        x, y : arrays
+        basis_class : object
+            BasisSet class to presample.
+        indices : array-like
+            Array of indices to presample.
+        kwargs : dict
+            Keyword arguments to hand over basis_class on instantiation.
         """
+
+        super(PresampledBasisSet, self).__init__(x, y)
 
         self.basis = basis_class(x, y, **kwargs)
         self.sampled_funcs = {}
