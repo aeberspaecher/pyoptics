@@ -195,8 +195,8 @@ class FringeZernikes(BasisSet):
         self.Rho = np.sqrt(self.XX**2 + self.YY**2)/R_norm
         self.Phi = np.arctan2(self.YY, self.XX)
 
-        mask = np.zeros(np.shape(self.XX))
-        mask[self.Rho <= 1.0] = 1.0
+        mask = np.zeros(np.shape(self.XX), dtype=np.int)
+        mask[self.Rho <= 1.0] = 1
         self.mask = mask
         self._has_norm = True
 
@@ -282,10 +282,10 @@ class LegendrePolynomials(BasisSet):
         self.XX_scaled, self.YY_scaled = np.meshgrid(self.x_scaled, self.y_scaled)
 
         # mask is a rectangle x_scaled = [-1, +1], y_scaled = [-1, +1]
-        self.mask_x = np.zeros_like(x)
-        self.mask_x[(self.x_scaled >= -1) & (self.x_scaled <= +1)] = 1.0
-        self.mask_y = np.zeros_like(y)
-        self.mask_y[(self.y_scaled >= -1) & (self.y_scaled <= +1)] = 1.0
+        self.mask_x = np.zeros_like(x, dtype=np.int)
+        self.mask_x[(self.x_scaled >= -1) & (self.x_scaled <= +1)] = 1
+        self.mask_y = np.zeros_like(y, dtype=np.int)
+        self.mask_y[(self.y_scaled >= -1) & (self.y_scaled <= +1)] = 1
 
         #mask[
              #(self.XX_scaled >= -1) & (self.XX_scaled <= +1)
