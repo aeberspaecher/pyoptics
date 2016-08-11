@@ -166,9 +166,10 @@ class PresampledBasisSet(BasisSet):
             sampled_func = self.basis.eval_single(ind)
             self.sampled_funcs[str(ind)] = sampled_func
 
-        # redirect norm issues to contained basis:
+        # redirect norm & mask issues to contained basis:
         self._has_norm = self.basis._has_norm
         self.normalization_factor = self.basis.normalization_factor
+        self.mask = self.basis.mask
 
     def eval_single(self, index):
         if str(index) not in self.sampled_funcs.keys():
