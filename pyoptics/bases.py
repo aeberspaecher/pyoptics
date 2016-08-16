@@ -14,15 +14,18 @@ from math import sqrt, floor, ceil
 import numpy as np
 from numpy.polynomial.legendre import legval2d, legval
 from scipy.misc import factorial as fac  # tolerant to negative arguments!
-from scipy.linalg import lstsq, qr, norm
+from scipy.linalg import lstsq, qr, norm, cholesky
+import scipy.linalg as linalg
 
-from pyoptics.utils import scalar_product, kronecker_delta, weight_grid, simpson_weights
+from pyoptics.utils import scalar_product, kronecker_delta, weight_grid, simpson_weights, sgn
 
 # TODO: reintroduce scalar/inner product in BasisSet? this allowed for inner products that respected the mask/support automatically
 
 
 class BasisSet(object):
-    basis_size = 0  # number of coefficients to use
+    """Base class for all basis sets. Should not be instantiated directly.
+    """
+
     mask = None  # binary mask that defines the basis functions' support
     # this is needed for basis functions that are defined on non-rectangular
     # domains, e.g. the Zernike polynomials that have a circular domain of
@@ -164,18 +167,19 @@ class PresampledBasisSet(BasisSet):
 
         for ind in indices:
             sampled_func = self.basis.eval_single(ind)
-            self.sampled_funcs[str(ind)] = sampled_func
+            self.sampled_funcs[ind] = sampled_func
 
         # redirect norm & mask issues to contained basis:
         self._has_norm = self.basis._has_norm
         self.normalization_factor = self.basis.normalization_factor
         self.mask = self.basis.mask
+        # TODO: is mask_x and mask_y are elements of self.basis, expose those too
 
     def eval_single(self, index):
-        if str(index) not in self.sampled_funcs.keys():
+        if index not in self.sampled_funcs.keys():
             raise ValueError("Index {} not amongst the sampled indices".format(index))
 
-        sampled_func = self.sampled_funcs[str(index)]
+        sampled_func = self.sampled_funcs[index]
 
         return sampled_func
 
@@ -197,6 +201,18 @@ class FringeZernikes(BasisSet):
         self._has_norm = True
 
     def R_nm(self, n, m):
+        """Radial polynomial for Zernikes.
+
+        Parameters
+        ----------
+        n : int
+        m : int
+
+        Returns
+        -------
+        R_mm : number or array
+        """
+
         # TODO: factor out?
         N, M = int(n), int(m)
 
@@ -207,6 +223,17 @@ class FringeZernikes(BasisSet):
         return R
 
     def Y_m(self, m):
+        """Angle dependence of Zernike polynomials.
+
+        Parameters
+        ----------
+        m : int
+
+        Returns
+        -------
+        Y_m : number or array
+        """
+
         # TODO: factor out?
         if m > 0:
             val = np.cos(m*self.Phi)
@@ -218,6 +245,9 @@ class FringeZernikes(BasisSet):
         return val
 
     def fringe_to_n_m(self, j):
+        """Map Fringe Zernike index j to Zernike indices n, m.
+        """
+
         d = floor(sqrt(j-1)) + 1
         m = floor((((d**2-j)/2)) if (((int(d)**2 - j) % 2) == 0) else ceil((-(d**2) + j - 1)/2.))
         n = round((2.0*(d-1) - abs(m)))
@@ -272,8 +302,8 @@ class LegendrePolynomials(BasisSet):
         self.y0 = y0
         self._has_norm = True
 
-        # store scaled x and y arrays (should contain (-1, +1)) for NumPy legval
-        # calls:
+        # store scaled x and y arrays (should contain interval (-1, +1))
+        # for NumPy legval calls:
         self.x_scaled, self.y_scaled = (x-x0)/a, (y-y0)/b
         self.XX_scaled, self.YY_scaled = np.meshgrid(self.x_scaled, self.y_scaled)
 
@@ -282,11 +312,6 @@ class LegendrePolynomials(BasisSet):
         self.mask_x[(self.x_scaled >= -1) & (self.x_scaled <= +1)] = 1
         self.mask_y = np.zeros_like(y, dtype=np.int)
         self.mask_y[(self.y_scaled >= -1) & (self.y_scaled <= +1)] = 1
-
-        #mask[
-             #(self.XX_scaled >= -1) & (self.XX_scaled <= +1)
-             #& (self.YY_scaled >= -1) & (self.YY_scaled <= +1)
-            #] = 1.0
         self.mask = np.outer(self.mask_y, self.mask_x)
 
     def __call__(self, indices, coeffs=None):
@@ -396,7 +421,7 @@ class NumericallyOrthogonalized(PresampledBasisSet):
 
     # TODO: use Gram-Schmidt directly? Or rather use QR?
 
-    def __init__(self, x, y, base_type, indices, weights_func=None, scale=1,
+    def __init__(self, x, y, base_type, indices, new_mask=None, weight_func=None, normalize=False,
                  **kwargs):
         """Construct numerically orthogonalized basis function set.
 
@@ -407,46 +432,83 @@ class NumericallyOrthogonalized(PresampledBasisSet):
             Base class to instantiate, sample and orthogonalize.
         indices : array-like
             Array of indices to sample.
+        new_mask : array
+            TODO
         weights_func : callable, optional
             Function that returns 1d weights for inner product summation. If
             None, Simpson integration weights will be used.
         kwargs : dict
             Handed over to base_type object.
+
+        Note
+        ----
+        As the QR decomposition used in the orthogonalization process may change
+        signs, a rescaling to prevent overall sign is performed. In this process
+        the signs of the first element within the mask are evaluated. These
+        should not be zero.
         """
+
+        # TODO: for new masks, norm can't be kept!
+        # TODO: introduce "normalize" flag?
 
         super(NumericallyOrthogonalized, self).__init__(x, y, base_type, indices, **kwargs)
 
-        if weights_func is None:
-            weights_func = simpson_weights
-        weights = weight_grid(weights_func, len(self.x), len(self.y))
+        if weight_func is None:
+            weight_func = lambda N : np.zeros(N) + 1.0
+        weights = weight_grid(weight_func, len(self.x), len(self.y))
 
         # run orthogonalisation:
-        num_samples_mask = np.sum(self.basis.mask > 0)
 
-        num_basis_funcs = len(indices)
+        if new_mask is None:
+            mask = self.basis.mask > 0.0 # TODO: why > 0 necessary?
+        else:
+            mask = new_mask > 0.0
+            self.mask = new_mask
 
-        mask = self.basis.mask > 0  # TODO: why > 0 necessary?
+        # determine size needed for basis matrix:
+        num_samples_mask = np.sum(mask)  # number of rows
+        num_basis_funcs = len(indices)  # number of columns
+
+        # build matrix for orthogonalizatgion procedure: put data within mask in columns
         basis_funcs = np.zeros([num_samples_mask, num_basis_funcs], order="C")  # TODO: check order for best performance
         for i, ind in enumerate(indices):
-            curr_sampled_func = self.sampled_funcs[str(ind)]
-            basis_funcs[:, i] = (weights[mask]*curr_sampled_func[mask]).flatten()
+            curr_sampled_func = self.sampled_funcs[ind]
+            basis_funcs[:, i] = (np.sqrt(weights[mask])*curr_sampled_func[mask])
 
+        # QR:
         Q, _ = qr(basis_funcs, mode="economic")
+
+        ## Cholesky:
+        #V = basis_funcs
+        #L = cholesky(np.dot(np.conj(V.T), V))
+        #L_inv, _ = linalg.lapack.clapack.dtrtri(L)
+        #Q = np.dot(V, L_inv)
+
+        # TODO: move Cholesky and QR parts to own functions each
 
         for i, ind in enumerate(indices):
             curr_orthogonalized_basis_func = Q[:, i]
-            new_norm = norm(curr_orthogonalized_basis_func)
-            old_norm = norm(basis_funcs[:, i])
+            dx, dy = self.x[1] - self.x[0], self.y[1] - self.y[0]
+            curr_norm = np.sum(weights[mask]*np.conj(curr_orthogonalized_basis_func)
+                               *curr_orthogonalized_basis_func
+                              )*dx*dy
+            if normalize:  # is data to be renormalized?
+                if self._has_norm:  # if norm is known anayltically, keep it
+                    desired_norm = self.normalization_factor(ind)
+                else:  # otherwise assume 1.0 as norm
+                    desired_norm = 1.0
+            else:
+                old_basis_func = basis_funcs[:, i]
+                desired_norm = np.sum(weights[mask]*np.conj(old_basis_func)*old_basis_func)*dx*dy
 
             # overwrite sampled_funcs by orthogonalized data,
             # renormalize to old norm and apply scaling factor (preserve sign of first vector elements - QR decomposition may change that):
-            scale = np.sign(curr_orthogonalized_basis_func[0]/basis_funcs[0, i])
-            self.sampled_funcs[str(ind)][self.basis.mask > 0] = \
-                scale*curr_orthogonalized_basis_func/new_norm*old_norm/weights[mask]
+            scale = sgn(curr_orthogonalized_basis_func[0])*sgn(basis_funcs[0, i])
+            self.sampled_funcs[ind][mask] = \
+                scale*curr_orthogonalized_basis_func/np.sqrt(curr_norm)*np.sqrt(desired_norm)/np.sqrt(weights[mask])
+            self.sampled_funcs[ind][~mask] = 0.0
+            # TODO: should we really normalize to old norm or rather use normalization_factor() if present?
 
-    # https://en.wikipedia.org/wiki/Gram%E2%80%93Schmidt_process#Numerical_stability
-
-        pass
 
 if(__name__ == '__main__'):
     from pyoptics.utils import grid1d
