@@ -512,10 +512,10 @@ class NumericallyOrthogonalized(PresampledBasisSet):
             if norm_func is None:
                 # keep old norm:
                 old_basis_func = basis_funcs[:, i]
-                desired_norm = scalar_product_with_weights(old_basis_func, old_basis_func,
-                                                           self.x, self.y, weights_masked)
-                                # here we need weights as the original basis functions
-                                # are not weighted yet
+                desired_norm = scalar_product_without_weights(old_basis_func,
+                                                              old_basis_func,
+                                                              self.x, self.y,
+                                                              )
             else:
                 desired_norm = norm_func(ind)
 
