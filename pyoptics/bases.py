@@ -17,7 +17,9 @@ from scipy.misc import factorial as fac  # tolerant to negative arguments!
 from scipy.linalg import lstsq, qr, norm, cholesky
 import scipy.linalg as linalg
 
-from pyoptics.utils import scalar_product, kronecker_delta, weight_grid, simpson_weights, sgn
+from pyoptics.utils import (kronecker_delta, weight_grid, simpson_weights, sgn,
+                            scalar_product_with_weights, scalar_product_without_weights
+                           )
 
 # TODO: reintroduce scalar/inner product in BasisSet? this allowed for inner products that respected the mask/support automatically
 
@@ -421,8 +423,8 @@ class NumericallyOrthogonalized(PresampledBasisSet):
 
     # TODO: use Gram-Schmidt directly? Or rather use QR?
 
-    def __init__(self, x, y, base_type, indices, new_mask=None, weight_func=None, normalize=False,
-                 **kwargs):
+    def __init__(self, x, y, base_type, indices, new_mask=None, weight_func=None,
+                 norm_func=None, **kwargs):
         """Construct numerically orthogonalized basis function set.
 
         Parameters
@@ -433,10 +435,17 @@ class NumericallyOrthogonalized(PresampledBasisSet):
         indices : array-like
             Array of indices to sample.
         new_mask : array
-            TODO
+            New mask on which the basis functions should be numerically
+            orthogonalized on.
         weights_func : callable, optional
             Function that returns 1d weights for inner product summation. If
-            None, Simpson integration weights will be used.
+            None, Simpson integration weights will be used. The weights are also
+            used in norm computations.
+        norm_func : callable, optional
+            Function norm(i) that returns the desired norm for the i-th basis
+            function. Defaults to None, which will keep the old norm (even if
+            new_mask defines a new support).
+
         kwargs : dict
             Handed over to base_type object.
 
@@ -446,24 +455,32 @@ class NumericallyOrthogonalized(PresampledBasisSet):
         signs, a rescaling to prevent overall sign is performed. In this process
         the signs of the first element within the mask are evaluated. These
         should not be zero.
+
+        If a new mask is given, it is advised to choose the base_type such that
+        the new mask is 'filled' even with the original basis functions, e.g.
+        if the new mask is an annulus witzh outer radius R_outer and the
+        base_type are Fringe Zernike polynomials, it is recommended to set the
+        Fringe Zernikes R_norm parameter to R_outer.
+
+        If a new mask is given without a normalization function, the old the
+        new results can be diffult the compare as the old norms are kept. This
+        may be undesirable for different spatial support.
         """
 
-        # TODO: for new masks, norm can't be kept!
-        # TODO: introduce "normalize" flag?
-
         super(NumericallyOrthogonalized, self).__init__(x, y, base_type, indices, **kwargs)
-
-        if weight_func is None:
-            weight_func = lambda N : np.zeros(N) + 1.0
-        weights = weight_grid(weight_func, len(self.x), len(self.y))
-
-        # run orthogonalisation:
 
         if new_mask is None:
             mask = self.basis.mask > 0.0 # TODO: why > 0 necessary?
         else:
             mask = new_mask > 0.0
             self.mask = new_mask
+
+        if weight_func is None:
+            weight_func = lambda N : np.zeros(N) + 1.0
+        weights = weight_grid(weight_func, len(self.x), len(self.y))
+        weights_masked = weights[mask]
+
+        # run orthogonalisation:
 
         # determine size needed for basis matrix:
         num_samples_mask = np.sum(mask)  # number of rows
@@ -473,41 +490,36 @@ class NumericallyOrthogonalized(PresampledBasisSet):
         basis_funcs = np.zeros([num_samples_mask, num_basis_funcs], order="C")  # TODO: check order for best performance
         for i, ind in enumerate(indices):
             curr_sampled_func = self.sampled_funcs[ind]
-            basis_funcs[:, i] = (np.sqrt(weights[mask])*curr_sampled_func[mask])
+            basis_funcs[:, i] = (np.sqrt(weights_masked)*curr_sampled_func[mask])
 
         # QR:
         Q, _ = qr(basis_funcs, mode="economic")
 
-        ## Cholesky:
-        #V = basis_funcs
-        #L = cholesky(np.dot(np.conj(V.T), V))
-        #L_inv, _ = linalg.lapack.clapack.dtrtri(L)
-        #Q = np.dot(V, L_inv)
-
-        # TODO: move Cholesky and QR parts to own functions each
-
         for i, ind in enumerate(indices):
             curr_orthogonalized_basis_func = Q[:, i]
-            dx, dy = self.x[1] - self.x[0], self.y[1] - self.y[0]
-            curr_norm = np.sum(weights[mask]*np.conj(curr_orthogonalized_basis_func)
-                               *curr_orthogonalized_basis_func
-                              )*dx*dy
-            if normalize:  # is data to be renormalized?
-                if self._has_norm:  # if norm is known anayltically, keep it
-                    desired_norm = self.normalization_factor(ind)
-                else:  # otherwise assume 1.0 as norm
-                    desired_norm = 1.0
-            else:
+
+            # compute norm renormalized basis function. as the square root of
+            # the weights to use are already included in curr_orthogonalized_basis_func,
+            # we can use the scalar product that does not expect any weights:
+            curr_norm = scalar_product_without_weights(curr_orthogonalized_basis_func,
+                                                       curr_orthogonalized_basis_func,
+                                                       self.x, self.y)
+            if norm_func is None:
+                # keep old norm:
                 old_basis_func = basis_funcs[:, i]
-                desired_norm = np.sum(weights[mask]*np.conj(old_basis_func)*old_basis_func)*dx*dy
+                desired_norm = scalar_product_with_weights(old_basis_func, old_basis_func,
+                                                           self.x, self.y, weights_masked)
+                                # here we need weights as the original basis functions
+                                # are not weighted yet
+            else:
+                desired_norm = norm_func(ind)
 
             # overwrite sampled_funcs by orthogonalized data,
             # renormalize to old norm and apply scaling factor (preserve sign of first vector elements - QR decomposition may change that):
             scale = sgn(curr_orthogonalized_basis_func[0])*sgn(basis_funcs[0, i])
             self.sampled_funcs[ind][mask] = \
-                scale*curr_orthogonalized_basis_func/np.sqrt(curr_norm)*np.sqrt(desired_norm)/np.sqrt(weights[mask])
+                scale*curr_orthogonalized_basis_func/np.sqrt(curr_norm)*np.sqrt(desired_norm)/np.sqrt(weights_masked)
             self.sampled_funcs[ind][~mask] = 0.0
-            # TODO: should we really normalize to old norm or rather use normalization_factor() if present?
 
 
 if(__name__ == '__main__'):
