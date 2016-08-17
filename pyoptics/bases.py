@@ -14,8 +14,7 @@ from math import sqrt, floor, ceil
 import numpy as np
 from numpy.polynomial.legendre import legval2d, legval
 from scipy.misc import factorial as fac  # tolerant to negative arguments!
-from scipy.linalg import lstsq, qr, norm, cholesky
-import scipy.linalg as linalg
+from scipy.linalg import lstsq, qr
 
 from pyoptics.utils import (kronecker_delta, weight_grid, simpson_weights, sgn,
                             scalar_product_with_weights, scalar_product_without_weights
@@ -191,6 +190,71 @@ class PresampledBasisSet(BasisSet):
         return sampled_func
 
 
+def fringe_zernike_norm(j, R_norm=1.0):
+    n, m = fringe_to_n_m(j)  # radial and azimuthal index
+
+    norm = R_norm**2*np.pi*(1.+kronecker_delta(m, 0))/(2.*(n + 1.))
+
+    return norm
+
+
+def fringe_to_n_m(j):
+    """Map Fringe Zernike index j to Zernike indices n, m.
+    """
+
+    d = floor(sqrt(j-1)) + 1
+    m = floor((((d**2-j)/2)) if (((int(d)**2 - j) % 2) == 0) else ceil((-(d**2) + j - 1)/2.))
+    n = round((2.0*(d-1) - abs(m)))
+
+    return n, m
+
+
+def fringe_zernike_R_nm(n, m, rho):
+    """Radial polynomial for Zernikes.
+
+    Parameters
+    ----------
+    n : int
+    m : int
+    rho : array or number
+
+    Returns
+    -------
+    R_mm : number or array
+    """
+
+    N, M = int(n), int(m)
+
+    R = np.zeros_like(rho)
+    for k in range((N-M)/2 + 1):
+        R += (-1.0)**k * fac(N-k) / (fac(k) * fac((N+M)/2.0 - k) * fac((N-M)/2.0 - k)) * rho**(n-2.0*k)
+
+    return R
+
+def fringe_zernike_Y_m(m, phi):
+    """Angle dependence of Zernike polynomials.
+
+    Parameters
+    ----------
+    m : int
+    phi : array or number
+
+    Returns
+    -------
+    Y_m : number or array
+    """
+
+    # TODO: factor out?
+    if m > 0:
+        val = np.cos(m*phi)
+    elif m == 0:
+        val = np.ones(np.shape(phi))
+    else:
+        val = np.sin(m*phi)
+
+    return val
+
+
 class FringeZernikes(BasisSet):
     """Fringe Zernike polyonimals as described in Gross' Handbook of Optics (2nd vol) or
     http://www.jcmwave.com/JCMsuite/doc/html/ParameterReference/0c19949d2f03c5a96890075a6695b258.html
@@ -207,64 +271,10 @@ class FringeZernikes(BasisSet):
         self.mask = mask
         self._has_norm = True
 
-    def R_nm(self, n, m):
-        """Radial polynomial for Zernikes.
-
-        Parameters
-        ----------
-        n : int
-        m : int
-
-        Returns
-        -------
-        R_mm : number or array
-        """
-
-        # TODO: factor out?
-        N, M = int(n), int(m)
-
-        R = np.zeros_like(self.Rho)
-        for k in range((N-M)/2 + 1):
-            R += (-1.0)**k * fac(N-k) / (fac(k) * fac((N+M)/2.0 - k) * fac((N-M)/2.0 - k )) * self.Rho**(n-2.0*k)
-
-        return R
-
-    def Y_m(self, m):
-        """Angle dependence of Zernike polynomials.
-
-        Parameters
-        ----------
-        m : int
-
-        Returns
-        -------
-        Y_m : number or array
-        """
-
-        # TODO: factor out?
-        if m > 0:
-            val = np.cos(m*self.Phi)
-        elif m == 0:
-            val = np.ones(np.shape(self.Phi))
-        else:
-            val = np.sin(m*self.Phi)
-
-        return val
-
-    def fringe_to_n_m(self, j):
-        """Map Fringe Zernike index j to Zernike indices n, m.
-        """
-
-        d = floor(sqrt(j-1)) + 1
-        m = floor((((d**2-j)/2)) if (((int(d)**2 - j) % 2) == 0) else ceil((-(d**2) + j - 1)/2.))
-        n = round((2.0*(d-1) - abs(m)))
-
-        return n, m
-
     def eval_single(self, j):
-        n, m = self.fringe_to_n_m(j)
-        R = self.R_nm(n, abs(m))
-        Y = self.Y_m(m)
+        n, m = fringe_to_n_m(j)
+        R = fringe_zernike_R_nm(n, abs(m), self.Rho)
+        Y = fringe_zernike_Y_m(m, self.Phi)
 
         return R*Y*self.mask
 
@@ -283,14 +293,33 @@ class FringeZernikes(BasisSet):
         ----
         The Fringe Zernikes get their normalization from the choice of
         R(R_max) = 1. This means the norm over the entire (unit) disk may
-        differs with the Fringe index.
+        differ with the Fringe index.
         """
 
-        n, m = self.fringe_to_n_m(i)
-
-        norm = self.R_norm**2*np.pi*(1.+kronecker_delta(m, 0))/(2.*(n + 1.))
+        norm = fringe_zernike_norm(i, self.R_norm)
 
         return norm
+
+
+def legendre_norm(n, a=1.0):
+    """Return norm of L_n(x).
+
+    Parameters
+    ----------
+    n : int
+        Index to L_n(x).
+    a : number
+        Scaling parameter.
+
+    Returns
+    -------
+    norm : number
+    """
+
+    norm = a*2./(2*n + 1.)
+
+    return norm
+
 
 
 class LegendrePolynomials(BasisSet):
@@ -376,7 +405,8 @@ class LegendrePolynomials(BasisSet):
 
         # the Legendres are a product basis L_n(x)*L_m(y) - using Fubini's theorem, the
         # normalization can thus be written as the product of norms norm(L_n)*norm(L_m)
-        norm = self.a*self.b*4./((2*n + 1.)*(2*m + 1.))
+        #norm = self.a*self.b*4./((2*n + 1.)*(2*m + 1.))
+        norm = legendre_norm(n, self.a)*legendre_norm(m, self.b)
 
         return norm
 
@@ -426,8 +456,6 @@ class NumericallyOrthogonalized(PresampledBasisSet):
     Gram-Schmidt procedure on the given grid.
     """
 
-    # TODO: use Gram-Schmidt directly? Or rather use QR?
-
     def __init__(self, x, y, base_type, indices, new_mask=None, weight_func=None,
                  norm_func=None, **kwargs):
         """Construct numerically orthogonalized basis function set.
@@ -444,8 +472,8 @@ class NumericallyOrthogonalized(PresampledBasisSet):
             orthogonalized on.
         weights_func : callable, optional
             Function that returns 1d weights for inner product summation. If
-            None, Simpson integration weights will be used. The weights are also
-            used in norm computations.
+            None, a standard midpoint rule will be used. The weights are
+            also used in norm computations.
         norm_func : callable, optional
             Function norm(i) that returns the desired norm for the i-th basis
             function. Defaults to None, which will keep the old norm (even if
@@ -481,7 +509,7 @@ class NumericallyOrthogonalized(PresampledBasisSet):
             self.mask = new_mask
 
         if weight_func is None:
-            weight_func = lambda N : np.zeros(N) + 1.0
+            weight_func = lambda N: np.zeros(N) + 1.0
         weights = weight_grid(weight_func, len(self.x), len(self.y))
         weights_masked = weights[mask]
 
