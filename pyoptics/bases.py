@@ -137,7 +137,12 @@ class BasisSet(object):
             norms = len(indices)*(1.0,)
 
         # TODO: weights are hardcoded, how to change that?
-        coeffs = 1.0/np.array(norms)*np.array([scalar_product(self.eval_single(i), self.mask*field, self.x, self.y, simpson_weights) for i in indices])
+        coeffs = 1.0/np.array(norms)*np.array([scalar_product(self.eval_single(i),
+                                                              self.mask*field,
+                                                              self.x, self.y,
+                                                              simpson_weights)
+                                               for i in indices
+                                               ])
 
         return coeffs
 
