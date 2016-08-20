@@ -301,7 +301,7 @@ class FringeZernikes(BasisSet):
         return norm
 
 
-def legendre_norm(n, a=1.0):
+def legendre_norm_1d(n, a=1.0):
     """Return norm of L_n(x).
 
     Parameters
@@ -317,6 +317,28 @@ def legendre_norm(n, a=1.0):
     """
 
     norm = a*2./(2*n + 1.)
+
+    return norm
+
+
+def legendre_norm_2d(j, a=1.0, b=1.0):
+    """Return norm of tensor product basis state L_n(x)*L_m(y).
+
+    Parameters
+    ----------
+    j : int
+        Single index to tensor product state. Maps to n, m as in
+        LegendrePolynomials class.
+    a, b : numbers
+        x and y scaling parameters.
+
+    Returns
+    -------
+    norm : number
+    """
+
+    n, m = _poly_single_index_to_n_m(j)
+    norm = legendre_norm_1d(n, a)*legendre_norm_1d(m, b)
 
     return norm
 
@@ -401,12 +423,10 @@ class LegendrePolynomials(BasisSet):
         norm : double
         """
 
-        n, m = self.single_index_to_n_m(i)
-
-        # the Legendres are a product basis L_n(x)*L_m(y) - using Fubini's theorem, the
-        # normalization can thus be written as the product of norms norm(L_n)*norm(L_m)
-        #norm = self.a*self.b*4./((2*n + 1.)*(2*m + 1.))
-        norm = legendre_norm(n, self.a)*legendre_norm(m, self.b)
+        # the Legendres are a product basis L_n(x)*L_m(y) - using Fubini's
+        # theorem, the normalization can thus be written as the product of
+        # norms norm(L_n)*norm(L_m)
+        norm = legendre_norm_2d(i, self.a, self.b)
 
         return norm
 
