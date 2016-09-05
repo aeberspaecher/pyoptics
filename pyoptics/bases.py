@@ -19,6 +19,7 @@ from scipy.linalg import lstsq, qr
 from pyoptics.utils import (kronecker_delta, weight_grid, simpson_weights, sgn,
                             scalar_product_with_weights, scalar_product_without_weights
                            )
+from pyoptics.masks import circular_mask, rectangluar_mask
 
 # TODO: reintroduce scalar/inner product in BasisSet? this allowed for inner products that respected the mask/support automatically
 
@@ -266,9 +267,7 @@ class FringeZernikes(BasisSet):
         self.Rho = np.sqrt(self.XX**2 + self.YY**2)/R_norm
         self.Phi = np.arctan2(self.YY, self.XX)
 
-        mask = np.zeros(np.shape(self.XX), dtype=np.int)
-        mask[self.Rho <= 1.0] = 1
-        self.mask = mask
+        self.mask = circular_mask(x, y, R_norm)  # TODO: introduce x0, y0!
         self._has_norm = True
 
     def eval_single(self, j):
@@ -366,11 +365,7 @@ class LegendrePolynomials(BasisSet):
         self.XX_scaled, self.YY_scaled = np.meshgrid(self.x_scaled, self.y_scaled)
 
         # mask is a rectangle x_scaled = [-1, +1], y_scaled = [-1, +1]
-        self.mask_x = np.zeros_like(x, dtype=np.int)
-        self.mask_x[(self.x_scaled >= -1) & (self.x_scaled <= +1)] = 1
-        self.mask_y = np.zeros_like(y, dtype=np.int)
-        self.mask_y[(self.y_scaled >= -1) & (self.y_scaled <= +1)] = 1
-        self.mask = np.outer(self.mask_y, self.mask_x)
+        self.mask, self.mask_x, self.mask_y = rectangluar_mask(x, y, a, b, x0, y0, True)
 
     def __call__(self, indices, coeffs=None):
         """Return basis functions for given indices.
