@@ -23,5 +23,8 @@ inv_FT_unitary = lambda x: inv_FT(x)*np.sqrt(np.product(np.shape(x)))
 rFT = lambda x: fftshift(rfft2(ifftshift(x)))
 inv_rFT = lambda x: fftshift(irfft2(ifftshift(x)))
 
+rFT_unitary = lambda x: rFT(x)/np.sqrt(np.product(np.shape(x)))
+inv_rFT_unitary = lambda x: inv_rFT(x)*np.sqrt(np.product(np.shape(x)))
+
 
 # TODO: add more routines that avoid fftshift?
