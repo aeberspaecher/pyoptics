@@ -5,6 +5,7 @@
 """
 
 from math import pi
+import sys
 
 import numpy as np
 from numpy.fft import fftfreq, fftshift
@@ -26,6 +27,14 @@ deg_to_rad = lambda d: d/180.0*pi
 rad_to_deg = lambda r: r/pi*180.0
 sin_cos = lambda phi: (np.sin(phi), np.cos(phi))
 kronecker_delta = lambda n, m : (1.0 if n == m else 0.0)
+
+
+def sgn(x):
+    """Sign function using the convention sgn(0) = 1.0.
+    """
+
+    # FIXME: this approach is risky for -epsilon! this evaluated to a sign of +1
+    return np.sign(x + sys.float_info.epsilon)  # adding machine eps makes sgn(0) = 1
 
 
 def Z(n):
@@ -313,8 +322,57 @@ def scalar_product(field1, field2, x, y, weight_func=None):
     else:
         weights = weight_grid(weight_func, len(x), len(y))
 
+    #dx, dy = x[1] - x[0], y[1] - y[0]
+    #prod = np.sum(weights*np.conj(field1)*field2)*dx*dy
+    prod = scalar_product_with_weights(field1, field2, x, y, weights)
+
+    return prod
+
+
+def scalar_product_with_weights(field1, field2, x, y, weights):
+    """Compute the scalar product <field_1|field_2> (using the physicist's
+    convention of complex conjugation for field1).
+
+    Parameters
+    ----------
+    field1, field2 : arrays
+        Sampled fields.
+    x, y : arrays
+        Linear x and y arrays.
+    weights : array
+        Weights array of same shape as field1, field2.
+
+    Returns
+    -------
+    s : complex
+        Scalar product.
+    """
+
     dx, dy = x[1] - x[0], y[1] - y[0]
     prod = np.sum(weights*np.conj(field1)*field2)*dx*dy
+
+    return prod
+
+
+def scalar_product_without_weights(field1, field2, x, y):
+    """Compute the scalar product <field_1|field_2> (using the physicist's
+    convention of complex conjugation for field1).
+
+    Parameters
+    ----------
+    field1, field2 : arrays
+        Sampled fields.
+    x, y : arrays
+        Linear x and y arrays.
+
+    Returns
+    -------
+    s : complex
+        Scalar product.
+    """
+
+    dx, dy = x[1] - x[0], y[1] - y[0]
+    prod = np.sum(np.conj(field1)*field2)*dx*dy
 
     return prod
 
@@ -366,6 +424,9 @@ def simpson_weights(N):
     return w
 
 
+#def trapz_weights(N):
+
+
 def weight_grid(func, Nx, Ny):
     """Create a meshed weight grid from a funtion weights(N) that returns
     a weight vector of length N.
@@ -380,7 +441,37 @@ def weight_grid(func, Nx, Ny):
     return w
 
 
-#def trapz_weights(N):
+def Ez(x, y, Ex, Ey, wl, n=1.0):
+    """Compute z-component of electrical field from x&y components.
+    Assumes charge-free region.
+
+    Parameters
+    ----------
+    x, y : arrays
+        x and y coordinates of sampled fields.
+    Ex, Ey : arrays
+        x and y field components.
+    wl : number
+        Wavelength in same units as x and y.
+    n : number, optional
+        Refractive index of medium.
+    """
+
+    # TODO: do we have any reason to allow charges?
+    # TODO: test case! (diffraction of linearly polarized Gaussian?)
+
+    # use div(E) = 0: in k-space this equation gives k \cdot E(k) = 0, which needs to
+    # be true for all k.
+
+    E_tilde_x, E_tilde_y = FT_unitary(Ex), FT_unitary(Ey)
+    Nu_x, Nu_y = freq_grid(x, y, wavenumbers=False, normal_order=False)
+    Nu_z = k_z(n/wl, Nu_x, Nu_y)
+
+    E_tilde_z = (-Nu_x*E_tilde_x - Nu_y*E_tilde_y)/Nu_z
+
+    E_z = inv_FT_unitary(E_tilde_z)
+
+    return E_z
 
 
 def super_gaussian(x, y, x0, y0, sigma_x, sigma_y, N):
