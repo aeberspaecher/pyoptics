@@ -19,8 +19,10 @@ def mahajan_on_axis_intensity(a, epsilon, I0, wavelength, z, R=None):
     z : number
         Axial distance from apeture.
     R : number, optional
-        Radius of curvature of wavefront in aperture. Defaults to None, which
-        is interpreted as the infite curvature of a collimated beam.
+        Radius defining curvature 1/R of wavefront in aperture. Defaults to
+        None, which is interpreted as the infite curvature of a collimated
+        beam. R is the distance of geometric focus from the center of the
+        aperture.
 
     Returns
     -------
@@ -29,7 +31,7 @@ def mahajan_on_axis_intensity(a, epsilon, I0, wavelength, z, R=None):
 
     Note
     ----
-    Mahajan's results are obtained using scalar Rayleigh-Sommerfel
+    Mahajan's results are obtained using scalar Rayleigh-Sommerfeld
     diffraction theory.
 
     TODO: Mahajan paper citation
