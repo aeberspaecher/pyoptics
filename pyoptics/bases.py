@@ -17,7 +17,8 @@ from scipy.misc import factorial as fac  # tolerant to negative arguments!
 from scipy.linalg import lstsq, qr
 
 from pyoptics.utils import (kronecker_delta, weight_grid, simpson_weights, sgn,
-                            scalar_product_with_weights, scalar_product_without_weights
+                            scalar_product_without_weights,
+                            scalar_product
                            )
 from pyoptics.masks import circular_mask, rectangluar_mask
 
