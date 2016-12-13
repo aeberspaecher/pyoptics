@@ -22,8 +22,52 @@ S_RCP = np.array([1., 0, 0, +1])  # right-hand circular
 S_unpol = np.array([1., 0, 0, 0])  # unpolarized
 
 
-def linear_polarizer(phi):
-    """Linear polarizer with axis of polarization at angle phi.ö
+def stokes_from_complex_E(E):
+    """Compute Stokes vector for polarization state described by complex
+    electric field components.
+
+    Parameters
+    ----------
+    E : array
+        Complex field amplitude, E[0] is interpreteted as x-component; E[1] as
+        y-component.
+
+    Returns
+    -------
+    S : array
+        Stokes vector.
+    """
+
+    E_x, E_y = E[0], E[1]
+
+    S = np.array( [
+                    E_x*np.conj(E_x) + E_y*np.conj(E_y),
+                    E_x*np.conj(E_x) - E_y*np.conj(E_y),
+                    E_x*np.conj(E_y) + E_y*np.conj(E_x),
+                    1j*(E_x*np.conj(E_y) - E_y*np.conj(E_x))
+                  ]
+                )
+
+    return S
+
+
+def stokes_DOP(S):
+    """Compute degree of polarization for given Stokes vector.
+
+    Parameters
+    ----------
+    S : arrray
+
+    Returns
+    -------
+    DOP : number
+    """
+
+    return np.sqrt(S[1]**2 + S[2]**2 + S[3]**2)/S[0]
+
+
+def M_linear_polarizer(phi):
+    """Linear polarizer with axis of polarization at angle phi.
 
     Parameters
     ----------
@@ -48,7 +92,7 @@ def linear_polarizer(phi):
     return M
 
 
-def retarder(phi, delta):
+def M_retarder(phi, delta):
     """Müller matrix for retarder with fast axis angle phi and retardance delta.
 
     Parameters
@@ -79,7 +123,7 @@ def retarder(phi, delta):
     return M
 
 
-def attenuator(trans):
+def M_attenuator(trans):
     """Müller matrix for attenuator with transmission trans.
 
     Parameters
@@ -96,7 +140,7 @@ def attenuator(trans):
     return trans*np.eye(4)
 
 
-def reflection_dielectric(r_s, r_p, *args):
+def M_reflection_dielectric(r_s, r_p, *args):
     """Müller matrix for reflection from a dieletric film stack.
 
     Parameters
@@ -126,7 +170,7 @@ def reflection_dielectric(r_s, r_p, *args):
     return M
 
 
-def transmission_dielectric(t_s, t_p, theta_in, n_embedding, n_substrate, pol):
+def M_transmission_dielectric(t_s, t_p, theta_in, n_embedding, n_substrate, pol):
     """Müller matrix for transmission from a dieletric film stack.
 
     Parameters
@@ -165,7 +209,7 @@ def transmission_dielectric(t_s, t_p, theta_in, n_embedding, n_substrate, pol):
     return M
 
 
-def reflection_metal(theta, n_metal, n_embedding=1.0):
+def M_reflection_metal(theta, n_metal, n_embedding=1.0):
     """Müller matrix for reflection from a metal surface.
 
     Parameters
@@ -210,7 +254,7 @@ def reflection_metal(theta, n_metal, n_embedding=1.0):
     return M
 
 
-def from_jones(J):
+def M_from_jones(J):
     """Construct Müller matrix from Jones matrix.
 
     Parameters
