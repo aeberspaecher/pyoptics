@@ -303,3 +303,30 @@ def retardance_from_AOI(theta, phi, delta_0, n_o, n_e):
 
     return delta
 
+
+def M_TIR(phi, n):
+    """Müller matrix for total internal reflection.
+
+    Parameters
+    ----------
+    phi : number
+        Angle of incidence
+    n : number
+        (Real) refractive index
+
+    Returns
+    -------
+    M : array
+        Müller matrix
+    """
+
+    delta = 2*np.arctan2(np.cos(phi)*np.sqrt(n**2*np.sin(phi)-1), n*np.sin(phi)**2)
+    M = np.array( [
+                    [1., 0, 0, 0],
+                    [0, 1, 0, 0],
+                    [0, 0, np.cos(delta), -np.sin(delta)],
+                    [0, 0, np.sin(delta), np.cos(delta)]
+                  ]
+                )
+
+    return M
