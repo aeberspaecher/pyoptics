@@ -47,14 +47,15 @@ def plot_intensity(psi, x, y, xlabel=None, ylabel=None, title=None, colorbar=Tru
 
     if "cmap" not in kwargs:
         kwargs["cmap"] = default_cmap
+    if "origin" not in kwargs:
+        kwargs["origin"] = "lower"
 
     fig = plt.figure(facecolor="white")
     ax = plt.gca()
 
     ax.locator_params(nbins=5)
 
-    plt.imshow(psi, extent=(x[0], x[-1], y[0], y[-1]), origin="lower",
-               **kwargs)
+    plt.imshow(psi, extent=(x[0], x[-1], y[0], y[-1]), **kwargs)
     if xlabel is not None:
         plt.xlabel(xlabel)
     if ylabel is not None:
