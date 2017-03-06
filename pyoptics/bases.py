@@ -61,6 +61,14 @@ class BasisSet(object):
 
         pass
 
+    def eval_single_scattered(self, x, y, i):
+        """Return i-th basis function at scattered (x, y) points.
+        """
+
+        # used in fitting routine for scattered data
+
+        raise NotImplementedError("Do not call this function in base class.")
+
     def normalization_factor(self, i):
         """Return norm of i-th basis function. This is used in basis expansions.
         """
@@ -72,15 +80,15 @@ class BasisSet(object):
         """
 
         if method == "LSTSQ":
-            coeffs = self._coeffs_from_field_lstsq(field, indices)
+            coeffs = self._coeffs_from_lstsq(field, indices)
         elif method == "DI":
-            coeffs = self._coeffs_from_field_integration(field, indices)
+            coeffs = self._coeffs_from_integration(field, indices)
         else:
             raise ValueError("Unknown method. Must be one of 'LSTSQ' or 'DI'")
 
         return coeffs
 
-    def _coeffs_from_field_lstsq(self, field, indices):
+    def _coeffs_from_lstsq(self, field, indices):
         """Determine basis expansion coefficients by least-square fitting.
 
         Parameters
@@ -115,7 +123,7 @@ class BasisSet(object):
 
         return coeffs
 
-    def _coeffs_from_field_integration(self, field, indices):
+    def _coeffs_from_integration(self, field, indices):
         """Determine basis expansion coefficients by direct overlap integral
         computation.
 
@@ -144,6 +152,21 @@ class BasisSet(object):
                                                               simpson_weights)
                                                for i in indices
                                                ])
+
+        return coeffs
+
+
+    def coeffs_from_scattered(self, x, y, data, indices):
+        # TODO: implement
+
+        # TODO: preconditioning?
+        Z_i = [self.eval_single_scattered(x, y, i) for i in indices]
+        N_samples = len(Z_i[0])
+        N_indices = len(indices)
+        M = np.zeros([N_samples, N_indices])
+        for i in range(N_indices):
+            M[:, i] = Z_i[i]
+        coeffs, _, _, _ = lstsq(M, data)
 
         return coeffs
 
@@ -298,6 +321,16 @@ class FringeZernikes(BasisSet):
 
         return R*Y*self.mask
 
+    def eval_single_scattered(self, x, y, j):
+        n, m = fringe_to_n_m(j)
+        rho = np.sqrt(x**2 + y**2)/self.R_norm
+        phi = np.arctan2(y, x)
+
+        R = fringe_zernike_R_nm(n, abs(m), rho)
+        Y = fringe_zernike_Y_m(m, phi)
+
+        return R*Y
+
     def normalization_factor(self, i):
         """Norm <Z_i|Z_i> of i-th Fringe-Zernike polynomial.
 
@@ -418,6 +451,23 @@ class LegendrePolynomials(BasisSet):
         xy_poly = np.outer(legval(self.y_scaled, cy), legval(self.x_scaled, cx))  # TODO: order?
 
         return self.mask*xy_poly
+
+    def eval_single_scattered(self, x, y, i):
+        """Return i-th basis function at scattered (x, y) points.
+        """
+
+        n, m = self.single_index_to_n_m(i)
+
+        cx = np.zeros(n+1)
+        cx[n] = 1.0
+        cy = np.zeros(m+1)
+        cy[m] = 1.0
+
+        Lx = legval(x, cx)
+        Ly = legval(y, cy)
+
+        return Lx*Ly
+
 
     def single_index_to_n_m(self, index):
         """Convert single index to indices n, m for L_n(x) and L_m(y).
@@ -590,6 +640,13 @@ class NumericallyOrthogonalized(PresampledBasisSet):
                 scale*curr_orthogonalized_basis_func/np.sqrt(curr_norm)*np.sqrt(desired_norm)/np.sqrt(weights_masked)
             self.sampled_funcs[ind][~mask] = 0.0
 
+    def eval_single_scattered(self, x, y, i, interpolation="linear"):
+        # TODO: implement
+
+        # generate interpolator (if not yet present)
+        # use interpolator to interpolate to scattered x, y
+
+        raise NotImplementedError()
 
 if(__name__ == '__main__'):
     from pyoptics.utils import grid1d
