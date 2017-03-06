@@ -211,6 +211,28 @@ def fringe_to_n_m(j):
     return n, m
 
 
+def _fringe_zernike_R_nm_coeffs(n, m):
+    """Coefficients of R_nm.
+
+    Parameters
+    ----------
+    n, m : ints
+
+    Returns
+    -------
+    coeffs : array
+        Coefficients, coeffs[0] contains coefficients of highest power.
+    """
+
+    N, M = int(n), int(m)
+
+    coeffs = np.zeros(N+1)
+    for k in range((N-M)/2 + 1):
+        coeffs[N-2*k] = (-1.0)**k * fac(N-k) / (fac(k) * fac((N+M)/2.0 - k) * fac((N-M)/2.0 - k))
+
+    return coeffs[::-1]  # highest power first, for np.polyval()
+
+
 def fringe_zernike_R_nm(n, m, rho):
     """Radial polynomial for Zernikes.
 
@@ -225,13 +247,11 @@ def fringe_zernike_R_nm(n, m, rho):
     R_mm : number or array
     """
 
-    N, M = int(n), int(m)
-
-    R = np.zeros_like(rho)
-    for k in range((N-M)/2 + 1):
-        R += (-1.0)**k * fac(N-k) / (fac(k) * fac((N+M)/2.0 - k) * fac((N-M)/2.0 - k)) * rho**(n-2.0*k)
+    coeffs = _fringe_zernike_R_nm_coeffs(n, m)
+    R = np.polyval(coeffs, rho)
 
     return R
+
 
 def fringe_zernike_Y_m(m, phi):
     """Angle dependence of Zernike polynomials.
