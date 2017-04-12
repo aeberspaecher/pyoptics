@@ -497,12 +497,74 @@ class LegendrePolynomials(BasisSet):
         return norm
 
 
+class ChebyshevPolynomials(BasisSet):
+    """Chebyshev polynomials are a suitable basis set for fields defined on
+    rectangular apertures.
+
+    The basis set is the product of two Chebyshev polynomials T_i(x)*T_j(y).
+    The bases is orthogonal with respect to a specific scalar product with
+    weight function 1/sqrt(1-x**2) for each dimension.
+
+    """
+
+    def __init__(self, x, y, a, b, x0=0.0, y0=0.0):
+        super(ChebyshevPolynomials, self).__init__(x, y)
+        self.a = a
+        self.b = b
+        self.x0 = x0
+        self.y0 = y0
+        self._has_norm = False
+
+        # store scaled x and y arrays (should contain interval (-1, +1))
+        # for NumPy legval calls:
+        self.x_scaled, self.y_scaled = (x-x0)/a, (y-y0)/b
+        self.XX_scaled, self.YY_scaled = np.meshgrid(self.x_scaled, self.y_scaled)
+
+        # mask is a rectangle x_scaled = [-1, +1], y_scaled = [-1, +1]
+        self.mask, self.mask_x, self.mask_y = rectangluar_mask(x, y, a, b, x0, y0, True)
+
+    def eval_single(self, index):
+        n, m = self.single_index_to_n_m(index)
+
+        # outer product approach:
+        cx = np.zeros(n+1)
+        cx[n] = 1.0
+        cy = np.zeros(m+1)
+        cy[m] = 1.0
+        xy_poly = np.outer(chebval(self.y_scaled, cy), chebval(self.x_scaled, cx))  # TODO: order?
+
+        return self.mask*xy_poly
+
+    def eval_single_scattered(self, x, y, i):
+        """Return i-th basis function at scattered (x, y) points.
+        """
+
+        n, m = self.single_index_to_n_m(i)
+
+        cx = np.zeros(n+1)
+        cx[n] = 1.0
+        cy = np.zeros(m+1)
+        cy[m] = 1.0
+
+        Lx = chebval(x, cx)
+        Ly = chebval(y, cy)
+
+        return Lx*Ly
+
+    def single_index_to_n_m(self, index):
+        """Convert single index to indices n, m for L_n(x) and L_m(y).
+        """
+
+        n, m = _poly_single_index_to_n_m(index)
+
+        return n, m
+
+
 def _poly_single_index_to_n_m(single_ind):
     """Map single index to x, y indices/powers.
 
     n and m may be used as powers in monomials (Polynomials class) or as indices
     for e.g. Legendre polynomials.
-
     """
 
     # find order of monomial: single_ind >= (order+1)*(order+2)
