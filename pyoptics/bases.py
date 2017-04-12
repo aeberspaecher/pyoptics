@@ -421,24 +421,28 @@ class LegendrePolynomials(BasisSet):
         # mask is a rectangle x_scaled = [-1, +1], y_scaled = [-1, +1]
         self.mask, self.mask_x, self.mask_y = rectangluar_mask(x, y, a, b, x0, y0, True)
 
-    def __call__(self, indices, coeffs=None):
-        """Return basis functions for given indices.
-        """
+    ## TODO: implement __call__() that uses legval2d
+    #def __call__(self, indices, coeffs=None):
+        #"""Return basis functions for given indices.
+        #"""
 
-        if coeffs is None:
-            coeffs = np.ones(len(indices))
+        #if coeffs is None:
+            #coeffs = np.ones(len(indices))
 
-        n, m = self.single_index_to_n_m(index)
+        #for index in indices:
+            #n, m = self.single_index_to_n_m(index)
 
-        #c = np.zeros(2*(max(n, m)+1,))
-        c = np.zeros([n, m])
-        # using legval2d, row index goes to x polynomial, column index to y polynmomial:
-        c[n, m] = 1.0
-        xy_poly = legval2d(self.XX_scaled, self.YY_scaled, c)
+            #c = np.zeros(2*(max(n, m)+1,))
+            ##c = np.zeros([n, m])
+            ## using legval2d, row index goes to x polynomial, column index to y polynmomial:
+            #c[n, m] = 1.0
+            #xy_poly = legval2d(self.XX_scaled, self.YY_scaled, c)
 
-        # TODO: fix this routine!
+            #xy_poly
 
-        return xy_poly
+        ## TODO: fix this routine!
+
+        #return val
 
     def eval_single(self, index):
         n, m = self.single_index_to_n_m(index)
