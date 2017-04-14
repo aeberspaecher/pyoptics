@@ -301,17 +301,18 @@ def fringe_zernike_Y_m(m, phi):
 
 
 class FringeZernikes(BasisSet):
-    """Fringe Zernike polyonimals as described in Gross' Handbook of Optics (2nd vol) or
+    """Fringe Zernike polyonimals as described in Gross' Handbook of Optics
+    (2nd vol) or
     http://www.jcmwave.com/JCMsuite/doc/html/ParameterReference/0c19949d2f03c5a96890075a6695b258.html
     """
 
-    def __init__(self, x, y, R_norm):
-        super(FringeZernikes, self).__init__(x, y)
+    def __init__(self, x, y, R_norm, x0=0.0, y0=0.0):
+        super(FringeZernikes, self).__init__(x-x0, y-y0)
         self.R_norm = R_norm
-        self.Rho = np.sqrt(self.XX**2 + self.YY**2)/R_norm
+        self.Rho = np.sqrt((self.XX)**2 + (self.YY)**2)/R_norm
         self.Phi = np.arctan2(self.YY, self.XX)
 
-        self.mask = circular_mask(x, y, R_norm)  # TODO: introduce x0, y0!
+        self.mask = circular_mask(x-x0, y-y0, R_norm)  # TODO: introduce x0, y0!
         self._has_norm = True
 
     def eval_single(self, j):
