@@ -13,6 +13,7 @@ from math import sqrt, floor, ceil
 
 import numpy as np
 from numpy.polynomial.legendre import legval2d, legval
+from numpy.polynomial.chebyshev import chebval
 from scipy.misc import factorial as fac  # tolerant to negative arguments!
 from scipy.linalg import lstsq, qr
 
