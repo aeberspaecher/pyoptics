@@ -716,6 +716,50 @@ class NumericallyOrthogonalized(PresampledBasisSet):
 
         raise NotImplementedError()
 
+
+class RescaledBasis(BasisSet):
+    """Rescale basis functions on a new aperture/mask.
+
+    Use this for e.g. normalizing FringeZernikes an non-circular aperture such
+    that coefficients can again be read as maxrture such that
+    coefficients can again be read as maximum value on the aperture.
+    """
+
+    def __init__(self, x, y, basis_type, mask, scale_func, scale_val_func, **kwargs):
+        """Create RescaledBasis instance.
+
+        Parameters
+        ----------
+        x, y : arrays
+            Linear coordinate arrays
+        basis_type : BasisSet subclass object
+            The basis to use with a new mask
+        mask : array
+            Sampled mask or aperture to use with evaluated basis functions.
+        scale_func : callable
+            Callable that returns a scale for evaluated basis function, e.g.
+            lambda val: np.nanmax(np.abs(val))
+        scale_val_func : callable
+            Function that computes the new scale for a given index, e.g.
+            lambda i : 1 for an index-independent scale of 1.
+        kwargs : dict
+            Handed to basis_type on instantiation.
+        """
+
+        super(RescaledBasis, self).__init__(x, y)
+        self.mask = mask  # store new mask, used in evaluation
+        self._basis = basis_type(x, y, **kwargs)  # instantiate basis for new aperture
+        self.scale_func = scale_func
+        self.scale_val_func = scale_val_func
+
+    def eval_single(self, index):
+        val = self._basis.eval_single(index)
+        val *= self.mask
+        old_scale = self.scale_func(val)
+        new_scale = self.scale_val_func(index)
+        val *= new_scale/old_scale
+
+        return val
 if(__name__ == '__main__'):
     from pyoptics.utils import grid1d
     from pyoptics.plot_tools import plot_intensity
