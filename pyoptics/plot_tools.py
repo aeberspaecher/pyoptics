@@ -20,7 +20,7 @@ default_cmap_phase = plt.cm.bwr
 
 
 def plot_intensity(psi, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
-                   n=1.0, **kwargs):
+                   use_intensity=False, n=1.0, **kwargs):
     """Plot an intensity image.
 
     Parameters
@@ -35,6 +35,9 @@ def plot_intensity(psi, x, y, xlabel=None, ylabel=None, title=None, colorbar=Tru
         Matplotlib options.
     colorbar : boolean, optional
         If True, a colorbar is added.
+    use_intensity : boolean, optional
+        If True, use physical intensity for the plot. Otherwise,
+        use abs(psi)**2 [default].
     n : double, optional
         Refractive index of embedding medium. Defaults to n=1.0. Used if psi is
         complex.
@@ -43,7 +46,7 @@ def plot_intensity(psi, x, y, xlabel=None, ylabel=None, title=None, colorbar=Tru
     """
 
     if np.iscomplexobj(psi):
-        psi = I(psi, n)
+        psi = I(psi, n) if use_intensity else np.abs(psi)**2
 
     if "cmap" not in kwargs:
         kwargs["cmap"] = default_cmap
@@ -69,7 +72,7 @@ def plot_intensity(psi, x, y, xlabel=None, ylabel=None, title=None, colorbar=Tru
 
 
 def plot_field(field, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
-               use_intensity=True, amp_title=None, phase_title=None,
+               use_intensity=False, amp_title=None, phase_title=None,
                horizontal_layout=True,
                use_rad=False, n=1.0, **kwargs):
     """Plot an intensity image.
@@ -85,8 +88,8 @@ def plot_field(field, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
     colorbar : boolean, optional
         If True, a colorbar is added.
     use_intensity : boolean, optional
-        If True (default), use intensity for the amplitude plot. Otherwise,
-        use abs(psi).
+        If True, use intensity for the amplitude plot. Otherwise,
+        use abs(psi) [default].
     n : double, optional
         Refractive index of embedding medium. Defaults to n=1.0. Used if psi is
         complex.
