@@ -37,7 +37,7 @@ Imager
   - Chirp z transform as a zoom FFT for better pupil sampling
   - classes for each ingredient (aperture mask, wavefront, apodisation) (allows
     to store a state [e.g. Zernike basis sizes, norms or ordering conventions] as
-    well as easy usage [when the object are callable])
+    well as easy usage [when the objects are callable])
   - describe each defining component by only one vector (for optimization
     purposes - however, we might be able to write a calling function that
     does unpacking magic)
@@ -116,6 +116,10 @@ Methods:
 This class can be used in the imager for the pupil mask and specifically for
 the wavefront and the apodisation.
 
+Another neat idea would be a Factory that generates a Basis Object from a
+numbering scheme (n -> i, j, k...) and a callable. This Factory could be used
+to generate Basis objects out of the beam module members!
+
 Utils
 -----
 
@@ -142,7 +146,7 @@ Polarization
 ------------
 
 - polarization converter (?): convert from Ex Ey representations to E_TM and
-  E_TM ones - can this be done spectrally (ExEy -> TE,TM: is this more than a
+  E_TE ones - can this be done spectrally (ExEy -> TE,TM: is this more than a
   projection onto radial and tangential basis vectors in k-space)?
 - Jones and Müller matrices:
     - Müller matrices for general polarisers, general retarders
@@ -244,27 +248,31 @@ tfftw should probably have an pyfftw accelerated fftconvolve.
 Ideas
 -----
 
+- Ince-Gaussian beams
 - rotations from czt as in that paper
 - different phase tools (parabolic phase front, spherical ones)
 - accuracy improved FFT as in Numerical Recipes
-- Rayleigh-Sommerfeld direct integration as in that paper
+- Rayleigh-Sommerfeld direct integration as in that paper (DONE)
 - PSF tool as an iteractive IPython Notebook thingy
-- simple aperture masks: circle, rectangle
+- simple aperture masks: circle, rectangle (DONE)
+- analytical solutions (diffraction from circular aperture) and representations
+  (plane wave expansion of spherical waves)?
+- ABCD matrices?
 
-- simmulated annealing with pixelated photomasks to arrive at target intensity distributions?
+- simulated annealing with pixelated photomasks to arrive at target intensity distributions?
 
 
 Neat checks or illustrations
 ----------------------------
 
 - Propagator matching: match all propagators somewhere in the regime of Fresnel
-  number around ~ 0.1
-- Through focus behaviour of lines and spaces patterns
+  number around ~ 0.1; also check against Mahajan's analytical on-axis results
+- Through focus behaviour of lines and spaces patterns; Talbot effect?
 - Apodization can help!
 - Simulated Annealing: can we have the algorithm design a Fresnel lens?
 - Something with Talbot imaging
 - Phantasy litho mask materials: optimisation for 6% / pi?
-
+- TIE for paraxial beams
 
 License
 -------
