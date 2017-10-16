@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 
 
 import pyoptics as po
-from pyoptics.utils import grid1d
-from pyoptics.plot_tools import plot_image
+from pyoptics.utils import grid1d, grid2d
+from pyoptics.plot_tools import plot_intensity
 from pyoptics.propagators import (fresnel_number, z_from_fresnel_number,
                                   fresnel_IR, fresnel_TF,
                                   rayleigh_sommerfeld_I_IR,
@@ -18,27 +18,27 @@ from pyoptics.propagators import (fresnel_number, z_from_fresnel_number,
                                   rayleigh_sommerfeld_I_DI)
 
 
-N = 1023
+N = 768
 wl = 0.630  # e.g. micrometers
-x_max = 9000
-x_aperture_size = 200
+x_max = 12000
+x_aperture_size = 1500
 
-x = grid1d((-x_max, +x_max), N, assume_periodicity=True)
-y = grid1d((-x_max, +x_max), N, assume_periodicity=True)
-X, Y = np.meshgrid(x, y)
+#x = grid1d(-x_max, +x_max, N, assume_periodicity=True)
+#y = grid1d(-x_max, +x_max, N, assume_periodicity=True)
+x, y, X, Y = grid2d(-x_max, +x_max, -x_max, +x_max, N, assume_periodicity=True)
 
 aperture = np.zeros((N, N))
 aperture[(np.abs(X) < x_aperture_size) & (np.abs(Y) < x_aperture_size)] = 1.0  # squre aperture
 #aperture[(np.abs(x_aperture_size/4)**2 + np.abs(Y)**2 < x_aperture_size**2/8)] = 0.5
 
-phase = (+0.0075*X + 0.00075*Y**2 + 0.00000003*X*Y)/wl
+phase = (+0.000*X + 0.00000*Y**2)/wl
 field = aperture*np.exp(1j*phase)  # add phase
 
-#plot_image(aperture, x/wl, y/wl, xlabel="$x/\lambda$", ylabel="$y/\lambda$", title="Aperture")
+#plot_intensity(aperture, x/wl, y/wl, xlabel="$x/\lambda$", ylabel="$y/\lambda$", title="Aperture")
 
 
 phase[aperture == 0.0] = np.nan
-#plot_image(phase, x/wl, y/wl, xlabel="$x/\lambda$", ylabel="$y/\lambda$", title="Phase")
+#plot_intensity(phase, x/wl, y/wl, xlabel="$x/\lambda$", ylabel="$y/\lambda$", title="Phase")
 
 
 F = 0.1  # Fresnel number to propagate to
@@ -70,22 +70,22 @@ I_RS_DI = np.abs(E_RS_DI)**2
 from pyoptics.fft import save_wisdom
 save_wisdom()
 
-plot_image(I_Fresnel_TF, x/wl, y/wl, xlabel="$x/\lambda$",
+plot_intensity(I_Fresnel_TF, x/wl, y/wl, xlabel="$x/\lambda$",
            ylabel="$y/\lambda$", title="Fresnel TF", colorbar=True)
-plot_image(I_Fresnel_IR, x/wl, y/wl, xlabel="$x/\lambda$",
+plot_intensity(I_Fresnel_IR, x/wl, y/wl, xlabel="$x/\lambda$",
            ylabel="$y/\lambda$", title="Fresnel IR", colorbar=True)
-#plot_image(I_Fresnel_TF - I_Fresnel_IR , x/wl, y/wl, xlabel="$x/\lambda$",
+#plot_intensity(I_Fresnel_TF - I_Fresnel_IR , x/wl, y/wl, xlabel="$x/\lambda$",
            #ylabel="$y/\lambda$", title="Fresnel IR - TF", colorbar=True,
            #cmap=plt.cm.bwr)
-plot_image(I_RS_TF, x/wl, y/wl, xlabel="$x/\lambda$",
+plot_intensity(I_RS_TF, x/wl, y/wl, xlabel="$x/\lambda$",
            ylabel="$y/\lambda$", title="RS TF", colorbar=True)
-plot_image(I_RS_IR, x/wl, y/wl, xlabel="$x/\lambda$",
+plot_intensity(I_RS_IR, x/wl, y/wl, xlabel="$x/\lambda$",
            ylabel="$y/\lambda$", title="RS IR", colorbar=True)
-#plot_image(I_RS_TF - I_RS_IR , x/wl, y/wl, xlabel="$x/\lambda$",
+#plot_intensity(I_RS_TF - I_RS_IR , x/wl, y/wl, xlabel="$x/\lambda$",
            #ylabel="$y/\lambda$", title="RS IR - TF", colorbar=True,
            #cmap=plt.cm.bwr)
-plot_image(I_RS_DI, x/wl, y/wl, xlabel="$x/\lambda$",
+plot_intensity(I_RS_DI, x/wl, y/wl, xlabel="$x/\lambda$",
            ylabel="$y/\lambda$", title="RS DI", colorbar=True)
-plot_image(I_RS_DI - I_RS_IR , x/wl, y/wl, xlabel="$x/\lambda$",
+plot_intensity(I_RS_DI - I_RS_IR , x/wl, y/wl, xlabel="$x/\lambda$",
            ylabel="$y/\lambda$", title="RS DI - IR", colorbar=True,
            cmap=plt.cm.bwr)
