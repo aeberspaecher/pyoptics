@@ -13,7 +13,6 @@
 * rotation angle in apertures
 * rotation angle in basis functions
 
-* catch z=0 case in beam function
 * astigmatic beams
 * abstract base class for tensor product bases
 * beam evaluation on inclined planes
@@ -52,3 +51,4 @@
 * Chebyshev basis
 * Müller matrices and some Stokes vectors
 * elliptical aperture
+* catch z=0 case in beam function

@@ -16,8 +16,6 @@ from scipy.special import eval_genlaguerre, eval_hermite
 from utils import sgn, wavenumber
 
 
-# TODO: implement z = 0 protection
-
 # plane waves:
 def plane_wave(A, dir_vec, x, y, z, wl, n=1.0):
     """Return plane wave defined by direction vector.
@@ -89,10 +87,7 @@ def gauss_laguerre(p, l, x, y, z, w_0, z_r, wl):
 
     mode_number = abs(l) + 2*p
     phi_z = (mode_number + 1)*np.arctan2(z, z_r)  # Guoy phase
-    try:
-        z_over_z_r = z/z_r
-    except ZeroDivisionError:
-        z_over_z_r = 0.0  # will serve its purpose for w_z
+    z_over_z_r = z/z_r
     w_z = w_0*sqrt(1 + z_over_z_r**2)
 
     const = sqrt(2*factorial(p)/(pi*factorial(abs(l) + p)))
@@ -118,18 +113,18 @@ def gauss_hermite(l, m, x, y, z, w_0, z_r, wl):
 
     mode_number = l + m
     phi_z = (mode_number + 1)*np.arctan2(z, z_r)  # Guoy phase
-    try:
-        z_over_z_r = z/z_r
-    except ZeroDivisionError:
-        z_over_z_r = 0.0  # will serve its purpose for w_z
+    z_over_z_r = z/z_r
     w_z = w_0*sqrt(1 + z/z_r**2)
-    R_z = z*(1.0 + z_r/z**2)  # FIXME: properly fix z = 0
 
     Hx = eval_hermite(l, sqrt(2)*X/w_z)
     Hy = eval_hermite(m, sqrt(2)*Y/w_z)
     E0 = sqrt( sqrt(2/pi)/(2**l*factorial(l)*w_0) ) * sqrt( sqrt(2/pi)/(2**m*factorial(m)*w_0) )
 
-    field = E0*w_0/w_z*Hx*Hy*np.exp(-r**2/w_z**2)*np.exp(-1j*k*r**2/(2*R_z))*np.exp(-1j*(-k*z + phi_z))
+    if np.abs(z) >= 1E-14:  # TODO: do not hardcode an epsilon
+        R_z = z*(1.0 + z_r/z**2)
+        field = E0*w_0/w_z*Hx*Hy*np.exp(-r**2/w_z**2)*np.exp(-1j*k*r**2/(2*R_z))*np.exp(-1j*(-k*z + phi_z))
+    else:
+        field = E0*w_0/w_z*Hx*Hy*np.exp(-r**2/w_z**2)*np.exp(-1j*(-k*z + phi_z))
 
     return field
 
