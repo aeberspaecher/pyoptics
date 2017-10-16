@@ -22,24 +22,15 @@ but individual propagators may accept further arguments.
 
 # TODO: can from_spectrum switches be implemented? this might save Fourier transforms.
 # TODO: implement shifted windows
-# TODO: implement Rayleigh-Sommerfeld direct integration
 
-from math import pi, exp, sqrt
+from math import pi, ceil
 from itertools import product
-import warnings
 
-import matplotlib.pyplot as plt
+from numpy.lib.scimath import sqrt as complex_sqrt
 import numpy as np
 
-try:
-    __numexpr_available = True
-    import numexpr as ne
-except ImportError:
-    __numexpr_available = False
-
-
-from fft import fft2, ifft2, fftshift, ifftshift, FT, inv_FT
-from utils import freq_grid, wavenumber, k_z, TWOPI, simpson_weights, weight_grid
+from pyoptics.fft import fft2, ifft2, fftshift, ifftshift, FT, inv_FT, FT_unitary, inv_FT_unitary
+from pyoptics.utils import freq_grid, wavenumber, k_z, TWOPI, simpson_weights, weight_grid
 
 
 # TODO: account for n properly: lambda -> lambda/n
@@ -69,22 +60,6 @@ def rayleigh_sommerfeld_I_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
     return field_propagated, x_prime, y_prime
 
 
-def _rs_di_g_np(x, y, z, k):
-        print("Using g with numpy!")
-        r = np.sqrt(x**2 + y**2 + z**2)
-        val = 1/TWOPI*np.exp(1j*k*r)/r**2*z*(1/r - 1j*k)   # TODO: two pi? last terms in parens?
-
-        return val
-
-def _rs_di_g_ne(x, y, z, k):
-        print("Using g with numexpr!")
-        r = ne.evaluate("sqrt(x**2 + y**2 + z**2)")
-        val = ne.evaluate("1/TWOPI*exp(1j*k*r)/r**2*z*(1/r - 1j*k)")
-        print("... done: g with numexpr!")
-
-        return val
-
-
 def rayleigh_sommerfeld_I_DI(field, x_prime, y_prime, z, wavelength, n=1.0, use_simpson=True):
     """Implement the Rayleigh-Sommerfeld direct integration method of Shen and
     Wang.
@@ -100,13 +75,11 @@ def rayleigh_sommerfeld_I_DI(field, x_prime, y_prime, z, wavelength, n=1.0, use_
     assert(N[0] == N[1])  # TODO: raise more expressive exception
     N = N[0]
 
-    g = _rs_di_g_ne if __numexpr_available else _rs_di_g_np
-
     k = wavenumber(wavelength, n)
     dx = x_prime[1] - x_prime[0]
     dy = y_prime[1] - y_prime[0]
 
-    if(use_simpson):
+    if use_simpson:
         weights = weight_grid(simpson_weights, N, N)
     else:
         weights = np.ones([N, N])
@@ -121,7 +94,8 @@ def rayleigh_sommerfeld_I_DI(field, x_prime, y_prime, z, wavelength, n=1.0, use_
     y_vec = np.array( [y_prime[0] - y_prime[N - j] for j in range(1, N) ] +  [y_prime[j - N] - y_prime[0] for j in range(N, 2*N) ] )
     X, Y = np.meshgrid(x_vec, y_vec)
 
-    H = g(X, Y, z, k)
+    r = np.sqrt(X**2 + Y**2 + z**2)
+    H = 1/TWOPI*np.exp(1j*k*r)/r**2*z*(1/r - 1j*k)   # TODO: two pi? last terms in parens?
 
     val = ifft2(fft2(U)*fft2(H))*dx*dy
     field_propagated = val[-N:, -N:]  # lower right sub-matrix
