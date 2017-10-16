@@ -2,7 +2,6 @@
 
 ## Low-hanging fruit
 
-* elliptical aperture
 * rectangle with rounded egdes aperture
 
 * padding/unpadding routines
@@ -52,3 +51,4 @@
 * fitting bases to scattered data
 * Chebyshev basis
 * Müller matrices and some Stokes vectors
+* elliptical aperture

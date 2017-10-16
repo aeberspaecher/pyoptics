@@ -85,4 +85,13 @@ def rectangluar_mask(x, y, a, b, x0=0.0, y0=0.0, include_1d_output=False):
         return mask
 
 
+def elliptical_mask(x, y, a, b, x0=0.0, y0=0.0):
+    XX, YY = np.meshgrid(x, y)
+
+    mask = np.zeros(np.shape(XX), dtype=np.int)
+    mask[(XX -x0)**2/a**2 + (YY-y0)**2/b**2 <= 1] = 1
+
+    return mask
+
+
 # TODO: "soft masks" that are not really binary (i.e. anti-aliased masks)?
