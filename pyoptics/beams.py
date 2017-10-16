@@ -48,6 +48,32 @@ def plane_wave(A, dir_vec, x, y, z, wl, n=1.0):
     return E
 
 
+def spherical_wave(x, y, z, wavelength, x0, y0, z0, U0=1.0, n=1.0):
+    """Return spherical wave
+
+    Parameters
+    ----------
+    x, y : arrays
+    z : number
+    wl : number
+    x0, y0, z0 : numbers
+
+    Returns
+    -------
+    U : array
+    """
+
+    # TODO: note on convergent/diverging spherical wave?
+
+    X, Y = np.meshgrid(x, y)
+    k = wavenumber(wavelength, n)
+    R = np.sqrt((X-x0)**2 + (Y-y0)**2 + (z-z0)**2)
+    sign = sgn(z-z0)
+    vals = U0*(z-z0)/R*np.exp(1j*sign*k*R)
+
+    return vals
+
+
 # Gaussian beams:
 def rayleigh_range_from_divergence_angle(w0, theta, n, wl):
     return w0/(n*sin(theta))
