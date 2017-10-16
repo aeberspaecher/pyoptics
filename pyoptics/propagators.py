@@ -171,6 +171,141 @@ def _fraunhofer_coord_scale(x, y, z, wavelength):
     return x_new, y_new
 
 
+def vectorial_fresnel(field, x_prime, y_prime, z, wavelength, n=1.0):
+    """Implement Mansuripur's formulas for vectorial diffraction.
+
+    Parameters
+    ----------
+    field : array
+        Input field of dimension [Ny, Nx, 2]. The last index corresponds
+        to x and y polarization components.
+    x_prime, y_prime
+    z
+    wavelength
+
+    Sources
+    -------
+    M. Mansuripur, "Certain computational aspects of vector diffraction problems,",
+    J. Opt. Soc. Am. A 6, 786-805 (1989)
+    """
+
+    # TODO: Fresnel? Document Fresnel nature?
+
+    # Mansuripur's approach is to identify each point in the aperture with a
+    # single ray and use a Fourier transform aproach still
+    # TODO: conditions for FT approach? should be in the book
+
+    # use Mansuripur's notation inside the function:
+    # T - spectrum of field
+    # psi_alpha_beta - amplitude weight for the beta-polarization component
+    #                  stemming from alpha component of light in aperture
+    #
+
+    field_propagated = np.zeros([np.size(field, 0), np.size(field, 1), 3],
+                                dtype=np.complex)  # three polarization components
+
+    # TODO: use scaled x, y instead of unsacled ones?
+    k = wavenumber(wavelength, n)
+    K_x, K_y = freq_grid(x_prime, y_prime, wavenumbers=True, normal_order=True)
+    Sigma_x, Sigma_y = K_x/k, K_y/k
+    Sigma_z = complex_sqrt(1.0 - Sigma_x**2 - Sigma_y**2)
+
+    alpha = (0, 1)  # x & y polarization components in aperture
+    beta = (0, 1, 2)  # x, y & z polarization for propgated field
+
+    T = np.zeros_like(field, dtype=np.complex)
+    for a in alpha:
+        T[:, :, a] = FT_unitary(field[:, :, a])  # TODO: does fft2 have an axis argument or similar? or np.applyaxis?
+
+    for a, b in product(alpha, beta):
+        field_propagated[:, :, b] += inv_FT_unitary(
+                    T[:, :, a]
+                    *_psi_alpha_beta(a, b, Sigma_x, Sigma_y, Sigma_z)
+                    *np.exp(1j*2*pi*z/wavelength*Sigma_z)
+                                                   )
+
+    return field_propagated, x_prime, y_prime
+
+
+def vectorial_fresnel_extended(field, x_prime, y_prime, z, wavelength,
+                               eta=1.0, n=1.0):
+    """Implement Mansuripur's formula for extended Fresnel vectorial
+    diffraction.
+
+    Parameters
+    ----------
+    field : array
+        Input field of dimension [Ny, Nx, 2]. The last index corresponds
+        to x and y polarization components.
+    x_prime, y_prime
+    z
+    wavelength
+
+    Sources
+    -------
+    M. Mansuripur, "Certain computational aspects of vector diffraction problems,",
+    J. Opt. Soc. Am. A 6, 786-805 (1989)
+    """
+
+    ## TODO: Fresnel? Document Fresnel nature?
+
+    ## Mansuripur's approach is to identify each point in the aperture with a
+    ## single ray and use a Fourier transform aproach still
+    ## TODO: conditions for FT approach? should be in the book
+
+    ## use Mansuripur's notation inside the function:
+    ## T - spectrum of field
+    ## psi_alpha_beta - amplitude weight for the beta-polarization component
+    ##                  stemming from alpha component of light in aperture
+    ##
+
+    #field_propagated = np.zeros([np.size(field, 0), np.size(field, 1), 3],
+                                #dtype=np.complex)  # three polarization components
+
+    #k = wavenumber(wavelength, n)
+    #K_x, K_y = freq_grid(x_prime, y_prime, wavenumbers=True, normal_order=True)
+    #Sigma_x, Sigma_y = K_x/k, K_y/k
+    #Sigma_z = complex_sqrt(1.0 - Sigma_x**2 - Sigma_y**2)
+
+    #alpha = (0, 1)  # x & y polarization components in aperture
+    #beta = (0, 1, 2)  # x, y & z polarization for propgated field
+
+    #T = np.zeros_like(field, dtype=np.complex)
+    #for a in alpha:
+        #T[:, :, a] = FT(field[:, :, a])  # TODO: does fft2 have an axis argument or similar? or np.applyaxis?
+
+    #for a, b in product(alpha, beta):
+        #field_propagated[:, :, b] += inv_FT(
+                #T[:, :, a]
+                #*_psi_alpha_beta(a, b, Sigma_x, Sigma_y, Sigma_z)
+                #*np.exp(1j*2*pi*z/wavelength*Sigma_z)
+                                           #)
+    #return field_propagated, x_prime, y_prime
+    pass
+
+
+def _psi_alpha_beta(alpha, beta, sigma_x, sigma_y, sigma_z):
+    # TODO: can this be written in a compact way?
+    if (alpha == 0) and (beta == 0):  # x to x
+        psi = 1 - sigma_x**2/(1 + sigma_z)
+    elif(alpha == 0) and (beta == 1):  # x to y
+        psi = -sigma_x*sigma_y/(1+sigma_z)
+    elif(alpha == 0) and (beta == 2):  # x to z
+        psi = -sigma_x
+    elif (alpha == 1) and (beta == 0):  # y to x
+        psi = -sigma_x*sigma_y/(1+sigma_z)
+    elif(alpha == 1) and (beta == 1):  # y to y
+        psi = 1 - sigma_y**2/(1 + sigma_z)
+    elif(alpha == 1) and (beta == 2):  # y to z
+        psi = -sigma_y
+    else:
+        raise ValueError("Invalid values alpha, beta")
+
+    psi /= complex_sqrt(sigma_z)  # see erratum to Mansuripur's 1989 paper
+
+    return psi
+
+
 # TODO: also provide error term for Fresnel approxmiation?
 def fresnel_number(aperture_diameter, z, wavelength):
     return aperture_diameter**2/(wavelength*z)
