@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
-"""
-Propagators for electromagnetic fields.
+"""Propagators for electromagnetic fields.
 
 The following propagators are available:
 
@@ -12,6 +11,13 @@ The following propagators are available:
 - fresnel_IR()
 - fresnel_rescaling()
 - fraunhofer()
+- vectorial_fresnel() [experimental!]
+- rayleigh_sommerfeld_I_DI()
+
+The routines with _TF in their name use a transfer function approach, whereas
+the routines whose names end in _IR use formulations with using the impulse
+response. Mathematically, those approaches are identical; however, they may
+differ in their sampling properties.
 
 The propagators share a common interface:
 
@@ -22,6 +28,7 @@ but individual propagators may accept further arguments.
 
 # TODO: can from_spectrum switches be implemented? this might save Fourier transforms.
 # TODO: implement shifted windows
+# TODO: check implicit time dependence and fft()/ifft() use
 
 from math import pi, ceil
 from itertools import product
@@ -307,11 +314,73 @@ def _psi_alpha_beta(alpha, beta, sigma_x, sigma_y, sigma_z):
 
 
 # TODO: also provide error term for Fresnel approxmiation?
-def fresnel_number(aperture_diameter, z, wavelength):
+def fresnel_number(outer_aperture_diameter, z, wavelength, wavefront_curvature=None, inner_aperture_diameter_factor=0.0):
+    """Return Fresnel number for diffraction of circular or annular apertures.
+
+    Parameters
+    ----------
+    outer_aperture_diameter : number
+        Diameter of outer boundary of aperture.
+    z : number
+        Propagation distance
+    wavelength : number
+        Wavelength (in same units as propgation distance z)
+    wavefront_curvature : number
+        Curvature of wavefront in the aperture. Use 1/f for a wavefront that
+        (geometrically) focusses at distance f along the optical axis. Defaults
+        to None, which is interpreted as infinite curvature, i.e. a collimated
+        wavefront.
+    inner_aperture_diameter_factor : number, optional
+        Factor defining the annulus' inner diameter as
+        inner_aperture_diameter_factor * outer_aperture_diameter. Defaults to
+        0, i.e. a circular aperture.
+
+    Returns
+    -------
+    F : number
+        Fresnel number, i.e. number of half-wave zones...
+
+    """
+
+    # TODO: docstring
+    # TODO: implement correct formula
+
     return aperture_diameter**2/(wavelength*z)
 
 
 def z_from_fresnel_number(F, aperture_diameter, wavelength):
     z = aperture_diameter**2/(wavelength*F)
 
+    # TODO: extend to new signature of fresnel_number
+
     return z
+
+
+def suggest_lateral_sampling(L, n, wl):
+    """Suggest number of samples N such that all propagating frequencies are
+    covered.
+
+    Parameters
+    ----------
+    L : double or array_like
+        Lateral extent of one or dimensions.
+    n : double
+        Refractive index.
+    wl : double
+        Wavelength (in same units as L).
+
+    Returns
+    -------
+    N : int or tuple
+        Suggested number of samples.
+    """
+
+    # df = 1/L; question to ask: for which N is N*df >= n/lambda?
+    # suggest something like 2N + 1.
+    N = ceil(2.0*n*L/wl) + 1
+
+    # TODO: extend by an optional keyword spatial_extent.
+    # use spatial_extent to estimate bandwith using Heisenberg's uncertainty principle.
+    # if given, lower bound for relevant frequencies (from all propagating frequencies to all relevant frequencies)
+
+    return N
