@@ -8,39 +8,51 @@
 cdef extern from "complex.h":
     double complex csqrt(double complex) nogil
     double complex cexp(double complex) nogil
+    double cabs(double complex) nogil
 
 
+cimport cython
 import numpy as np
 cimport numpy as np
 
+from numpy.polynomial.legendre import leggauss
 from cython.parallel import parallel, prange
 
 from .utils import frequencies, wavenumber, k_z
 from .fft import FT_unitary, inv_FT_unitary
 
 
-def averaging_sampling(func, x, delta_x, N):
-    """Average func(x) between x and x + delta_x by performing the integral
-    1/delta_x \int_{x}^{x+dx} func(x) dx
+def averaging_z_sampling(func, x, y, z1, z2, N):
+    """Average func(x, y, z) between z1 and z2 by performing the integral
+    1/(z2-z1) \int_{x1}^{x2} func(x, y, z) dz
     numerically.
 
     Parameters
     ----------
     func : callable
-        f(x)
-    x, delta_x : double
+        f(x, y, z)
+    z1, z2 : double
     N : int
         Number of samples to use in Gaussian quadrature.
 
     Returns
     -------
-    avg : same type as f(x)
-        Averaged integral over f(x)
+    avg : same type as f(x, y, z)
+        Averaged integral over z
     """
 
-    pass
+    z_support_unshifted, weights = leggauss(N)
+    # shift and scale [-1, +1] to [x, x+delta_x]
+    z_shifted = (z2-z1)/2.*z_support_unshifted + (z1+z2)/2.
+
+    func_sampled = np.array([func(x, y, z_val) for z_val in z_shifted])
+
+    func_averaged = 1/2.*np.einsum("ijk,i->jk", func_sampled, weights)
+
+    return func_averaged
 
 
+@cython.boundscheck(False)
 cpdef wpm_propagate(n_func, field_z, double[:] x, double[:] y, double z,
                     double delta_z, double wl):
     """Propagate a field using WPM.
@@ -95,13 +107,13 @@ cpdef wpm_propagate(n_func, field_z, double[:] x, double[:] y, double z,
     k0 = wavenumber(wl)
 
     X, Y = np.meshgrid(x, y)
+
     n_sampled = np.asarray(n_func(X, Y, z), dtype=complex)
 
     k_x, k_y = (frequencies(x, wavenumbers=True, normal_order=True),
-                frequencies(y, wavenumbers=True, normal_order=True)
-               )
+                frequencies(y, wavenumbers=True, normal_order=True) )
 
-    field_freq_space = FT_unitary(field_z)  # TODO: inv_FT or FT?
+    field_freq_space = inv_FT_unitary(field_z)  # TODO: inv_FT or FT?
 
     # iterate all over spatial pixels, perform k summation for each pixel:
     for i in prange(n_sampled.shape[0], nogil=True, schedule="dynamic"):
@@ -115,6 +127,8 @@ cpdef wpm_propagate(n_func, field_z, double[:] x, double[:] y, double z,
                 for m in range(k_x.shape[0]):
                     kx_curr, ky_curr = k_x[m], k_y[l]
                     kz = csqrt((n_curr*k0)**2 - kx_curr**2  - ky_curr**2)
+                    if(cabs(kz) < 0.0):  # TODO: leave in?
+                        kz = 0.0
                     field_propagted[i, j] += (field_freq_space[l, m]  # plane wave amplitude
                                               # transversal part and propagating part:
                                               *cexp(imag_unit*((kx_curr*x_curr
@@ -123,12 +137,8 @@ cpdef wpm_propagate(n_func, field_z, double[:] x, double[:] y, double z,
                                               )
 
     # TODO: truncate loop over frequencies if non-propagating frequencies occur?
-    # TODO: normalize appropriately
+    # FIXME: normalize appropriately
     # TODO: check if sampling is appropriate - all propagating frequencies covered?
     # TODO: add note on suggested sampling - all propagating frequencies shall be covered
 
-    # TODO: so far, the algorithm assumes n changes only with x and y, but is
-    # constant in z. can this condition be levered by a x,y-pixel-wise
-    # integration of n over z?
-
-    return field_propagted/np.sqrt(np.prod(np.array(np.shape(field_z)) - 1))
+    return field_propagted/np.sqrt(np.prod(np.array(np.shape(field_z))))
