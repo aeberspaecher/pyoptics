@@ -15,7 +15,7 @@ def configure(conf):
     conf.load("python")
     conf.check_python_version((2, 7))
     conf.check_python_module("numpy")
-    conf.check_python_module("scipy")
+    conf.check_python_module("scipy", condition="ver>=num(0, 14, 0)")
     #conf.check_python_module("skimage")
     try:
         conf.check_python_module('matplotlib')
