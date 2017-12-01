@@ -624,7 +624,7 @@ class NumericallyOrthogonalized(PresampledBasisSet):
         new_mask : array
             New mask on which the basis functions should be numerically
             orthogonalized on.
-        weights_func : callable, optional
+        weight_func : callable, optional
             Function that returns 1d weights for inner product summation. If
             None, a standard midpoint rule will be used. The weights are
             also used in norm computations.
@@ -645,13 +645,14 @@ class NumericallyOrthogonalized(PresampledBasisSet):
 
         If a new mask is given, it is advised to choose the base_type such that
         the new mask is 'filled' even with the original basis functions, e.g.
-        if the new mask is an annulus witzh outer radius R_outer and the
+        if the new mask is an annulus with outer radius R_outer and the
         base_type are Fringe Zernike polynomials, it is recommended to set the
         Fringe Zernikes R_norm parameter to R_outer.
 
         If a new mask is given without a normalization function, the old the
-        new results can be diffult the compare as the old norms are kept. This
-        may be undesirable for different spatial support.
+        new results can be difficult the compare as the old norms are kept. This
+        may be undesirable for different spatial support, e.g. may smaller supports
+        lead to higher values. Use RescaledBasis to rescale.
         """
 
         super(NumericallyOrthogonalized, self).__init__(x, y, base_type, indices, **kwargs)
@@ -721,8 +722,7 @@ class RescaledBasis(BasisSet):
     """Rescale basis functions on a new aperture/mask.
 
     Use this for e.g. normalizing FringeZernikes an non-circular aperture such
-    that coefficients can again be read as maxrture such that
-    coefficients can again be read as maximum value on the aperture.
+    that coefficients can again be read as maximum values on the aperture.
     """
 
     def __init__(self, x, y, basis_type, mask, scale_func, scale_val_func, **kwargs):
