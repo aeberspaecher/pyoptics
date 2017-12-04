@@ -178,23 +178,23 @@ class PresampledBasisSet(BasisSet):
     Substitutes run-time recomputation of data by lookups of precomputed data.
     """
 
-    def __init__(self, x, y, basis_class, indices, **kwargs):
+    def __init__(self, x, y, basis_type=None, indices=None, **kwargs):
         """Presample given basis function and store away for fast evaluation.
 
         Parameters
         ----------
         x, y : arrays
-        basis_class : object
+        basis_type : object
             BasisSet class to presample.
         indices : array-like
             Array of indices to presample.
         kwargs : dict
-            Keyword arguments to hand over basis_class on instantiation.
+            Keyword arguments to hand over basis_type on instantiation.
         """
 
         super(PresampledBasisSet, self).__init__(x, y)
 
-        self.basis = basis_class(x, y, **kwargs)
+        self.basis = basis_type(x, y, **kwargs)
         self.sampled_funcs = {}
 
         for ind in indices:
@@ -307,7 +307,7 @@ class FringeZernikes(BasisSet):
     http://www.jcmwave.com/JCMsuite/doc/html/ParameterReference/0c19949d2f03c5a96890075a6695b258.html
     """
 
-    def __init__(self, x, y, R_norm, x0=0.0, y0=0.0):
+    def __init__(self, x, y, R_norm=1.0, x0=0.0, y0=0.0):
         super(FringeZernikes, self).__init__(x-x0, y-y0)
         self.R_norm = R_norm
         self.Rho = np.sqrt((self.XX)**2 + (self.YY)**2)/R_norm
@@ -407,7 +407,7 @@ class LegendrePolynomials(BasisSet):
 
     """
 
-    def __init__(self, x, y, a, b, x0=0.0, y0=0.0):
+    def __init__(self, x, y, a=1.0, b=1.0, x0=0.0, y0=0.0):
         super(LegendrePolynomials, self).__init__(x, y)
         self.a = a
         self.b = b
@@ -508,12 +508,12 @@ class ChebyshevPolynomials(BasisSet):
     rectangular apertures.
 
     The basis set is the product of two Chebyshev polynomials T_i(x)*T_j(y).
-    The bases is orthogonal with respect to a specific scalar product with
+    The basis is orthogonal with respect to a specific scalar product with
     weight function 1/sqrt(1-x**2) for each dimension.
 
     """
 
-    def __init__(self, x, y, a, b, x0=0.0, y0=0.0):
+    def __init__(self, x, y, a=1.0, b=1.0, x0=0.0, y0=0.0):
         super(ChebyshevPolynomials, self).__init__(x, y)
         self.a = a
         self.b = b
@@ -610,14 +610,14 @@ class NumericallyOrthogonalized(PresampledBasisSet):
     Gram-Schmidt procedure on the given grid.
     """
 
-    def __init__(self, x, y, base_type, indices, new_mask=None, weight_func=None,
+    def __init__(self, x, y, basis_type=None, indices=None, new_mask=None, weight_func=None,
                  norm_func=None, **kwargs):
         """Construct numerically orthogonalized basis function set.
 
         Parameters
         ----------
         x, y : arrays
-        base_type : BasisSet class
+        basis_type : BasisSet class
             Base class to instantiate, sample and orthogonalize.
         indices : array-like
             Array of indices to sample.
@@ -634,7 +634,7 @@ class NumericallyOrthogonalized(PresampledBasisSet):
             new_mask defines a new support).
 
         kwargs : dict
-            Handed over to base_type object.
+            Handed over to basis_type object.
 
         Note
         ----
@@ -643,10 +643,10 @@ class NumericallyOrthogonalized(PresampledBasisSet):
         the signs of the first element within the mask are evaluated. These
         should not be zero.
 
-        If a new mask is given, it is advised to choose the base_type such that
+        If a new mask is given, it is advised to choose the basis_type such that
         the new mask is 'filled' even with the original basis functions, e.g.
         if the new mask is an annulus with outer radius R_outer and the
-        base_type are Fringe Zernike polynomials, it is recommended to set the
+        basis_type are Fringe Zernike polynomials, it is recommended to set the
         Fringe Zernikes R_norm parameter to R_outer.
 
         If a new mask is given without a normalization function, the old the
@@ -655,7 +655,9 @@ class NumericallyOrthogonalized(PresampledBasisSet):
         lead to higher values. Use RescaledBasis to rescale.
         """
 
-        super(NumericallyOrthogonalized, self).__init__(x, y, base_type, indices, **kwargs)
+        super(NumericallyOrthogonalized, self).__init__(x, y, basis_type=basis_type,
+                                                        indices=indices,
+                                                        **kwargs)
 
         if new_mask is None:
             mask = self.basis.mask > 0.0 # TODO: why > 0 necessary?
@@ -674,7 +676,7 @@ class NumericallyOrthogonalized(PresampledBasisSet):
         num_samples_mask = np.sum(mask)  # number of rows
         num_basis_funcs = len(indices)  # number of columns
 
-        # build matrix for orthogonalizatgion procedure: put data within mask in columns
+        # build matrix for orthogonalization procedure: put data within mask in columns
         basis_funcs = np.zeros([num_samples_mask, num_basis_funcs], order="C")  # TODO: check order for best performance
         for i, ind in enumerate(indices):
             curr_sampled_func = self.sampled_funcs[ind]
@@ -725,14 +727,14 @@ class RescaledBasis(BasisSet):
     that coefficients can again be read as maximum values on the aperture.
     """
 
-    def __init__(self, x, y, basis_type, mask, scale_func, scale_val_func, **kwargs):
+    def __init__(self, x, y, basis_to_rescale_type=None, mask=None, scale_func=None, scale_val_func=None, **kwargs):
         """Create RescaledBasis instance.
 
         Parameters
         ----------
         x, y : arrays
             Linear coordinate arrays
-        basis_type : BasisSet subclass object
+        basis_to_rescale_type : BasisSet subclass object
             The basis to use with a new mask
         mask : array
             Sampled mask or aperture to use with evaluated basis functions.
@@ -748,7 +750,7 @@ class RescaledBasis(BasisSet):
 
         super(RescaledBasis, self).__init__(x, y)
         self.mask = mask  # store new mask, used in evaluation
-        self._basis = basis_type(x, y, **kwargs)  # instantiate basis for new aperture
+        self._basis = basis_to_rescale_type(x, y, **kwargs)  # instantiate basis for new aperture
         self.scale_func = scale_func
         self.scale_val_func = scale_val_func
 
