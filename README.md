@@ -8,6 +8,25 @@ pyoptics is a collection of tools for wave optical simulation. It contains
 classes for imaging simulations and wave propagation. pyoptics has a modular
 structure that easily allows reuse of individual blocks in new contexts.
 
+Status
+------
+
+pyoptics is currently in an early pre-beta stadium.
+
+Vague status of some of the modules:
+
+- bases: mature
+- thin_films: rather mature
+- propagators: basic, missing documentation
+- utils: mature
+- beams: basic
+- IFTA: basic
+- TIE: basic
+- imaging: missing completely
+- processing: missing
+- polarization: basic Müller calculus support, Jones calculus missing
+- wpm: basic, untested
+
 Configuration and installation
 ------------------------------
 
@@ -18,6 +37,9 @@ waf to be better prepared for whatever the future may bring.
 
 Documentation
 -------------
+
+Documentation is currently mostly absent. Please refer to individual functions'
+docstrings.
 
 License
 -------
