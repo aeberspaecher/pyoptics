@@ -660,9 +660,9 @@ class NumericallyOrthogonalized(PresampledBasisSet):
                                                         **kwargs)
 
         if new_mask is None:
-            mask = self.basis.mask > 0.0 # TODO: why > 0 necessary?
+            mask = to_bool(self.basis.mask)
         else:
-            mask = new_mask > 0.0
+            mask = to_bool(new_mask)
             self.mask = new_mask
 
         if weight_func is None:
