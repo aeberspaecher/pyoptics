@@ -158,7 +158,20 @@ class BasisSet(object):
 
 
     def coeffs_from_scattered(self, x, y, data, indices):
-        # TODO: implement
+        """Fit basis to given scattered data.
+
+        Parameters
+        ----------
+        x, y : arrays
+        data : arrays
+           Data sampled at x, y. Of identical shape as each x and y.
+        indices : array or list
+           Indices to be used in fit.
+
+        Returns
+        -------
+        coeffs : array
+        """
 
         # TODO: preconditioning?
         Z_i = [self.eval_single_scattered(x, y, i) for i in indices]
