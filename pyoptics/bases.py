@@ -19,9 +19,9 @@ from scipy.linalg import lstsq, qr
 
 from pyoptics.utils import (kronecker_delta, weight_grid, simpson_weights, sgn,
                             scalar_product_without_weights,
-                            scalar_product, to_bool
+                            scalar_product
                            )
-from pyoptics.masks import circular_mask, rectangluar_mask
+from pyoptics.masks import circular_mask, rectangluar_mask, to_bool
 
 # TODO: reintroduce scalar/inner product in BasisSet? this allowed for inner products that respected the mask/support automatically
 

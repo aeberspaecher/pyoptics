@@ -29,36 +29,6 @@ sin_cos = lambda phi: (np.sin(phi), np.cos(phi))
 kronecker_delta = lambda n, m : (1.0 if n == m else 0.0)
 
 
-def to_bool(mask):
-    """Return a boolean mask from an integer one.
-
-    Parameters
-    ----------
-    mask : array, integer
-
-    Returns
-    -------
-    mask_bool : array, boolean
-    """
-
-    return np.array(mask, dtype=np.bool)
-
-
-def to_int(mask):
-    """Return integer mask from an integer one.
-
-    Parameters
-    ----------
-    mask : array, bool
-
-    Returns
-    -------
-    mask_int : array, integer
-    """
-
-    return np.array(mask, dtype=np.int)
-
-
 def sgn(x):
     """Sign function using the convention sgn(0) = 1.0.
     """

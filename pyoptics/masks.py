@@ -94,4 +94,34 @@ def elliptical_mask(x, y, a, b, x0=0.0, y0=0.0):
     return mask
 
 
+def to_bool(mask):
+    """Return a boolean mask from an integer one.
+
+    Parameters
+    ----------
+    mask : array, integer
+
+    Returns
+    -------
+    mask_bool : array, boolean
+    """
+
+    return np.array(mask, dtype=np.bool)
+
+
+def to_int(mask):
+    """Return integer mask from an integer one.
+
+    Parameters
+    ----------
+    mask : array, bool
+
+    Returns
+    -------
+    mask_int : array, integer
+    """
+
+    return np.array(mask, dtype=np.int)
+
+
 # TODO: "soft masks" that are not really binary (i.e. anti-aliased masks)?
