@@ -20,7 +20,7 @@ def circular_mask(x, y, R, x0=0.0, y0=0.0):
 
     Returns
     -------
-    mask : array
+    mask : array, int
     """
 
     XX, YY = np.meshgrid(x, y)
@@ -55,7 +55,7 @@ def annular_mask(x, y, R_outer, R_inner, x0=0.0, y0=0.0):
 
 
 def rectangluar_mask(x, y, a, b, x0=0.0, y0=0.0, include_1d_output=False):
-    """
+    """Create rectangluar mask.
 
     Parameters
     ----------
@@ -70,7 +70,7 @@ def rectangluar_mask(x, y, a, b, x0=0.0, y0=0.0, include_1d_output=False):
 
     Returns
     -------
-    mask : array
+    mask : array, int
     """
 
     mask_x = np.zeros_like(x, dtype=np.int)
@@ -86,6 +86,21 @@ def rectangluar_mask(x, y, a, b, x0=0.0, y0=0.0, include_1d_output=False):
 
 
 def elliptical_mask(x, y, a, b, x0=0.0, y0=0.0):
+    """Create elliptical mask.
+
+    Parameters
+    ----------
+    x, y : arrays
+    a, b : numbers
+        Semi-major axis of ellipse.
+    x0, y0 : numbers, optional
+        Center coordinates.
+
+    Returns
+    -------
+    mask : array
+    """
+
     XX, YY = np.meshgrid(x, y)
 
     mask = np.zeros(np.shape(XX), dtype=np.int)
