@@ -19,7 +19,7 @@ from scipy.linalg import lstsq, qr
 
 from pyoptics.utils import (kronecker_delta, weight_grid, simpson_weights, sgn,
                             scalar_product_without_weights,
-                            scalar_product
+                            scalar_product, to_bool
                            )
 from pyoptics.masks import circular_mask, rectangluar_mask
 
