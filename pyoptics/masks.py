@@ -5,6 +5,7 @@
 """
 
 import numpy as np
+from scipy.spatial import Delaunay
 
 
 def circular_mask(x, y, R, x0=0.0, y0=0.0):
@@ -137,6 +138,33 @@ def to_int(mask):
     """
 
     return np.array(mask, dtype=np.int)
+
+def mask_from_polygon(x, y, x_poly, y_poly):
+    """Create masks from interior of a polygon.
+
+    Parameters
+    ----------
+    x, y : array
+        Coordinates of to create mask of.
+    x_poly, y_poly : arrays
+        Linear arrays of coordinates on polygonal boundaries.
+
+    Returns
+    -------
+    mask : array
+        Integer mask, 1 for all interior points, 0 for all points outisde given
+        polygon.
+    """
+
+    X, Y = np.meshgrid(x, y)
+    tri = Delaunay(np.stack([x_poly, y_poly], axis=1))
+
+    x_vals, y_vals = X.ravel(), Y.ravel()
+    inds = tri.find_simplex(np.stack([x_vals, y_vals], axis=1))
+    inds = inds.reshape(np.shape(X))
+    mask = to_int(inds >= 0)
+
+    return mask
 
 
 # TODO: "soft masks" that are not really binary (i.e. anti-aliased masks)?
