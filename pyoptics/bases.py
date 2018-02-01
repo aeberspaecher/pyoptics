@@ -696,11 +696,15 @@ class NumericallyOrthogonalized(PresampledBasisSet):
             basis_funcs[:, i] = (np.sqrt(weights_masked)*curr_sampled_func[mask])
 
         # QR:
-        Q, _ = qr(basis_funcs, mode="economic")
+        Q, R = qr(basis_funcs, mode="economic")
+
+        # dictionary that holds the coefficients of the linear combination that
+        # makes the new basis orthogonal
+        self.transformation_coeffs = {}
 
         for i, ind in enumerate(indices):
             curr_orthogonalized_basis_func = Q[:, i]
-
+            self.transformation_coeffs[ind] = R[:, i]
             # compute norm renormalized basis function. as the square root of
             # the weights to use are already included in curr_orthogonalized_basis_func,
             # we can use the scalar product that does not expect any weights:
@@ -719,10 +723,19 @@ class NumericallyOrthogonalized(PresampledBasisSet):
 
             # overwrite sampled_funcs by orthogonalized data,
             # renormalize to old norm and apply scaling factor (preserve sign of first vector elements - QR decomposition may change that):
-            scale = sgn(curr_orthogonalized_basis_func[0])*sgn(basis_funcs[0, i])
-            self.sampled_funcs[ind][mask] = \
-                scale*curr_orthogonalized_basis_func/np.sqrt(curr_norm)*np.sqrt(desired_norm)/np.sqrt(weights_masked)
+            scale = sgn(curr_orthogonalized_basis_func[0])*sgn(basis_funcs[0, i])  # sign scale
+            factor = scale/np.sqrt(curr_norm)*np.sqrt(desired_norm)/np.sqrt(weights_masked)  # renormalization
+
+            factor_transform = scale/np.sqrt(curr_norm)*np.sqrt(desired_norm)/len(curr_orthogonalized_basis_func)  # accomodate sign and change in norm;
+                                                                                                                   # divide by number of samples to compensate for missing dx*dy
+            self.sampled_funcs[ind][mask] = factor*curr_orthogonalized_basis_func
             self.sampled_funcs[ind][~mask] = 0.0
+            self.transformation_coeffs[ind] *= factor_transform  # also rescale the transform
+            # print("Factor for transformation", factor_transform)
+            # print("Transformation: {}".format(self.transformation_coeffs[ind]))
+            # print("Scale", scale)
+            # print()
+
 
     def eval_single_scattered(self, x, y, i, interpolation="linear"):
         # TODO: implement
@@ -767,12 +780,31 @@ class RescaledBasis(BasisSet):
         self.scale_func = scale_func
         self.scale_val_func = scale_val_func
 
+    def get_rescaling_factor(self, index):
+        """Get factor to rescale with.
+        """
+
+        func = self._basis.eval_single(index)
+        rescaling_factor = self.get_rescaling_factor_from_sampled_func(index, func)
+
+        return rescaling_factor
+
+    def get_rescaling_factor_from_sampled_func(self, index, sampled_func):
+        """Get rescaling factor for given index and sampled base function.
+        """
+
+        old_scale = self.scale_func(sampled_func)
+        new_scale = self.scale_val_func(index)
+        rescaling_factor = new_scale/old_scale
+        print("Rescaling factor: {}".format(rescaling_factor))
+
+        return rescaling_factor
+
+
     def eval_single(self, index):
         val = self._basis.eval_single(index)
         val *= self.mask
-        old_scale = self.scale_func(val)
-        new_scale = self.scale_val_func(index)
-        val *= new_scale/old_scale
+        val *= self.get_rescaling_factor_from_sampled_func(index, val)
 
         return val
 if(__name__ == '__main__'):
