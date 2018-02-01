@@ -139,8 +139,9 @@ def to_int(mask):
 
     return np.array(mask, dtype=np.int)
 
+
 def mask_from_polygon(x, y, x_poly, y_poly):
-    """Create masks from interior of a polygon.
+    """Create masks from interior of a convex polygon.
 
     Parameters
     ----------
