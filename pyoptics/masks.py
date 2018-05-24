@@ -5,7 +5,7 @@
 """
 
 import numpy as np
-from scipy.spatial import Delaunay
+import matplotlib.path as mpl_path
 
 
 def circular_mask(x, y, R, x0=0.0, y0=0.0):
@@ -80,6 +80,7 @@ def rectangluar_mask(x, y, a, b, x0=0.0, y0=0.0, include_1d_output=False):
     mask_y[((y - y0) >= -b) & ((y - y0) <= +b)] = 1
     mask = np.outer(mask_y, mask_x)
 
+    # TODO: variable signature - is this needed?
     if include_1d_output:
         return mask, mask_x, mask_y
     else:
@@ -141,7 +142,7 @@ def to_int(mask):
 
 
 def mask_from_polygon(x, y, x_poly, y_poly):
-    """Create masks from interior of a convex polygon.
+    """Create masks from interior of a convex or concave polygon.
 
     Parameters
     ----------
@@ -158,12 +159,10 @@ def mask_from_polygon(x, y, x_poly, y_poly):
     """
 
     X, Y = np.meshgrid(x, y)
-    tri = Delaunay(np.stack([x_poly, y_poly], axis=1))
 
-    x_vals, y_vals = X.ravel(), Y.ravel()
-    inds = tri.find_simplex(np.stack([x_vals, y_vals], axis=1))
-    inds = inds.reshape(np.shape(X))
-    mask = to_int(inds >= 0)
+    path = mpl_path.Path(np.vstack([x_poly, y_poly]).T)
+    mask = path.contains_points(np.vstack([X.ravel(), Y.ravel()]).T)
+    mask = to_int(np.reshape(mask, X.shape))
 
     return mask
 
