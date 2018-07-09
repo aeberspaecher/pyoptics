@@ -64,7 +64,7 @@ def _cos_theta(theta_0, complex_n):
 
 
 def _tilted_Z(Z_in, cos_theta, pol):
-    """Compute 'tilted admitances' for a stack.
+    """Compute 'tilted impedances' for a stack.
 
     Parameters
     ----------
@@ -79,12 +79,18 @@ def _tilted_Z(Z_in, cos_theta, pol):
         Polarization dependent tilted impedances.
     """
 
+    # NOTE: source is McLeod's Thin Film Optical Filters, 3rd edition. McLeod
+    # uses admittances, whereas our code uses impedances (cmp. Zangwil).
+    # Admittance is the reciprocal value of impedance.
+    # Using admittance y: H = Y*E
+    # Using impedance: E = Z*H = 1/Y*H
+
     Z = copy(Z_in)
-    # compute 'tilted' addmittances:
+    # compute 'tilted' impedance from McLeod's tilted admittances:
     if pol in ("s", "TE"):
-        Z *= cos_theta  # McLeod, eq. (8.5)
+        Z /= cos_theta  # McLeod 3rd ed, eq. (8.5)
     elif pol in ("p", "TM"):
-        Z /= cos_theta  # McLeod, eq. (8.6)
+        Z *= cos_theta  # McLeod 3rd ed, eq. (8.6)
     else:
         raise ValueError("'pol' must be one of 's'/'TE', 'p'/'TM'")
 
