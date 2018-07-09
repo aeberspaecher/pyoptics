@@ -75,7 +75,7 @@ class BasisSet(object):
         """Return a single basis function.
         """
 
-        pass
+        raise NotImplementedError("Do not call this function in base class.")
 
     def eval_single_scattered(self, x, y, i):
         """Return i-th basis function at scattered (x, y) points.
@@ -134,6 +134,9 @@ class BasisSet(object):
             Sampled data to expand in basis.
         indices : array, integer
             Indices to consider in fit.
+        do_scale : boolean, optional
+            If True, apply preconditioning to least square problem. Defaults to
+            False.
 
         Returns
         -------
@@ -210,6 +213,9 @@ class BasisSet(object):
            Data sampled at x, y. Of identical shape as each x and y.
         indices : array or list
            Indices to be used in fit.
+        do_scale : boolean, optional
+            If True, apply preconditioning to least squares problem. Defaults
+            to False.
 
         Returns
         -------
