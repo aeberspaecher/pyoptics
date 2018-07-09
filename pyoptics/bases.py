@@ -89,7 +89,7 @@ class BasisSet(object):
 
         return coeffs
 
-    def _coeffs_from_lstsq(self, field, indices):
+    def _coeffs_from_lstsq(self, field, indices, do_scale=False):
         """Determine basis expansion coefficients by least-square fitting.
 
         Parameters
@@ -120,7 +120,14 @@ class BasisSet(object):
         M = np.zeros([N_samples, N_indices])
         for i in range(N_indices):
             M[:, i] = Z_i[i].flatten()
-        coeffs, _, _, _ = lstsq(M, field.flatten())
+        if do_scale:
+            scale = np.sqrt((M*M).sum(axis=0))
+            scale = np.log2(scale)
+            M /= 2.0**(scale)
+        coeffs, _, _, s = lstsq(M, field.flatten())
+        # print("Condition number: {}".format(s.min()/s.max()))
+        if do_scale:
+            coeffs /= 2.0**scale
 
         return coeffs
 
@@ -157,7 +164,7 @@ class BasisSet(object):
         return coeffs
 
 
-    def coeffs_from_scattered(self, x, y, data, indices):
+    def coeffs_from_scattered(self, x, y, data, indices, do_scale=False):
         """Fit basis to given scattered data.
 
         Parameters
@@ -173,14 +180,20 @@ class BasisSet(object):
         coeffs : array
         """
 
-        # TODO: preconditioning?
         Z_i = [self.eval_single_scattered(x, y, i) for i in indices]
         N_samples = len(Z_i[0])
         N_indices = len(indices)
         M = np.zeros([N_samples, N_indices])
         for i in range(N_indices):
             M[:, i] = Z_i[i]
-        coeffs, _, _, _ = lstsq(M, data)
+        if do_scale:
+            scale = np.sqrt((M*M).sum(axis=0))
+            scale = np.int64(np.log2(scale))
+            M /= 2.0**(scale)
+        coeffs, _, _, s = lstsq(M, data)
+        # print("Condition number: {}".format(s.min()/s.max()))
+        if do_scale:
+            coeffs /= 2.0**scale
 
         return coeffs
 
