@@ -45,14 +45,29 @@ class BasisSet(object):
         self.XX, self.YY = np.meshgrid(x, y)
         self._has_norm = False
 
-    def __call__(self, indices, coeffs=None):
+    def __call__(self, indices, coeffs, x=None, y=None):
         """Return basis functions for given indices.
+
+        Parameters
+        ----------
+        indices : iterable
+        coeffs : iterable
+        x, y : arrays, optional
+            If given, the basis is evaluated for the given (scattered) x and y
+            points.
+
+        Returns
+        -------
+        val : array
+            Sampled data. The shape is identical to the scattered x, y data if
+            x and y are given; otherwise val is of the same shape as x and y
+            given to the class' constructor.
         """
 
-        if coeffs is None:
-            coeffs = np.ones(len(indices))
-
-        val = sum([coeffs[i]*self.eval_single(ind) for i, ind in enumerate(indices)])
+        if (x is not None) and (y is not None):  # scattered data
+            val = self.eval_scattered(indices, coeffs, x, y)
+        else:  # data on x, y known to the class since instanciation
+            val = sum([coeffs[i]*self.eval_single(ind) for i, ind in enumerate(indices)])
 
         return val
 
@@ -69,6 +84,27 @@ class BasisSet(object):
         # used in fitting routine for scattered data
 
         raise NotImplementedError("Do not call this function in base class.")
+
+    def eval_scattered(self, inds, coeffs, x, y):
+        """Evaluate basis for scattered x, y data.
+
+        Parameters
+        ----------
+        inds : iterable
+            Indices to evaluate.
+        coeffs : iterable
+        x, y : arrays
+
+        Returns
+        -------
+        val : array
+        """
+
+        val = np.zeros_like(x)
+        for ind, coeff in zip(inds, coeffs):
+            val += coeff*self.eval_single_scattered(x, y, ind)
+
+        return val
 
     def normalization_factor(self, i):
         """Return norm of i-th basis function. This is used in basis expansions.
