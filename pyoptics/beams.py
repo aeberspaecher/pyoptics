@@ -13,7 +13,8 @@ from math import factorial, pi, sin, sqrt
 
 import numpy as np
 from scipy.special import eval_genlaguerre, eval_hermite
-from utils import sgn, wavenumber
+
+from pyoptics.utils import sgn, wavenumber, ensure_meshgrid
 
 
 # plane waves:
@@ -42,7 +43,7 @@ def plane_wave(A, dir_vec, x, y, z, wl, n=1.0):
         Sampled electric field E(x, y, z; k).
     """
 
-    XX, YY = np.meshgrid(x, y)
+    XX, YY = ensure_meshgrid(x, y)
     E = A*np.exp(1j*2*n*pi/wl*(dir_vec[0]*XX + dir_vec[1]*YY + dir_vec[2]*z))
 
     return E
@@ -65,7 +66,7 @@ def spherical_wave(x, y, z, wavelength, x0, y0, z0, U0=1.0, n=1.0):
 
     # TODO: note on convergent/diverging spherical wave?
 
-    X, Y = np.meshgrid(x, y)
+    X, Y = ensure_meshgrid(x, y)
     k = wavenumber(wavelength, n)
     R = np.sqrt((X-x0)**2 + (Y-y0)**2 + (z-z0)**2)
     sign = sgn(z-z0)
@@ -80,7 +81,7 @@ def z_r_from_divergence_angle(w0, theta, n, wl):
 
 
 def gauss_laguerre(p, l, x, y, z, w_0, z_r, wl):
-    X, Y = np.meshgrid(x, y)
+    X, Y = ensure_meshgrid(x, y)
     r = np.sqrt(X**2 + Y**2)
     phi = np.arctan2(Y, X)
     k = wavenumber(wl)  # TODO: n dependency
@@ -107,7 +108,7 @@ def gauss_laguerre(p, l, x, y, z, w_0, z_r, wl):
 
 
 def gauss_hermite(l, m, x, y, z, w_0, z_r, wl):
-    X, Y = np.meshgrid(x, y)
+    X, Y = ensure_meshgrid(x, y)
     r = np.sqrt(X**2 + Y**2)
     k = wavenumber(wl)  # TODO: n dependency
 

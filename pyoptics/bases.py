@@ -19,7 +19,7 @@ from scipy.linalg import lstsq, qr
 
 from pyoptics.utils import (kronecker_delta, weight_grid, simpson_weights, sgn,
                             scalar_product_without_weights,
-                            scalar_product
+                            scalar_product, ensure_meshgrid
                            )
 from pyoptics.masks import circular_mask, rectangluar_mask, to_bool
 
@@ -42,7 +42,7 @@ class BasisSet(object):
         """
         self.x = x
         self.y = y
-        self.XX, self.YY = np.meshgrid(x, y)
+        self.XX, self.YY = ensure_meshgrid(x, y)
         self._has_norm = False
 
     def __call__(self, indices, coeffs, x=None, y=None):

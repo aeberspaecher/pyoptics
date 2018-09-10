@@ -7,6 +7,8 @@
 import numpy as np
 import matplotlib.path as mpl_path
 
+from pyoptics.utils import ensure_meshgrid
+
 
 def circular_mask(x, y, R, x0=0.0, y0=0.0):
     """Create circular disk.
@@ -24,7 +26,7 @@ def circular_mask(x, y, R, x0=0.0, y0=0.0):
     mask : array, int
     """
 
-    XX, YY = np.meshgrid(x, y)
+    XX, YY = ensure_meshrid(x, y)
 
     mask = np.zeros(np.shape(XX), dtype=np.int)
     mask[(XX -x0)**2 + (YY-y0)**2 <= R**2] = 1
@@ -103,7 +105,7 @@ def elliptical_mask(x, y, a, b, x0=0.0, y0=0.0):
     mask : array
     """
 
-    XX, YY = np.meshgrid(x, y)
+    XX, YY = ensure_meshrid(x, y)
 
     mask = np.zeros(np.shape(XX), dtype=np.int)
     mask[(XX -x0)**2/a**2 + (YY-y0)**2/b**2 <= 1] = 1
@@ -158,7 +160,7 @@ def mask_from_polygon(x, y, x_poly, y_poly):
         polygon.
     """
 
-    X, Y = np.meshgrid(x, y)
+    X, Y = ensure_meshgrid(x, y)
 
     path = mpl_path.Path(np.vstack([x_poly, y_poly]).T)
     mask = path.contains_points(np.vstack([X.ravel(), Y.ravel()]).T)
