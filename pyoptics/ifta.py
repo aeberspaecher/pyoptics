@@ -242,7 +242,7 @@ if(__name__ == '__main__'):
     N_IFTA = 100
     x = np.linspace(-x_max, x_max, N)
     y = x
-    X, Y = np.meshgrid(x, y)
+    X, Y = ensure_meshgrid(x, y)
 
     aperture = np.zeros(np.shape(X))
     aperture[(np.abs(X) <= aperture_x_max) & (np.abs(Y) <= aperture_x_max)] = 1.0

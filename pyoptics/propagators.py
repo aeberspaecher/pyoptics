@@ -45,7 +45,7 @@ from pyoptics.utils import freq_grid, wavenumber, k_z, TWOPI, simpson_weights, w
 
 def rayleigh_sommerfeld_I_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
     k = wavenumber(wavelength, n)
-    X_prime, Y_prime = np.meshgrid(x_prime, y_prime)
+    X_prime, Y_prime = ensure_meshgrid(x_prime, y_prime)
     r = np.sqrt(z**2 + X_prime**2 + Y_prime**2)
 
     IR = z/(1j*wavelength)*np.exp(1j*k*r)/r**2
@@ -99,7 +99,7 @@ def rayleigh_sommerfeld_I_DI(field, x_prime, y_prime, z, wavelength, n=1.0, use_
     # adapt Shen/Wang's indexing to zero-based indexing:
     x_vec = np.array( [x_prime[0] - x_prime[N - j] for j in range(1, N) ] +  [x_prime[j - N] - x_prime[0] for j in range(N, 2*N) ] )
     y_vec = np.array( [y_prime[0] - y_prime[N - j] for j in range(1, N) ] +  [y_prime[j - N] - y_prime[0] for j in range(N, 2*N) ] )
-    X, Y = np.meshgrid(x_vec, y_vec)
+    X, Y = ensure_meshgrid(x_vec, y_vec)
 
     r = np.sqrt(X**2 + Y**2 + z**2)
     H = 1/TWOPI*np.exp(1j*k*r)/r**2*z*(1/r - 1j*k)   # TODO: two pi? last terms in parens?
@@ -112,7 +112,7 @@ def rayleigh_sommerfeld_I_DI(field, x_prime, y_prime, z, wavelength, n=1.0, use_
 
 def fresnel_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
     k = wavenumber(wavelength, n)
-    X_prime, Y_prime = np.meshgrid(x_prime, y_prime)
+    X_prime, Y_prime = ensure_meshgrid(x_prime, y_prime)
 
     IR = np.exp(1j*k*z)/(1j*wavelength*z)*np.exp(1j*k/(2.0*z)*(X_prime**2 + Y_prime**2))
 
@@ -159,9 +159,9 @@ def fraunhofer(field, x_prime, y_prime, z, wavelength):
 def _new_coordinates_mesh(x_prime, y_prime, z, wavelength):
     # create coordinates meshes for both "object" (primed coordinates) and
     # "image" space ("new" coordinates):
-    X_prime, Y_prime = np.meshgrid(x_prime, y_prime)
+    X_prime, Y_prime = ensure_meshgrid(x_prime, y_prime)
     x_new, y_new = _fraunhofer_coord_scale(x_prime, y_prime, z, wavelength)
-    X_new, Y_new = np.meshgrid(x_new, y_new)
+    X_new, Y_new = ensure_meshgrid(x_new, y_new)
 
     return X_prime, Y_prime, x_new, y_new, X_new, Y_new
 

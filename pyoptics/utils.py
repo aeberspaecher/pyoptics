@@ -29,6 +29,19 @@ sin_cos = lambda phi: (np.sin(phi), np.cos(phi))
 kronecker_delta = lambda n, m : (1.0 if n == m else 0.0)
 
 
+def ensure_meshgrid(x, y):
+    d_x, d_y = len(np.asarray(x).shape), len(np.asarray(y).shape)
+
+    if (d_x == 1) and (d_y == 1):
+        XX, YY = np.meshgrid(x, y)
+    elif (d_x == 2) and (d_y == 2):
+        XX, YY = np.asarray(x), np.asarray(y)
+    else:
+        raise ValueError("Dimensions of both x and y are unequal to 1 or 2")
+
+    return XX, YY
+
+
 def sgn(x):
     """Sign function using the convention sgn(0) = 1.0.
     """
@@ -478,7 +491,7 @@ def super_gaussian(x, y, x0, y0, sigma_x, sigma_y, N):
     """Compute a super Gaussian.
     """
 
-    XX, YY = np.meshgrid(x, y)
+    XX, YY = ensure_meshgrid(x, y)
 
     g = np.exp(-np.abs(XX - x0)**N/(2*sigma_x**N) - np.abs(YY - y0)**N/(2*sigma_y**N))
 

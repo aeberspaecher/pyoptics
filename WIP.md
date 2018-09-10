@@ -52,3 +52,4 @@
 * Müller matrices and some Stokes vectors
 * elliptical aperture
 * catch z=0 case in beam function
+* "ensure_meshgrid()" function or similar
