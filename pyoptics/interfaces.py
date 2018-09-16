@@ -111,7 +111,7 @@ def T_p(phi_1, n_1, n_2):
     return T
 
 
-def brewster(n_1, n_2):
+def brewster_angle(n_1, n_2):
     """Return Brewster's angle (p-wave reflectivity = 0).
     """
 

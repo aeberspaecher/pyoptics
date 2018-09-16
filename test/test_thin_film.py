@@ -8,7 +8,7 @@ Test the thin film module.
 import numpy as np
 
 from pyoptics.thin_films import r_t_coeffs, R_T_A_coeffs
-from pyoptics.utils import brewster_angle
+from pyoptics.interfaces import brewster_angle
 
 
 def test_brewster():
