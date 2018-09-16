@@ -19,11 +19,9 @@ curr_obj, curr_img, num_iter.
 import numpy as np
 import matplotlib.pyplot as plt
 
-
-from pyoptics.fft import FT_unitary, inv_FT_unitary
-
-
 from scipy.ndimage.filters import gaussian_filter
+
+from .fft import FT_unitary, inv_FT_unitary
 
 
 img_E = lambda img: np.sum(np.abs(img)**2)

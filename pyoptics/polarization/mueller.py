@@ -8,8 +8,8 @@ elements and Stokes vectors of common polarization states.
 import numpy as np
 from scipy.linalg import inv
 
-from pyoptics.utils import sin_cos
-from pyoptics.interfaces import refracted_angle
+from .utils import sin_cos
+from .interfaces import refracted_angle
 
 
 # common Stokes vectors:

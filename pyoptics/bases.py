@@ -17,11 +17,11 @@ from numpy.polynomial.chebyshev import chebval
 from scipy.misc import factorial as fac  # tolerant to negative arguments!
 from scipy.linalg import lstsq, qr
 
-from pyoptics.utils import (kronecker_delta, weight_grid, simpson_weights, sgn,
-                            scalar_product_without_weights,
-                            scalar_product, ensure_meshgrid
-                           )
-from pyoptics.masks import circular_mask, rectangluar_mask, to_bool
+from .utils import (kronecker_delta, weight_grid, simpson_weights, sgn,
+                    scalar_product_without_weights,
+                    scalar_product, ensure_meshgrid,
+                    )
+from .masks import (circular_mask, rectangluar_mask, annular_mask, to_bool)
 
 # TODO: reintroduce scalar/inner product in BasisSet? this allowed for inner products that respected the mask/support automatically
 

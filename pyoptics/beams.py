@@ -14,7 +14,7 @@ from math import factorial, pi, sin, sqrt
 import numpy as np
 from scipy.special import eval_genlaguerre, eval_hermite
 
-from pyoptics.utils import sgn, wavenumber, ensure_meshgrid
+from .utils import sgn, wavenumber, ensure_meshgrid
 
 
 # plane waves:

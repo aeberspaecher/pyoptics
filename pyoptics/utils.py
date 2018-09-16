@@ -12,7 +12,7 @@ from numpy.fft import fftfreq, fftshift
 from numpy.lib.scimath import sqrt as complex_sqrt
 from scipy.signal import savgol_coeffs
 
-from pyoptics.fft import FT_unitary, inv_FT_unitary
+from .fft import FT_unitary, inv_FT_unitary
 
 
 # TODO: add convenience routines the create complete grids? like a routine

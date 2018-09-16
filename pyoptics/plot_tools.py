@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from pyoptics.utils import I
+from .utils import I
 
 
 default_cmap = plt.cm.inferno
