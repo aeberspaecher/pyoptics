@@ -7,7 +7,7 @@
 import numpy as np
 import matplotlib.path as mpl_path
 
-from pyoptics.utils import ensure_meshgrid
+from .utils import ensure_meshgrid
 
 
 def circular_mask(x, y, R, x0=0.0, y0=0.0):

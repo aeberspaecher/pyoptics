@@ -36,8 +36,8 @@ from itertools import product
 from numpy.lib.scimath import sqrt as complex_sqrt
 import numpy as np
 
-from pyoptics.fft import fft2, ifft2, fftshift, ifftshift, FT, inv_FT, FT_unitary, inv_FT_unitary
-from pyoptics.utils import freq_grid, wavenumber, k_z, TWOPI, simpson_weights, weight_grid
+from .fft import fft2, ifft2, fftshift, ifftshift, FT, inv_FT, FT_unitary, inv_FT_unitary
+from .utils import freq_grid, wavenumber, k_z, TWOPI, simpson_weights, weight_grid
 
 
 # TODO: account for n properly: lambda -> lambda/n

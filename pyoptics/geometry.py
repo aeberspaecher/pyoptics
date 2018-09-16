@@ -7,7 +7,7 @@
 import numpy as np
 from scipy.linalg import norm
 
-from pyoptics.utils import sin_cos
+from .utils import sin_cos
 
 
 def cross_prod(a, b):
