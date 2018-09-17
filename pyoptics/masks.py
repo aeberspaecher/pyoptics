@@ -26,7 +26,7 @@ def circular_mask(x, y, R, x0=0.0, y0=0.0):
     mask : array, int
     """
 
-    XX, YY = ensure_meshrid(x, y)
+    XX, YY = ensure_meshgrid(x, y)
 
     mask = np.zeros(np.shape(XX), dtype=np.int)
     mask[(XX -x0)**2 + (YY-y0)**2 <= R**2] = 1
