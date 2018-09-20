@@ -11,12 +11,13 @@
 
 from copy import copy
 from functools import reduce  # Python 3 compatibility
+from itertools import product
 
 import numpy as np
 from numpy.lib.scimath import sqrt as complex_sqrt
 from numpy import sin, cos
 
-from utils import Z_0 as Z_vac, wavenumber
+from .utils import Z_0 as Z_vac, wavenumber, complex_average
 
 
 def _n_k_arrays(n, k, embedding_n, embedding_k, substrate_n, substrate_k):
@@ -98,7 +99,7 @@ def _tilted_Z(Z_in, cos_theta, pol):
 
 
 def r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
-               substrate_k, pol, wavelength, incoherent):
+               substrate_k, pol, wavelength, phi0=None):
     """Reflection and transmission coefficients for a thin film stack.
 
     Parameters
@@ -127,34 +128,26 @@ def r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
     assert len(k) >= 1
     assert len(t) == len(n) == len(k)
 
-    if(incoherent is None):
-        incoherent = np.zeros(len(n)+2, dtype=np.bool)  # array of all False
-    else:
-        incoherent = np.array([False] + incoherent + [False])
-
     n, k = _n_k_arrays(n, k, embedding_n, embedding_k, substrate_n, substrate_k)  # extend n, k arrays by embedding medium and substrate
     complex_n = n + 1j*k
     Z = _impedances(complex_n)  # complex impedance for all media
     cos_theta = _cos_theta(angle, complex_n)  # complex propagation angles in all media
     Z = _tilted_Z(Z, cos_theta, pol)  # McLeod's 'tilted admittances'
 
+    if phi0 is None:  # if no additional phases are given, assume zero additional phases
+        phi0 = np.zeros(len(n))
+    else:
+        phi0 = np.array([0.] + list(phi0) + [0.])  # additional zeros for substrate and embedding medium
+
     # construct Zangwill's transfer matrices for all layers:
     M = []
     for j in range(1, len(n) - 1):
-        phi_j = t[j-1]*wavenumber(wavelength, complex_n[j])*cos_theta[j]  # 'phase' accumulated in layer j
-
-        if(incoherent[j]):  # inchoherent layers lose phase information
-            phi_j = np.imag(phi_j)  # only damping remains
+        phi_j = t[j-1]*wavenumber(wavelength, complex_n[j])*cos_theta[j] + phi0[j]  # 'phase' accumulated in layer j
 
         M_curr = np.array([[cos(phi_j), -1j*Z[j]*sin(phi_j)],
                            [-1j/Z[j]*sin(phi_j), cos(phi_j)]
                           ]
                          )
-
-        #if(incoherent[j]):  # inchoherent layers lose phase information
-            #M_curr = np.abs(M_curr)  # only damping remains
-            # TODO: how to kill a phase in the incoherent case? build a test case! single film over wavelength or such...
-
         M.append(M_curr)
 
     M_total = reduce(np.dot, M)  # multiply all M matrices
@@ -169,9 +162,33 @@ def r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
 
 
 def R_T_A_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
-                 substrate_k, pol, wavelength, incoherent=None):
+                 substrate_k, pol, wavelength, incoherent=None, N_phases=None):
     """Same as r_t_coeffs, but for intensity reflectance and transmittance.
     Also return 'absorbtance' such that R + T + A = 1.
+
+    Parameters
+    ----------
+    angle : double
+        Incident angle in embedding medium.
+    n , k : arrays
+        Real and imaginary parts of the refractive indices of the thin film stack.
+    t : arrays
+        Thicknesses of the layers.
+    embedding_n, embedding_k, substrate_n, substrate_k : double
+        Real and imaginary parts of the embedding medium's and the substrate's
+        refractive index. Both the embedding medium and the substrate are taken
+        be infinitely extend.
+    pol : string
+        "s" or "p" polarization. Also accepted: "TE" or "TM".
+    wavelength : number
+        Wavelength of incident light.
+    incoherent : array, boolean, optional
+        Element i is True if the i-th layer is "incoherent" (i.e. such that
+        phase information is lost). Defaults to None which is interpreted as full
+        coherence in all layers.
+    N_phases : int, optional
+        Use N_phases phase offsets for incoherent layers in averaging. Only
+        used if at least one incoherent layer is present.
 
     Note
     ----
@@ -179,8 +196,33 @@ def R_T_A_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
     embeddig medium is equal to the substrate.
     """
 
-    r, t = r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
-                      substrate_k, pol, wavelength, incoherent)
+    # TODO: iterate over all permutations of incoherent layer additional phases
+    #       compute r, t, a coherently
+    #       average over all realizations
+
+    if (incoherent is not None) and N_phases is None:
+        raise ValueError("N_phases must be a number")
+ 
+    # generate ensemble of phases to add in each layer. if a layer is coherent,
+    # zero phase is added beyond the phase acquired by propagation through the
+    # layer. if the layer is incoherent, linearly distructed values in [0, 2pi)
+    # are added for each realization of the ensemble.
+    if incoherent is not None:
+        add_phases = [ np.linspace(0, 2*np.pi, N_phases, endpoint=False) if is_incoherent else [0.0]
+                       for is_incoherent in incoherent
+                     ]
+        # iterate over realizations of the phase ensemble
+        r_ensemble, t_ensemble = [], []
+        for phi0 in product(*add_phases):
+            curr_r, curr_t = r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
+                                        substrate_k, pol, wavelength, phi0)
+            r_ensemble.append(curr_r)
+            t_ensemble.append(curr_t)
+        r, t = complex_average(r_ensemble), complex_average(t_ensemble)
+    else:
+        # add_phases = len(n)*[0.0]
+        r, t = r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
+                          substrate_k, pol, wavelength, phi0=None)
 
     # prepare data for T correction:
     n_extended, k_extended = _n_k_arrays(n, k, embedding_n, embedding_k, substrate_n, substrate_k)
@@ -190,7 +232,11 @@ def R_T_A_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
     Z = _tilted_Z(Z, cos_theta, pol)
 
     R = np.abs(r)**2
-    T = np.real(Z[-1])/np.real(Z[0])*np.abs(t)**2
+    T = np.real(Z[0])/np.real(Z[-1])*np.abs(t)**2  # FIXME: order of Z
+    # if pol.upper() in ("TE", "S"):
+    T = np.abs(t)**2*np.real(cos_theta[-1]*complex_n[-1])/np.real(cos_theta[0]*complex_n[0])
+    # else:
+    #     T = np.abs(t)**2*np.real(np.conj(cos_theta[-1])*complex_n[-1])/np.real(np.conj(cos_theta[0])*complex_n[0])
     A = 1.0 - R - T
 
     return R, T, A
