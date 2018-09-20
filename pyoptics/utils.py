@@ -29,6 +29,27 @@ sin_cos = lambda phi: (np.sin(phi), np.cos(phi))
 kronecker_delta = lambda n, m : (1.0 if n == m else 0.0)
 
 
+def complex_average(z_vals):
+    """Compute average of complex numbers from r, phi instead of real and imaginary
+    part.
+
+    Parameters
+    ----------
+    z_vals : iterable
+
+    Returns
+    -------
+    z_avg : complex
+    """
+
+    r_vals = np.abs(z_vals)
+    phi_vals = np.arctan2(np.imag(z_vals), np.real(z_vals))
+
+    avg = r_vals.mean()*np.exp(1j*phi_vals.mean())
+
+    return avg
+
+
 def ensure_meshgrid(x, y):
     d_x, d_y = len(np.asarray(x).shape), len(np.asarray(y).shape)
 
