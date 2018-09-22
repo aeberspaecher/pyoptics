@@ -37,7 +37,7 @@ from numpy.lib.scimath import sqrt as complex_sqrt
 import numpy as np
 
 from .fft import fft2, ifft2, fftshift, ifftshift, FT, inv_FT, FT_unitary, inv_FT_unitary
-from .utils import freq_grid, wavenumber, k_z, TWOPI, simpson_weights, weight_grid, ensure_meshgrid
+from .utils import freq_grid, wavenumber, k_z, TWOPI, simpson_weights, weight_grid, ensure_meshgrid, get_dx
 
 
 # TODO: account for n properly: lambda -> lambda/n
@@ -144,8 +144,7 @@ def rayleigh_sommerfeld_I_DI(field, x_prime, y_prime, z, wavelength, n=1.0, use_
     N = N[0]
 
     k = wavenumber(wavelength, n)
-    dx = x_prime[1] - x_prime[0]
-    dy = y_prime[1] - y_prime[0]
+    dx, dy = get_dx(x_prime), get_dx(y_prime)
 
     if use_simpson:
         weights = weight_grid(simpson_weights, N, N)
@@ -261,8 +260,7 @@ def fresnel_rescaling(field, x_prime, y_prime, z, wavelength):
     X_prime, Y_prime, x_new, y_new, X_new, Y_new = _new_coordinates_mesh(x_prime, y_prime, z, wavelength)
 
     prefactor = np.exp(1j*k*z)/(1j*k*z)*np.exp(1j*k/(2*z)*(X_new**2 + Y_new**2))
-    dx = x_prime[1] - x_prime[0]
-    dy = y_prime[1] - y_prime[0]
+    dx, dy = get_dx(x_prime), get_dx(y_prime)
 
     field_propagated = prefactor*FT(field*np.exp(1j/(2*z)*(X_prime**2 + Y_prime**2)))*dx*dy
 
@@ -296,8 +294,7 @@ def fraunhofer(field, x_prime, y_prime, z, wavelength, n=1.0):
     X_prime, Y_prime, x_new, y_new, X_new, Y_new = _new_coordinates_mesh(x_prime, y_prime, z, wavelength)
 
     prefactor = np.exp(1j*k*z)/(1j*k*z)*np.exp(1j*k/(2*z)*(X_new**2 + Y_new**2))
-    dx = x_prime[1] - x_prime[0]
-    dy = y_prime[1] - y_prime[0]
+    dx, dy = get_dx(x_prime), get_dx(y_prime)
 
     field_propagated = prefactor*FT(field)*dx*dy
 
