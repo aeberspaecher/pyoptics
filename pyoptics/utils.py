@@ -254,7 +254,7 @@ def freq_grid(x, y, wavenumbers=True, normal_order=True):
 
     freq_x, freq_y = (frequencies(x, wavenumbers, normal_order),
                       frequencies(y, wavenumbers, normal_order),
-                      )  # TODO: use map() instead? or a list comprehension?
+                     )
 
     out = np.meshgrid(freq_x, freq_y)
 
@@ -325,7 +325,7 @@ def get_z_derivative(stack, dz, order):
 
     stack_work = stack.copy()
 
-    # TODO: can this be replaced by einsum()?
+    # TODO: can this be replaced by einsum("...i,...i->...", deriv_coeffs, stack_work)?
     for i in range(num_images):
         stack_work[:, :, i] = deriv_coeffs[i]*stack_work[:, :, i]
         # TODO: write more elegantly, check what coeffs*stack_work does
@@ -367,8 +367,6 @@ def scalar_product(field1, field2, x, y, weight_func=None):
     else:
         weights = weight_grid(weight_func, len(x), len(y))
 
-    #dx, dy = x[1] - x[0], y[1] - y[0]
-    #prod = np.sum(weights*np.conj(field1)*field2)*dx*dy
     prod = scalar_product_with_weights(field1, field2, x, y, weights)
 
     return prod
