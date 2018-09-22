@@ -29,6 +29,17 @@ sin_cos = lambda phi: (np.sin(phi), np.cos(phi))
 kronecker_delta = lambda n, m : (1.0 if n == m else 0.0)
 
 
+def get_dx(x):
+    """Get dx using a formulation that does not suffer from numerical
+    cancellation of significant digits.
+    """
+
+    Nx = len(x)
+    dx = (x[-1] - x[0])/(Nx - 1.)
+
+    return dx
+
+
 def complex_average(z_vals):
     """Compute average of complex numbers from r, phi instead of real and imaginary
     part.
@@ -207,8 +218,8 @@ def frequencies(x, wavenumbers=True, normal_order=True):
         Arrays of frequencies/wavenumbers.
     """
 
-    dx = abs(x[1] - x[0])
     N_x = len(x)
+    dx = get_dx(x)
     freq_x = fftfreq(N_x, dx)
 
     if wavenumbers:
@@ -382,7 +393,7 @@ def scalar_product_with_weights(field1, field2, x, y, weights):
         Scalar product.
     """
 
-    dx, dy = x[1] - x[0], y[1] - y[0]
+    dx, dy = get_dx(x), get_dx(y)
     prod = np.sum(weights*np.conj(field1)*field2)*dx*dy
 
     return prod
@@ -405,7 +416,7 @@ def scalar_product_without_weights(field1, field2, x, y):
         Scalar product.
     """
 
-    dx, dy = x[1] - x[0], y[1] - y[0]
+    dx, dy = get_dx(x), get_dx(y)
     prod = np.sum(np.conj(field1)*field2)*dx*dy
 
     return prod
