@@ -42,6 +42,30 @@ from .utils import freq_grid, wavenumber, k_z, TWOPI, simpson_weights, weight_gr
 
 # TODO: account for n properly: lambda -> lambda/n
 
+def suggest_N_critical(L, z, wl):
+    """Suggest number of samples N for "critical sampling" -- for this number
+    of samples, both the impulse response and the transfer function for the
+    Fresnel propagator are well sampled.
+
+    Parameters
+    ----------
+    L : number
+        Sampling box side length.
+    z : number
+        Propagation distance.
+    wl : number
+        Wavelength.
+
+    Returns
+    -------
+    N_crit : integer
+    """
+
+    # dx_crit = wl*z/L
+    N_crit = round(L**2/(wl*z)) + 1 
+
+    return round(N_crit)
+
 
 def rayleigh_sommerfeld_I_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
     """Compute the Rayleigh-Sommerfeld integral of first kind using FFTs. The
@@ -366,14 +390,14 @@ def vectorial_fresnel(field, x_prime, y_prime, z, wavelength, n=1.0):
     field_propagated = np.zeros([np.size(field, 0), np.size(field, 1), 3],
                                 dtype=np.complex)  # three polarization components
 
-    # TODO: use scaled x, y instead of unsacled ones?
+    # TODO: use scaled x, y instead of unscaled ones?
     k = wavenumber(wavelength, n)
     K_x, K_y = freq_grid(x_prime, y_prime, wavenumbers=True, normal_order=True)
     Sigma_x, Sigma_y = K_x/k, K_y/k
     Sigma_z = complex_sqrt(1.0 - Sigma_x**2 - Sigma_y**2)
 
     alpha = (0, 1)  # x & y polarization components in aperture
-    beta = (0, 1, 2)  # x, y & z polarization for propgated field
+    beta = (0, 1, 2)  # x, y & z polarization for propagated field
 
     T = np.zeros_like(field, dtype=np.complex)
     for a in alpha:
@@ -430,7 +454,7 @@ def vectorial_fresnel_extended(field, x_prime, y_prime, z, wavelength,
     #Sigma_z = complex_sqrt(1.0 - Sigma_x**2 - Sigma_y**2)
 
     #alpha = (0, 1)  # x & y polarization components in aperture
-    #beta = (0, 1, 2)  # x, y & z polarization for propgated field
+    #beta = (0, 1, 2)  # x, y & z polarization for propagated field
 
     #T = np.zeros_like(field, dtype=np.complex)
     #for a in alpha:
@@ -497,7 +521,6 @@ def fresnel_number(outer_aperture_diameter, z, wavelength, wavefront_curvature=N
 
     """
 
-    # TODO: docstring
     # TODO: implement correct formula
 
     return aperture_diameter**2/(wavelength*z)
