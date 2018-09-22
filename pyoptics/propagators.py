@@ -66,12 +66,13 @@ def rayleigh_sommerfeld_I_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
     """
 
     k = wavenumber(wavelength, n)
+    dx_prime, dy_prime = get_dx(x_prime), get_dx(y_prime)
     X_prime, Y_prime = ensure_meshgrid(x_prime, y_prime)
     r = np.sqrt(z**2 + X_prime**2 + Y_prime**2)
 
     IR = z/(1j*wavelength)*np.exp(1j*k*r)/r**2
 
-    field_propagated = inv_FT(FT(field)*FT(IR))
+    field_propagated = inv_FT(FT(field)*FT(IR)*dx_prime*dy_prime)
 
     return field_propagated, x_prime, y_prime
 
@@ -193,11 +194,13 @@ def fresnel_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
     """
 
     k = wavenumber(wavelength, n)
+    
+    dx_prime, dy_prime = get_dx(x_prime), get_dx(y_prime)
     X_prime, Y_prime = ensure_meshgrid(x_prime, y_prime)
 
     IR = np.exp(1j*k*z)/(1j*wavelength*z)*np.exp(1j*k/(2.0*z)*(X_prime**2 + Y_prime**2))
 
-    field_propagated = inv_FT(FT(field)*FT(IR))
+    field_propagated = inv_FT(FT(field)*FT(IR)*dx_prime*dy_prime)
 
     return field_propagated, x_prime, y_prime
 
