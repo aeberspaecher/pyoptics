@@ -300,7 +300,7 @@ def fringe_to_n_m(j):
     m = floor((((d**2-j)/2)) if (((int(d)**2 - j) % 2) == 0) else ceil((-(d**2) + j - 1)/2.))
     n = round((2.0*(d-1) - abs(m)))
 
-    return n, m
+    return int(n), int(m)
 
 
 def _fringe_zernike_R_nm_coeffs(n, m):
@@ -377,11 +377,12 @@ class FringeZernikes(BasisSet):
 
     def __init__(self, x, y, R_norm=1.0, x0=0.0, y0=0.0):
         super(FringeZernikes, self).__init__(x-x0, y-y0)
+
         self.R_norm = R_norm
         self.Rho = np.sqrt((self.XX)**2 + (self.YY)**2)/R_norm
         self.Phi = np.arctan2(self.YY, self.XX)
 
-        self.mask = circular_mask(x-x0, y-y0, R_norm)  # TODO: introduce x0, y0!
+        self.mask = circular_mask(x-x0, y-y0, R_norm)
         self._has_norm = True
 
     def eval_single(self, j):
