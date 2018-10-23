@@ -320,7 +320,11 @@ def _fringe_zernike_R_nm_coeffs(n, m):
 
     coeffs = np.zeros(N+1)
     for k in range((N-M)/2 + 1):
-        coeffs[N-2*k] = (-1.0)**k * fac(N-k) / (fac(k) * fac((N+M)/2.0 - k) * fac((N-M)/2.0 - k))
+        denom = fac(k) * fac((N+M)/2.0 - k) * fac((N-M)/2.0 - k)
+        if np.isclose(denom, 0.0):  # avoid division by zero
+            coeffs[N-2*k] = 0.0
+        else:
+            coeffs[N-2*k] = (-1.0)**k * fac(N-k) / denom
 
     return coeffs[::-1]  # highest power first, for np.polyval()
 
