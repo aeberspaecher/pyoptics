@@ -75,7 +75,7 @@ def plot_field(field, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
                use_intensity=False, amp_title=None, phase_title=None,
                horizontal_layout=True,
                use_rad=False, n=1.0, **kwargs):
-    """Plot an intensity image.
+    """Plot a complex field.
 
     Parameters
     ----------
@@ -95,7 +95,7 @@ def plot_field(field, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
         complex.
     **kwargs : keyword arguments
         Propagated to matplotlib imshow() call. If given, phase_cmap is mapped
-        to cmap for the phas plot.
+        to cmap for the phase plot.
     """
 
     # FIXME: aspect ratio & extent - images can be truncated!

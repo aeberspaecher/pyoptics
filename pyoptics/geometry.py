@@ -50,10 +50,11 @@ def cross_prod_matrix(v):
 
 
 def R_onto(a, b):
-    """Rotation matrix that rotations vector a onto vector b.
+    """Rotation matrix that rotates vector a onto vector b.
 
-    a and b are assumed the be unit vectors, however the routine also works
-    a and b of arbitraty length.
+    a and b are assumed the be unit vectors, however the routine also works a
+    with and b of arbitraty length. In that case, a and b are renormalized
+    inplace.
 
     Parameters
     ----------
@@ -64,6 +65,7 @@ def R_onto(a, b):
     R : array
         Rotation matrix that maps a unnit vector along a onto the direction
         of b.
+
     """
     #http://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d
 

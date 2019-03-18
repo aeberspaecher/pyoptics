@@ -58,6 +58,10 @@ def spherical_wave(x, y, z, wavelength, x0, y0, z0, U0=1.0, n=1.0):
     z : number
     wl : number
     x0, y0, z0 : numbers
+    U0: number, optional
+        Complex amplitude factor.
+    n : number, optional
+        Refractive index of medium.
 
     Returns
     -------
