@@ -867,6 +867,27 @@ class RescaledBasis(BasisSet):
         val *= self.get_rescaling_factor_from_sampled_func(index, val)
 
         return val
+
+
+def basis_from_generating_function(index_func, field_func, **kwargs):
+    """Generate a BasisSet object from a given field function.
+
+    Parameters
+    ----------
+    index_func : callable
+        Maps a single integer n to one or several indices i, j, k...
+    field_func : callable
+        Field or basis function generating function with signature
+        field_func(i, j, k, ..., x, y, **kwargs).
+
+    Returns
+    -------
+    generated_basis : BasisSet object
+    """
+
+    pass
+
+
 if(__name__ == '__main__'):
     from pyoptics.utils import grid1d
     from pyoptics.plot_tools import plot_intensity
