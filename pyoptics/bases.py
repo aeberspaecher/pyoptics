@@ -320,6 +320,7 @@ def _fringe_zernike_R_nm_coeffs(n, m):
 
     coeffs = np.zeros(N+1)
     for k in range((N-M)/2 + 1):
+        # TODO: implement formula with binomials using mpmath
         denom = fac(k) * fac((N+M)/2.0 - k) * fac((N-M)/2.0 - k)
         if np.isclose(denom, 0.0):  # avoid division by zero
             coeffs[N-2*k] = 0.0
@@ -366,9 +367,9 @@ def fringe_zernike_Y_m(m, phi):
     if m > 0:
         val = np.cos(m*phi)
     elif m == 0:
-        val = np.ones(np.shape(phi))
+        val = np.ones(np.shape(phi))  # TODO: this assumes array-valued phi. change that?
     else:
-        val = np.sin(m*phi)
+        val = np.sin(-m*phi)  # minus sign to get |m| for m < 0, otherwise there'll be a sign flip
 
     return val
 
