@@ -18,9 +18,8 @@ from .utils import I
 default_cmap = plt.cm.inferno
 default_cmap_phase = plt.cm.bwr
 
-
 def plot_intensity(psi, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
-                   use_intensity=False, n=1.0, **kwargs):
+                   use_intensity=False, n=1.0, ax=None, **kwargs):
     """Plot an intensity image.
 
     Parameters
@@ -41,6 +40,8 @@ def plot_intensity(psi, x, y, xlabel=None, ylabel=None, title=None, colorbar=Tru
     n : double, optional
         Refractive index of embedding medium. Defaults to n=1.0. Used if psi is
         complex.
+    ax : matplotlib axes, optional
+         If given, use this axes to plot to.
     **kwargs : keyword arguments
         Propagated to matplotlib imshow() call.
     """
@@ -53,22 +54,30 @@ def plot_intensity(psi, x, y, xlabel=None, ylabel=None, title=None, colorbar=Tru
     if "origin" not in kwargs:
         kwargs["origin"] = "lower"
 
-    fig = plt.figure(facecolor="white")
-    ax = plt.gca()
+    if ax is None:
+        fig = plt.figure(facecolor="white")
+        ax = plt.gca()
+    else:
+        fig = ax.figure
 
     ax.locator_params(nbins=5)
 
-    plt.imshow(psi, extent=(x[0], x[-1], y[0], y[-1]), **kwargs)
+    im = ax.imshow(psi, extent=(x[0], x[-1], y[0], y[-1]), **kwargs)
     if xlabel is not None:
-        plt.xlabel(xlabel)
+        ax.set_xlabel(xlabel)
     if ylabel is not None:
-        plt.ylabel(ylabel)
+        ax.set_ylabel(ylabel)
     if title is not None:
-        plt.title(title)
+        ax.set_title(title)
     if colorbar is not None:
-        plt.colorbar()
-    plt.tight_layout()
-    plt.show()
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+        fig.colorbar(im, cax=cax, orientation='vertical')
+
+        # ax.colorbar()
+    if ax is None:
+        plt.tight_layout()
+        plt.show()
 
 
 def plot_field(field, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
