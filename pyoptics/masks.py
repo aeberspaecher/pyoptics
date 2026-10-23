@@ -25,7 +25,7 @@ def circular_mask(x, y, R, x0=0.0, y0=0.0):
 
     XX, YY = np.meshgrid(x, y)
 
-    mask = np.zeros(np.shape(XX), dtype=np.int)
+    mask = np.zeros(np.shape(XX), dtype=int)
     mask[(XX -x0)**2 + (YY-y0)**2 <= R**2] = 1
 
     return mask
@@ -73,9 +73,9 @@ def rectangluar_mask(x, y, a, b, x0=0.0, y0=0.0, include_1d_output=False):
     mask : array
     """
 
-    mask_x = np.zeros_like(x, dtype=np.int)
+    mask_x = np.zeros_like(x, dtype=int)
     mask_x[((x - x0) >= -a) & ((x - x0) <= +a)] = 1
-    mask_y = np.zeros_like(y, dtype=np.int)
+    mask_y = np.zeros_like(y, dtype=int)
     mask_y[((y - y0) >= -b) & ((y - y0) <= +b)] = 1
     mask = np.outer(mask_y, mask_x)
 
@@ -88,7 +88,7 @@ def rectangluar_mask(x, y, a, b, x0=0.0, y0=0.0, include_1d_output=False):
 def elliptical_mask(x, y, a, b, x0=0.0, y0=0.0):
     XX, YY = np.meshgrid(x, y)
 
-    mask = np.zeros(np.shape(XX), dtype=np.int)
+    mask = np.zeros(np.shape(XX), dtype=int)
     mask[(XX -x0)**2/a**2 + (YY-y0)**2/b**2 <= 1] = 1
 
     return mask

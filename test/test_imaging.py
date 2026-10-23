@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import skimage as sk
 import skimage.data as skd
 from skimage.color import rgb2gray
-from scipy.signal import fftconvolve, hamming
+from scipy.signal import fftconvolve
+from scipy.signal.windows import hamming
 import matplotlib.pyplot as plt
 
 import skimage.restoration as r
@@ -22,9 +23,9 @@ k = 2*np.pi/wavelength
 hamming_window_1d = hamming(512)
 hamming_window_2d = np.outer(hamming_window_1d, hamming_window_1d)
 
-lena = sk.img_as_float(rgb2gray(skd.lena()))
-lena /= np.max(lena)
-lena *= hamming_window_2d
+astronaut = sk.img_as_float(rgb2gray(skd.astronaut()))
+astronaut /= np.max(astronaut)
+astronaut *= hamming_window_2d
 
 camera = sk.img_as_float(skd.camera())
 camera /= np.max(camera)
@@ -35,7 +36,7 @@ camera /= np.max(camera)
 #plt.colorbar()
 #plt.show()
 
-obj = lena*np.exp(1j*(0.1*np.pi*(camera - 0.5)))
+obj = astronaut*np.exp(1j*(0.1*np.pi*(camera - 0.5)))
 img = po.imaging.image(obj, x, y, NA=NA, k=k)
 psf = po.imaging.get_psf(x, y, NA, k=k)
 

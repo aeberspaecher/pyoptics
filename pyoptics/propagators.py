@@ -209,7 +209,7 @@ def vectorial_fresnel(field, x_prime, y_prime, z, wavelength, n=1.0):
     #
 
     field_propagated = np.zeros([np.size(field, 0), np.size(field, 1), 3],
-                                dtype=np.complex)  # three polarization components
+                                dtype=complex)  # three polarization components
 
     # TODO: use scaled x, y instead of unsacled ones?
     k = wavenumber(wavelength, n)
@@ -220,7 +220,7 @@ def vectorial_fresnel(field, x_prime, y_prime, z, wavelength, n=1.0):
     alpha = (0, 1)  # x & y polarization components in aperture
     beta = (0, 1, 2)  # x, y & z polarization for propgated field
 
-    T = np.zeros_like(field, dtype=np.complex)
+    T = np.zeros_like(field, dtype=complex)
     for a in alpha:
         T[:, :, a] = FT_unitary(field[:, :, a])  # TODO: does fft2 have an axis argument or similar? or np.applyaxis?
 
@@ -267,7 +267,7 @@ def vectorial_fresnel_extended(field, x_prime, y_prime, z, wavelength,
     ##
 
     #field_propagated = np.zeros([np.size(field, 0), np.size(field, 1), 3],
-                                #dtype=np.complex)  # three polarization components
+                                #dtype=complex)  # three polarization components
 
     #k = wavenumber(wavelength, n)
     #K_x, K_y = freq_grid(x_prime, y_prime, wavenumbers=True, normal_order=True)
@@ -277,7 +277,7 @@ def vectorial_fresnel_extended(field, x_prime, y_prime, z, wavelength,
     #alpha = (0, 1)  # x & y polarization components in aperture
     #beta = (0, 1, 2)  # x, y & z polarization for propgated field
 
-    #T = np.zeros_like(field, dtype=np.complex)
+    #T = np.zeros_like(field, dtype=complex)
     #for a in alpha:
         #T[:, :, a] = FT(field[:, :, a])  # TODO: does fft2 have an axis argument or similar? or np.applyaxis?
 

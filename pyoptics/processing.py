@@ -18,6 +18,13 @@ The following processors are defined:
 # that's actually not a problem! in that case, we can just make the
 # process_single_image() routine do that.
 
+from abc import abstractmethod
+
+import numpy as np
+
+from .fft import fft2, ifft2
+from .utils import freq_grid
+
 
 class ImageProcessor(object):
     """Base class for all image processor.
