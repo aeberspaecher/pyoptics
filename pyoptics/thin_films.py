@@ -17,7 +17,7 @@ import numpy as np
 from numpy.lib.scimath import sqrt as complex_sqrt
 from numpy import sin, cos
 
-from .utils import Z_0 as Z_vac, wavenumber, complex_average
+from .utils import Z_0 as Z_vac, wavenumber
 
 
 def _n_k_arrays(n, k, embedding_n, embedding_k, substrate_n, substrate_k):
@@ -196,47 +196,40 @@ def R_T_A_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
     embeddig medium is equal to the substrate.
     """
 
-    # TODO: iterate over all permutations of incoherent layer additional phases
-    #       compute r, t, a coherently
-    #       average over all realizations
-
     if (incoherent is not None) and N_phases is None:
         raise ValueError("N_phases must be a number")
- 
+
     # generate ensemble of phases to add in each layer. if a layer is coherent,
     # zero phase is added beyond the phase acquired by propagation through the
-    # layer. if the layer is incoherent, linearly distructed values in [0, 2pi)
+    # layer. if the layer is incoherent, linearly distributed values in [0, 2pi)
     # are added for each realization of the ensemble.
     if incoherent is not None:
         add_phases = [ np.linspace(0, 2*np.pi, N_phases, endpoint=False) if is_incoherent else [0.0]
                        for is_incoherent in incoherent
                      ]
-        # iterate over realizations of the phase ensemble
-        r_ensemble, t_ensemble = [], []
-        for phi0 in product(*add_phases):
-            curr_r, curr_t = r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
-                                        substrate_k, pol, wavelength, phi0)
-            r_ensemble.append(curr_r)
-            t_ensemble.append(curr_t)
-        r, t = complex_average(r_ensemble), complex_average(t_ensemble)
     else:
-        # add_phases = len(n)*[0.0]
-        r, t = r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
-                          substrate_k, pol, wavelength, phi0=None)
+        add_phases = [[0.0] for _ in n]
 
-    # prepare data for T correction:
+    # incoherence means that intensities (not amplitudes) add up, so average
+    # |r|**2 and |t|**2 over all realizations of the phase ensemble:
+    abs_r_sq, abs_t_sq = [], []
+    for phi0 in product(*add_phases):
+        curr_r, curr_t = r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
+                                    substrate_k, pol, wavelength, phi0)
+        abs_r_sq.append(np.abs(curr_r)**2)
+        abs_t_sq.append(np.abs(curr_t)**2)
+
+    # r and t are ratios of the tangential field components. the z-component
+    # of the Poynting vector is proportional to |E_tan|**2*Re(1/Z_tilted),
+    # which holds for both s and p polarization:
     n_extended, k_extended = _n_k_arrays(n, k, embedding_n, embedding_k, substrate_n, substrate_k)
     complex_n = n_extended + 1j*k_extended
     Z = _impedances(complex_n)  # complex impedance for all media
     cos_theta = _cos_theta(angle, complex_n)
     Z = _tilted_Z(Z, cos_theta, pol)
 
-    R = np.abs(r)**2
-    T = np.real(Z[0])/np.real(Z[-1])*np.abs(t)**2  # FIXME: order of Z
-    # if pol.upper() in ("TE", "S"):
-    T = np.abs(t)**2*np.real(cos_theta[-1]*complex_n[-1])/np.real(cos_theta[0]*complex_n[0])
-    # else:
-    #     T = np.abs(t)**2*np.real(np.conj(cos_theta[-1])*complex_n[-1])/np.real(np.conj(cos_theta[0])*complex_n[0])
+    R = np.mean(abs_r_sq)
+    T = np.mean(abs_t_sq)*np.real(1/Z[-1])/np.real(1/Z[0])
     A = 1.0 - R - T
 
     return R, T, A

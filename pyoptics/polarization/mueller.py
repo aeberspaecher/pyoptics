@@ -10,8 +10,8 @@ from functools import reduce
 import numpy as np
 from scipy.linalg import inv
 
-from .utils import sin_cos
-from .interfaces import refracted_angle
+from ..utils import sin_cos
+from ..interfaces import refracted_angle
 
 
 # common Stokes vectors:
@@ -42,13 +42,13 @@ def stokes_from_complex_E(E):
 
     E_x, E_y = E[0], E[1]
 
-    S = np.array( [
-                    E_x*np.conj(E_x) + E_y*np.conj(E_y),
-                    E_x*np.conj(E_x) - E_y*np.conj(E_y),
-                    E_x*np.conj(E_y) + E_y*np.conj(E_x),
-                    1j*(E_x*np.conj(E_y) - E_y*np.conj(E_x))
-                  ]
-                )
+    S = np.real(np.array( [
+                            E_x*np.conj(E_x) + E_y*np.conj(E_y),
+                            E_x*np.conj(E_x) - E_y*np.conj(E_y),
+                            E_x*np.conj(E_y) + E_y*np.conj(E_x),
+                            1j*(E_x*np.conj(E_y) - E_y*np.conj(E_x))
+                          ]
+                        ))
 
     return S
 
@@ -116,8 +116,8 @@ def M_retarder(phi, delta):
     s_p = np.sin(2*phi)
 
     M = np.array( [ [1., 0, 0, 0],
-                    [0, c_p**2 + c_d*s_p**2, c_d*s_d - c_p*c_d*s_p, s_p*s_d],
-                    [0, c_p*s_p - c_p*c_d*s_d, c_d*c_p**2 + s_p**2, -c_p*s_d],
+                    [0, c_p**2 + c_d*s_p**2, c_p*s_p*(1 - c_d), s_p*s_d],
+                    [0, c_p*s_p*(1 - c_d), c_d*c_p**2 + s_p**2, -c_p*s_d],
                     [0, -s_p*s_d, c_p*s_d, c_d]
                   ]
                 )
@@ -162,29 +162,34 @@ def M_reflection_dielectric(r_s, r_p, *args):
     with a signature as used in transmission_dielectric().
     """
 
-    M = np.array( [ [np.abs(r_p)**2 + np.abs(r_s)**2, np.abs(r_p)**2 - np.abs(r_s)**2, 0, 0],
-                    [np.abs(r_p)**2 - np.abs(r_s)**2, np.abs(r_p)**2 + np.abs(r_s)**2, 0, 0],
-                    [0, 0, 2*np.real(np.conj(r_p)*r_s), 2*np.imag(np.conj(r_p)*r_s)],
-                    [0, 0, -2*np.imag(np.conj(r_p)*r_s), 2*np.imag(np.conj(r_p)*r_s)]
-                  ]
-                )
+    M = 1./2 * np.array( [ [np.abs(r_p)**2 + np.abs(r_s)**2, np.abs(r_p)**2 - np.abs(r_s)**2, 0, 0],
+                           [np.abs(r_p)**2 - np.abs(r_s)**2, np.abs(r_p)**2 + np.abs(r_s)**2, 0, 0],
+                           [0, 0, 2*np.real(np.conj(r_p)*r_s), 2*np.imag(np.conj(r_p)*r_s)],
+                           [0, 0, -2*np.imag(np.conj(r_p)*r_s), 2*np.real(np.conj(r_p)*r_s)]
+                         ]
+                       )
 
     return M
 
 
-def M_transmission_dielectric(t_s, t_p, theta_in, n_embedding, n_substrate, pol):
+def M_transmission_dielectric(t_s, t_p, theta_in, n_embedding, n_substrate, pol=None):
     """Müller matrix for transmission from a dieletric film stack.
 
     Parameters
     ----------
     t_s, t_p : complex
-        Transmission coefficients for s- and p-polarization.
+        Transmission coefficients for s- and p-polarization, defined as ratio
+        of the full electric field amplitudes (as returned by
+        interfaces.t_s() and interfaces.t_p()).
     theta_in : number
         Incident angle (in rad).
     n_embedding, n_substrate : number
         Refractive index of embedding medium and substrate.
-    pol : string
-        "TE" or "TM" for corresponding polarization.
+    pol : string, optional
+        Unused. Kept for backwards compatibility: for field amplitude
+        coefficients, the intensity conversion factor
+        n_substrate*cos(theta_out)/(n_embedding*cos(theta_in)) is the same
+        for both polarizations.
 
     Returns
     -------
@@ -194,17 +199,13 @@ def M_transmission_dielectric(t_s, t_p, theta_in, n_embedding, n_substrate, pol)
     """
 
     theta_out = refracted_angle(theta_in, n_embedding, n_substrate)
-    if (pol == "TE") or (pol == "s"):
-        eta_m = n_embedding*np.cos(theta_in)  # embedding medium prefactor
-        eta_s = n_substrate*np.cos(theta_out)  # substrate prefactor
-    else:
-        eta_m = n_embedding/np.cos(theta_in)
-        eta_s = n_substrate/np.cos(theta_out)
+    eta_m = np.real(n_embedding*np.cos(theta_in))  # embedding medium prefactor
+    eta_s = np.real(n_substrate*np.cos(theta_out))  # substrate prefactor
 
     M = eta_s/(2*eta_m) * np.array( [ [np.abs(t_p)**2 + np.abs(t_s)**2, np.abs(t_p)**2 - np.abs(t_s)**2, 0, 0],
                                       [np.abs(t_p)**2 - np.abs(t_s)**2, np.abs(t_p)**2 + np.abs(t_s)**2, 0, 0],
                                       [0, 0, 2*np.real(np.conj(t_p)*t_s), 2*np.imag(np.conj(t_p)*t_s)],
-                                      [0, 0, -2*np.imag(np.conj(t_p)*t_s), 2*np.imag(np.conj(t_p)*t_s)]
+                                      [0, 0, -2*np.imag(np.conj(t_p)*t_s), 2*np.real(np.conj(t_p)*t_s)]
                                     ]
                                   )
 
@@ -241,7 +242,7 @@ def M_reflection_metal(theta, n_metal, n_embedding=1.0):
 
     p_fac = np.tan(i - r)/np.tan(i + r)
     rho_p = np.abs(p_fac)
-    phi_p = np.angle(rho_p)
+    phi_p = np.angle(p_fac)
 
     delta = phi_s - phi_p
     s, c = sin_cos(delta)
@@ -272,7 +273,10 @@ def M_from_jones(J):
 
     A = np.array([ [1., 0, 0, 1], [1, 0, 0, -1], [0, 1, 1, 0], [0, 1j, -1j, 0] ])
     A_inv = inv(A)
-    M = reduce(np.dot, [A, np.kron(J, np.conj(J.T)), A_inv])
+    M = reduce(np.dot, [A, np.kron(J, np.conj(J)), A_inv])
+
+    # M is real up to rounding errors:
+    M = np.real(M)
 
     return M
 
@@ -322,7 +326,7 @@ def M_TIR(phi, n):
         Müller matrix
     """
 
-    delta = 2*np.arctan2(np.cos(phi)*np.sqrt(n**2*np.sin(phi)-1), n*np.sin(phi)**2)
+    delta = 2*np.arctan2(np.cos(phi)*np.sqrt(n**2*np.sin(phi)**2 - 1), n*np.sin(phi)**2)
     M = np.array( [
                     [1., 0, 0, 0],
                     [0, 1, 0, 0],

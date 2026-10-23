@@ -40,7 +40,8 @@ from .fft import fft2, ifft2, fftfreq, fftshift, ifftshift, FT, inv_FT, FT_unita
 from .utils import freq_grid, wavenumber, k_z, TWOPI, simpson_weights, weight_grid, ensure_meshgrid, get_dx
 
 
-# TODO: account for n properly: lambda -> lambda/n
+# NOTE: wavelength arguments are vacuum wavelengths; inside a medium of
+# refractive index n the propagators use the wavelength wavelength/n.
 
 def suggest_N_critical(L, z, wl):
     """Suggest number of samples N for "critical sampling" -- for this number
@@ -93,8 +94,9 @@ def rayleigh_sommerfeld_I_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
     dx_prime, dy_prime = get_dx(x_prime), get_dx(y_prime)
     X_prime, Y_prime = ensure_meshgrid(x_prime, y_prime)
     r = np.sqrt(z**2 + X_prime**2 + Y_prime**2)
+    wl_medium = wavelength/n
 
-    IR = z/(1j*wavelength)*np.exp(1j*k*r)/r**2
+    IR = z/(1j*wl_medium)*np.exp(1j*k*r)/r**2
 
     field_propagated = inv_FT(FT(field)*FT(IR)*dx_prime*dy_prime)
 
@@ -221,7 +223,9 @@ def fresnel_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
     dx_prime, dy_prime = get_dx(x_prime), get_dx(y_prime)
     X_prime, Y_prime = ensure_meshgrid(x_prime, y_prime)
 
-    IR = np.exp(1j*k*z)/(1j*wavelength*z)*np.exp(1j*k/(2.0*z)*(X_prime**2 + Y_prime**2))
+    wl_medium = wavelength/n
+
+    IR = np.exp(1j*k*z)/(1j*wl_medium*z)*np.exp(1j*k/(2.0*z)*(X_prime**2 + Y_prime**2))
 
     field_propagated = inv_FT(FT(field)*FT(IR)*dx_prime*dy_prime)
 
@@ -253,7 +257,9 @@ def fresnel_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
     k = wavenumber(wavelength, n)
     F_x, F_y = freq_grid(x_prime, y_prime, wavenumbers=False, normal_order=True)
 
-    TF = np.exp(1j*k*z)*np.exp(-1j*pi*wavelength*z*(F_x**2 + F_y**2))
+    wl_medium = wavelength/n
+
+    TF = np.exp(1j*k*z)*np.exp(-1j*pi*wl_medium*z*(F_x**2 + F_y**2))
 
     field_propagated = inv_FT(FT(field)*TF)
 
@@ -282,10 +288,11 @@ def fresnel_rescaling(field, x_prime, y_prime, z, wavelength, n=1.0):
     """
 
     k = wavenumber(wavelength, n)
+    wl_medium = wavelength/n
 
-    X_prime, Y_prime, x_new, y_new, X_new, Y_new = _new_coordinates_mesh(x_prime, y_prime, z, wavelength)
+    X_prime, Y_prime, x_new, y_new, X_new, Y_new = _new_coordinates_mesh(x_prime, y_prime, z, wl_medium)
 
-    prefactor = np.exp(1j*k*z)/(1j*wavelength*z)*np.exp(1j*k/(2*z)*(X_new**2 + Y_new**2))
+    prefactor = np.exp(1j*k*z)/(1j*wl_medium*z)*np.exp(1j*k/(2*z)*(X_new**2 + Y_new**2))
     dx, dy = get_dx(x_prime), get_dx(y_prime)
 
     field_propagated = prefactor*FT(field*np.exp(1j*k/(2*z)*(X_prime**2 + Y_prime**2)))*dx*dy
@@ -313,13 +320,12 @@ def fraunhofer(field, x_prime, y_prime, z, wavelength, n=1.0):
         Coordinates (2d) in final plane.
     """
 
-    # TODO: implement n
-
     k = wavenumber(wavelength, n)
+    wl_medium = wavelength/n
 
-    X_prime, Y_prime, x_new, y_new, X_new, Y_new = _new_coordinates_mesh(x_prime, y_prime, z, wavelength)
+    X_prime, Y_prime, x_new, y_new, X_new, Y_new = _new_coordinates_mesh(x_prime, y_prime, z, wl_medium)
 
-    prefactor = np.exp(1j*k*z)/(1j*wavelength*z)*np.exp(1j*k/(2*z)*(X_new**2 + Y_new**2))
+    prefactor = np.exp(1j*k*z)/(1j*wl_medium*z)*np.exp(1j*k/(2*z)*(X_new**2 + Y_new**2))
     dx, dy = get_dx(x_prime), get_dx(y_prime)
 
     field_propagated = prefactor*FT(field)*dx*dy
@@ -406,7 +412,7 @@ def vectorial_fresnel(field, x_prime, y_prime, z, wavelength, n=1.0):
         field_propagated[:, :, b] += inv_FT_unitary(
                     T[:, :, a]
                     *_psi_alpha_beta(a, b, Sigma_x, Sigma_y, Sigma_z)
-                    *np.exp(1j*2*pi*z/wavelength*Sigma_z)
+                    *np.exp(1j*k*z*Sigma_z)
                                                    )
 
     return field_propagated, x_prime, y_prime

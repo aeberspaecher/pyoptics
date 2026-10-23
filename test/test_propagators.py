@@ -264,3 +264,27 @@ def test_on_axis_intensity_circular_aperture(propagator):
     I_ref = mahajan_on_axis_intensity(a, 0.0, 1.0, WL, z_vals)
 
     assert np.max(np.abs(I - I_ref)) < 0.1
+
+
+ALL_PROPAGATORS = [rayleigh_sommerfeld_I_TF, rayleigh_sommerfeld_I_IR,
+                   rayleigh_sommerfeld_I_DI, fresnel_TF, fresnel_IR,
+                   fresnel_rescaling, fraunhofer]
+
+
+@pytest.mark.parametrize("propagator", ALL_PROPAGATORS)
+def test_refractive_index(propagator):
+    """Propagation in a medium of index n must equal vacuum propagation with
+    the wavelength wl/n (field and output coordinates).
+    """
+
+    n = 1.5
+    x, y, X, Y = _grid(40.0, 64)
+    field = np.exp(-(X**2 + Y**2)/4.0**2)
+    z = 50.0
+
+    U_medium, x_medium, y_medium = propagator(field, x, y, z, WL, n=n)
+    U_vacuum, x_vacuum, y_vacuum = propagator(field, x, y, z, WL/n, n=1.0)
+
+    assert np.allclose(x_medium, x_vacuum)
+    assert np.allclose(y_medium, y_vacuum)
+    assert _max_rel_err(U_medium, U_vacuum) < 1E-10
