@@ -133,7 +133,10 @@ def k_z(k, k_x, k_y):
 
     Note
     ----
-    The function carefully handles evanescent waves.
+    The function carefully handles evanescent waves: the branch with
+    Im(k_z) >= 0 is returned, so that exp(+i*k_z*z) decays for z > 0
+    (exp(-i*omega*t) time dependence). The same holds for complex k in
+    absorbing media (k = k_0*(n + i*kappa), kappa > 0).
     """
 
     return complex_sqrt(k**2 - k_x**2 - k_y**2)

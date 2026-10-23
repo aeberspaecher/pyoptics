@@ -2,6 +2,14 @@
 #-*- coding:utf-8 -*-
 
 """Routines for TIE
+
+Convention: fields vary as exp(i(kz - omega*t)) and are written as
+sqrt(I)*exp(i*phase). The transport of intensity equation then reads
+
+    k dI/dz = -div(I grad(phase)),
+
+so a converging wave (phase decreasing away from the axis, e.g. a thin lens
+exp(-i k r**2/(2f))) has dI/dz > 0 on axis.
 """
 
 import numpy as np
@@ -136,7 +144,7 @@ def scaled_laplace_like(f, c, x, y):
     # compute x and y derivatives in k space:
     KX, KY = get_k_grid(x, y)
     F = FT(f)
-    F_x, F_y = 1j*KX*F, 1j*KY*F  # TODO: sign of k values? does that match fft convention?
+    F_x, F_y = 1j*KX*F, 1j*KY*F  # FT() has the kernel exp(-i k x), so d/dx -> i*k_x
 
     # go back to position space to scale the gradient with c:
     g_x, g_y = inv_FT(F_x), inv_FT(F_y)
@@ -206,7 +214,8 @@ def solve_tie(I, dI_dz, x, y, lam, alpha):
 
 
 def tie(phase, I, x, y, lam):
-    """Compute dI/dz from I and a phase.
+    """Compute dI/dz = -div(I grad(phase))/k from I and a phase (see module
+    docstring for the sign convention).
     """
 
     k = 2*pi/lam
@@ -227,7 +236,9 @@ def enhanced_tie_solve(N, I, dI_dz, x, y, lam, alpha, true_phase=None):
         dI_dz_res = dI_dz - tie(phase_improved, I, x, y, lam)
         phase_res = solve_tie(I, dI_dz_res, x, y, lam, alpha)
 
-        phase_improved = phase0 - phase_res  # TODO: sign?
+        # the residual phase solves the TIE for the residual flux, so it adds
+        # to the current estimate:
+        phase_improved = phase_improved + phase_res
         if true_phase is not None:
             print("RMS of phase error: {}".format(RMS(true_phase-phase_improved)))
 

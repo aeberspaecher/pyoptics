@@ -6,7 +6,7 @@
 
 import numpy as np
 
-from .utils import ensure_meshgrid
+from .utils import ensure_meshgrid, wavenumber
 
 
 def circular_mask(x, y, R, x0=0.0, y0=0.0):
@@ -171,3 +171,31 @@ def mask_from_polygon(x, y, x_poly, y_poly):
 
 
 # TODO: "soft masks" that are not really binary (i.e. anti-aliased masks)?
+
+
+def thin_lens(x, y, f, wavelength, n=1.0, x0=0.0, y0=0.0):
+    """Complex transmission of an ideal thin lens (paraxial).
+
+    Parameters
+    ----------
+    x, y : arrays
+    f : number
+        Focal length. f > 0 for a converging lens.
+    wavelength : number
+        Vacuum wavelength.
+    n : number, optional
+        Refractive index of the medium behind the lens.
+    x0, y0 : numbers, optional
+        Center coordinates.
+
+    Returns
+    -------
+    t : array
+        exp(-i*k*r**2/(2*f)). With the exp(i(kz - omega*t)) convention, this
+        turns a plane wave into a wave converging towards z = f.
+    """
+
+    XX, YY = ensure_meshgrid(x, y)
+    k = wavenumber(wavelength, n)
+
+    return np.exp(-1j*k*((XX - x0)**2 + (YY - y0)**2)/(2*f))

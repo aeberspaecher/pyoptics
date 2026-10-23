@@ -2,6 +2,12 @@
 #-*- coding:utf-8 -*-
 
 """Thin film reflection and transmission coefficients.
+
+Convention: fields vary as exp(i(k.r - omega*t)), as in Zangwill. Absorbing
+layers therefore have the complex refractive index n + i*k with k > 0, and a
+layer of thickness t adds the phase +k_0*(n + i*k)*cos(theta)*t. McLeod's
+characteristic matrices (exp(+i*omega*t), n - i*k) enter as their complex
+conjugates.
 """
 
 # Literature:
@@ -107,7 +113,8 @@ def r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
     angle : double
         Incident angle in embedding medium.
     n , k : arrays
-        Real and imaginary parts of the refractive indices of the thin film stack.
+        Real and imaginary parts of the refractive indices of the thin film
+        stack, n + i*k (k > 0 for absorption).
     t : arrays
         Thicknesses of the layers.
     embedding_n, embedding_k, substrate_n, substrate_k : double
