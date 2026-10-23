@@ -21,8 +21,6 @@ MODULES = ["analytical", "bases", "beams", "fft", "geometry", "ifta", "imaging",
 
 @pytest.mark.parametrize("module", MODULES)
 def test_import(module):
-    if module == "TIE":
-        pytest.importorskip("sympy")
     importlib.import_module("pyoptics." + module)
 
 
@@ -147,7 +145,6 @@ def test_trig_interpolator_cutoff():
 
 
 def test_TIE_paraxial_propagation():
-    pytest.importorskip("sympy")
     from pyoptics.TIE import field_prop_paraxial
     from pyoptics.propagators import fresnel_TF
 
@@ -160,7 +157,6 @@ def test_TIE_paraxial_propagation():
 
 
 def test_TIE_inv_laplacian():
-    pytest.importorskip("sympy")
     from pyoptics.TIE import inv_laplacian, laplacian
 
     x, y, X, Y = grid2d(-np.pi, np.pi, -np.pi, np.pi, 64)
@@ -170,3 +166,17 @@ def test_TIE_inv_laplacian():
     assert np.all(np.isfinite(f_inv))
     assert np.allclose(f_inv, -f/5)
     assert np.allclose(laplacian(f_inv, x, y), f)
+
+
+def test_import_without_optional_dependencies():
+    """matplotlib and sympy are optional: the computational modules must
+    import without them.
+    """
+
+    import subprocess
+    import sys
+
+    code = ("import sys; sys.modules['matplotlib'] = None; sys.modules['sympy'] = None; "
+            "import pyoptics, pyoptics.masks, pyoptics.ifta, pyoptics.TIE, "
+            "pyoptics.polarization.mueller")
+    subprocess.run([sys.executable, "-c", code], check=True)

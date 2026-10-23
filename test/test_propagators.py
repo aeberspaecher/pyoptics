@@ -22,7 +22,8 @@ from scipy.special import fresnel, j1
 from pyoptics.analytical import mahajan_on_axis_intensity
 from pyoptics.beams import gauss_hermite, gauss_laguerre
 from pyoptics.propagators import (fraunhofer, fresnel_IR, fresnel_TF,
-                                  fresnel_rescaling, rayleigh_sommerfeld_I_DI,
+                                  fresnel_rescaling, propagate_padded,
+                                  rayleigh_sommerfeld_I_DI,
                                   rayleigh_sommerfeld_I_IR,
                                   rayleigh_sommerfeld_I_TF)
 from pyoptics.utils import ensure_meshgrid, grid2d
@@ -288,3 +289,56 @@ def test_refractive_index(propagator):
     assert np.allclose(x_medium, x_vacuum)
     assert np.allclose(y_medium, y_vacuum)
     assert _max_rel_err(U_medium, U_vacuum) < 1E-10
+
+
+@pytest.mark.parametrize("propagator", [rayleigh_sommerfeld_I_TF, rayleigh_sommerfeld_I_IR,
+                                        fresnel_TF, fresnel_IR])
+def test_padding_removes_wrap_around(propagator):
+    """A diverging Gaussian beam that outgrows the window wraps around without
+    padding. Reference: the same propagator on a 16 times larger window.
+    """
+
+    x, y, X, Y = _grid(32.0, 64)
+    field = np.exp(-(X**2 + Y**2)/2.0**2)
+    z = 100.0
+
+    U_ref, _, _ = propagate_padded(propagator, field, x, y, z, WL, pad_factor=16)
+    U_plain, _, _ = propagator(field, x, y, z, WL)
+    U_pad, x_out, y_out = propagate_padded(propagator, field, x, y, z, WL, pad_factor=4)
+
+    assert np.array_equal(x_out, x) and np.array_equal(y_out, y)
+    assert _max_rel_err(U_plain, U_ref) > 0.1
+    assert _max_rel_err(U_pad, U_ref) < 1E-2
+
+
+def test_padding_rejects_rescaling_propagators():
+    x, y, X, Y = _grid(32.0, 64)
+    with pytest.raises(ValueError):
+        propagate_padded(fraunhofer, np.ones_like(X), x, y, 100.0, WL)
+
+
+def test_band_limit():
+    """For large z the angular spectrum transfer function is undersampled;
+    band limiting (Matsushima & Shimobaba) removes the resulting aliasing.
+    """
+
+    x, y, X, Y = _grid(64.0, 128)
+    field = ((np.abs(X) < 8) & (np.abs(Y) < 8)).astype(float)
+    z = 400.0
+
+    U_ref, _, _ = propagate_padded(rayleigh_sommerfeld_I_TF, field, x, y, z, WL, pad_factor=16,
+                                  band_limit=True)
+    U_plain, _, _ = propagate_padded(rayleigh_sommerfeld_I_TF, field, x, y, z, WL, pad_factor=2)
+    U_bl, _, _ = propagate_padded(rayleigh_sommerfeld_I_TF, field, x, y, z, WL, pad_factor=2,
+                                  band_limit=True)
+
+    assert _max_rel_err(U_bl, U_ref) < 0.06
+    assert _max_rel_err(U_bl, U_ref) < _max_rel_err(U_plain, U_ref)/4
+
+
+@pytest.mark.parametrize("propagator", [rayleigh_sommerfeld_I_IR, fresnel_IR,
+                                        fresnel_rescaling, fraunhofer])
+def test_uncentered_grid_is_rejected(propagator):
+    x, y, X, Y = grid2d(0.0, 32.0, 0.0, 32.0, 64)  # x = 0 at index 0
+    with pytest.raises(ValueError, match="index N//2"):
+        propagator(np.ones_like(X), x, y, 100.0, WL)

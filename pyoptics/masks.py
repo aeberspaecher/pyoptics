@@ -5,7 +5,6 @@
 """
 
 import numpy as np
-import matplotlib.path as mpl_path
 
 from .utils import ensure_meshgrid
 
@@ -159,6 +158,8 @@ def mask_from_polygon(x, y, x_poly, y_poly):
         Integer mask, 1 for all interior points, 0 for all points outisde given
         polygon.
     """
+
+    import matplotlib.path as mpl_path  # optional dependency, only needed here
 
     X, Y = ensure_meshgrid(x, y)
 

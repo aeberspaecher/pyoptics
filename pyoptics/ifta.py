@@ -17,7 +17,6 @@ curr_obj, curr_img, num_iter.
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 from scipy.ndimage import gaussian_filter
 
@@ -232,6 +231,8 @@ def digitize_phase(field, levels):
 
 
 if(__name__ == '__main__'):
+    import matplotlib.pyplot as plt
+
     wl = 0.905
     N = 343
     x_max = 2000
