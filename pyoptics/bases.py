@@ -319,7 +319,7 @@ def _fringe_zernike_R_nm_coeffs(n, m):
     N, M = int(n), int(m)
 
     coeffs = np.zeros(N+1)
-    for k in range((N-M)/2 + 1):
+    for k in range((N-M)//2 + 1):
         # TODO: implement formula with binomials using mpmath
         denom = fac(k) * fac((N+M)/2.0 - k) * fac((N-M)/2.0 - k)
         if np.isclose(denom, 0.0):  # avoid division by zero
@@ -667,7 +667,7 @@ def poly_basis_size(order):
     if order < 0:
         s = 0  # account for order 0
     else:
-        s = (order+1)*(order+2)/2
+        s = (order+1)*(order+2)//2
 
     return s
 

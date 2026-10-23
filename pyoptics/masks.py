@@ -125,7 +125,7 @@ def to_bool(mask):
     mask_bool : array, boolean
     """
 
-    return np.array(mask, dtype=np.bool)
+    return np.array(mask, dtype=bool)
 
 
 def to_int(mask):
@@ -140,7 +140,7 @@ def to_int(mask):
     mask_int : array, integer
     """
 
-    return np.array(mask, dtype=np.int)
+    return np.array(mask, dtype=int)
 
 
 def mask_from_polygon(x, y, x_poly, y_poly):
