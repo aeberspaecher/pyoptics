@@ -150,7 +150,9 @@ vary as exp(i(**k**·**r** − ωt)). In particular:
   distance z > 0 multiplies each of its plane wave components by
   exp(+ik_z z); evanescent components decay as exp(−|k_z| z).
 - `fft.FT()` has the kernel exp(−ik_x x) and returns the amplitudes of the
-  plane waves exp(+ik_x x); `fft.inv_FT()` sums them up.
+  plane waves exp(+ik_x x); `fft.inv_FT()` sums them up. Both work on
+  centered arrays (x = 0 and k = 0 at index N//2, as `utils.freq_grid()`
+  returns them), see the docstring of `pyoptics.fft`.
 - A diverging spherical wave is exp(+ikr)/r. Beams (`beams.gauss_laguerre()`,
   `beams.gauss_hermite()`) carry the phase k z + k r²/(2R(z)) − ψ(z) with the
   Gouy phase ψ(z) = (N + 1) arctan(z/z_R); Laguerre-Gaussian modes have the
