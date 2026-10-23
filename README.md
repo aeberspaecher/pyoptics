@@ -133,10 +133,10 @@ use several CPU cores. On macOS it is built without OpenMP.
 Example notebooks
 -----------------
 
-The directory `notebooks/` contains executed Jupyter notebooks (in German)
-that illustrate the individual modules with visual, physically intuitive
-examples: free space propagation, Gaussian beams, interfaces and thin films,
-polarization, imaging and aberrations, TIE, IFTA and WPM. See
+The directory `notebooks/` contains executed Jupyter notebooks that
+illustrate the individual modules with visual, physically intuitive examples:
+free space propagation, Gaussian beams, interfaces and thin films,
+polarization, imaging and aberrations, TIE, IFTA, WPM and basis functions. See
 `notebooks/README.md` for an overview.
 
 Conventions
