@@ -34,11 +34,11 @@ aperture[(np.abs(X) < x_aperture_size) & (np.abs(Y) < x_aperture_size)] = 1.0  #
 phase = (+0.000*X + 0.00000*Y**2)/wl
 field = aperture*np.exp(1j*phase)  # add phase
 
-#plot_intensity(aperture, x/wl, y/wl, xlabel="$x/\lambda$", ylabel="$y/\lambda$", title="Aperture")
+#plot_intensity(aperture, x/wl, y/wl, xlabel=r"$x/\lambda$", ylabel=r"$y/\lambda$", title="Aperture")
 
 
 phase[aperture == 0.0] = np.nan
-#plot_intensity(phase, x/wl, y/wl, xlabel="$x/\lambda$", ylabel="$y/\lambda$", title="Phase")
+#plot_intensity(phase, x/wl, y/wl, xlabel=r"$x/\lambda$", ylabel=r"$y/\lambda$", title="Phase")
 
 
 F = 0.1  # Fresnel number to propagate to
@@ -70,22 +70,22 @@ I_RS_DI = np.abs(E_RS_DI)**2
 from pyoptics.fft import save_wisdom
 save_wisdom()
 
-plot_intensity(I_Fresnel_TF, x/wl, y/wl, xlabel="$x/\lambda$",
-           ylabel="$y/\lambda$", title="Fresnel TF", colorbar=True)
-plot_intensity(I_Fresnel_IR, x/wl, y/wl, xlabel="$x/\lambda$",
-           ylabel="$y/\lambda$", title="Fresnel IR", colorbar=True)
-#plot_intensity(I_Fresnel_TF - I_Fresnel_IR , x/wl, y/wl, xlabel="$x/\lambda$",
-           #ylabel="$y/\lambda$", title="Fresnel IR - TF", colorbar=True,
+plot_intensity(I_Fresnel_TF, x/wl, y/wl, xlabel=r"$x/\lambda$",
+           ylabel=r"$y/\lambda$", title="Fresnel TF", colorbar=True)
+plot_intensity(I_Fresnel_IR, x/wl, y/wl, xlabel=r"$x/\lambda$",
+           ylabel=r"$y/\lambda$", title="Fresnel IR", colorbar=True)
+#plot_intensity(I_Fresnel_TF - I_Fresnel_IR , x/wl, y/wl, xlabel=r"$x/\lambda$",
+           #ylabel=r"$y/\lambda$", title="Fresnel IR - TF", colorbar=True,
            #cmap=plt.cm.bwr)
-plot_intensity(I_RS_TF, x/wl, y/wl, xlabel="$x/\lambda$",
-           ylabel="$y/\lambda$", title="RS TF", colorbar=True)
-plot_intensity(I_RS_IR, x/wl, y/wl, xlabel="$x/\lambda$",
-           ylabel="$y/\lambda$", title="RS IR", colorbar=True)
-#plot_intensity(I_RS_TF - I_RS_IR , x/wl, y/wl, xlabel="$x/\lambda$",
-           #ylabel="$y/\lambda$", title="RS IR - TF", colorbar=True,
+plot_intensity(I_RS_TF, x/wl, y/wl, xlabel=r"$x/\lambda$",
+           ylabel=r"$y/\lambda$", title="RS TF", colorbar=True)
+plot_intensity(I_RS_IR, x/wl, y/wl, xlabel=r"$x/\lambda$",
+           ylabel=r"$y/\lambda$", title="RS IR", colorbar=True)
+#plot_intensity(I_RS_TF - I_RS_IR , x/wl, y/wl, xlabel=r"$x/\lambda$",
+           #ylabel=r"$y/\lambda$", title="RS IR - TF", colorbar=True,
            #cmap=plt.cm.bwr)
-plot_intensity(I_RS_DI, x/wl, y/wl, xlabel="$x/\lambda$",
-           ylabel="$y/\lambda$", title="RS DI", colorbar=True)
-plot_intensity(I_RS_DI - I_RS_IR , x/wl, y/wl, xlabel="$x/\lambda$",
-           ylabel="$y/\lambda$", title="RS DI - IR", colorbar=True,
+plot_intensity(I_RS_DI, x/wl, y/wl, xlabel=r"$x/\lambda$",
+           ylabel=r"$y/\lambda$", title="RS DI", colorbar=True)
+plot_intensity(I_RS_DI - I_RS_IR , x/wl, y/wl, xlabel=r"$x/\lambda$",
+           ylabel=r"$y/\lambda$", title="RS DI - IR", colorbar=True,
            cmap=plt.cm.bwr)

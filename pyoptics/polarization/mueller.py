@@ -5,6 +5,8 @@
 elements and Stokes vectors of common polarization states.
 """
 
+from functools import reduce
+
 import numpy as np
 from scipy.linalg import inv
 

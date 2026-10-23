@@ -4,7 +4,7 @@
 """Image interpolation.
 """
 
-from fft import rFT
+from .fft import rFT
 
 
 class ImageInterpolator(object):

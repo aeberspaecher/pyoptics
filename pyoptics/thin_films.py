@@ -16,7 +16,7 @@ import numpy as np
 from numpy.lib.scimath import sqrt as complex_sqrt
 from numpy import sin, cos
 
-from utils import Z_0 as Z_vac, wavenumber
+from .utils import Z_0 as Z_vac, wavenumber
 
 
 def _n_k_arrays(n, k, embedding_n, embedding_k, substrate_n, substrate_k):
@@ -122,7 +122,7 @@ def r_t_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
     assert len(t) == len(n) == len(k)
 
     if(incoherent is None):
-        incoherent = np.zeros(len(n)+2, dtype=np.bool)  # array of all False
+        incoherent = np.zeros(len(n)+2, dtype=bool)  # array of all False
     else:
         incoherent = np.array([False] + incoherent + [False])
 

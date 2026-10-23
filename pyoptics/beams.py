@@ -13,7 +13,7 @@ from math import factorial, pi, sin, sqrt
 
 import numpy as np
 from scipy.special import eval_genlaguerre, eval_hermite
-from utils import sgn, wavenumber
+from .utils import sgn, wavenumber
 
 
 # plane waves:

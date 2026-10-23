@@ -4,6 +4,6 @@
 """pyoptics - a small toolset for elementary wave optics
 """
 
-import utils
-import propagators
-import imaging
+from . import utils
+from . import propagators
+from . import imaging

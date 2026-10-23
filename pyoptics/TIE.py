@@ -10,7 +10,7 @@ from numpy import pi
 from numpy.fft import fft, ifft, fft2, ifft2, fftfreq, fftshift, ifftshift
 import matplotlib.pyplot as plt
 
-from fft import FT, inv_FT
+from .fft import FT, inv_FT
 
 
 RMS = lambda x: 1.0/np.size(x)*np.sum(x**2)
