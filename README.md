@@ -11,21 +11,44 @@ structure that easily allows reuse of individual blocks in new contexts.
 Status
 ------
 
-pyoptics is currently in an early pre-beta stadium.
+pyoptics is version 0.1, a research and teaching toolbox rather than a
+polished library. It runs on Python 3.9 to 3.13. The API may still change
+between versions, and there is no release on PyPI; install it from source as
+described below.
 
-Vague status of some of the modules:
+The core is tested: a suite of about 170 pytest tests checks the numerics
+against analytical results (Fresnel and Fraunhofer diffraction, Gaussian beam
+propagation, Mahajan's on-axis intensity, Fresnel equations, thin film
+stacks, Mueller and Jones calculus, FFT conventions) and runs in GitHub
+Actions on Python 3.9, 3.11 and 3.13 for every push and pull request. A
+consistent phase convention is used throughout (see Conventions).
 
-- bases: mature
-- thin_films: rather mature
-- propagators: basic, missing documentation
-- utils: mature
-- beams: basic
-- IFTA: basic
-- TIE: basic
-- imaging: missing completely
-- processing: missing
-- polarization: basic Müller calculus support, Jones calculus missing
-- wpm: basic, untested
+Status of the modules:
+
+- `propagators`: mature and tested (Rayleigh-Sommerfeld, Fresnel, Fraunhofer,
+  band-limited and padded propagation, vectorial Fresnel)
+- `fft`, `utils`, `masks`, `geometry`, `analytical`: mature and tested
+- `bases`: mature (Zernike, Legendre, Chebyshev bases, numerical
+  orthogonalization, fits); Zernikes and orthogonalization are tested
+- `beams`: tested (plane, spherical, Hermite-Gaussian and Laguerre-Gaussian
+  beams)
+- `interfaces`, `thin_films`: mature and tested (Fresnel coefficients,
+  coherent multilayer stacks)
+- `polarization.mueller`, `polarization.jones`: Mueller calculus and basic
+  Jones vectors and matrices, tested
+- `imaging`: basic: coherent imaging through a circular pupil and its PSF;
+  `get_psf()` ignores its `pupil_mask` and `phase` arguments so far
+- `TIE`: basic transport of intensity solver, partly tested
+- `ifta`: basic Gerchberg-Saxton and variants, only shown in a notebook, no
+  tests
+- `wpm`: wave propagation method (Cython extension), basic; one test, more
+  examples in the notebook
+- Unfinished stubs: in `processing` only `Shifter` works (`Scaler`,
+  `CameraNoiser`, `Centerer` are empty), `interpolator.TrigInterpolator` cannot
+  be evaluated yet, `utils.add_camera_noise()` and the functions in
+  `polarization._polarization` are empty
+
+See `WIP.md` for planned work.
 
 Installation
 ------------
@@ -43,7 +66,7 @@ you can simply delete the folder and start again.
 
 **1. Install the prerequisites**
 
-You need Python 3.8 or newer, git, and a C compiler:
+You need Python 3.9 or newer, git, and a C compiler:
 
 - Debian/Ubuntu: `sudo apt install python3 python3-venv python3-dev build-essential git`
 - Fedora: `sudo dnf install python3 python3-devel gcc git`
@@ -107,10 +130,9 @@ Use `python -m pip install -e .` if you want no extras at all.
 
     python -c "import pyoptics.wpm; print('pyoptics works')"
 
-If the last line printed is `pyoptics works`, you are done. A message like
-"Loading NumPy's fft routines, tfftw probably not present" is normal and only
-means the optional FFTW backend is not installed. With the `test` extra you can also run the test suite with
-`python -m pytest test`.
+If it prints `pyoptics works`, you are done. With the `test` extra you can
+also run the test suite with `python -m pytest test`; it takes about ten
+seconds.
 
 When you are finished, leave the venv with `deactivate`.
 
@@ -169,8 +191,9 @@ vary as exp(i(**k**·**r** − ωt)). In particular:
 Documentation
 -------------
 
-Documentation is currently mostly absent. Please refer to individual functions'
-docstrings.
+There is no separate manual yet. The best starting points are the example
+notebooks in `notebooks/`, the conventions above and the docstrings of the
+individual functions and modules.
 
 License
 -------

@@ -7,7 +7,7 @@ name = "pyoptics"
 version = "0.1.0"
 description = "Tools for wave optical simulation: imaging, wave propagation, thin films and more."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = { text = "BSD-3-Clause" }
 authors = [{ name = "Alexander Eberspächer" }]
 dependencies = [
