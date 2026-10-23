@@ -48,7 +48,7 @@ def mahajan_on_axis_intensity(a, epsilon, I0, wavelength, z, R=None):
         # TODO: test switching to far-field expression - advantages?
         s1_prime = np.sqrt(a**2 + z**2)
         s2_prime = np.sqrt((epsilon*a)**2 + z**2)
-        I_z = I0*(cos_alpha1**2 + cos_alpha2**2 - 2*cos_alpha1*cos_alpha2*np.cos(2*np.pi*(s1_prime - s2_prime)/wl))
+        I_z = I0*(cos_alpha1**2 + cos_alpha2**2 - 2*cos_alpha1*cos_alpha2*np.cos(2*np.pi*(s1_prime - s2_prime)/wavelength))
     else:  # focussed beam
         A0 = np.sqrt(I0*R**2)
         s1 = np.sqrt(R**2 + epsilon**2*a**2)

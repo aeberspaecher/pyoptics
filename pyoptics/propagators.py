@@ -36,7 +36,7 @@ from itertools import product
 from numpy.lib.scimath import sqrt as complex_sqrt
 import numpy as np
 
-from .fft import fft2, ifft2, fftshift, ifftshift, FT, inv_FT, FT_unitary, inv_FT_unitary
+from .fft import fft2, ifft2, fftfreq, fftshift, ifftshift, FT, inv_FT, FT_unitary, inv_FT_unitary
 from .utils import freq_grid, wavenumber, k_z, TWOPI, simpson_weights, weight_grid, ensure_meshgrid, get_dx
 
 
@@ -176,10 +176,9 @@ def rayleigh_sommerfeld_I_DI(field, x_prime, y_prime, z, wavelength, n=1.0, use_
     else:
         weights = np.ones([N, N])
 
-    U = np.asarray(np.bmat([ [weights*field, np.zeros([N, N-1])],
-                             [np.zeros([N-1, N]), np.zeros([N-1, N-1])]
-                           ])
-                  )
+    U = np.block([ [weights*field, np.zeros([N, N-1])],
+                   [np.zeros([N-1, N]), np.zeros([N-1, N-1])]
+                 ])
 
     # adapt Shen/Wang's indexing to zero-based indexing:
     x_vec = np.array( [x_prime[0] - x_prime[N - j] for j in range(1, N) ] +  [x_prime[j - N] - x_prime[0] for j in range(N, 2*N) ] )
@@ -261,7 +260,7 @@ def fresnel_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
     return field_propagated, x_prime, y_prime
 
 
-def fresnel_rescaling(field, x_prime, y_prime, z, wavelength):
+def fresnel_rescaling(field, x_prime, y_prime, z, wavelength, n=1.0):
     """Compute the Fresnel integral (paraxial approximation) on a rescaled
     coordinate grid.
     
@@ -286,10 +285,10 @@ def fresnel_rescaling(field, x_prime, y_prime, z, wavelength):
 
     X_prime, Y_prime, x_new, y_new, X_new, Y_new = _new_coordinates_mesh(x_prime, y_prime, z, wavelength)
 
-    prefactor = np.exp(1j*k*z)/(1j*k*z)*np.exp(1j*k/(2*z)*(X_new**2 + Y_new**2))
+    prefactor = np.exp(1j*k*z)/(1j*wavelength*z)*np.exp(1j*k/(2*z)*(X_new**2 + Y_new**2))
     dx, dy = get_dx(x_prime), get_dx(y_prime)
 
-    field_propagated = prefactor*FT(field*np.exp(1j/(2*z)*(X_prime**2 + Y_prime**2)))*dx*dy
+    field_propagated = prefactor*FT(field*np.exp(1j*k/(2*z)*(X_prime**2 + Y_prime**2)))*dx*dy
 
     return field_propagated, x_new, y_new
 
@@ -320,7 +319,7 @@ def fraunhofer(field, x_prime, y_prime, z, wavelength, n=1.0):
 
     X_prime, Y_prime, x_new, y_new, X_new, Y_new = _new_coordinates_mesh(x_prime, y_prime, z, wavelength)
 
-    prefactor = np.exp(1j*k*z)/(1j*k*z)*np.exp(1j*k/(2*z)*(X_new**2 + Y_new**2))
+    prefactor = np.exp(1j*k*z)/(1j*wavelength*z)*np.exp(1j*k/(2*z)*(X_new**2 + Y_new**2))
     dx, dy = get_dx(x_prime), get_dx(y_prime)
 
     field_propagated = prefactor*FT(field)*dx*dy
@@ -344,7 +343,7 @@ def _fraunhofer_coord_scale(x, y, z, wavelength):
     Uses the fact that x = f_x*lambda*z with f_x as usual in FFT computations.
     """
 
-    f_x, f_y = map(lambda item: fftshift(fftfreq(len(item), dx=(item[1] - item[0]))), (x, y))
+    f_x, f_y = map(lambda item: fftshift(fftfreq(len(item), d=get_dx(item))), (x, y))
     x_new, y_new = wavelength*z*f_x, wavelength*z*f_y
 
     return x_new, y_new
