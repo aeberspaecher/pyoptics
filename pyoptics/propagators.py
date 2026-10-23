@@ -522,17 +522,26 @@ def fresnel_number(outer_aperture_diameter, z, wavelength, wavefront_curvature=N
     Returns
     -------
     F : number
-        Fresnel number, i.e. number of half-wave zones...
-
+        Fresnel number, i.e. number of half-wave zones of the aperture as seen
+        from the on-axis point at distance z: F = a**2*(1 - eps**2)/wavelength
+        * |1/z - c| with a the outer radius, eps the inner diameter factor and
+        c the wavefront curvature.
     """
 
-    # TODO: implement correct formula
+    a = outer_aperture_diameter/2.0
+    c = 0.0 if wavefront_curvature is None else wavefront_curvature
 
-    return aperture_diameter**2/(wavelength*z)
+    F = a**2*(1 - inner_aperture_diameter_factor**2)/wavelength*np.abs(1.0/z - c)
+
+    return F
 
 
 def z_from_fresnel_number(F, aperture_diameter, wavelength):
-    z = aperture_diameter**2/(wavelength*F)
+    """Inverse of fresnel_number() for a collimated beam and a circular
+    aperture.
+    """
+
+    z = (aperture_diameter/2.0)**2/(wavelength*F)
 
     # TODO: extend to new signature of fresnel_number
 

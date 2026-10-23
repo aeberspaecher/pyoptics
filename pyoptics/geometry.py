@@ -52,9 +52,8 @@ def cross_prod_matrix(v):
 def R_onto(a, b):
     """Rotation matrix that rotates vector a onto vector b.
 
-    a and b are assumed the be unit vectors, however the routine also works a
-    with and b of arbitraty length. In that case, a and b are renormalized
-    inplace.
+    a and b do not need to be unit vectors; the routine normalizes copies of
+    them.
 
     Parameters
     ----------
@@ -69,15 +68,17 @@ def R_onto(a, b):
     """
     #http://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d
 
-    # TODO: catch case of a, b (anti-)parallel?
-
-    # guarantee a and b are unit vectors:
-    a /= np.sqrt(norm(a))
-    b /= np.sqrt(norm(b))
+    a = np.asarray(a, dtype=float)/norm(a)
+    b = np.asarray(b, dtype=float)/norm(b)
 
     v = cross_prod(a, b)
-    s = norm(v)
     c = np.dot(a, b)
+
+    if np.isclose(c, -1.0):  # antiparallel: rotate by pi about any axis perpendicular to a
+        u = cross_prod(a, np.eye(3)[np.argmin(np.abs(a))])
+        u /= norm(u)
+        return 2*np.outer(u, u) - np.eye(3)
+
     v_x = cross_prod_matrix(v)
 
     R = np.eye(3) + v_x + 1./(1+c)*np.dot(v_x, v_x)

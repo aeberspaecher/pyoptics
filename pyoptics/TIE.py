@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from .fft import FT, inv_FT
 
 
-RMS = lambda x: 1.0/np.size(x)*np.sum(x**2)
+RMS = lambda x: np.sqrt(1.0/np.size(x)*np.sum(np.abs(x)**2))
 
 # TODO: kick all general deriavtive stuff out of this module
 # TODO: put propagation stuff in different module
@@ -88,7 +88,7 @@ def field_prop_paraxial(field, x, y, delta_z, lam):
 
     #if(delta_z < 0.0):
         #warning.warn("Discarding parts of transfer function!")
-    H = 1 - ((KX**2 + KY**2)/k**2)*delta_z # transfer function
+    H = np.exp(1j*k*delta_z)*np.exp(-1j*(KX**2 + KY**2)*delta_z/(2*k))  # paraxial (Fresnel) transfer function
 
     #plt.imshow(np.abs(H), cmap=plt.cm.hot)
     #plt.colorbar()
@@ -172,10 +172,14 @@ def inv_laplacian(f, x, y, alpha=0.0):
     F = FT(f)
     freq_matrix = -(KX**2 + KY**2 + alpha)
 
-    ## lift zero freqs:
-    #reg_matrix = np.abs(freq_matrix) < 1E-5
+    # without regularization, the zero frequency component is undefined; set
+    # it to zero, i.e. return the mean free solution:
+    zero_freq = (freq_matrix == 0.0)
+    freq_matrix[zero_freq] = 1.0
+    F_inv = F/freq_matrix
+    F_inv[zero_freq] = 0.0
 
-    L_inv = inv_FT(F/freq_matrix)  # TODO: how to regularize the problem?
+    L_inv = inv_FT(F_inv)  # TODO: how to regularize the problem?
 
     L_inv = np.real(L_inv)  # TODO: for debugging
 

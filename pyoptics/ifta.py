@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
 
 from .fft import FT_unitary, inv_FT_unitary
+from .utils import ensure_meshgrid
 
 
 img_E = lambda img: np.sum(np.abs(img)**2)

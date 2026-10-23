@@ -5,7 +5,6 @@
 """
 
 from math import pi
-import sys
 
 import numpy as np
 from numpy.fft import fftfreq, fftshift
@@ -78,8 +77,7 @@ def sgn(x):
     """Sign function using the convention sgn(0) = 1.0.
     """
 
-    # FIXME: this approach is risky for -epsilon! this evaluated to a sign of +1
-    return np.sign(x + sys.float_info.epsilon)  # adding machine eps makes sgn(0) = 1
+    return np.where(np.asarray(x) >= 0, 1.0, -1.0)[()]
 
 
 def Z(n):
@@ -271,6 +269,8 @@ def get_length_scales(wavelength, NA, n=1.0, use_small_NA=False):
     wavelength : double
         The vacuum wavelength.
     NA : double
+        Numerical aperture n*sin(alpha) (already includes the refractive
+        index).
     n : double, optional
         Refractive index of the medium. Defaults to 1 (air/vacuum).
     use_small_NA : boolean, optional
@@ -285,7 +285,7 @@ def get_length_scales(wavelength, NA, n=1.0, use_small_NA=False):
         The Rayleigh unit.
     """
 
-    airy_diameter = 1.22*n*wavelength/NA
+    airy_diameter = 1.22*wavelength/NA
     DOF = n*wavelength/NA**2  # TODO: better formula for DOF, case distinction
 
     return airy_diameter, DOF
@@ -323,14 +323,7 @@ def get_z_derivative(stack, dz, order):
     num_images = np.size(stack, 2)
     deriv_coeffs = savgol_coeffs(num_images, order, 1, delta=dz, use="dot")
 
-    stack_work = stack.copy()
-
-    # TODO: can this be replaced by einsum("...i,...i->...", deriv_coeffs, stack_work)?
-    for i in range(num_images):
-        stack_work[:, :, i] = deriv_coeffs[i]*stack_work[:, :, i]
-        # TODO: write more elegantly, check what coeffs*stack_work does
-
-    return np.sum(stack_work)
+    return np.einsum("ijk,k->ij", stack, deriv_coeffs)
 
 
 def add_camera_noise():
