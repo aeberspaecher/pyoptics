@@ -39,7 +39,6 @@
 ## More challenging
 
 * Sphinx doc
-* distutils setup
 * Ince-Gaussian beams
 * spectrum of plane wave propagation with analytical handling of linear phase
   and offset (cmp. Wyrowski)
@@ -53,3 +52,4 @@
 * elliptical aperture
 * catch z=0 case in beam function
 * "ensure_meshgrid()" function or similar
+* modern packaging (pyproject.toml, replaces waf)

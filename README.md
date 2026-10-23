@@ -30,10 +30,16 @@ Vague status of some of the modules:
 Configuration and installation
 ------------------------------
 
-For the time being, pyoptics is a pure Cython/Python package. Thus, distutils
-might be the obvious choice as a setup tool. However, because the alternative
-tool waf deals gracefully with all of Python, Cython, C/C++ and Fortran, we use
-waf to be better prepared for whatever the future may bring.
+pyoptics is a Python package with one Cython extension (`wpm`). It is built
+with setuptools via `pyproject.toml`; a C compiler is required. Cython and
+NumPy are pulled in automatically at build time.
+
+    pip install .            # regular install
+    pip install -e .         # editable install for development
+    pip install -e '.[plot,fftw,test]'   # with optional extras
+
+On Linux and Windows the `wpm` extension is compiled with OpenMP. After editing
+`wpm.pyx`, re-run `pip install -e .` to rebuild it.
 
 Documentation
 -------------

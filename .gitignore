@@ -1,8 +1,13 @@
-build/*
-.waf*
+build/
+dist/
+*.egg-info/
+pyoptics/wpm.c
+*.so
+*.pyd
 *~
 *.bak
 *.pyc
 *.pyo
-.lock-waf*
+__pycache__/
 *.png
+.pytest_cache/
