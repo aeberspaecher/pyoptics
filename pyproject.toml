@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=64", "wheel", "Cython>=3.0", "numpy>=1.25"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyoptics"
+version = "0.1.0"
+description = "Tools for wave optical simulation: imaging, wave propagation, thin films and more."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "BSD-3-Clause" }
+authors = [{ name = "Alexander Eberspächer" }]
+dependencies = [
+    "numpy",
+    "scipy>=0.14",
+]
+
+[project.optional-dependencies]
+plot = ["matplotlib"]
+fftw = ["pyfftw"]
+tie = ["sympy", "matplotlib"]
+test = ["pytest"]
+
+[project.urls]
+Homepage = "https://github.com/aeberspaecher/pyoptics"
+
+[tool.setuptools.packages.find]
+include = ["pyoptics*"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["*.pyx", "*.c"]
