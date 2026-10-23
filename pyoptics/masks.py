@@ -105,7 +105,7 @@ def elliptical_mask(x, y, a, b, x0=0.0, y0=0.0):
     mask : array
     """
 
-    XX, YY = ensure_meshrid(x, y)
+    XX, YY = ensure_meshgrid(x, y)
 
     mask = np.zeros(np.shape(XX), dtype=int)
     mask[(XX -x0)**2/a**2 + (YY-y0)**2/b**2 <= 1] = 1

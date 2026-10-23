@@ -9,7 +9,7 @@ Includes
 """
 
 from itertools import product
-from math import factorial, pi, sin, sqrt
+from math import factorial, pi, sqrt
 
 import numpy as np
 from scipy.special import eval_genlaguerre, eval_hermite
@@ -66,22 +66,27 @@ def spherical_wave(x, y, z, wavelength, x0, y0, z0, U0=1.0, n=1.0):
     Returns
     -------
     U : array
+        U0*exp(+-ikR)/R, diverging for z >= z0 and converging towards
+        (x0, y0, z0) for z < z0.
     """
-
-    # TODO: note on convergent/diverging spherical wave?
 
     X, Y = ensure_meshgrid(x, y)
     k = wavenumber(wavelength, n)
     R = np.sqrt((X-x0)**2 + (Y-y0)**2 + (z-z0)**2)
     sign = sgn(z-z0)
-    vals = U0*(z-z0)/R*np.exp(1j*sign*k*R)
+    vals = U0*np.exp(1j*sign*k*R)/R
 
     return vals
 
 
 # Gaussian beams:
-def z_r_from_divergence_angle(w0, theta, n, wl):
-    return w0/(n*sin(theta))
+def z_r_from_divergence_angle(w0, theta, n=1.0, wl=None):
+    """Rayleigh length from waist w0 and far field divergence (half) angle
+    theta in the medium, z_r = w0/theta (paraxial). n and wl are not needed
+    and only kept for backwards compatibility.
+    """
+
+    return w0/theta
 
 
 def gauss_laguerre(p, l, x, y, z, w_0, z_r, wl):

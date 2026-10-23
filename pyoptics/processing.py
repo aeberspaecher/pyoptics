@@ -49,9 +49,17 @@ class ImageProcessor(object):
         pass
 
     def __call__(self, data, *params):
+        """Process a single image (2d array) or an image stack (3d array, the
+        last index numbering the images).
+        """
+
+        if np.ndim(data) == 2:
+            return self.process_single_image(data, *params)
 
         # go through all images and process each image individually
         result = np.zeros_like(data)
+        for i in range(np.size(data, 2)):
+            result[:, :, i] = self.process_single_image(data[:, :, i], *params)
 
         # TODO: distinhuish tuples/lists from arrays?
 
@@ -79,16 +87,16 @@ class Shifter(ImageProcessor):
     def __init__(self, delta_x, delta_y, x, y):
         self.delta_x = delta_x
         self.delta_y = delta_y
+        self.x = x
+        self.y = y
 
-        self.dx = x[1] - x[0]
-        self.dy = y[1] - y[1]
-
-    def process_single_image(img):
+    def process_single_image(self, img):
         Img = fft2(img)
-        K_X, K_Y = freq_grid(self.x, self.y, wavenumbers=True, normal_order=True)
+        # fft2() returns the spectrum in standard order:
+        K_X, K_Y = freq_grid(self.x, self.y, wavenumbers=True, normal_order=False)
 
-        # use the Fourier transform's shift property:
-        img_shifted = ifft2(np.exp(- (K_X*self.delta_x + K_Y*self.delta_y))*Img)
+        # use the Fourier transform's shift property (periodic shift):
+        img_shifted = ifft2(np.exp(-1j*(K_X*self.delta_x + K_Y*self.delta_y))*Img)
 
         if(np.iscomplexobj(img)):
             return img_shifted

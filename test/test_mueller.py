@@ -92,3 +92,17 @@ def test_TIR():
     assert np.isclose(np.abs(rs), 1.0) and np.isclose(np.abs(rp), 1.0)
     assert np.isclose(np.cos(delta), np.cos(delta_ref))
     assert np.isclose(np.abs(np.sin(delta)), np.abs(np.sin(delta_ref)))
+
+
+def test_jones_module_conventions():
+    from pyoptics.polarization import jones
+    from pyoptics.polarization.mueller import S_LCP, S_RCP
+
+    assert np.allclose(stokes_from_complex_E(jones.J_RHCP), S_RCP)
+    assert np.allclose(stokes_from_complex_E(jones.J_LHCP), S_LCP)
+    # QWP at 45° turns horizontal into circular, HWP at 22.5° into +45°:
+    assert np.isclose(abs(stokes_from_complex_E(jones.J_WP(np.pi/2, np.pi/4) @ jones.J_H)[3]), 1.0)
+    assert np.allclose(jones.J_WP(np.pi, np.pi/8) @ jones.J_H, jones.J_Lp45)
+    for phi in (0.0, 0.4, 1.3):
+        assert np.allclose(M_from_jones(jones.J_rot_polarizer(phi)), M_linear_polarizer(phi))
+        assert np.allclose(M_from_jones(jones.J_WP(0.7, phi)), M_retarder(phi, 0.7))
