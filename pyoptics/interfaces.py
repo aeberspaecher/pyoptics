@@ -2,7 +2,16 @@
 #-*- coding:utf-8 -*-
 
 """Tools for dielectric interfaces.
+
+Convention: fields vary as exp(i(k.r - omega*t)), i.e. a wave travelling in
++z is exp(+i*k_z*z) and absorbing media have refractive indices n + i*kappa
+with kappa > 0. Accordingly, the refracted angle is chosen such that
+Im(n_out*cos(phi_out)) >= 0: transmitted waves (evanescent ones under total
+internal reflection, or waves in absorbing media) decay away from the
+interface.
 """
+
+from math import pi
 
 import numpy as np
 from numpy import cos, sin, arcsin, arctan2  # those allow complex arguments
@@ -25,10 +34,18 @@ def refracted_angle(phi_in, n_in, n_out):
     -------
     phi_out : double
         Refracted angle. Complex phi_out indicates total internal reflection if
-        all input arguments are real.
+        all input arguments are real. Of the two solutions of Snell's law, the
+        one with Im(n_out*cos(phi_out)) >= 0 is returned, i.e. the transmitted
+        wave exp(i*n_out*k_0*cos(phi_out)*z) decays (exp(-i*omega*t)
+        convention).
     """
 
     phi_out = scimath.arcsin(n_in*sin(phi_in)/n_out)
+
+    # arcsin() picks the growing evanescent wave under total internal
+    # reflection; pi - phi_out is the other solution of Snell's law:
+    growing = np.imag(n_out*cos(phi_out)) < 0
+    phi_out = np.where(growing, pi - phi_out, phi_out)[()]
 
     return phi_out
 
@@ -97,20 +114,28 @@ def t_p(phi_1, n_1, n_2):
 
 def T_s(phi_1, n_1, n_2):
     """Energy transmission coefficient for s-polarized waves.
+
+    Ratio of the z-components of the time averaged Poynting vectors. T_s = 0
+    under total internal reflection.
     """
 
     phi_2 = refracted_angle(phi_1, n_1, n_2)
-    T = (4*n_1*n_2*cos(phi_1)*cos(phi_2))/(n_1*cos(phi_1) + n_2*cos(phi_2))**2
+    T = (np.real(n_2*cos(phi_2))/np.real(n_1*cos(phi_1))
+         *np.abs(t_s(phi_1, n_1, n_2))**2)
 
     return T
 
 
 def T_p(phi_1, n_1, n_2):
     """Energy transmission coefficient for p-polarized waves.
+
+    Ratio of the z-components of the time averaged Poynting vectors. T_p = 0
+    under total internal reflection.
     """
 
     phi_2 = refracted_angle(phi_1, n_1, n_2)
-    T = (4*n_1*n_2*cos(phi_1)*cos(phi_2))/(n_2*cos(phi_1) + n_1*cos(phi_2))**2
+    T = (np.real(np.conj(n_2)*cos(phi_2))/np.real(np.conj(n_1)*cos(phi_1))
+         *np.abs(t_p(phi_1, n_1, n_2))**2)
 
     return T
 

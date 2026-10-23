@@ -3,11 +3,19 @@
 
 """Tools for Jones calculus.
 
-Conventions are the same as in mueller.py: Jones vectors are [E_x, E_y], the
+Conventions are the same as in mueller.py: fields vary as
+exp(i(kz - omega*t)), Jones vectors are [E_x, E_y], the
 Stokes parameter S_3 = 2 Im(conj(E_x)*E_y) is positive for J_RHCP, and an
 element with Jones matrix J rotated by an angle phi has the Jones matrix
 J_rot(phi).T @ J @ J_rot(phi). Retarders delay the y component, i.e. their
-fast axis is along x before rotation.
+fast axis is along x before rotation: the slow y component acquires the
+additional phase exp(+i*delta).
+
+With exp(-i*omega*t), J_RHCP = [1, i]/sqrt(2) describes the real field
+(cos(omega*t), sin(omega*t)) at a fixed position, which rotates from x to y,
+i.e. counterclockwise as seen by an observer looking towards the source
+(positive helicity). This is right-handed in the IEEE convention (and
+left-handed in the traditional optics naming, e.g. Born & Wolf, Hecht).
 """
 
 import numpy as np

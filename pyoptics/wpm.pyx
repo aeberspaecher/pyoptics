@@ -2,6 +2,10 @@
 #-*- coding:utf-8 -*-
 
 """Wave Propagtion method of Singer / Brenner.
+
+Convention: exp(i(k.r - omega*t)), i.e. propagation by delta_z multiplies a
+plane wave by exp(+i*k_z*delta_z). Absorbing media have n + i*kappa with
+kappa > 0.
 """
 
 
@@ -19,7 +23,7 @@ from numpy.polynomial.legendre import leggauss
 from cython.parallel import parallel, prange
 
 from .utils import frequencies, wavenumber, k_z
-from .fft import FT_unitary, inv_FT_unitary
+from .fft import FT_unitary
 
 
 def averaging_z_sampling(func, x, y, z1, z2, N):
@@ -113,7 +117,11 @@ cpdef wpm_propagate(n_func, field_z, double[:] x, double[:] y, double z,
     k_x, k_y = (frequencies(x, wavenumbers=True, normal_order=True),
                 frequencies(y, wavenumbers=True, normal_order=True) )
 
-    field_freq_space = inv_FT_unitary(field_z)  # TODO: inv_FT or FT?
+    # expand the field in plane waves exp(+i(k_x x + k_y y)); with the
+    # exp(-i omega t) convention, each one propagates as exp(+i k_z delta_z).
+    # The plane wave amplitudes are therefore given by the forward transform
+    # (kernel exp(-i k_x x)):
+    field_freq_space = FT_unitary(field_z)
 
     # iterate all over spatial pixels, perform k summation for each pixel:
     for i in prange(n_sampled.shape[0], nogil=True, schedule="dynamic"):

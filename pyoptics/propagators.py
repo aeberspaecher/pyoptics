@@ -32,11 +32,18 @@ fresnel_rescaling() and fraunhofer() raise a ValueError otherwise.
 FFT based convolutions are cyclic. Use propagate_padded() to zero pad the
 field if it spreads beyond the computational window, and band_limit=True in
 rayleigh_sommerfeld_I_TF() for large propagation distances.
+
+Convention: fields vary as exp(i(k.r - omega*t)), the time dependence
+exp(-i*omega*t) being implicit. Propagation by z > 0 thus multiplies a plane
+wave by exp(+i*k_z*z), the Green's function is exp(+i*k*r)/r and evanescent
+waves decay as exp(-|k_z|*z). FT() (kernel exp(-i*k_x*x)) yields the
+amplitudes of the plane waves exp(+i*(k_x*x + k_y*y)), inv_FT() sums them up.
+Negative z propagates backwards. In rayleigh_sommerfeld_I_TF(), absorbing
+media can be described by a complex n = n' + i*kappa with kappa > 0.
 """
 
 # TODO: can from_spectrum switches be implemented? this might save Fourier transforms.
 # TODO: implement shifted windows
-# TODO: check implicit time dependence and fft()/ifft() use
 
 from math import pi, ceil
 from itertools import product

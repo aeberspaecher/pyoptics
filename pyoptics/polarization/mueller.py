@@ -3,6 +3,12 @@
 
 """Tools for Müller calculus: Müller matrices of common elements optical
 elements and Stokes vectors of common polarization states.
+
+Convention: fields vary as exp(i(k.r - omega*t)). The Stokes parameter
+S_3 = 2 Im(conj(E_x)*E_y) is positive for E = [1, i]/sqrt(2), i.e. for a
+field that rotates from x to y in time at a fixed position (positive
+helicity), see jones.py. All Müller matrices agree with M_from_jones() applied
+to the corresponding Jones matrix.
 """
 
 from functools import reduce
@@ -11,7 +17,7 @@ import numpy as np
 from scipy.linalg import inv
 
 from ..utils import sin_cos
-from ..interfaces import refracted_angle
+from ..interfaces import refracted_angle, r_p, r_s
 
 
 # common Stokes vectors:
@@ -164,8 +170,8 @@ def M_reflection_dielectric(r_s, r_p, *args):
 
     M = 1./2 * np.array( [ [np.abs(r_p)**2 + np.abs(r_s)**2, np.abs(r_p)**2 - np.abs(r_s)**2, 0, 0],
                            [np.abs(r_p)**2 - np.abs(r_s)**2, np.abs(r_p)**2 + np.abs(r_s)**2, 0, 0],
-                           [0, 0, 2*np.real(np.conj(r_p)*r_s), 2*np.imag(np.conj(r_p)*r_s)],
-                           [0, 0, -2*np.imag(np.conj(r_p)*r_s), 2*np.real(np.conj(r_p)*r_s)]
+                           [0, 0, 2*np.real(np.conj(r_p)*r_s), -2*np.imag(np.conj(r_p)*r_s)],
+                           [0, 0, 2*np.imag(np.conj(r_p)*r_s), 2*np.real(np.conj(r_p)*r_s)]
                          ]
                        )
 
@@ -204,8 +210,8 @@ def M_transmission_dielectric(t_s, t_p, theta_in, n_embedding, n_substrate, pol=
 
     M = eta_s/(2*eta_m) * np.array( [ [np.abs(t_p)**2 + np.abs(t_s)**2, np.abs(t_p)**2 - np.abs(t_s)**2, 0, 0],
                                       [np.abs(t_p)**2 - np.abs(t_s)**2, np.abs(t_p)**2 + np.abs(t_s)**2, 0, 0],
-                                      [0, 0, 2*np.real(np.conj(t_p)*t_s), 2*np.imag(np.conj(t_p)*t_s)],
-                                      [0, 0, -2*np.imag(np.conj(t_p)*t_s), 2*np.real(np.conj(t_p)*t_s)]
+                                      [0, 0, 2*np.real(np.conj(t_p)*t_s), -2*np.imag(np.conj(t_p)*t_s)],
+                                      [0, 0, 2*np.imag(np.conj(t_p)*t_s), 2*np.real(np.conj(t_p)*t_s)]
                                     ]
                                   )
 
@@ -230,27 +236,26 @@ def M_reflection_metal(theta, n_metal, n_embedding=1.0):
 
     Note
     ----
-    Source: Christoph Keller's book "Astrophysical Spectropolarimetry", p. 330.
+    Source: Christoph Keller's book "Astrophysical Spectropolarimetry", p. 330,
+    with signs adapted to the conventions of this module (p along x,
+    exp(-i*omega*t) time dependence, absorbing metals with Im(n_metal) > 0).
     """
 
-    i = theta
-    r = refracted_angle(theta, n_embedding, n_metal)
-
-    s_fac = (n_embedding*np.cos(i) - n_metal*np.cos(r))/(n_embedding*np.cos(i) + n_metal*np.cos(r))
+    s_fac = r_s(theta, n_embedding, n_metal)
     rho_s = np.abs(s_fac)
     phi_s = np.angle(s_fac)
 
-    p_fac = np.tan(i - r)/np.tan(i + r)
+    p_fac = r_p(theta, n_embedding, n_metal)  # = tan(i - r)/tan(i + r), also at normal incidence
     rho_p = np.abs(p_fac)
     phi_p = np.angle(p_fac)
 
     delta = phi_s - phi_p
     s, c = sin_cos(delta)
 
-    M = 1./2 * np.array( [ [rho_s**2 + rho_p**2, rho_s**2 - rho_p**2, 0, 0],
-                           [rho_s**2 - rho_p**2, rho_s**2 + rho_p**2, 0, 0],
-                           [0, 0, 2*rho_s*rho_p*c, 2*rho_s*rho_p*s],
-                           [0, 0, -2*rho_s*rho_p*s, 2*rho_s*rho_p*c]
+    M = 1./2 * np.array( [ [rho_s**2 + rho_p**2, rho_p**2 - rho_s**2, 0, 0],
+                           [rho_p**2 - rho_s**2, rho_s**2 + rho_p**2, 0, 0],
+                           [0, 0, 2*rho_s*rho_p*c, -2*rho_s*rho_p*s],
+                           [0, 0, 2*rho_s*rho_p*s, 2*rho_s*rho_p*c]
                          ]
                        )
 
@@ -318,12 +323,15 @@ def M_TIR(phi, n):
     phi : number
         Angle of incidence
     n : number
-        (Real) refractive index
+        (Real) refractive index of the optically denser medium relative to the
+        one beyond the interface.
 
     Returns
     -------
     M : array
-        Müller matrix
+        Müller matrix in a coordinate system in which p-polarization is the
+        x-axis and s-polarization is the y-axis. The retardance delta =
+        arg(r_s) - arg(r_p) is positive for the exp(-i*omega*t) convention.
     """
 
     delta = 2*np.arctan2(np.cos(phi)*np.sqrt(n**2*np.sin(phi)**2 - 1), n*np.sin(phi)**2)

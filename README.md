@@ -130,6 +130,31 @@ When you are finished, leave the venv with `deactivate`.
 On Linux and Windows the `wpm` extension is compiled with OpenMP so it can
 use several CPU cores. On macOS it is built without OpenMP.
 
+Conventions
+-----------
+
+All of pyoptics uses the time dependence exp(-iωt), which is implicit and
+never written out, and positive spatial phases for propagation, i.e. fields
+vary as exp(i(**k**·**r** − ωt)). In particular:
+
+- A plane wave travelling in +z is exp(+ikz). Propagating a field by a
+  distance z > 0 multiplies each of its plane wave components by
+  exp(+ik_z z); evanescent components decay as exp(−|k_z| z).
+- `fft.FT()` has the kernel exp(−ik_x x) and returns the amplitudes of the
+  plane waves exp(+ik_x x); `fft.inv_FT()` sums them up.
+- A diverging spherical wave is exp(+ikr)/r. Beams (`beams.gauss_laguerre()`,
+  `beams.gauss_hermite()`) carry the phase k z + k r²/(2R(z)) − ψ(z) with the
+  Gouy phase ψ(z) = (N + 1) arctan(z/z_R); Laguerre-Gaussian modes have the
+  helical phase exp(+ilφ).
+- A converging thin lens of focal length f > 0 has the transmission
+  exp(−ik r²/(2f)) (`masks.thin_lens()`).
+- Absorbing media have the complex refractive index n + iκ with κ > 0. Under
+  total internal reflection, the transmitted wave decays away from the
+  interface.
+- Wave plates delay the slow (y) component by exp(+iδ). The Jones vector
+  [1, i]/√2 rotates from x to y in time and has the Stokes parameter
+  S₃ = 2 Im(E_x* E_y) = +1.
+
 Documentation
 -------------
 

@@ -44,8 +44,8 @@ def _max_rel_err(actual, reference):
 
 
 def _gaussian_beam(X, Y, z, w0):
-    """Fundamental Gaussian beam for exp(+ikz) time convention, normalized to
-    1 at the waist center. Exact solution of the paraxial wave equation.
+    """Fundamental Gaussian beam for the exp(i(kz - omega*t)) convention,
+    normalized to 1 at the waist center. Exact solution of the paraxial wave equation.
     """
 
     z_r = np.pi*w0**2/WL

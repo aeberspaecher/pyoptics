@@ -10,6 +10,7 @@ import pytest
 from pyoptics.interfaces import r_p, r_s, t_p, t_s
 from pyoptics.polarization.mueller import (M_from_jones, M_linear_polarizer,
                                            M_reflection_dielectric,
+                                           M_reflection_metal,
                                            M_retarder, M_TIR,
                                            M_transmission_dielectric,
                                            stokes_from_complex_E)
@@ -90,8 +91,32 @@ def test_TIR():
     delta = np.arctan2(M[3, 2], M[2, 2])
 
     assert np.isclose(np.abs(rs), 1.0) and np.isclose(np.abs(rp), 1.0)
-    assert np.isclose(np.cos(delta), np.cos(delta_ref))
-    assert np.isclose(np.abs(np.sin(delta)), np.abs(np.sin(delta_ref)))
+    assert np.isclose(delta, delta_ref)
+    assert delta > 0  # exp(-i omega t) convention
+    # x-axis is p, y-axis is s:
+    assert np.allclose(M, M_from_jones(np.diag([rp, rs])))
+
+
+@pytest.mark.parametrize("theta", [0.0, 0.5, 1.2])
+def test_reflection_complex_coefficients(theta):
+    """Complex r_s, r_p (here from an absorbing medium) must give the same
+    Müller matrix as the Jones matrix diag(r_p, r_s), including the sign of
+    the S_2 <-> S_3 coupling.
+    """
+
+    n_metal = 0.2 + 3j
+    rs, rp = r_s(theta, 1.0, n_metal), r_p(theta, 1.0, n_metal)
+    M_J = M_from_jones(np.diag([rp, rs]))
+
+    assert np.allclose(M_reflection_dielectric(rs, rp), M_J)
+    assert np.allclose(M_reflection_metal(theta, n_metal), M_J)
+
+
+def test_transmission_complex_coefficients():
+    ts, tp = 0.8*np.exp(0.3j), 0.6*np.exp(-0.5j)
+    M = M_transmission_dielectric(ts, tp, 0.0, 1.0, 1.0)
+
+    assert np.allclose(M, M_from_jones(np.diag([tp, ts])))
 
 
 def test_jones_module_conventions():
