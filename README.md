@@ -99,7 +99,7 @@ example `".[plot,fftw,test]"`:
 - `plot`: matplotlib, for the plotting tools
 - `fftw`: pyFFTW, for faster FFTs
 - `tie`: sympy and matplotlib, for the TIE module
-- `test`: pytest, for running the tests
+- `test`: pytest (and matplotlib, which some modules import), for running the tests
 
 Use `python -m pip install -e .` if you want no extras at all.
 
