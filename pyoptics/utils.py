@@ -192,6 +192,9 @@ def grid1d(x_min, x_max, N, assume_periodicity=True):
     Returns
     -------
     x : array
+        Linear coordinate array. With assume_periodicity=True, x_min = -x_max
+        and even N, x = 0 lies at index N//2 as pyoptics.fft.FT() expects; for
+        odd N it does not.
         Linear coordinate array.
     """
     x = np.linspace(x_min, x_max, N, endpoint=(not assume_periodicity))
@@ -216,7 +219,9 @@ def frequencies(x, wavenumbers=True, normal_order=True):
     Returns
     -------
     freq_x : arrays
-        Arrays of frequencies/wavenumbers.
+        Arrays of frequencies/wavenumbers. In normal order, the zero
+        frequency is at index N//2, which matches the spectra of
+        pyoptics.fft.FT().
     """
 
     N_x = len(x)

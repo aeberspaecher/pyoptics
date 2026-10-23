@@ -26,7 +26,8 @@ propagated_field, x, y = propagator_func(field, x_prime, y_prime, z, wavelength)
 but individual propagators may accept further arguments.
 
 The input grid must have x = 0 and y = 0 at index N//2 (FFT convention, e.g.
-utils.grid1d(-L/2, L/2, N)); the impulse response based propagators,
+utils.grid1d(-L/2, L/2, N) for even N, dx*(np.arange(N) - N//2) for any N;
+see pyoptics.fft); the impulse response based propagators,
 fresnel_rescaling() and fraunhofer() raise a ValueError otherwise.
 
 FFT based convolutions are cyclic. Use propagate_padded() to zero pad the
@@ -75,8 +76,9 @@ def _check_centered(x, y, func_name):
         N = len(coords)
         if abs(coords[N//2]) > 1E-6*abs(get_dx(coords)):
             raise ValueError("{}() needs {} = 0 at index N//2 (here {} = {:g}). "
-                             "Use e.g. utils.grid1d(-L/2, L/2, N), which "
-                             "omits the right end point.".format(func_name, name, name, coords[N//2]))
+                             "Use e.g. utils.grid1d(-L/2, L/2, N) with even N "
+                             "(it omits the right end point) or "
+                             "dx*(np.arange(N) - N//2).".format(func_name, name, name, coords[N//2]))
 
 
 def propagate_padded(propagator, field, x_prime, y_prime, z, wavelength, n=1.0,
