@@ -507,7 +507,8 @@ def Ez(x, y, Ex, Ey, wl, n=1.0):
     # be true for all k.
 
     E_tilde_x, E_tilde_y = FT_unitary(Ex), FT_unitary(Ey)
-    Nu_x, Nu_y = freq_grid(x, y, wavenumbers=False, normal_order=False)
+    # FT_unitary() returns a centered spectrum, so use centered frequencies:
+    Nu_x, Nu_y = freq_grid(x, y, wavenumbers=False, normal_order=True)
     Nu_z = k_z(n/wl, Nu_x, Nu_y)
 
     E_tilde_z = (-Nu_x*E_tilde_x - Nu_y*E_tilde_y)/Nu_z

@@ -5,13 +5,10 @@
 """
 
 import numpy as np
-try:
-    from transparent_pyfftw import fft2, ifft2, fftshift, ifftshift, fftfreq, save_wisdom
-except ImportError:
-    from numpy.fft import fft2, ifft2, fftshift, ifftshift, fftfreq
 from numpy import pi
 from math import sqrt
 from numpy.lib.scimath import sqrt as cmpl_sqrt
+from .fft import FT, inv_FT
 from .utils import freq_grid
 
 
@@ -20,9 +17,11 @@ def image(obj, x, y, NA, k):
     system.
     """
 
-    K_x, K_y = freq_grid(x, y, wavenumbers=True, normal_order=False)
+    # FT() returns a centered spectrum, so the frequency grid needs to be in
+    # normal (centered) order as well:
+    K_x, K_y = freq_grid(x, y, wavenumbers=True, normal_order=True)
 
-    obj_spectrum = fftshift(fft2(ifftshift(obj)))
+    obj_spectrum = FT(obj)
 
     # NA truncation:
     mask = np.ones(np.shape(obj))
@@ -37,7 +36,7 @@ def image(obj, x, y, NA, k):
     #obj_spectrum *= cmpl_sqrt(1 - K_x**2/k**2 - K_y**2/k**2)  # is this the obliquity factor rewritten using the sine condition?
     # TODO: cosine factor?
 
-    image = fftshift(ifft2(ifftshift(obj_spectrum)))
+    image = inv_FT(obj_spectrum)
 
     return image
 
@@ -46,7 +45,7 @@ def get_psf(x, y, NA, k, pupil_mask=None, phase=None):
     dx, dy = x[1] - x[0], y[1] - y[0]
     Nx, Ny = len(x), len(y)
 
-    K_X, K_Y = freq_grid(x, y, wavenumbers=True, normal_order=False)
+    K_X, K_Y = freq_grid(x, y, wavenumbers=True, normal_order=True)
 
     # TODO: implement masks
     mask = K_X**2 + K_Y**2 <= k**2*NA**2
@@ -55,10 +54,10 @@ def get_psf(x, y, NA, k, pupil_mask=None, phase=None):
     #plt.title("YO MOMMA!")
     #plt.show()
 
-    pupil_func = np.zeros([Nx, Ny])
+    pupil_func = np.zeros(np.shape(K_X))  # shape is (Ny, Nx)
     pupil_func[mask] = 1.0
 
-    psf = fftshift(ifft2(ifftshift(pupil_func)))
+    psf = inv_FT(pupil_func)
     #psf /= sqrt(Nx*Ny)
 
     return psf

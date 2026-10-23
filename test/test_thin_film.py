@@ -6,9 +6,10 @@ Test the thin film module.
 """
 
 import numpy as np
+import pytest
 
 from pyoptics.thin_films import r_t_coeffs, R_T_A_coeffs
-from pyoptics.interfaces import brewster_angle
+from pyoptics.interfaces import R_p, R_s, T_p, T_s, brewster_angle
 
 
 def test_brewster():
@@ -57,3 +58,35 @@ def test_TIR_phase():
 
 
 # TODO: test filter? Fabry Perot?
+
+
+@pytest.mark.parametrize("pol, R_ref, T_ref", [("s", R_s, T_s), ("p", R_p, T_p)])
+def test_single_interface(pol, R_ref, T_ref):
+    """A layer of embedding medium on a substrate is a single interface, so
+    R and T must match the Fresnel equations, also for substrate != embedding
+    medium.
+    """
+
+    n_0, n_s = 1.0, 1.5
+    angles = np.deg2rad(np.linspace(0, 85, 18))
+    RTA = np.array([R_T_A_coeffs(angle, [n_0], [0.0], [100.0], n_0, 0.0, n_s, 0.0, pol, 633)
+                    for angle in angles])
+
+    assert np.allclose(RTA[:, 0], R_ref(angles, n_0, n_s))
+    assert np.allclose(RTA[:, 1], T_ref(angles, n_0, n_s))
+    assert np.allclose(RTA[:, 2], 0.0)
+
+
+def test_incoherent_slab():
+    """A thick incoherent slab in air reflects R_slab = 2R/(1 + R) at normal
+    incidence (multiple reflections add up in intensity).
+    """
+
+    n = 1.5
+    R = ((n - 1)/(n + 1))**2
+    R_slab, T_slab, A_slab = R_T_A_coeffs(0.0, [n], [0.0], [1E5], 1.0, 0.0, 1.0, 0.0, "s", 633,
+                                          incoherent=[True], N_phases=64)
+
+    assert np.isclose(R_slab, 2*R/(1 + R))
+    assert np.isclose(T_slab, 1 - 2*R/(1 + R))
+    assert np.isclose(A_slab, 0.0)
