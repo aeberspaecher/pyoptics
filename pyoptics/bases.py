@@ -17,11 +17,11 @@ from numpy.polynomial.chebyshev import chebval
 from scipy.special import factorial as fac  # tolerant to negative arguments!
 from scipy.linalg import lstsq, qr
 
-from pyoptics.utils import (kronecker_delta, weight_grid, simpson_weights, sgn,
-                            scalar_product_without_weights,
-                            scalar_product
-                           )
-from pyoptics.masks import circular_mask, rectangluar_mask
+from .utils import (kronecker_delta, weight_grid, simpson_weights, sgn,
+                    scalar_product_without_weights,
+                    scalar_product, ensure_meshgrid,
+                    )
+from .masks import (circular_mask, rectangluar_mask, annular_mask, to_bool)
 
 # TODO: reintroduce scalar/inner product in BasisSet? this allowed for inner products that respected the mask/support automatically
 
@@ -42,17 +42,32 @@ class BasisSet(object):
         """
         self.x = x
         self.y = y
-        self.XX, self.YY = np.meshgrid(x, y)
+        self.XX, self.YY = ensure_meshgrid(x, y)
         self._has_norm = False
 
-    def __call__(self, indices, coeffs=None):
+    def __call__(self, indices, coeffs, x=None, y=None):
         """Return basis functions for given indices.
+
+        Parameters
+        ----------
+        indices : iterable
+        coeffs : iterable
+        x, y : arrays, optional
+            If given, the basis is evaluated for the given (scattered) x and y
+            points.
+
+        Returns
+        -------
+        val : array
+            Sampled data. The shape is identical to the scattered x, y data if
+            x and y are given; otherwise val is of the same shape as x and y
+            given to the class' constructor.
         """
 
-        if coeffs is None:
-            coeffs = np.ones(len(indices))
-
-        val = sum([coeffs[i]*self.eval_single(ind) for i, ind in enumerate(indices)])
+        if (x is not None) and (y is not None):  # scattered data
+            val = self.eval_scattered(indices, coeffs, x, y)
+        else:  # data on x, y known to the class since instanciation
+            val = sum([coeffs[i]*self.eval_single(ind) for i, ind in enumerate(indices)])
 
         return val
 
@@ -60,7 +75,7 @@ class BasisSet(object):
         """Return a single basis function.
         """
 
-        pass
+        raise NotImplementedError("Do not call this function in base class.")
 
     def eval_single_scattered(self, x, y, i):
         """Return i-th basis function at scattered (x, y) points.
@@ -69,6 +84,27 @@ class BasisSet(object):
         # used in fitting routine for scattered data
 
         raise NotImplementedError("Do not call this function in base class.")
+
+    def eval_scattered(self, inds, coeffs, x, y):
+        """Evaluate basis for scattered x, y data.
+
+        Parameters
+        ----------
+        inds : iterable
+            Indices to evaluate.
+        coeffs : iterable
+        x, y : arrays
+
+        Returns
+        -------
+        val : array
+        """
+
+        val = np.zeros_like(x)
+        for ind, coeff in zip(inds, coeffs):
+            val += coeff*self.eval_single_scattered(x, y, ind)
+
+        return val
 
     def normalization_factor(self, i):
         """Return norm of i-th basis function. This is used in basis expansions.
@@ -89,7 +125,7 @@ class BasisSet(object):
 
         return coeffs
 
-    def _coeffs_from_lstsq(self, field, indices):
+    def _coeffs_from_lstsq(self, field, indices, do_scale=False):
         """Determine basis expansion coefficients by least-square fitting.
 
         Parameters
@@ -98,6 +134,9 @@ class BasisSet(object):
             Sampled data to expand in basis.
         indices : array, integer
             Indices to consider in fit.
+        do_scale : boolean, optional
+            If True, apply preconditioning to least square problem. Defaults to
+            False.
 
         Returns
         -------
@@ -120,7 +159,14 @@ class BasisSet(object):
         M = np.zeros([N_samples, N_indices])
         for i in range(N_indices):
             M[:, i] = Z_i[i].flatten()
-        coeffs, _, _, _ = lstsq(M, field.flatten())
+        if do_scale:
+            scale = np.sqrt((M*M).sum(axis=0))
+            scale = np.log2(scale)
+            M /= 2.0**(scale)
+        coeffs, _, _, s = lstsq(M, field.flatten())
+        # print("Condition number: {}".format(s.min()/s.max()))
+        if do_scale:
+            coeffs /= 2.0**scale
 
         return coeffs
 
@@ -157,17 +203,39 @@ class BasisSet(object):
         return coeffs
 
 
-    def coeffs_from_scattered(self, x, y, data, indices):
-        # TODO: implement
+    def coeffs_from_scattered(self, x, y, data, indices, do_scale=False):
+        """Fit basis to given scattered data.
 
-        # TODO: preconditioning?
+        Parameters
+        ----------
+        x, y : arrays
+        data : arrays
+           Data sampled at x, y. Of identical shape as each x and y.
+        indices : array or list
+           Indices to be used in fit.
+        do_scale : boolean, optional
+            If True, apply preconditioning to least squares problem. Defaults
+            to False.
+
+        Returns
+        -------
+        coeffs : array
+        """
+
         Z_i = [self.eval_single_scattered(x, y, i) for i in indices]
         N_samples = len(Z_i[0])
         N_indices = len(indices)
         M = np.zeros([N_samples, N_indices])
         for i in range(N_indices):
             M[:, i] = Z_i[i]
-        coeffs, _, _, _ = lstsq(M, data)
+        if do_scale:
+            scale = np.sqrt((M*M).sum(axis=0))
+            scale = np.int64(np.log2(scale))
+            M /= 2.0**(scale)
+        coeffs, _, _, s = lstsq(M, data)
+        # print("Condition number: {}".format(s.min()/s.max()))
+        if do_scale:
+            coeffs /= 2.0**scale
 
         return coeffs
 
@@ -178,23 +246,23 @@ class PresampledBasisSet(BasisSet):
     Substitutes run-time recomputation of data by lookups of precomputed data.
     """
 
-    def __init__(self, x, y, basis_class, indices, **kwargs):
+    def __init__(self, x, y, basis_type=None, indices=None, **kwargs):
         """Presample given basis function and store away for fast evaluation.
 
         Parameters
         ----------
         x, y : arrays
-        basis_class : object
+        basis_type : object
             BasisSet class to presample.
         indices : array-like
             Array of indices to presample.
         kwargs : dict
-            Keyword arguments to hand over basis_class on instantiation.
+            Keyword arguments to hand over basis_type on instantiation.
         """
 
         super(PresampledBasisSet, self).__init__(x, y)
 
-        self.basis = basis_class(x, y, **kwargs)
+        self.basis = basis_type(x, y, **kwargs)
         self.sampled_funcs = {}
 
         for ind in indices:
@@ -232,7 +300,7 @@ def fringe_to_n_m(j):
     m = floor((((d**2-j)/2)) if (((int(d)**2 - j) % 2) == 0) else ceil((-(d**2) + j - 1)/2.))
     n = round((2.0*(d-1) - abs(m)))
 
-    return n, m
+    return int(n), int(m)
 
 
 def _fringe_zernike_R_nm_coeffs(n, m):
@@ -251,8 +319,13 @@ def _fringe_zernike_R_nm_coeffs(n, m):
     N, M = int(n), int(m)
 
     coeffs = np.zeros(N+1)
-    for k in range((N-M)/2 + 1):
-        coeffs[N-2*k] = (-1.0)**k * fac(N-k) / (fac(k) * fac((N+M)/2.0 - k) * fac((N-M)/2.0 - k))
+    for k in range((N-M)//2 + 1):
+        # TODO: implement formula with binomials using mpmath
+        denom = fac(k) * fac((N+M)/2.0 - k) * fac((N-M)/2.0 - k)
+        if np.isclose(denom, 0.0):  # avoid division by zero
+            coeffs[N-2*k] = 0.0
+        else:
+            coeffs[N-2*k] = (-1.0)**k * fac(N-k) / denom
 
     return coeffs[::-1]  # highest power first, for np.polyval()
 
@@ -294,9 +367,9 @@ def fringe_zernike_Y_m(m, phi):
     if m > 0:
         val = np.cos(m*phi)
     elif m == 0:
-        val = np.ones(np.shape(phi))
+        val = np.ones(np.shape(phi))  # TODO: this assumes array-valued phi. change that?
     else:
-        val = np.sin(m*phi)
+        val = np.sin(-m*phi)  # minus sign to get |m| for m < 0, otherwise there'll be a sign flip
 
     return val
 
@@ -307,13 +380,14 @@ class FringeZernikes(BasisSet):
     http://www.jcmwave.com/JCMsuite/doc/html/ParameterReference/0c19949d2f03c5a96890075a6695b258.html
     """
 
-    def __init__(self, x, y, R_norm, x0=0.0, y0=0.0):
+    def __init__(self, x, y, R_norm=1.0, x0=0.0, y0=0.0):
         super(FringeZernikes, self).__init__(x-x0, y-y0)
+
         self.R_norm = R_norm
         self.Rho = np.sqrt((self.XX)**2 + (self.YY)**2)/R_norm
         self.Phi = np.arctan2(self.YY, self.XX)
 
-        self.mask = circular_mask(x-x0, y-y0, R_norm)  # TODO: introduce x0, y0!
+        self.mask = circular_mask(x-x0, y-y0, R_norm)
         self._has_norm = True
 
     def eval_single(self, j):
@@ -407,7 +481,7 @@ class LegendrePolynomials(BasisSet):
 
     """
 
-    def __init__(self, x, y, a, b, x0=0.0, y0=0.0):
+    def __init__(self, x, y, a=1.0, b=1.0, x0=0.0, y0=0.0):
         super(LegendrePolynomials, self).__init__(x, y)
         self.a = a
         self.b = b
@@ -508,12 +582,12 @@ class ChebyshevPolynomials(BasisSet):
     rectangular apertures.
 
     The basis set is the product of two Chebyshev polynomials T_i(x)*T_j(y).
-    The bases is orthogonal with respect to a specific scalar product with
+    The basis is orthogonal with respect to a specific scalar product with
     weight function 1/sqrt(1-x**2) for each dimension.
 
     """
 
-    def __init__(self, x, y, a, b, x0=0.0, y0=0.0):
+    def __init__(self, x, y, a=1.0, b=1.0, x0=0.0, y0=0.0):
         super(ChebyshevPolynomials, self).__init__(x, y)
         self.a = a
         self.b = b
@@ -593,7 +667,7 @@ def poly_basis_size(order):
     if order < 0:
         s = 0  # account for order 0
     else:
-        s = (order+1)*(order+2)/2
+        s = (order+1)*(order+2)//2
 
     return s
 
@@ -610,21 +684,21 @@ class NumericallyOrthogonalized(PresampledBasisSet):
     Gram-Schmidt procedure on the given grid.
     """
 
-    def __init__(self, x, y, base_type, indices, new_mask=None, weight_func=None,
+    def __init__(self, x, y, basis_type=None, indices=None, new_mask=None, weight_func=None,
                  norm_func=None, **kwargs):
         """Construct numerically orthogonalized basis function set.
 
         Parameters
         ----------
         x, y : arrays
-        base_type : BasisSet class
+        basis_type : BasisSet class
             Base class to instantiate, sample and orthogonalize.
         indices : array-like
             Array of indices to sample.
         new_mask : array
             New mask on which the basis functions should be numerically
             orthogonalized on.
-        weights_func : callable, optional
+        weight_func : callable, optional
             Function that returns 1d weights for inner product summation. If
             None, a standard midpoint rule will be used. The weights are
             also used in norm computations.
@@ -634,7 +708,7 @@ class NumericallyOrthogonalized(PresampledBasisSet):
             new_mask defines a new support).
 
         kwargs : dict
-            Handed over to base_type object.
+            Handed over to basis_type object.
 
         Note
         ----
@@ -643,23 +717,26 @@ class NumericallyOrthogonalized(PresampledBasisSet):
         the signs of the first element within the mask are evaluated. These
         should not be zero.
 
-        If a new mask is given, it is advised to choose the base_type such that
+        If a new mask is given, it is advised to choose the basis_type such that
         the new mask is 'filled' even with the original basis functions, e.g.
-        if the new mask is an annulus witzh outer radius R_outer and the
-        base_type are Fringe Zernike polynomials, it is recommended to set the
+        if the new mask is an annulus with outer radius R_outer and the
+        basis_type are Fringe Zernike polynomials, it is recommended to set the
         Fringe Zernikes R_norm parameter to R_outer.
 
         If a new mask is given without a normalization function, the old the
-        new results can be diffult the compare as the old norms are kept. This
-        may be undesirable for different spatial support.
+        new results can be difficult the compare as the old norms are kept. This
+        may be undesirable for different spatial support, e.g. may smaller supports
+        lead to higher values. Use RescaledBasis to rescale.
         """
 
-        super(NumericallyOrthogonalized, self).__init__(x, y, base_type, indices, **kwargs)
+        super(NumericallyOrthogonalized, self).__init__(x, y, basis_type=basis_type,
+                                                        indices=indices,
+                                                        **kwargs)
 
         if new_mask is None:
-            mask = self.basis.mask > 0.0 # TODO: why > 0 necessary?
+            mask = to_bool(self.basis.mask)
         else:
-            mask = new_mask > 0.0
+            mask = to_bool(new_mask)
             self.mask = new_mask
 
         if weight_func is None:
@@ -673,18 +750,22 @@ class NumericallyOrthogonalized(PresampledBasisSet):
         num_samples_mask = np.sum(mask)  # number of rows
         num_basis_funcs = len(indices)  # number of columns
 
-        # build matrix for orthogonalizatgion procedure: put data within mask in columns
+        # build matrix for orthogonalization procedure: put data within mask in columns
         basis_funcs = np.zeros([num_samples_mask, num_basis_funcs], order="C")  # TODO: check order for best performance
         for i, ind in enumerate(indices):
             curr_sampled_func = self.sampled_funcs[ind]
             basis_funcs[:, i] = (np.sqrt(weights_masked)*curr_sampled_func[mask])
 
         # QR:
-        Q, _ = qr(basis_funcs, mode="economic")
+        Q, R = qr(basis_funcs, mode="economic")
+
+        # dictionary that holds the coefficients of the linear combination that
+        # makes the new basis orthogonal
+        self.transformation_coeffs = {}
 
         for i, ind in enumerate(indices):
             curr_orthogonalized_basis_func = Q[:, i]
-
+            self.transformation_coeffs[ind] = R[:, i]
             # compute norm renormalized basis function. as the square root of
             # the weights to use are already included in curr_orthogonalized_basis_func,
             # we can use the scalar product that does not expect any weights:
@@ -703,10 +784,19 @@ class NumericallyOrthogonalized(PresampledBasisSet):
 
             # overwrite sampled_funcs by orthogonalized data,
             # renormalize to old norm and apply scaling factor (preserve sign of first vector elements - QR decomposition may change that):
-            scale = sgn(curr_orthogonalized_basis_func[0])*sgn(basis_funcs[0, i])
-            self.sampled_funcs[ind][mask] = \
-                scale*curr_orthogonalized_basis_func/np.sqrt(curr_norm)*np.sqrt(desired_norm)/np.sqrt(weights_masked)
+            scale = sgn(curr_orthogonalized_basis_func[0])*sgn(basis_funcs[0, i])  # sign scale
+            factor = scale/np.sqrt(curr_norm)*np.sqrt(desired_norm)/np.sqrt(weights_masked)  # renormalization
+
+            factor_transform = scale/np.sqrt(curr_norm)*np.sqrt(desired_norm)/len(curr_orthogonalized_basis_func)  # accomodate sign and change in norm;
+                                                                                                                   # divide by number of samples to compensate for missing dx*dy
+            self.sampled_funcs[ind][mask] = factor*curr_orthogonalized_basis_func
             self.sampled_funcs[ind][~mask] = 0.0
+            self.transformation_coeffs[ind] *= factor_transform  # also rescale the transform
+            # print("Factor for transformation", factor_transform)
+            # print("Transformation: {}".format(self.transformation_coeffs[ind]))
+            # print("Scale", scale)
+            # print()
+
 
     def eval_single_scattered(self, x, y, i, interpolation="linear"):
         # TODO: implement
@@ -721,18 +811,17 @@ class RescaledBasis(BasisSet):
     """Rescale basis functions on a new aperture/mask.
 
     Use this for e.g. normalizing FringeZernikes an non-circular aperture such
-    that coefficients can again be read as maxrture such that
-    coefficients can again be read as maximum value on the aperture.
+    that coefficients can again be read as maximum values on the aperture.
     """
 
-    def __init__(self, x, y, basis_type, mask, scale_func, scale_val_func, **kwargs):
+    def __init__(self, x, y, basis_to_rescale_type=None, mask=None, scale_func=None, scale_val_func=None, **kwargs):
         """Create RescaledBasis instance.
 
         Parameters
         ----------
         x, y : arrays
             Linear coordinate arrays
-        basis_type : BasisSet subclass object
+        basis_to_rescale_type : BasisSet subclass object
             The basis to use with a new mask
         mask : array
             Sampled mask or aperture to use with evaluated basis functions.
@@ -748,18 +837,58 @@ class RescaledBasis(BasisSet):
 
         super(RescaledBasis, self).__init__(x, y)
         self.mask = mask  # store new mask, used in evaluation
-        self._basis = basis_type(x, y, **kwargs)  # instantiate basis for new aperture
+        self._basis = basis_to_rescale_type(x, y, **kwargs)  # instantiate basis for new aperture
         self.scale_func = scale_func
         self.scale_val_func = scale_val_func
+
+    def get_rescaling_factor(self, index):
+        """Get factor to rescale with.
+        """
+
+        func = self._basis.eval_single(index)
+        rescaling_factor = self.get_rescaling_factor_from_sampled_func(index, func)
+
+        return rescaling_factor
+
+    def get_rescaling_factor_from_sampled_func(self, index, sampled_func):
+        """Get rescaling factor for given index and sampled base function.
+        """
+
+        old_scale = self.scale_func(sampled_func)
+        new_scale = self.scale_val_func(index)
+        rescaling_factor = new_scale/old_scale
+        print("Rescaling factor: {}".format(rescaling_factor))
+
+        return rescaling_factor
+
 
     def eval_single(self, index):
         val = self._basis.eval_single(index)
         val *= self.mask
-        old_scale = self.scale_func(val)
-        new_scale = self.scale_val_func(index)
-        val *= new_scale/old_scale
+        val *= self.get_rescaling_factor_from_sampled_func(index, val)
 
         return val
+
+
+def basis_from_generating_function(index_func, field_func, **kwargs):
+    """Generate a BasisSet object from a given field function.
+
+    Parameters
+    ----------
+    index_func : callable
+        Maps a single integer n to one or several indices i, j, k...
+    field_func : callable
+        Field or basis function generating function with signature
+        field_func(i, j, k, ..., x, y, **kwargs).
+
+    Returns
+    -------
+    generated_basis : BasisSet object
+    """
+
+    pass
+
+
 if(__name__ == '__main__'):
     from pyoptics.utils import grid1d
     from pyoptics.plot_tools import plot_intensity

@@ -12,7 +12,7 @@ from numpy.fft import fftfreq, fftshift
 from numpy.lib.scimath import sqrt as complex_sqrt
 from scipy.signal import savgol_coeffs
 
-from pyoptics.fft import FT_unitary, inv_FT_unitary
+from .fft import FT_unitary, inv_FT_unitary
 
 
 # TODO: add convenience routines the create complete grids? like a routine
@@ -27,6 +27,51 @@ deg_to_rad = lambda d: d/180.0*pi
 rad_to_deg = lambda r: r/pi*180.0
 sin_cos = lambda phi: (np.sin(phi), np.cos(phi))
 kronecker_delta = lambda n, m : (1.0 if n == m else 0.0)
+
+
+def get_dx(x):
+    """Get dx using a formulation that does not suffer from numerical
+    cancellation of significant digits.
+    """
+
+    Nx = len(x)
+    dx = (x[-1] - x[0])/(Nx - 1.)
+
+    return dx
+
+
+def complex_average(z_vals):
+    """Compute average of complex numbers from r, phi instead of real and imaginary
+    part.
+
+    Parameters
+    ----------
+    z_vals : iterable
+
+    Returns
+    -------
+    z_avg : complex
+    """
+
+    r_vals = np.abs(z_vals)
+    phi_vals = np.arctan2(np.imag(z_vals), np.real(z_vals))
+
+    avg = r_vals.mean()*np.exp(1j*phi_vals.mean())
+
+    return avg
+
+
+def ensure_meshgrid(x, y):
+    d_x, d_y = len(np.asarray(x).shape), len(np.asarray(y).shape)
+
+    if (d_x == 1) and (d_y == 1):
+        XX, YY = np.meshgrid(x, y)
+    elif (d_x == 2) and (d_y == 2):
+        XX, YY = np.asarray(x), np.asarray(y)
+    else:
+        raise ValueError("Dimensions of both x and y are unequal to 1 or 2")
+
+    return XX, YY
 
 
 def sgn(x):
@@ -173,8 +218,8 @@ def frequencies(x, wavenumbers=True, normal_order=True):
         Arrays of frequencies/wavenumbers.
     """
 
-    dx = abs(x[1] - x[0])
     N_x = len(x)
+    dx = get_dx(x)
     freq_x = fftfreq(N_x, dx)
 
     if wavenumbers:
@@ -209,7 +254,7 @@ def freq_grid(x, y, wavenumbers=True, normal_order=True):
 
     freq_x, freq_y = (frequencies(x, wavenumbers, normal_order),
                       frequencies(y, wavenumbers, normal_order),
-                      )  # TODO: use map() instead? or a list comprehension?
+                     )
 
     out = np.meshgrid(freq_x, freq_y)
 
@@ -280,7 +325,7 @@ def get_z_derivative(stack, dz, order):
 
     stack_work = stack.copy()
 
-    # TODO: can this be replaced by einsum()?
+    # TODO: can this be replaced by einsum("...i,...i->...", deriv_coeffs, stack_work)?
     for i in range(num_images):
         stack_work[:, :, i] = deriv_coeffs[i]*stack_work[:, :, i]
         # TODO: write more elegantly, check what coeffs*stack_work does
@@ -322,8 +367,6 @@ def scalar_product(field1, field2, x, y, weight_func=None):
     else:
         weights = weight_grid(weight_func, len(x), len(y))
 
-    #dx, dy = x[1] - x[0], y[1] - y[0]
-    #prod = np.sum(weights*np.conj(field1)*field2)*dx*dy
     prod = scalar_product_with_weights(field1, field2, x, y, weights)
 
     return prod
@@ -348,7 +391,7 @@ def scalar_product_with_weights(field1, field2, x, y, weights):
         Scalar product.
     """
 
-    dx, dy = x[1] - x[0], y[1] - y[0]
+    dx, dy = get_dx(x), get_dx(y)
     prod = np.sum(weights*np.conj(field1)*field2)*dx*dy
 
     return prod
@@ -371,7 +414,7 @@ def scalar_product_without_weights(field1, field2, x, y):
         Scalar product.
     """
 
-    dx, dy = x[1] - x[0], y[1] - y[0]
+    dx, dy = get_dx(x), get_dx(y)
     prod = np.sum(np.conj(field1)*field2)*dx*dy
 
     return prod
@@ -478,15 +521,72 @@ def super_gaussian(x, y, x0, y0, sigma_x, sigma_y, N):
     """Compute a super Gaussian.
     """
 
-    XX, YY = np.meshgrid(x, y)
+    XX, YY = ensure_meshgrid(x, y)
 
     g = np.exp(-np.abs(XX - x0)**N/(2*sigma_x**N) - np.abs(YY - y0)**N/(2*sigma_y**N))
 
     return g
 
 
+def image_energy(img):
+    """Return energy in an image.
+
+    Parameters
+    ----------
+    img : array
+
+    Returns
+    -------
+    E : number
+    """
+
+    # TODO: shouldn't physical engery be of function of intensity (using e.g. I() as defined in this module)?
+    # TODO: refractive index?
+
+    return np.sum(np.abs(img)**2)
+
+
+def normalize_img_to_energy(img, E):
+    """Normalize a given field to a given energy.
+
+    Parameters
+    ----------
+    img : array
+    E : number
+
+    Returns
+    -------
+    img_prime : array
+    """
+
+    # TODO: I()?
+    # TODO: refractive index?
+
+    return img*np.sqrt(E)/np.sqrt(image_energy(img))
+
+
+
 if(__name__ == '__main__'):
-    w = weight_grid(simpson_weights, 128, 128)
-    import matplotlib.pyplot as plt
-    plt.imshow(w, origin="lower", interpolation="none")
-    plt.show()
+    #w = weight_grid(simpson_weights, 9, 9)
+    #print(simpson_weights(9))
+    #print("Sum of 1st row:", np.sum(w[0, :]))
+    #print("Sum of 1st col:", np.sum(w[:, 0]))
+    ##print("Sum of 11th row:", np.sum(w[10, :]))
+    ##print("Sum of 11th col:", np.sum(w[:, 10]))
+    ##print("Sum of 12th row:", np.sum(w[11, :]))
+    ##print("Sum of 12th col:", np.sum(w[:, 11]))
+    #print("Sum of last row:", np.sum(w[-1, :]))
+    #print("Sum of last col:", np.sum(w[:, -1]))
+    #print("Sum all weights divided by number of elements:", np.sum(w.flatten())/np.prod(np.array(w.shape) - 1))
+    #import matplotlib.pyplot as plt
+    #plt.imshow(w, origin="lower", interpolation="none")
+    #plt.colorbar()
+    #plt.show()
+
+    from plot_tools import plot_image
+
+    x = grid1d(-2, +2, 113, False)
+    y = grid1d(-2, +2, 112, False)
+
+    s = super_gaussian(x, y, 0.5, -0.3, 0.2, 0.7, 12)
+    plot_image(s, x, y)

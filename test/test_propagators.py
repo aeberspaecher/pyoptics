@@ -1,91 +1,74 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
-"""Test diffraction patterns obtained from different propagators.
-"""
-
 import numpy as np
-import matplotlib.pyplot as plt
+
+from pyoptics.propagators import fresnel_IR, fresnel_TF, suggest_N_critical, rayleigh_sommerfeld_I_TF, rayleigh_sommerfeld_I_DI, rayleigh_sommerfeld_I_IR
+from pyoptics.beams import gauss_laguerre, z_r_from_divergence_angle
+from pyoptics.utils import ensure_meshgrid, I
 
 
-import pyoptics as po
-from pyoptics.utils import grid1d, grid2d
-from pyoptics.plot_tools import plot_intensity
-from pyoptics.propagators import (fresnel_number, z_from_fresnel_number,
-                                  fresnel_IR, fresnel_TF,
-                                  rayleigh_sommerfeld_I_IR,
-                                  rayleigh_sommerfeld_I_TF,
-                                  rayleigh_sommerfeld_I_DI)
+def test_beam_consistency_fresnel():
+    """Test if analytical propgation of a sampled paraxial beam is close to the
+    analytical solution.
+    """
 
+    wl = 0.630
+    L = 3000*wl
+    z_prop = 30000*wl
+    N_crit = suggest_N_critical(L, z_prop, wl)
+    x = np.linspace(-L/2, +L/2, N_crit)
+    y = x
+    w0 = 200*wl
 
-N = 768
-wl = 0.630  # e.g. micrometers
-x_max = 12000
-x_aperture_size = 1500
+    p, l = 3, 3
+    beam_z0 = gauss_laguerre(p, l, x, y, z=0, w_0=w0,
+                             z_r=z_r_from_divergence_angle(w0, np.deg2rad(0.1), 1.0, wl), wl=wl)
 
-#x = grid1d(-x_max, +x_max, N, assume_periodicity=True)
-#y = grid1d(-x_max, +x_max, N, assume_periodicity=True)
-x, y, X, Y = grid2d(-x_max, +x_max, -x_max, +x_max, N, assume_periodicity=True)
+    beam_prop_fresnel_IR, _, _ = fresnel_IR(beam_z0, x, y, z_prop, wl)
+    beam_prop_fresnel_TF, _, _ = fresnel_TF(beam_z0, x, y, z_prop, wl)
+    beam_prop_analytical = gauss_laguerre(p, l, x, y, z=z_prop, w_0=w0,
+                                          z_r=z_r_from_divergence_angle(w0, np.deg2rad(0.1), 1.0, wl),
+                                          wl=wl)
 
-aperture = np.zeros((N, N))
-aperture[(np.abs(X) < x_aperture_size) & (np.abs(Y) < x_aperture_size)] = 1.0  # squre aperture
-#aperture[(np.abs(x_aperture_size/4)**2 + np.abs(Y)**2 < x_aperture_size**2/8)] = 0.5
+    I_max = np.max(I(beam_prop_analytical))
+    # allow largest per-pixel deviation in intensity to be 3% of maximum intensity:
+    assert np.all(I(beam_prop_fresnel_IR) - I(beam_prop_analytical) < I_max/33)  # consistency of propagators
+    assert np.all(I(beam_prop_fresnel_TF) - I(beam_prop_analytical) < I_max/33)  # consistency of propagators
+    
 
-phase = (+0.000*X + 0.00000*Y**2)/wl
-field = aperture*np.exp(1j*phase)  # add phase
+def test_beam_consistency_rayleigh_sommerfeld():
+    """Test if non-paraxial analytical propgation of a sampled paraxial beam is close to the
+    analytical solution.
+    """
 
-#plot_intensity(aperture, x/wl, y/wl, xlabel=r"$x/\lambda$", ylabel=r"$y/\lambda$", title="Aperture")
+    wl = 0.630
+    L = 3000*wl
+    z_prop = 30000*wl
+    N = suggest_N_critical(L, z_prop, wl)*2
+    x = np.linspace(-L/2, +L/2, N)
+    y = x
+    w0 = 200*wl
 
+    p, l = 3, 3
+    beam_z0 = gauss_laguerre(p, l, x, y, z=0, w_0=w0,
+                             z_r=z_r_from_divergence_angle(w0, np.deg2rad(0.1), 1.0, wl), wl=wl)
 
-phase[aperture == 0.0] = np.nan
-#plot_intensity(phase, x/wl, y/wl, xlabel=r"$x/\lambda$", ylabel=r"$y/\lambda$", title="Phase")
+    beam_prop_RS_IR, _, _ = rayleigh_sommerfeld_I_IR(beam_z0, x, y, z_prop, wl)
+    beam_prop_RS_TF, _, _ = rayleigh_sommerfeld_I_TF(beam_z0, x, y, z_prop, wl)
+    beam_prop_RS_DI, _, _ = rayleigh_sommerfeld_I_DI(beam_z0, x, y, z_prop, wl)
+    beam_prop_analytical = gauss_laguerre(p, l, x, y, z=z_prop, w_0=w0,
+                                          z_r=z_r_from_divergence_angle(w0, np.deg2rad(0.1), 1.0, wl),
+                                          wl=wl)
 
+    I_max = np.max(I(beam_prop_analytical))
+    # allow largest per-pixel deviation in intensity to be 10% of maximum intensity:
+    assert np.all(I(beam_prop_RS_IR) - I(beam_prop_analytical) < I_max/10)
+    assert np.all(I(beam_prop_RS_TF) - I(beam_prop_analytical) < I_max/10)
+    assert np.all(I(beam_prop_RS_DI) - I(beam_prop_analytical) < I_max/10)
+    # TODO: 10% is arbitrary, maybe find something more justified 
+ 
 
-F = 0.1  # Fresnel number to propagate to
-z = z_from_fresnel_number(F, x_aperture_size, wl)
-print("Propagating to z = {}".format(z))
-print("Computing Fresnel TF diffraction")
-E_Fresnel_TF, x_new, y_new = fresnel_TF(field, x, y, z, wl)
-print("Computing Fresnel IR diffraction")
-E_Fresnel_IR, x_new, y_new = fresnel_IR(field, x, y, z, wl)
-print("Computing RS TF diffraction")
-E_RS_TF, x_new, y_new = rayleigh_sommerfeld_I_TF(field, x, y, z, wl)
-print("Computing RS IR diffraction")
-E_RS_IR, x_new, y_new = rayleigh_sommerfeld_I_IR(field, x, y, z, wl)
-print("Computing RS DI diffraction")
-E_RS_DI, x_new, y_new = rayleigh_sommerfeld_I_DI(field, x, y, z, wl)
-
-I_Fresnel_TF = np.abs(E_Fresnel_TF)**2
-I_Fresnel_IR = np.abs(E_Fresnel_IR)**2
-I_RS_TF = np.abs(E_RS_TF)**2
-I_RS_IR = np.abs(E_RS_IR)**2
-I_RS_DI = np.abs(E_RS_DI)**2
-
-#I_Fresnel_TF /= np.max(I_Fresnel_TF)
-#I_Fresnel_IR /= np.max(I_Fresnel_IR)
-#I_RS_TF /= np.max(I_RS_TF)
-#I_RS_IR /= np.max(I_RS_IR)
-#I_RS_DI /= np.max(I_RS_DI)
-
-from pyoptics.fft import save_wisdom
-save_wisdom()
-
-plot_intensity(I_Fresnel_TF, x/wl, y/wl, xlabel=r"$x/\lambda$",
-           ylabel=r"$y/\lambda$", title="Fresnel TF", colorbar=True)
-plot_intensity(I_Fresnel_IR, x/wl, y/wl, xlabel=r"$x/\lambda$",
-           ylabel=r"$y/\lambda$", title="Fresnel IR", colorbar=True)
-#plot_intensity(I_Fresnel_TF - I_Fresnel_IR , x/wl, y/wl, xlabel=r"$x/\lambda$",
-           #ylabel=r"$y/\lambda$", title="Fresnel IR - TF", colorbar=True,
-           #cmap=plt.cm.bwr)
-plot_intensity(I_RS_TF, x/wl, y/wl, xlabel=r"$x/\lambda$",
-           ylabel=r"$y/\lambda$", title="RS TF", colorbar=True)
-plot_intensity(I_RS_IR, x/wl, y/wl, xlabel=r"$x/\lambda$",
-           ylabel=r"$y/\lambda$", title="RS IR", colorbar=True)
-#plot_intensity(I_RS_TF - I_RS_IR , x/wl, y/wl, xlabel=r"$x/\lambda$",
-           #ylabel=r"$y/\lambda$", title="RS IR - TF", colorbar=True,
-           #cmap=plt.cm.bwr)
-plot_intensity(I_RS_DI, x/wl, y/wl, xlabel=r"$x/\lambda$",
-           ylabel=r"$y/\lambda$", title="RS DI", colorbar=True)
-plot_intensity(I_RS_DI - I_RS_IR , x/wl, y/wl, xlabel=r"$x/\lambda$",
-           ylabel=r"$y/\lambda$", title="RS DI - IR", colorbar=True,
-           cmap=plt.cm.bwr)
+if __name__ == '__main__':
+    test_beam_consistency_fresnel()
+    test_beam_consistency_rayleigh_sommerfeld()

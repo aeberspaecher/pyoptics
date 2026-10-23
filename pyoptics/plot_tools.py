@@ -10,17 +10,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.colors import ListedColormap
 
-from pyoptics.utils import I
+from .utils import I, ensure_meshgrid
 
 
 default_cmap = plt.cm.inferno
 default_cmap_phase = plt.cm.bwr
 
-
 def plot_intensity(psi, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
-                   use_intensity=False, n=1.0, **kwargs):
+                   use_intensity=False, n=1.0, ax=None, **kwargs):
     """Plot an intensity image.
 
     Parameters
@@ -41,6 +42,8 @@ def plot_intensity(psi, x, y, xlabel=None, ylabel=None, title=None, colorbar=Tru
     n : double, optional
         Refractive index of embedding medium. Defaults to n=1.0. Used if psi is
         complex.
+    ax : matplotlib axes, optional
+         If given, use this axes to plot to.
     **kwargs : keyword arguments
         Propagated to matplotlib imshow() call.
     """
@@ -53,29 +56,37 @@ def plot_intensity(psi, x, y, xlabel=None, ylabel=None, title=None, colorbar=Tru
     if "origin" not in kwargs:
         kwargs["origin"] = "lower"
 
-    fig = plt.figure(facecolor="white")
-    ax = plt.gca()
+    if ax is None:
+        fig = plt.figure(facecolor="white")
+        ax = plt.gca()
+    else:
+        fig = ax.figure
 
     ax.locator_params(nbins=5)
 
-    plt.imshow(psi, extent=(x[0], x[-1], y[0], y[-1]), **kwargs)
+    im = ax.imshow(psi, extent=(x[0], x[-1], y[0], y[-1]), **kwargs)
     if xlabel is not None:
-        plt.xlabel(xlabel)
+        ax.set_xlabel(xlabel)
     if ylabel is not None:
-        plt.ylabel(ylabel)
+        ax.set_ylabel(ylabel)
     if title is not None:
-        plt.title(title)
+        ax.set_title(title)
     if colorbar is not None:
-        plt.colorbar()
-    plt.tight_layout()
-    plt.show()
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+        fig.colorbar(im, cax=cax, orientation='vertical')
+
+        # ax.colorbar()
+    if ax is None:
+        plt.tight_layout()
+        plt.show()
 
 
 def plot_field(field, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
                use_intensity=False, amp_title=None, phase_title=None,
                horizontal_layout=True,
                use_rad=False, n=1.0, **kwargs):
-    """Plot an intensity image.
+    """Plot a complex field.
 
     Parameters
     ----------
@@ -95,10 +106,11 @@ def plot_field(field, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
         complex.
     **kwargs : keyword arguments
         Propagated to matplotlib imshow() call. If given, phase_cmap is mapped
-        to cmap for the phas plot.
+        to cmap for the phase plot.
     """
 
     # FIXME: aspect ratio & extent - images can be truncated!
+    # TODO: make x, y optionally linear or 2d arrays input-wise; make internal use of ensure_meshgrid()
 
     fig = plt.figure(facecolor="white")
 
@@ -194,6 +206,109 @@ def plot_field(field, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
     plt.show()
 
 
+def plot_imstack_alternative(imstack, x, y, z_vals, cmap=plt.cm.Blues, normalize=False):
+    """Plot an image stack.
+
+    Parameters
+    ----------
+    imstack : array
+       Array of dimension (Nz, Nx, Ny).
+    x, y : arrays
+        Linear or 2d coordinate arrays.
+    z_vals : array
+    cmap : MPL colormap, optional
+        Colormap to use. Defaults to cm.Blues.
+    normalize : boolean, optional
+        If True, normalize each image slice individually to [0, 1]. Use this if
+        the individual images differ a lot in maximum intensity. Defaults to
+        False.
+    """
+
+    # TODO: implement ax option
+
+    X, Y = ensure_meshgrid(x, y)
+    Z = np.zeros_like(X)
+
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+
+    # cmp. some StackOverflow post about alpha and colormaps:
+    # Get the colormap colors
+    my_cmap = cmap(np.arange(cmap.N))
+    # Set alpha
+    my_cmap[:,-1] = np.linspace(0, 1, cmap.N)
+    # Create new colormap
+    my_cmap = ListedColormap(my_cmap)
+
+    # normalize whole image stack to [0, 1]:
+    imstack_mapped = imstack - np.min(imstack)
+    imstack_mapped = imstack_mapped/np.max(imstack_mapped)
+
+    for z, I in zip(z_vals, imstack_mapped):
+        if normalize:
+            I /= np.max(I)
+        ax.plot_surface(X, Y, Z+z, rstride=1, cstride=1,
+                        facecolors=my_cmap(I), shade=False)
+        # ax.contourf(X, Y, I, zdir='z')
+        # plt.imshow(np.abs(field)**2); plt.show()
+
+    plt.axis('off')
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_imstack(imstack, x, y, z_vals, cmap=plt.cm.Blues,
+                             normalize=False, alpha=0.5):
+    """Plot an image stack.
+
+    Parameters
+    ----------
+    imstack : array
+       Array of dimension (Nz, Nx, Ny).
+    x, y : arrays
+        Linear or 2d coordinate arrays.
+    z_vals : array
+    cmap : MPL colormap, optional
+        Colormap to use. Defaults to cm.Blues.
+    normalize : boolean, optional
+        If True, normalize each image slice individually to [0, 1]. Use this if
+        the individual images differ a lot in maximum intensity. Defaults to
+        False.
+    alpha : float, optional
+    """
+
+    # TODO: implement ax option
+
+    X, Y = ensure_meshgrid(x, y)
+    Z = np.zeros_like(X)
+
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+
+    # cmp. some StackOverflow post about alpha and colormaps:
+    # Get the colormap colors
+    my_cmap = cmap(np.arange(cmap.N))
+    # Set alpha
+    my_cmap[:,-1] = np.linspace(0, 1, cmap.N)
+    # Create new colormap
+    my_cmap = ListedColormap(my_cmap)
+
+    # normalize whole image stack to [0, 1]:
+    imstack_mapped = imstack - np.min(imstack)
+    imstack_mapped = imstack_mapped/np.max(imstack_mapped)
+
+    # levels = np.linspace(imstack_mapped.min(), imstack_mapped.max(), 50)
+    levels = np.linspace(0, 1, 40)*(z_vals.max() - z_vals.min())
+
+    for z, I in zip(z_vals, imstack_mapped):
+        if normalize:
+            I /= np.max(I)
+            ax.contourf(X, Y, I, zdir="z", cmap=cmap, offset=z, alpha=alpha,)
+
+    ax.set_zlim((z_vals.min(), z_vals.max()))
+    plt.axis('off')
+    plt.tight_layout()
+    plt.show()
 if(__name__ == '__main__'):
     import numpy as np
     from pyoptics.beams import gauss_laguerre, gauss_hermite

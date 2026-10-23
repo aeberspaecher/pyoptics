@@ -36,26 +36,93 @@ from itertools import product
 from numpy.lib.scimath import sqrt as complex_sqrt
 import numpy as np
 
-from pyoptics.fft import fft2, ifft2, fftshift, ifftshift, FT, inv_FT, FT_unitary, inv_FT_unitary
-from pyoptics.utils import freq_grid, wavenumber, k_z, TWOPI, simpson_weights, weight_grid
+from .fft import fft2, ifft2, fftshift, ifftshift, FT, inv_FT, FT_unitary, inv_FT_unitary
+from .utils import freq_grid, wavenumber, k_z, TWOPI, simpson_weights, weight_grid, ensure_meshgrid, get_dx
 
 
 # TODO: account for n properly: lambda -> lambda/n
 
+def suggest_N_critical(L, z, wl):
+    """Suggest number of samples N for "critical sampling" -- for this number
+    of samples, both the impulse response and the transfer function for the
+    Fresnel propagator are well sampled.
+
+    Parameters
+    ----------
+    L : number
+        Sampling box side length.
+    z : number
+        Propagation distance.
+    wl : number
+        Wavelength.
+
+    Returns
+    -------
+    N_crit : integer
+    """
+
+    # dx_crit = wl*z/L
+    N_crit = round(L**2/(wl*z)) + 1 
+
+    return round(N_crit)
+
 
 def rayleigh_sommerfeld_I_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
+    """Compute the Rayleigh-Sommerfeld integral of first kind using FFTs. The
+    convolution with Green's function is performed in k-space, with the Green's
+    function being explicitly taken to k-space by FFT.
+
+    Parameters
+    ----------
+    field : array
+    x_prime, y_prime : arrays
+       Linear or 2d arrays in the initial plane.
+    z : number
+        Propagation distance in the same units as x_prime, y_prime and wavelength.
+    wavelength : number
+    n : number, optional
+
+    Returns
+    -------
+    field_propagated : array
+    x, y : arrays
+        Coordinates (2d) in final plane.
+    """
+
     k = wavenumber(wavelength, n)
-    X_prime, Y_prime = np.meshgrid(x_prime, y_prime)
+    dx_prime, dy_prime = get_dx(x_prime), get_dx(y_prime)
+    X_prime, Y_prime = ensure_meshgrid(x_prime, y_prime)
     r = np.sqrt(z**2 + X_prime**2 + Y_prime**2)
 
     IR = z/(1j*wavelength)*np.exp(1j*k*r)/r**2
 
-    field_propagated = inv_FT(FT(field)*FT(IR))
+    field_propagated = inv_FT(FT(field)*FT(IR)*dx_prime*dy_prime)
 
     return field_propagated, x_prime, y_prime
 
 
 def rayleigh_sommerfeld_I_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
+    """Compute the Rayleigh-Sommerfeld integral of first kind using FFTs. The
+    convolution with Green's function is performed in k-space, with the Green's
+    function being analytically transformed to k-space.
+
+    Parameters
+    ----------
+    field : array
+    x_prime, y_prime : arrays
+       Linear or 2d arrays in the initial plane.
+    z : number
+        Propagation distance in the same units as x_prime, y_prime and wavelength.
+    wavelength : number
+    n : number, optional
+
+    Returns
+    -------
+    field_propagated : array
+    x, y : arrays
+        Coordinates (2d) in final plane.
+    """
+
     k = wavenumber(wavelength, n)
     K_X, K_Y = freq_grid(x_prime, y_prime, wavenumbers=True, normal_order=True)
     KZ = k_z(k, K_X, K_Y)
@@ -74,6 +141,25 @@ def rayleigh_sommerfeld_I_DI(field, x_prime, y_prime, z, wavelength, n=1.0, use_
     This method expressed a numerical integration of the Rayleigh-Sommerfeld
     diffraction formula using Simpon's rule as a convolution product which can
     be computed by means of FFTs.
+    
+    Parameters
+    ----------
+    field : array
+    x_prime, y_prime : arrays
+       Linear or 2d arrays in the initial plane.
+    z : number
+        Propagation distance in the same units as x_prime, y_prime and wavelength.
+    wavelength : number
+    n : number, optional
+    use_simpson : boolean, optional
+        If True (default), use a Simpson integration; if False, use a midpoint
+        rule.
+
+    Returns
+    -------
+    field_propagated : array
+    x, y : arrays
+        Coordinates (2d) in final plane.
     """
 
     # TODO: take out g(x,y,z) and decide whether to numexpress it on import...
@@ -83,8 +169,7 @@ def rayleigh_sommerfeld_I_DI(field, x_prime, y_prime, z, wavelength, n=1.0, use_
     N = N[0]
 
     k = wavenumber(wavelength, n)
-    dx = x_prime[1] - x_prime[0]
-    dy = y_prime[1] - y_prime[0]
+    dx, dy = get_dx(x_prime), get_dx(y_prime)
 
     if use_simpson:
         weights = weight_grid(simpson_weights, N, N)
@@ -99,7 +184,7 @@ def rayleigh_sommerfeld_I_DI(field, x_prime, y_prime, z, wavelength, n=1.0, use_
     # adapt Shen/Wang's indexing to zero-based indexing:
     x_vec = np.array( [x_prime[0] - x_prime[N - j] for j in range(1, N) ] +  [x_prime[j - N] - x_prime[0] for j in range(N, 2*N) ] )
     y_vec = np.array( [y_prime[0] - y_prime[N - j] for j in range(1, N) ] +  [y_prime[j - N] - y_prime[0] for j in range(N, 2*N) ] )
-    X, Y = np.meshgrid(x_vec, y_vec)
+    X, Y = ensure_meshgrid(x_vec, y_vec)
 
     r = np.sqrt(X**2 + Y**2 + z**2)
     H = 1/TWOPI*np.exp(1j*k*r)/r**2*z*(1/r - 1j*k)   # TODO: two pi? last terms in parens?
@@ -111,17 +196,61 @@ def rayleigh_sommerfeld_I_DI(field, x_prime, y_prime, z, wavelength, n=1.0, use_
 
 
 def fresnel_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
+    """Compute the Fresnel difraction integral using FFTs. The convolution with
+    Green's function is performed in k-space, with the Green's function being
+    explicitly taken to k-space by FFT.
+
+    Parameters
+    ----------
+    field : array
+    x_prime, y_prime : arrays
+       Linear or 2d arrays in the initial plane.
+    z : number
+        Propagation distance in the same units as x_prime, y_prime and wavelength.
+    wavelength : number
+    n : number, optional
+
+    Returns
+    -------
+    field_propagated : array
+    x, y : arrays
+        Coordinates (2d) in final plane.
+    """
+
     k = wavenumber(wavelength, n)
-    X_prime, Y_prime = np.meshgrid(x_prime, y_prime)
+    
+    dx_prime, dy_prime = get_dx(x_prime), get_dx(y_prime)
+    X_prime, Y_prime = ensure_meshgrid(x_prime, y_prime)
 
     IR = np.exp(1j*k*z)/(1j*wavelength*z)*np.exp(1j*k/(2.0*z)*(X_prime**2 + Y_prime**2))
 
-    field_propagated = inv_FT(FT(field)*FT(IR))
+    field_propagated = inv_FT(FT(field)*FT(IR)*dx_prime*dy_prime)
 
     return field_propagated, x_prime, y_prime
 
 
 def fresnel_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
+    """Compute the Fresnel diffraction integral using FFTs. The
+    convolution with the Fresnel Green's function is performed in k-space, with
+    the Green's function being analytically transformed to k-space.
+
+    Parameters
+    ----------
+    field : array
+    x_prime, y_prime : arrays
+       Linear or 2d arrays in the initial plane.
+    z : number
+        Propagation distance in the same units as x_prime, y_prime and wavelength.
+    wavelength : number
+    n : number, optional
+
+    Returns
+    -------
+    field_propagated : array
+    x, y : arrays
+        Coordinates (2d) in final plane.
+    """
+
     k = wavenumber(wavelength, n)
     F_x, F_y = freq_grid(x_prime, y_prime, wavenumbers=False, normal_order=True)
 
@@ -133,23 +262,66 @@ def fresnel_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
 
 
 def fresnel_rescaling(field, x_prime, y_prime, z, wavelength):
+    """Compute the Fresnel integral (paraxial approximation) on a rescaled
+    coordinate grid.
+    
+    Parameters
+    ----------
+    field : array
+    x_prime, y_prime : arrays
+       Linear or 2d arrays in the initial plane.
+    z : number
+        Propagation distance in the same units as x_prime, y_prime and wavelength.
+    wavelength : number
+    n : number, optional
+
+    Returns
+    -------
+    field_propagated : array
+    x, y : arrays
+        Coordinates (2d) in final plane.
+    """
+
+    k = wavenumber(wavelength, n)
+
     X_prime, Y_prime, x_new, y_new, X_new, Y_new = _new_coordinates_mesh(x_prime, y_prime, z, wavelength)
 
     prefactor = np.exp(1j*k*z)/(1j*k*z)*np.exp(1j*k/(2*z)*(X_new**2 + Y_new**2))
-    dx = x_prime[1] - x_prime[0]
-    dy = y_prime[1] - y_prime[0]
+    dx, dy = get_dx(x_prime), get_dx(y_prime)
 
     field_propagated = prefactor*FT(field*np.exp(1j/(2*z)*(X_prime**2 + Y_prime**2)))*dx*dy
 
     return field_propagated, x_new, y_new
 
 
-def fraunhofer(field, x_prime, y_prime, z, wavelength):
+def fraunhofer(field, x_prime, y_prime, z, wavelength, n=1.0):
+    """Compute the Fraunhofer integral (farfield approximation) using FFTs.
+    
+    Parameters
+    ----------
+    field : array
+    x_prime, y_prime : arrays
+       Linear or 2d arrays in the initial plane.
+    z : number
+        Propagation distance in the same units as x_prime, y_prime and wavelength.
+    wavelength : number
+    n : number, optional
+
+    Returns
+    -------
+    field_propagated : array
+    x, y : arrays
+        Coordinates (2d) in final plane.
+    """
+
+    # TODO: implement n
+
+    k = wavenumber(wavelength, n)
+
     X_prime, Y_prime, x_new, y_new, X_new, Y_new = _new_coordinates_mesh(x_prime, y_prime, z, wavelength)
 
     prefactor = np.exp(1j*k*z)/(1j*k*z)*np.exp(1j*k/(2*z)*(X_new**2 + Y_new**2))
-    dx = x_prime[1] - x_prime[0]
-    dy = y_prime[1] - y_prime[0]
+    dx, dy = get_dx(x_prime), get_dx(y_prime)
 
     field_propagated = prefactor*FT(field)*dx*dy
 
@@ -159,9 +331,9 @@ def fraunhofer(field, x_prime, y_prime, z, wavelength):
 def _new_coordinates_mesh(x_prime, y_prime, z, wavelength):
     # create coordinates meshes for both "object" (primed coordinates) and
     # "image" space ("new" coordinates):
-    X_prime, Y_prime = np.meshgrid(x_prime, y_prime)
+    X_prime, Y_prime = ensure_meshgrid(x_prime, y_prime)
     x_new, y_new = _fraunhofer_coord_scale(x_prime, y_prime, z, wavelength)
-    X_new, Y_new = np.meshgrid(x_new, y_new)
+    X_new, Y_new = ensure_meshgrid(x_new, y_new)
 
     return X_prime, Y_prime, x_new, y_new, X_new, Y_new
 
@@ -186,9 +358,16 @@ def vectorial_fresnel(field, x_prime, y_prime, z, wavelength, n=1.0):
     field : array
         Input field of dimension [Ny, Nx, 2]. The last index corresponds
         to x and y polarization components.
-    x_prime, y_prime
-    z
-    wavelength
+    x_prime, y_prime : arrays
+    z : number
+        Propagation distance
+    wavelength : number
+
+    Returns
+    -------
+    field_propagated : array
+    x, y : arrays
+        Coordinates (2d) in final plane.
 
     Sources
     -------
@@ -211,14 +390,14 @@ def vectorial_fresnel(field, x_prime, y_prime, z, wavelength, n=1.0):
     field_propagated = np.zeros([np.size(field, 0), np.size(field, 1), 3],
                                 dtype=complex)  # three polarization components
 
-    # TODO: use scaled x, y instead of unsacled ones?
+    # TODO: use scaled x, y instead of unscaled ones?
     k = wavenumber(wavelength, n)
     K_x, K_y = freq_grid(x_prime, y_prime, wavenumbers=True, normal_order=True)
     Sigma_x, Sigma_y = K_x/k, K_y/k
     Sigma_z = complex_sqrt(1.0 - Sigma_x**2 - Sigma_y**2)
 
     alpha = (0, 1)  # x & y polarization components in aperture
-    beta = (0, 1, 2)  # x, y & z polarization for propgated field
+    beta = (0, 1, 2)  # x, y & z polarization for propagated field
 
     T = np.zeros_like(field, dtype=complex)
     for a in alpha:
@@ -275,7 +454,7 @@ def vectorial_fresnel_extended(field, x_prime, y_prime, z, wavelength,
     #Sigma_z = complex_sqrt(1.0 - Sigma_x**2 - Sigma_y**2)
 
     #alpha = (0, 1)  # x & y polarization components in aperture
-    #beta = (0, 1, 2)  # x, y & z polarization for propgated field
+    #beta = (0, 1, 2)  # x, y & z polarization for propagated field
 
     #T = np.zeros_like(field, dtype=complex)
     #for a in alpha:
@@ -342,7 +521,6 @@ def fresnel_number(outer_aperture_diameter, z, wavelength, wavefront_curvature=N
 
     """
 
-    # TODO: docstring
     # TODO: implement correct formula
 
     return aperture_diameter**2/(wavelength*z)
