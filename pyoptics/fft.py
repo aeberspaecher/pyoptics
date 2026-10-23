@@ -9,8 +9,7 @@ import numpy as np
 try:
     from transparent_pyfftw.numpy_fft import fft, ifft, fft2, ifft2, fftfreq, fftshift, ifftshift, rfft2, irfft2
     from transparent_pyfftw import save_wisdom
-except ImportError:
-    print("Loading NumPy's fft routines, tfftw probably not present")
+except ImportError:  # transparent_pyfftw not installed: use NumPy's FFTs
     from numpy.fft import fft, ifft, fft2, ifft2, fftfreq, fftshift, ifftshift, rfft2, irfft2
 
     def save_wisdom():

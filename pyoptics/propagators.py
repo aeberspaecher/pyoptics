@@ -24,6 +24,14 @@ The propagators share a common interface:
 propagated_field, x, y = propagator_func(field, x_prime, y_prime, z, wavelength),
 
 but individual propagators may accept further arguments.
+
+The input grid must have x = 0 and y = 0 at index N//2 (FFT convention, e.g.
+utils.grid1d(-L/2, L/2, N)); the impulse response based propagators,
+fresnel_rescaling() and fraunhofer() raise a ValueError otherwise.
+
+FFT based convolutions are cyclic. Use propagate_padded() to zero pad the
+field if it spreads beyond the computational window, and band_limit=True in
+rayleigh_sommerfeld_I_TF() for large propagation distances.
 """
 
 # TODO: can from_spectrum switches be implemented? this might save Fourier transforms.
@@ -38,6 +46,80 @@ import numpy as np
 
 from .fft import fft2, ifft2, fftfreq, fftshift, ifftshift, FT, inv_FT, FT_unitary, inv_FT_unitary
 from .utils import freq_grid, wavenumber, k_z, TWOPI, simpson_weights, weight_grid, ensure_meshgrid, get_dx
+
+
+def _linear_coords(x, y):
+    """Return linear coordinate arrays from linear or meshed x, y."""
+
+    x, y = np.asarray(x), np.asarray(y)
+    if x.ndim == 2:
+        x, y = x[0, :], y[:, 0]
+
+    return x, y
+
+
+def _check_centered(x, y, func_name):
+    """Raise ValueError if the grid does not have x = 0 and y = 0 at index
+    N//2. Propagators that sample a kernel or a chirp on the grid rely on this
+    FFT convention (fftshift/ifftshift).
+    """
+
+    for name, coords in zip(("x", "y"), _linear_coords(x, y)):
+        N = len(coords)
+        if abs(coords[N//2]) > 1E-6*abs(get_dx(coords)):
+            raise ValueError("{}() needs {} = 0 at index N//2 (here {} = {:g}). "
+                             "Use e.g. utils.grid1d(-L/2, L/2, N), which "
+                             "omits the right end point.".format(func_name, name, name, coords[N//2]))
+
+
+def propagate_padded(propagator, field, x_prime, y_prime, z, wavelength, n=1.0,
+                     pad_factor=2, **kwargs):
+    """Call propagator on a zero padded field and crop the result.
+
+    FFT based convolutions are cyclic: light leaving the computational window
+    on one side reenters on the other. Zero padding enlarges the window to
+    pad_factor times its size and thereby suppresses this wrap-around.
+
+    Parameters
+    ----------
+    propagator : callable
+        One of the propagators that keep the grid (rayleigh_sommerfeld_I_TF,
+        rayleigh_sommerfeld_I_IR, rayleigh_sommerfeld_I_DI, fresnel_TF,
+        fresnel_IR).
+    field, x_prime, y_prime, z, wavelength, n
+        As for the propagator.
+    pad_factor : number, optional
+        Size of the padded window relative to the original one.
+    kwargs
+        Passed on to propagator.
+
+    Returns
+    -------
+    field_propagated : array
+    x, y : arrays
+        Coordinates (the same as given).
+    """
+
+    if propagator in (fresnel_rescaling, fraunhofer):
+        raise ValueError("Padding changes the output grid of {}(); pad the "
+                         "field yourself instead.".format(propagator.__name__))
+
+    x, y = _linear_coords(x_prime, y_prime)
+    Ny, Nx = np.shape(field)
+    Ny_pad, Nx_pad = int(ceil(pad_factor*Ny)), int(ceil(pad_factor*Nx))
+
+    # keep the sample at index N//2 at index N_pad//2 so that a centered grid
+    # stays centered:
+    off_y, off_x = Ny_pad//2 - Ny//2, Nx_pad//2 - Nx//2
+    x_pad = x[Nx//2] + get_dx(x)*(np.arange(Nx_pad) - Nx_pad//2)
+    y_pad = y[Ny//2] + get_dx(y)*(np.arange(Ny_pad) - Ny_pad//2)
+
+    field_pad = np.zeros([Ny_pad, Nx_pad], dtype=complex)
+    field_pad[off_y:off_y + Ny, off_x:off_x + Nx] = field
+
+    propagated_pad, _, _ = propagator(field_pad, x_pad, y_pad, z, wavelength, n=n, **kwargs)
+
+    return propagated_pad[off_y:off_y + Ny, off_x:off_x + Nx], x_prime, y_prime
 
 
 # NOTE: wavelength arguments are vacuum wavelengths; inside a medium of
@@ -90,6 +172,8 @@ def rayleigh_sommerfeld_I_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
         Coordinates (2d) in final plane.
     """
 
+    _check_centered(x_prime, y_prime, "rayleigh_sommerfeld_I_IR")
+
     k = wavenumber(wavelength, n)
     dx_prime, dy_prime = get_dx(x_prime), get_dx(y_prime)
     X_prime, Y_prime = ensure_meshgrid(x_prime, y_prime)
@@ -103,7 +187,7 @@ def rayleigh_sommerfeld_I_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
     return field_propagated, x_prime, y_prime
 
 
-def rayleigh_sommerfeld_I_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
+def rayleigh_sommerfeld_I_TF(field, x_prime, y_prime, z, wavelength, n=1.0, band_limit=False):
     """Compute the Rayleigh-Sommerfeld integral of first kind using FFTs. The
     convolution with Green's function is performed in k-space, with the Green's
     function being analytically transformed to k-space.
@@ -117,6 +201,11 @@ def rayleigh_sommerfeld_I_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
         Propagation distance in the same units as x_prime, y_prime and wavelength.
     wavelength : number
     n : number, optional
+    band_limit : boolean, optional
+        If True, remove the frequencies for which the transfer function is
+        undersampled (band-limited angular spectrum method of Matsushima and
+        Shimobaba, Opt. Express 17, 19662 (2009)). This avoids aliasing for
+        large z; combine with propagate_padded() as in the paper.
 
     Returns
     -------
@@ -130,6 +219,15 @@ def rayleigh_sommerfeld_I_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
     KZ = k_z(k, K_X, K_Y)
 
     TF = np.exp(1j*KZ*z)
+
+    if band_limit:
+        wl_medium = wavelength/n
+        x, y = _linear_coords(x_prime, y_prime)
+        # frequency spacing 1/(window size) in x and y:
+        du, dv = 1/(len(x)*get_dx(x)), 1/(len(y)*get_dx(y))
+        u_limit = 1/(wl_medium*np.sqrt((2*du*z)**2 + 1))
+        v_limit = 1/(wl_medium*np.sqrt((2*dv*z)**2 + 1))
+        TF[(np.abs(K_X/TWOPI) > u_limit) | (np.abs(K_Y/TWOPI) > v_limit)] = 0.0
 
     field_propagated = inv_FT(FT(field)*TF)
 
@@ -218,8 +316,10 @@ def fresnel_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
         Coordinates (2d) in final plane.
     """
 
+    _check_centered(x_prime, y_prime, "fresnel_IR")
+
     k = wavenumber(wavelength, n)
-    
+
     dx_prime, dy_prime = get_dx(x_prime), get_dx(y_prime)
     X_prime, Y_prime = ensure_meshgrid(x_prime, y_prime)
 
@@ -334,6 +434,8 @@ def fraunhofer(field, x_prime, y_prime, z, wavelength, n=1.0):
 
 
 def _new_coordinates_mesh(x_prime, y_prime, z, wavelength):
+    _check_centered(x_prime, y_prime, "fraunhofer/fresnel_rescaling")
+
     # create coordinates meshes for both "object" (primed coordinates) and
     # "image" space ("new" coordinates):
     X_prime, Y_prime = ensure_meshgrid(x_prime, y_prime)

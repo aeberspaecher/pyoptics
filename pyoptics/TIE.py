@@ -4,11 +4,9 @@
 """Routines for TIE
 """
 
-import sympy
 import numpy as np
 from numpy import pi
 from numpy.fft import fft, ifft, fft2, ifft2, fftfreq, fftshift, ifftshift
-import matplotlib.pyplot as plt
 
 from .fft import FT, inv_FT
 
@@ -106,6 +104,8 @@ def field_prop_paraxial(field, x, y, delta_z, lam):
 def smoothed_deriv(stack, x, x0, order):
     """Compute smoothed derivatives using a Savitzky-Golay filter.
     """
+    import sympy  # optional dependency, only needed here
+
     weights_sympy = sympy.calculus.finite_diff.finite_diff_weights(order, x, x0)[-1][-1]
     weights_float = [item.evalf() for item in weights_sympy]
     weights = np.asarray(weights_float, dtype=np.float64)

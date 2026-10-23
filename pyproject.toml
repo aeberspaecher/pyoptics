@@ -18,8 +18,8 @@ dependencies = [
 [project.optional-dependencies]
 plot = ["matplotlib"]
 fftw = ["pyfftw"]
-tie = ["sympy", "matplotlib"]
-test = ["pytest", "matplotlib", "sympy"]  # matplotlib: pyoptics.masks imports it; sympy: pyoptics.TIE
+tie = ["sympy"]
+test = ["pytest", "matplotlib", "sympy"]  # matplotlib: plot_tools, masks.mask_from_polygon; sympy: TIE.smoothed_deriv
 
 [project.urls]
 Homepage = "https://github.com/aeberspaecher/pyoptics"
