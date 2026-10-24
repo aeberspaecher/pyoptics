@@ -59,3 +59,6 @@
   (`thin_films.stack_transfer_functions()`)
 * notebooks 12 to 14 (PSF/MTF/Strehl, beam quality, stack transfer
   functions)
+* vectorial propagation: E_z from div E = 0, vectorial angular spectrum,
+  vectorized scalar propagators, Mansuripur's high NA focusing checked
+  against Richards-Wolf (notebook 15)

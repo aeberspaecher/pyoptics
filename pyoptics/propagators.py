@@ -11,8 +11,15 @@ The following propagators are available:
 - fresnel_IR()
 - fresnel_rescaling()
 - fraunhofer()
-- vectorial_fresnel() [experimental!]
 - rayleigh_sommerfeld_I_DI()
+
+Vectorial propagation (fields of shape (Ny, Nx, 2) or (Ny, Nx, 3) with the
+components [E_x, E_y(, E_z)]):
+
+- vectorial_rayleigh_sommerfeld_TF(): exact angular spectrum propagation
+- propagate_vectorial(): any of the scalar propagators for E_x, E_y, plus E_z
+- vectorial_mansuripur(): Mansuripur's high NA (aplanatic lens) diffraction
+- longitudinal_component(): E_z from E_x and E_y (div E = 0)
 
 The routines with _TF in their name use a transfer function approach, whereas
 the routines whose names end in _IR use formulations with using the impulse
@@ -46,10 +53,9 @@ media can be described by a complex n = n' + i*kappa with kappa > 0.
 # TODO: can from_spectrum switches be implemented? this might save Fourier transforms.
 # TODO: implement shifted windows
 
+import warnings
 from math import pi, ceil
-from itertools import product
 
-from numpy.lib.scimath import sqrt as complex_sqrt
 import numpy as np
 
 from .fft import fft2, ifft2, fftfreq, fftshift, ifftshift, FT, inv_FT, FT_unitary, inv_FT_unitary
@@ -94,7 +100,10 @@ def propagate_padded(propagator, field, x_prime, y_prime, z, wavelength, n=1.0,
     propagator : callable
         One of the propagators that keep the grid (rayleigh_sommerfeld_I_TF,
         rayleigh_sommerfeld_I_IR, rayleigh_sommerfeld_I_DI, fresnel_TF,
-        fresnel_IR).
+        fresnel_IR) or of the vectorial ones (vectorial_rayleigh_sommerfeld_TF,
+        vectorial_mansuripur). Vector fields of shape (Ny, Nx, 2) or (Ny, Nx, 3)
+        are padded componentwise; the vectorial propagators compute E_z in
+        the padded window.
     field, x_prime, y_prime, z, wavelength, n
         As for the propagator.
     pad_factor : number, optional
@@ -118,7 +127,7 @@ def propagate_padded(propagator, field, x_prime, y_prime, z, wavelength, n=1.0,
 
     propagated_pad, _, _ = propagator(field_pad, x_pad, y_pad, z, wavelength, n=n, **kwargs)
 
-    return unpad(propagated_pad, x_pad, y_pad, np.shape(field))[0], x_prime, y_prime
+    return unpad(propagated_pad, x_pad, y_pad, np.shape(field)[:2])[0], x_prime, y_prime
 
 
 # NOTE: wavelength arguments are vacuum wavelengths; inside a medium of
@@ -456,146 +465,298 @@ def _fraunhofer_coord_scale(x, y, z, wavelength):
     return x_new, y_new
 
 
-def vectorial_fresnel(field, x_prime, y_prime, z, wavelength, n=1.0):
-    """Implement Mansuripur's formulas for vectorial diffraction.
+# Vectorial propagation
+# ---------------------
+#
+# Vector fields are arrays of shape (Ny, Nx, 2) with the components [E_x, E_y]
+# or of shape (Ny, Nx, 3) with [E_x, E_y, E_z]. In a homogeneous, charge-free
+# medium div(E) = 0 holds, i.e. k.E = 0 for every plane wave
+# exp(i(k_x*x + k_y*y + k_z*z)) of the angular spectrum. The transverse
+# components E_x, E_y in one plane thus fix the field completely: they
+# propagate like scalar fields, and E_z follows from
+# E_z(k) = -(k_x*E_x(k) + k_y*E_y(k))/k_z.
+
+def _split_vector_field(field, func_name):
+    """Return E_x, E_y of a vector field of shape (Ny, Nx, 2) or (Ny, Nx, 3)."""
+
+    field = np.asarray(field)
+    if field.ndim != 3 or field.shape[2] not in (2, 3):
+        raise ValueError("{}() needs a vector field of shape (Ny, Nx, 2) or "
+                         "(Ny, Nx, 3), got shape {}".format(func_name, field.shape))
+
+    return field[:, :, 0], field[:, :, 1]
+
+
+def longitudinal_component(E_x, E_y, x, y, wavelength, n=1.0):
+    """Return E_z of a field from its transverse components E_x, E_y.
+
+    Uses div(E) = 0 in a homogeneous, charge-free medium: for every plane wave
+    of the angular spectrum k.E = 0, hence E_z(k) = -(k_x*E_x(k) + k_y*E_y(k))/k_z.
+    Evanescent waves (imaginary k_z) are included.
+
+    The factor 1/k_z diverges for grazing waves (|k_perp| -> k). The
+    singularity is integrable, but a frequency sample that happens to lie
+    very close to the circle |k_perp| = k would get an arbitrarily large
+    weight. |k_z| is therefore bounded from below by sqrt(k*dk) (dk: the
+    smaller frequency spacing of the grid), which is the order of magnitude
+    of the mean of 1/k_z over one frequency cell at the circle. Only samples
+    within about dk/2 of the circle are affected.
+
+    Parameters
+    ----------
+    E_x, E_y : arrays
+        Transverse field components sampled on x, y.
+    x, y : arrays
+        Linear or 2d coordinates, centered as pyoptics.fft expects.
+    wavelength : number
+        Vacuum wavelength.
+    n : number, optional
+        Refractive index.
+
+    Returns
+    -------
+    E_z : array
+    """
+
+    k = wavenumber(wavelength, n)
+    K_x, K_y = freq_grid(x, y, wavenumbers=True, normal_order=True)
+    KZ = k_z(k, K_x, K_y)
+
+    x_lin, y_lin = _linear_coords(x, y)
+    dk = TWOPI/max(len(x_lin)*abs(get_dx(x_lin)), len(y_lin)*abs(get_dx(y_lin)))
+    kz_min = np.sqrt(np.abs(k)*dk)
+    near_grazing = np.abs(KZ) < kz_min
+    KZ = np.where(near_grazing, kz_min*np.exp(1j*np.angle(KZ)), KZ)
+
+    return inv_FT((-K_x*FT(E_x) - K_y*FT(E_y))/KZ)
+
+
+def vectorial_rayleigh_sommerfeld_TF(field, x_prime, y_prime, z, wavelength, n=1.0,
+                                     band_limit=False):
+    """Propagate a vector field with the angular spectrum method.
+
+    This is the vectorial counterpart of rayleigh_sommerfeld_I_TF() and an
+    exact solution of Maxwell's equations in a homogeneous, charge-free
+    medium: E_x and E_y are propagated like scalar fields, E_z is computed in
+    the final plane from div(E) = 0 (see longitudinal_component()). The
+    angular spectrum is the vectorial Rayleigh-Sommerfeld solution for given
+    transverse fields in the initial plane.
 
     Parameters
     ----------
     field : array
-        Input field of dimension [Ny, Nx, 2]. The last index corresponds
-        to x and y polarization components.
+        Vector field of shape (Ny, Nx, 2) ([E_x, E_y]) or (Ny, Nx, 3)
+        ([E_x, E_y, E_z]); a given E_z is ignored as it follows from E_x and
+        E_y.
     x_prime, y_prime : arrays
+        Linear or 2d arrays in the initial plane.
     z : number
-        Propagation distance
+        Propagation distance in the same units as x_prime, y_prime and wavelength.
     wavelength : number
+    n : number, optional
+    band_limit : boolean, optional
+        See rayleigh_sommerfeld_I_TF().
 
     Returns
     -------
     field_propagated : array
+        Field [E_x, E_y, E_z] of shape (Ny, Nx, 3).
     x, y : arrays
-        Coordinates (2d) in final plane.
+        Coordinates in final plane (the same as given).
 
-    Sources
-    -------
-    M. Mansuripur, "Certain computational aspects of vector diffraction problems,",
-    J. Opt. Soc. Am. A 6, 786-805 (1989)
+    Note
+    ----
+    Use propagate_padded() to suppress the wrap-around of cyclic convolutions;
+    it accepts vector fields.
     """
 
-    # TODO: Fresnel? Document Fresnel nature?
+    E_x, E_y = _split_vector_field(field, "vectorial_rayleigh_sommerfeld_TF")
 
-    # Mansuripur's approach is to identify each point in the aperture with a
-    # single ray and use a Fourier transform aproach still
-    # TODO: conditions for FT approach? should be in the book
-
-    # use Mansuripur's notation inside the function:
-    # T - spectrum of field
-    # psi_alpha_beta - amplitude weight for the beta-polarization component
-    #                  stemming from alpha component of light in aperture
-    #
-
-    field_propagated = np.zeros([np.size(field, 0), np.size(field, 1), 3],
-                                dtype=complex)  # three polarization components
-
-    # TODO: use scaled x, y instead of unscaled ones?
-    k = wavenumber(wavelength, n)
-    K_x, K_y = freq_grid(x_prime, y_prime, wavenumbers=True, normal_order=True)
-    Sigma_x, Sigma_y = K_x/k, K_y/k
-    Sigma_z = complex_sqrt(1.0 - Sigma_x**2 - Sigma_y**2)
-
-    alpha = (0, 1)  # x & y polarization components in aperture
-    beta = (0, 1, 2)  # x, y & z polarization for propagated field
-
-    T = np.zeros_like(field, dtype=complex)
-    for a in alpha:
-        T[:, :, a] = FT_unitary(field[:, :, a])  # TODO: does fft2 have an axis argument or similar? or np.applyaxis?
-
-    for a, b in product(alpha, beta):
-        field_propagated[:, :, b] += inv_FT_unitary(
-                    T[:, :, a]
-                    *_psi_alpha_beta(a, b, Sigma_x, Sigma_y, Sigma_z)
-                    *np.exp(1j*k*z*Sigma_z)
-                                                   )
-
-    return field_propagated, x_prime, y_prime
+    return propagate_vectorial(rayleigh_sommerfeld_I_TF, np.stack([E_x, E_y], axis=-1),
+                               x_prime, y_prime, z, wavelength, n=n, band_limit=band_limit)
 
 
-def vectorial_fresnel_extended(field, x_prime, y_prime, z, wavelength,
-                               eta=1.0, n=1.0):
-    """Implement Mansuripur's formula for extended Fresnel vectorial
-    diffraction.
+def propagate_vectorial(propagator, field, x_prime, y_prime, z, wavelength, n=1.0,
+                        **kwargs):
+    """Propagate a vector field with any of the scalar propagators.
+
+    E_x and E_y are propagated independently by the scalar propagator, which
+    is exact for rayleigh_sommerfeld_I_TF() and an approximation of the same
+    order as the scalar propagator otherwise. E_z is computed in the final
+    plane:
+
+    - for propagators that keep the grid from div(E) = 0 with
+      longitudinal_component(),
+    - for fraunhofer() and fresnel_rescaling() from the transversality of the
+      far field, E.r = 0, i.e. E_z = -(x*E_x + y*E_y)/z.
+
+    Parameters
+    ----------
+    propagator : callable
+        A scalar propagator of this module.
+    field : array
+        Vector field of shape (Ny, Nx, 2) or (Ny, Nx, 3) (a given E_z is
+        ignored).
+    x_prime, y_prime, z, wavelength, n
+        As for the propagator.
+    kwargs
+        Passed on to propagator.
+
+    Returns
+    -------
+    field_propagated : array
+        Field [E_x, E_y, E_z] of shape (Ny, Nx, 3).
+    x, y : arrays
+        Coordinates in final plane.
+    """
+
+    E_x, E_y = _split_vector_field(field, "propagate_vectorial")
+
+    E_x_prop, x, y = propagator(E_x, x_prime, y_prime, z, wavelength, n=n, **kwargs)
+    E_y_prop, _, _ = propagator(E_y, x_prime, y_prime, z, wavelength, n=n, **kwargs)
+
+    if propagator in (fraunhofer, fresnel_rescaling):
+        X, Y = ensure_meshgrid(x, y)
+        E_z_prop = -(X*E_x_prop + Y*E_y_prop)/z
+    else:
+        E_z_prop = longitudinal_component(E_x_prop, E_y_prop, x, y, wavelength, n)
+
+    return np.stack([E_x_prop, E_y_prop, E_z_prop], axis=-1), x, y
+
+
+def aplanatic_rotation(sigma_x, sigma_y):
+    """Polarization rotation of a ray bent into the direction (sigma_x,
+    sigma_y, sigma_z) by an aplanatic lens.
+
+    A ray parallel to the optical axis with transverse polarization [p_x, p_y]
+    leaves an aplanatic lens (or any system obeying the sine condition) in the
+    direction s = (sigma_x, sigma_y, sigma_z), sigma_z = sqrt(1 - sigma_x**2 -
+    sigma_y**2). Its field is rotated about the axis z x s, i.e. the s
+    component (perpendicular to the meridional plane) is kept and the p
+    component is tilted along with the ray (Mansuripur's "psi" factors):
+
+        E = R @ [p_x, p_y],
+        R = [[1 - sigma_x**2/(1 + sigma_z), -sigma_x*sigma_y/(1 + sigma_z)],
+             [-sigma_x*sigma_y/(1 + sigma_z), 1 - sigma_y**2/(1 + sigma_z)],
+             [-sigma_x, -sigma_y]].
+
+    R has orthonormal columns that are perpendicular to s.
+
+    Parameters
+    ----------
+    sigma_x, sigma_y : numbers or arrays
+        Direction cosines of the ray; sigma_x**2 + sigma_y**2 <= 1.
+
+    Returns
+    -------
+    R : array
+        Matrix of shape (3, 2) + np.shape(sigma_x).
+    """
+
+    sigma_x, sigma_y = np.broadcast_arrays(np.asarray(sigma_x, dtype=float),
+                                           np.asarray(sigma_y, dtype=float))
+    sigma_z = np.sqrt(np.clip(1.0 - sigma_x**2 - sigma_y**2, 0.0, None))
+
+    R = np.empty((3, 2) + sigma_x.shape)
+    R[0, 0] = 1 - sigma_x**2/(1 + sigma_z)
+    R[0, 1] = R[1, 0] = -sigma_x*sigma_y/(1 + sigma_z)
+    R[1, 1] = 1 - sigma_y**2/(1 + sigma_z)
+    R[2, 0] = -sigma_x
+    R[2, 1] = -sigma_y
+
+    return R
+
+
+def vectorial_mansuripur(field, x_prime, y_prime, z, wavelength, n=1.0):
+    """Mansuripur's vectorial diffraction: each plane wave of the angular
+    spectrum of a (paraxially described) field is given the polarization of a
+    ray bent by an aplanatic lens.
+
+    The angular spectrum T(sigma_x, sigma_y) of the transverse input field
+    [E_x, E_y] is interpreted as the field in the exit pupil of an aplanatic
+    lens: the pupil point that belongs to the direction sigma = k_perp/k is
+    turned into a plane wave whose polarization is aplanatic_rotation() of
+    [T_x, T_y], weighted by 1/sqrt(sigma_z). The weight conserves energy: the
+    power flowing through every plane z = const equals the power of the
+    input field (sum of |E_x|**2 + |E_y|**2 on the grid). The plane waves are
+    then propagated exactly to z.
+
+    For a field whose spectrum is a pupil function, e.g. field =
+    inv_FT(P) with P(sigma_x, sigma_y) the pupil, the result is the
+    focus of an aplanatic high NA lens (Richards-Wolf theory) at the distance
+    z from the focal plane. In the paraxial limit (small sigma) it reduces to
+    scalar propagation of E_x and E_y. The transverse components at z = 0 do
+    not equal the input field for non-paraxial spectra: the input is not the
+    field in a physical plane, but the scalar ("paraxial") representative of
+    the vector field. Use vectorial_rayleigh_sommerfeld_TF() to propagate a
+    field given in a physical plane.
+
+    Only propagating waves (sigma_x**2 + sigma_y**2 < 1) are kept; a lens
+    does not produce evanescent waves.
 
     Parameters
     ----------
     field : array
-        Input field of dimension [Ny, Nx, 2]. The last index corresponds
-        to x and y polarization components.
-    x_prime, y_prime
-    z
-    wavelength
+        Input field of shape (Ny, Nx, 2); the last index holds the x and y
+        polarization components.
+    x_prime, y_prime : arrays
+        Linear or 2d coordinates, centered as pyoptics.fft expects.
+    z : number
+        Distance from the focal plane.
+    wavelength : number
+    n : number, optional
+        Refractive index of the image space; sigma = k_perp/(k_0*n).
+
+    Returns
+    -------
+    field_propagated : array
+        Field [E_x, E_y, E_z] of shape (Ny, Nx, 3).
+    x, y : arrays
+        Coordinates (the same as given).
 
     Sources
     -------
-    M. Mansuripur, "Certain computational aspects of vector diffraction problems,",
-    J. Opt. Soc. Am. A 6, 786-805 (1989)
+    M. Mansuripur, "Certain computational aspects of vector diffraction problems,"
+    J. Opt. Soc. Am. A 6, 786-805 (1989), erratum J. Opt. Soc. Am. A 10, 382 (1993)
+    B. Richards and E. Wolf, "Electromagnetic diffraction in optical systems II,"
+    Proc. R. Soc. Lond. A 253, 358-379 (1959)
     """
 
-    ## TODO: Fresnel? Document Fresnel nature?
+    E_x, E_y = _split_vector_field(field, "vectorial_mansuripur")
+    if np.shape(field)[2] != 2:
+        raise ValueError("vectorial_mansuripur() needs a field of shape (Ny, Nx, 2)")
 
-    ## Mansuripur's approach is to identify each point in the aperture with a
-    ## single ray and use a Fourier transform aproach still
-    ## TODO: conditions for FT approach? should be in the book
+    k = wavenumber(wavelength, n)
+    K_x, K_y = freq_grid(x_prime, y_prime, wavenumbers=True, normal_order=True)
+    Sigma_x, Sigma_y = K_x/k, K_y/k
+    propagating = Sigma_x**2 + Sigma_y**2 < 1.0
+    Sigma_z = np.sqrt(np.where(propagating, 1.0 - Sigma_x**2 - Sigma_y**2, 1.0))
 
-    ## use Mansuripur's notation inside the function:
-    ## T - spectrum of field
-    ## psi_alpha_beta - amplitude weight for the beta-polarization component
-    ##                  stemming from alpha component of light in aperture
-    ##
+    R = aplanatic_rotation(np.where(propagating, Sigma_x, 0.0),
+                           np.where(propagating, Sigma_y, 0.0))
+    weight = np.where(propagating, np.exp(1j*k*z*Sigma_z)/np.sqrt(Sigma_z), 0.0)
 
-    #field_propagated = np.zeros([np.size(field, 0), np.size(field, 1), 3],
-                                #dtype=complex)  # three polarization components
+    T_x, T_y = FT(E_x), FT(E_y)
+    field_propagated = np.stack([inv_FT(weight*(R[b, 0]*T_x + R[b, 1]*T_y))
+                                 for b in range(3)], axis=-1)
 
-    #k = wavenumber(wavelength, n)
-    #K_x, K_y = freq_grid(x_prime, y_prime, wavenumbers=True, normal_order=True)
-    #Sigma_x, Sigma_y = K_x/k, K_y/k
-    #Sigma_z = complex_sqrt(1.0 - Sigma_x**2 - Sigma_y**2)
-
-    #alpha = (0, 1)  # x & y polarization components in aperture
-    #beta = (0, 1, 2)  # x, y & z polarization for propagated field
-
-    #T = np.zeros_like(field, dtype=complex)
-    #for a in alpha:
-        #T[:, :, a] = FT(field[:, :, a])  # TODO: does fft2 have an axis argument or similar? or np.applyaxis?
-
-    #for a, b in product(alpha, beta):
-        #field_propagated[:, :, b] += inv_FT(
-                #T[:, :, a]
-                #*_psi_alpha_beta(a, b, Sigma_x, Sigma_y, Sigma_z)
-                #*np.exp(1j*2*pi*z/wavelength*Sigma_z)
-                                           #)
-    #return field_propagated, x_prime, y_prime
-    pass
+    return field_propagated, x_prime, y_prime
 
 
-def _psi_alpha_beta(alpha, beta, sigma_x, sigma_y, sigma_z):
-    # TODO: can this be written in a compact way?
-    if (alpha == 0) and (beta == 0):  # x to x
-        psi = 1 - sigma_x**2/(1 + sigma_z)
-    elif(alpha == 0) and (beta == 1):  # x to y
-        psi = -sigma_x*sigma_y/(1+sigma_z)
-    elif(alpha == 0) and (beta == 2):  # x to z
-        psi = -sigma_x
-    elif (alpha == 1) and (beta == 0):  # y to x
-        psi = -sigma_x*sigma_y/(1+sigma_z)
-    elif(alpha == 1) and (beta == 1):  # y to y
-        psi = 1 - sigma_y**2/(1 + sigma_z)
-    elif(alpha == 1) and (beta == 2):  # y to z
-        psi = -sigma_y
-    else:
-        raise ValueError("Invalid values alpha, beta")
+def vectorial_fresnel(field, x_prime, y_prime, z, wavelength, n=1.0):
+    """Deprecated alias of vectorial_mansuripur().
 
-    psi /= complex_sqrt(sigma_z)  # see erratum to Mansuripur's 1989 paper
+    The name was misleading: the function does not use the Fresnel
+    approximation.
+    """
 
-    return psi
+    warnings.warn("vectorial_fresnel() is deprecated, use vectorial_mansuripur() "
+                  "(same physics) or vectorial_rayleigh_sommerfeld_TF() "
+                  "(propagation of a field given in a plane)",
+                  DeprecationWarning, stacklevel=2)
+
+    return vectorial_mansuripur(field, x_prime, y_prime, z, wavelength, n=n)
+
 
 
 # TODO: also provide error term for Fresnel approxmiation?
