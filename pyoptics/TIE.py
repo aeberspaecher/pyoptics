@@ -45,8 +45,6 @@ def low_pass(img, x, y, sigma_cutoff, NA, lam):
     mask = np.ones(np.shape(KX))
     mask[sigma > sigma_cutoff] = 0.0
 
-    #plt.imshow(mask); plt.show()
-
     ret = np.real(inv_FT(mask*Img))
 
     energy_filtered = get_image_energy(ret)
@@ -71,7 +69,6 @@ def smoothed_deriv(stack, x, x0, order):
     weights_sympy = sympy.calculus.finite_diff.finite_diff_weights(order, x, x0)[-1][-1]
     weights_float = [item.evalf() for item in weights_sympy]
     weights = np.asarray(weights_float, dtype=np.float64)
-    #print("Weights: {}".format(weights))
     arr_stack = np.asarray(stack[:,:,:], dtype=np.float64)
     deriv = np.einsum("ijk,k->ij", arr_stack, weights)
 
@@ -186,7 +183,6 @@ def enhanced_tie_solve(N, I, dI_dz, x, y, lam, alpha, true_phase=None):
     phase_improved = phase0
     dI_dz_res = dI_dz
     for i in range(N):
-        print("Enanced TIE iteration {}".format(i+1))
         dI_dz_res = dI_dz - tie(phase_improved, I, x, y, lam)
         phase_res = solve_tie(I, dI_dz_res, x, y, lam, alpha)
 
@@ -195,10 +191,6 @@ def enhanced_tie_solve(N, I, dI_dz, x, y, lam, alpha, true_phase=None):
         phase_improved = phase_improved + phase_res
         if true_phase is not None:
             print("RMS of phase error: {}".format(RMS(true_phase-phase_improved)))
-
-        #phase_improved = inv_laplacian(laplacian(phase_improved, x, y)
-                                        #+ laplacian(phase_res, x, y),
-                                       #x, y, alpha)
 
     # FIXME: is this routine correct?
     return phase_improved

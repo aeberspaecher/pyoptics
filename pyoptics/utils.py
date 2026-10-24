@@ -565,30 +565,3 @@ def normalize_img_to_energy(img, E):
     # TODO: refractive index?
 
     return img*np.sqrt(E)/np.sqrt(image_energy(img))
-
-
-
-if(__name__ == '__main__'):
-    #w = weight_grid(simpson_weights, 9, 9)
-    #print(simpson_weights(9))
-    #print("Sum of 1st row:", np.sum(w[0, :]))
-    #print("Sum of 1st col:", np.sum(w[:, 0]))
-    ##print("Sum of 11th row:", np.sum(w[10, :]))
-    ##print("Sum of 11th col:", np.sum(w[:, 10]))
-    ##print("Sum of 12th row:", np.sum(w[11, :]))
-    ##print("Sum of 12th col:", np.sum(w[:, 11]))
-    #print("Sum of last row:", np.sum(w[-1, :]))
-    #print("Sum of last col:", np.sum(w[:, -1]))
-    #print("Sum all weights divided by number of elements:", np.sum(w.flatten())/np.prod(np.array(w.shape) - 1))
-    #import matplotlib.pyplot as plt
-    #plt.imshow(w, origin="lower", interpolation="none")
-    #plt.colorbar()
-    #plt.show()
-
-    from plot_tools import plot_image
-
-    x = grid1d(-2, +2, 113, False)
-    y = grid1d(-2, +2, 112, False)
-
-    s = super_gaussian(x, y, 0.5, -0.3, 0.2, 0.7, 12)
-    plot_image(s, x, y)

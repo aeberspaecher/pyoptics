@@ -164,7 +164,6 @@ class BasisSet(object):
             scale = np.log2(scale)
             M /= 2.0**(scale)
         coeffs, _, _, s = lstsq(M, field.flatten())
-        # print("Condition number: {}".format(s.min()/s.max()))
         if do_scale:
             coeffs /= 2.0**scale
 
@@ -233,7 +232,6 @@ class BasisSet(object):
             scale = np.int64(np.log2(scale))
             M /= 2.0**(scale)
         coeffs, _, _, s = lstsq(M, data)
-        # print("Condition number: {}".format(s.min()/s.max()))
         if do_scale:
             coeffs /= 2.0**scale
 
@@ -792,10 +790,6 @@ class NumericallyOrthogonalized(PresampledBasisSet):
             self.sampled_funcs[ind][mask] = factor*curr_orthogonalized_basis_func
             self.sampled_funcs[ind][~mask] = 0.0
             self.transformation_coeffs[ind] *= factor_transform  # also rescale the transform
-            # print("Factor for transformation", factor_transform)
-            # print("Transformation: {}".format(self.transformation_coeffs[ind]))
-            # print("Scale", scale)
-            # print()
 
 
     def eval_single_scattered(self, x, y, i, interpolation="linear"):
@@ -857,7 +851,6 @@ class RescaledBasis(BasisSet):
         old_scale = self.scale_func(sampled_func)
         new_scale = self.scale_val_func(index)
         rescaling_factor = new_scale/old_scale
-        print("Rescaling factor: {}".format(rescaling_factor))
 
         return rescaling_factor
 
@@ -887,18 +880,3 @@ def basis_from_generating_function(index_func, field_func, **kwargs):
     """
 
     pass
-
-
-if(__name__ == '__main__'):
-    from pyoptics.utils import grid1d
-    from pyoptics.plot_tools import plot_intensity
-    x = grid1d(-2, +2, 512)
-    y = grid1d(-2, +2, 512)
-    R_norm = 1.5
-    Z = FringeZernikes(x, y, R_norm)
-    for j in range(1, 16+1):
-        Z_sampled = Z.eval_single(j)
-        print(Z_sampled)
-        plot_intensity(Z_sampled, x, y, title="$Z_{%s}$"%j)
-
-    # compute inner product matrix numerically:
