@@ -27,9 +27,6 @@ def image(obj, x, y, NA, k):
     mask = np.ones(np.shape(obj))
     mask[K_x**2 + K_y**2 > k**2*NA**2] = 0.0
 
-    #plt.imshow(mask)
-    #plt.show()
-
     #obj_spectrum *= mask
     obj_spectrum[K_x**2 + K_y**2 > k**2*NA**2] = 0.0
 
@@ -49,10 +46,6 @@ def get_psf(x, y, NA, k, pupil_mask=None, phase=None):
 
     # TODO: implement masks
     mask = K_X**2 + K_Y**2 <= k**2*NA**2
-
-    #plt.imshow(mask)
-    #plt.title("YO MOMMA!")
-    #plt.show()
 
     pupil_func = np.zeros(np.shape(K_X))  # shape is (Ny, Nx)
     pupil_func[mask] = 1.0

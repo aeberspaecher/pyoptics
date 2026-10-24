@@ -76,9 +76,3 @@ def test_numerically_orthogonalized():
             scalar_products[i, j] = scalar_product(Zi, Zj, x, y)
     np.fill_diagonal(scalar_products, 0.0)
     assert np.all(np.isclose(scalar_products.ravel(), 0.0))
-
-
-if __name__ == '__main__':
-    test_fit_gridded(Z())
-    test_fit_scattered(Z())
-    test_numerically_orthogonalized()

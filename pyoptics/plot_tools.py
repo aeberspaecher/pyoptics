@@ -309,16 +309,3 @@ def plot_imstack(imstack, x, y, z_vals, cmap=plt.cm.Blues,
     plt.axis('off')
     plt.tight_layout()
     plt.show()
-if(__name__ == '__main__'):
-    import numpy as np
-    from pyoptics.beams import gauss_laguerre, gauss_hermite
-    from pyoptics.utils import grid1d
-    wl = 0.630
-    x, y = grid1d(-2, +2, 512, False), grid1d(-2, 2, 512, False)
-    psi = gauss_laguerre(5, 10, x, y, z=-0.01, w_0=0.5, z_r=1.1, wl=wl)
-
-    plot_intensity(psi, x, y)
-    plot_field(psi, x, y, title="Test", amp_title="Intensity",
-               phase_title=r"Phase [$\pi$]", use_rad=False,
-               xlabel="$x$ [arb. units]", ylabel="$y$ [nm]",
-               colorbar=True, horizontal_layout=True, use_intensity=True)

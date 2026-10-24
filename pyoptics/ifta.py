@@ -18,10 +18,7 @@ curr_obj, curr_img, num_iter.
 
 import numpy as np
 
-from scipy.ndimage import gaussian_filter
-
 from .fft import FT_unitary, inv_FT_unitary
-from .utils import ensure_meshgrid
 
 
 img_E = lambda img: np.sum(np.abs(img)**2)
@@ -64,7 +61,6 @@ class IFTABase(object):
         while(not self.stopping_condition(curr_obj, curr_img, old_obj, old_img, i)):
             old_obj = curr_obj.copy()
             old_img = curr_img.copy()
-            print("Iteration {} starts".format(i))
 
             curr_obj =  self.to_object_space(curr_obj, curr_img,  old_obj, old_img, i)
             curr_obj = self.object_space_constrainer(curr_obj, curr_img,  old_obj, old_img, i)
@@ -72,7 +68,6 @@ class IFTABase(object):
             curr_img = self.to_image_space(curr_obj, curr_img, old_obj, old_img, i)
             curr_img = self.image_space_constrainer(curr_obj, curr_img, old_obj, old_img, i)
 
-            print("Iteration {} ends".format(i))
             i += 1
 
         curr_obj =  self.to_object_space(curr_obj, curr_img,  old_obj, old_img, i)
@@ -189,7 +184,6 @@ class IFTA_OverCompensation(IFTABase):
         constrained_img[~mask] = curr_img[~mask]
         constrained_img[mask] = (np.abs(old_img)*self.img_A/curr_ampl*np.exp(1j*np.angle(curr_img)))[mask]
         constrained_img *= old_ampl_sum/np.sum(np.abs(constrained_img))
-        print("Number of NAN elements: %s"%np.sum(np.isnan(constrained_img)))
 
         return constrained_img
 
@@ -228,113 +222,3 @@ def digitize_phase(field, levels):
     new_field = ampl*np.exp(1j*phase_quantized)
 
     return new_field
-
-
-if(__name__ == '__main__'):
-    import matplotlib.pyplot as plt
-
-    wl = 0.905
-    N = 343
-    x_max = 2000
-    aperture_x_max = 750
-    image_x_max = 700
-    image_hole_size = 500
-    N_IFTA = 100
-    x = np.linspace(-x_max, x_max, N)
-    y = x
-    X, Y = ensure_meshgrid(x, y)
-
-    aperture = np.zeros(np.shape(X))
-    aperture[(np.abs(X) <= aperture_x_max) & (np.abs(Y) <= aperture_x_max)] = 1.0
-    sigma_aperture = 500; aperture *= np.exp(-(X**2 + Y**2)/(2*sigma_aperture**2))
-    #plt.imshow(aperture)
-    #plt.show()
-
-    # square with hole:
-    image = np.zeros(np.shape(X))
-    image[(np.abs(X) <= image_x_max) & (np.abs(Y) <= image_x_max)] = 1.0
-    image[X**2 + Y**2 < image_hole_size**2] = 0.0
-    #plt.imshow(image)
-    #plt.show()
-
-    ## 4 circles:
-    #image = np.zeros(np.shape(X))
-    #image[X**2 + Y**2 < image_hole_size**2] = 1.0
-    #image = np.roll(image, N/3, axis=0) + np.roll(image, -N/3, axis=0) + np.roll(image, N/4, axis=1) + np.roll(image, -N/4, axis=1)
-
-    image = gaussian_filter(image, 5)
-
-    # make sure object and image contain an equal amount of energy:
-    object_energy = img_E(aperture)
-    print("Object energy = {}".format(object_energy))
-    img_energy = img_E(image)
-    print("Image energy unnornmalized = {}".format(img_energy))
-    image = norm_to_E(image, object_energy)
-    img_energy = img_E(image)
-    print("Image energy nornmalized = {}".format(img_energy))
-
-
-    #ifta = GS(aperture, image, N_IFTA)
-    ifta = IFTA_HOO(aperture, image, N_IFTA)
-    #ifta = IFTA_OverCompensation(aperture, image, N_IFTA)
-
-    #start_obj = aperture*np.angle(2*np.pi*np.random.rand(*np.shape(X)))
-    start_img = image*np.angle(2*np.pi*np.random.rand(*np.shape(X)))
-
-    o, i, M = ifta.iterate(start_img)
-
-    plt.imshow(np.abs(o)**2, interpolation="none")
-    plt.title("Final object intensity")
-    plt.colorbar()
-    plt.tight_layout()
-    plt.show()
-
-    plt.imshow(np.angle(o), cmap=plt.cm.bwr, interpolation="none")
-    plt.title("Final object phase")
-    plt.colorbar()
-    plt.tight_layout()
-    plt.show()
-
-
-    plt.imshow(np.abs(i)**2, interpolation="none")
-    plt.title("Final image intensity")
-    plt.colorbar()
-    plt.tight_layout()
-    plt.show()
-
-    plt.imshow(np.angle(i), cmap=plt.cm.bwr, interpolation="none")
-    plt.title("Final image phase")
-    plt.colorbar()
-    plt.tight_layout()
-    plt.show()
-
-
-    plt.plot(np.abs(i[int(N/2),:])**2, label="result")
-    plt.plot(np.abs(image[int(N/2),:])**2, label="goal")
-    plt.legend()
-    plt.title("Cut through final image")
-    plt.tight_layout()
-    plt.show()
-
-    o_new = digitize_phase(o, 8)
-    i_new = ifta.to_image_space(o_new, i, o, i, 0)
-
-    plt.imshow(np.angle(o_new), cmap=plt.cm.bwr, interpolation="none")
-    plt.title("Final object phase (object phase quantized)")
-    plt.colorbar()
-    plt.tight_layout()
-    plt.show()
-
-
-    plt.imshow(np.abs(i_new)**2, interpolation="none")
-    plt.title("Final image intensity (phase quantized)")
-    plt.colorbar()
-    plt.tight_layout()
-    plt.show()
-
-    plt.plot(np.abs(i[int(N/2),:])**2, label="result")
-    plt.plot(np.abs(image[int(N/2),:])**2, label="goal")
-    plt.legend()
-    plt.title("Cut through final image (phase quantized)")
-    plt.tight_layout()
-    plt.show()
