@@ -16,10 +16,11 @@ polished library. It runs on Python 3.9 to 3.13. The API may still change
 between versions, and there is no release on PyPI; install it from source as
 described below.
 
-The core is tested: a suite of about 200 pytest tests checks the numerics
+The core is tested: a suite of about 250 pytest tests checks the numerics
 against analytical results (Fresnel and Fraunhofer diffraction, Gaussian beam
-propagation, Mahajan's on-axis intensity, Fresnel equations, thin film
-stacks, Mueller and Jones calculus, FFT conventions) and runs in GitHub
+propagation, Mahajan's on-axis intensity, Airy pattern and OTF, Fresnel
+equations, thin film stacks, Goos-Hänchen shift, beam widths and M² of
+Hermite-Gaussian beams, Mueller and Jones calculus, FFT conventions) and runs in GitHub
 Actions on Python 3.9, 3.11 and 3.13 for every push and pull request. A
 consistent phase convention is used throughout (see Conventions).
 
@@ -28,18 +29,25 @@ Status of the modules:
 - `propagators`: mature and tested (Rayleigh-Sommerfeld, Fresnel, Fraunhofer,
   band-limited and padded propagation, vectorial Fresnel)
 - `fft`, `utils`, `masks`, `geometry`, `analytical`: mature and tested
+  (`utils.pad()`/`unpad()` for centered zero padding; `analytical` holds the
+  Airy pattern, its encircled energy and the diffraction limited OTF)
 - `bases`: mature (Zernike, Legendre, Chebyshev bases, numerical
-  orthogonalization, fits); Zernikes and orthogonalization are tested
+  orthogonalization, fits); all bases can be shifted and rotated, Legendre and
+  Chebyshev derive from the abstract `TensorProductBasis`; tested
 - `beams`: tested (plane, spherical, Hermite-Gaussian and Laguerre-Gaussian
   beams)
 - `interfaces`, `thin_films`: mature and tested (Fresnel coefficients,
-  coherent multilayer stacks)
+  coherent multilayer stacks; `stack_transfer_functions()` gives r and t on
+  the angular spectrum grid of a field)
 - `materials`: Abbe (n_d, V_d) dispersion model via a two-term Cauchy
   formula, tested
 - `polarization.mueller`, `polarization.jones`: Mueller calculus and basic
   Jones vectors and matrices, tested
-- `imaging`: basic: coherent imaging through a circular pupil and its PSF;
-  `get_psf()` ignores its `pupil_mask` and `phase` arguments so far
+- `imaging`: scalar imaging, tested: coherent imaging through a circular
+  pupil, PSF with pupil masks (obscuration, apodization) and phases, OTF and
+  MTF, Strehl ratio and Maréchal approximations
+- `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
+  moments, iterated integration window, caustic fit), tested
 - `TIE`: basic transport of intensity solver, partly tested
 - `ifta`: basic Gerchberg-Saxton and variants, only shown in a notebook, no
   tests
