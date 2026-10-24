@@ -12,15 +12,14 @@
 
 ## Medium
 
-* Finish the stubs: `interpolator.TrigInterpolator`,
-  `polarization._polarization`
+* Finish the stub `interpolator.TrigInterpolator`
+* Thin film stack (resist, BARC) and Fresnel transmission in vectorial
+  imaging
 * Tests for `ifta` and more tests for `wpm` and `TIE`
 * Documentation for propagators
 * Incoherence in thin films (spatial and temporal incoherence)
 * CZT
 * Basis class factory for numbering scheme plus callable
-* Polarization converters (x,y <-> TE, TM)
-* Vectorial imaging (cmp. Jabbour et al)
 * ABCD matrices
 
 ## More challenging
@@ -62,3 +61,5 @@
 * vectorial propagation: E_z from div E = 0, vectorial angular spectrum,
   vectorized scalar propagators, Mansuripur's high NA focusing checked
   against Richards-Wolf (notebook 15)
+* vectorial imaging (Abbe, s/p/unpolarized, lithography notebook 16),
+  polarization converters x/y <-> TE/TM, Stokes -> Jones, DOP, IPS

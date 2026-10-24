@@ -16,12 +16,13 @@ polished library. It runs on Python 3.9 to 3.13. The API may still change
 between versions, and there is no release on PyPI; install it from source as
 described below.
 
-The core is tested: a suite of about 270 pytest tests checks the numerics
+The core is tested: a suite of about 300 pytest tests checks the numerics
 against analytical results (Fresnel and Fraunhofer diffraction, Gaussian beam
 propagation, Mahajan's on-axis intensity, Airy pattern and OTF, Fresnel
 equations, thin film stacks, Goos-Hänchen shift, beam widths and M² of
 Hermite-Gaussian beams, Mueller and Jones calculus, FFT conventions,
-Richards-Wolf integrals for high NA foci) and runs in GitHub
+Richards-Wolf integrals for high NA foci, two-beam interference of TE and
+TM waves) and runs in GitHub
 Actions on Python 3.9, 3.11 and 3.13 for every push and pull request. A
 consistent phase convention is used throughout (see Conventions).
 
@@ -46,6 +47,11 @@ Status of the modules:
   formula, tested
 - `polarization.mueller`, `polarization.jones`: Mueller calculus and basic
   Jones vectors and matrices, tested
+- `vectorial_imaging`: vectorial, partially coherent imaging (Abbe's method)
+  of 1D and 2D masks with conventional, annular, dipole and quasar sources,
+  TE/TM/unpolarized/partially polarized illumination, contrast and NILS,
+  tested (two-beam contrast of TE and TM waves)
+- `polarization`: TE/TM bases, Stokes to Jones decomposition, DOP and IPS
 - `imaging`: scalar imaging, tested: coherent imaging through a circular
   pupil, PSF with pupil masks (obscuration, apodization) and phases, OTF and
   MTF, Strehl ratio and Maréchal approximations
