@@ -5,6 +5,7 @@
 """
 
 import numpy as np
+from scipy.special import j0, j1
 
 
 def mahajan_on_axis_intensity(a, epsilon, I0, wavelength, z, R=None):
@@ -61,3 +62,70 @@ def mahajan_on_axis_intensity(a, epsilon, I0, wavelength, z, R=None):
 
     return I_z
 
+
+
+def airy_pattern(r, NA, wavelength):
+    """Intensity PSF of an aberration-free imaging system with a circular
+    pupil (Airy pattern) in scalar paraxial theory.
+
+    Parameters
+    ----------
+    r : number or array
+        Distance from the optical axis in the image plane.
+    NA : number
+        Image-side numerical aperture.
+    wavelength : number
+        Wavelength in the image space medium (vacuum wavelength if NA already
+        includes the refractive index).
+
+    Returns
+    -------
+    I : number or array
+        (2*J_1(v)/v)**2 with v = 2*pi*NA*r/wavelength, normalized to I(0) = 1.
+        The first zero lies at r = 0.61*wavelength/NA.
+    """
+
+    v = 2*np.pi*NA*np.asarray(r, dtype=float)/wavelength
+    v_safe = np.where(v == 0, 1.0, v)
+    I = np.where(v == 0, 1.0, (2*j1(v_safe)/v_safe)**2)
+
+    return I
+
+
+def airy_encircled_energy(r, NA, wavelength):
+    """Fraction of the energy of the Airy pattern inside a circle of radius r
+    (Rayleigh's formula 1 - J_0(v)**2 - J_1(v)**2, v = 2*pi*NA*r/wavelength).
+    """
+
+    v = 2*np.pi*NA*np.asarray(r, dtype=float)/wavelength
+
+    return 1.0 - j0(v)**2 - j1(v)**2
+
+
+def circular_otf(f, NA, wavelength):
+    """Diffraction limited optical transfer function (OTF) of an incoherent
+    imaging system with a circular pupil.
+
+    Parameters
+    ----------
+    f : number or array
+        Spatial frequency (in 1/length, i.e. cycles per unit length, not
+        angular wavenumber).
+    NA : number
+        Image-side numerical aperture.
+    wavelength : number
+        Wavelength.
+
+    Returns
+    -------
+    OTF : number or array
+        2/pi*(arccos(s) - s*sqrt(1 - s**2)) with s = |f|/f_c and the cut-off
+        frequency f_c = 2*NA/wavelength; zero for s > 1. The OTF is real and
+        non-negative, so it is identical to the MTF.
+    """
+
+    s = np.abs(np.asarray(f, dtype=float))/(2*NA/wavelength)
+    s_clipped = np.clip(s, 0.0, 1.0)
+    otf = 2/np.pi*(np.arccos(s_clipped) - s_clipped*np.sqrt(1 - s_clipped**2))
+
+    return np.where(s <= 1.0, otf, 0.0)

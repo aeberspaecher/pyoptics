@@ -9,10 +9,11 @@ aperture stops. This module offers an object oriented approach to such basis
 sets.
 """
 
+from abc import ABCMeta, abstractmethod
 from math import sqrt, floor, ceil
 
 import numpy as np
-from numpy.polynomial.legendre import legval2d, legval
+from numpy.polynomial.legendre import legval
 from numpy.polynomial.chebyshev import chebval
 from scipy.special import factorial as fac  # tolerant to negative arguments!
 from scipy.linalg import lstsq, qr
@@ -24,6 +25,35 @@ from .utils import (kronecker_delta, weight_grid, simpson_weights, sgn,
 from .masks import (circular_mask, rectangluar_mask, annular_mask, to_bool)
 
 # TODO: reintroduce scalar/inner product in BasisSet? this allowed for inner products that respected the mask/support automatically
+
+
+def local_coordinates(x, y, x0=0.0, y0=0.0, angle=0.0):
+    """Coordinates in a frame that is shifted to (x0, y0) and rotated by angle.
+
+    A basis function f(u, v) evaluated at the local coordinates (u, v) of the
+    points (x, y) is the function f moved to (x0, y0) and rotated
+    counterclockwise (from x towards y) by angle about that point.
+
+    Parameters
+    ----------
+    x, y : arrays or numbers
+        Coordinates of the same shape.
+    x0, y0 : numbers, optional
+        Origin of the local frame.
+    angle : number, optional
+        Rotation angle in radians, counterclockwise.
+
+    Returns
+    -------
+    u, v : arrays
+        u = cos(angle)*(x - x0) + sin(angle)*(y - y0),
+        v = -sin(angle)*(x - x0) + cos(angle)*(y - y0).
+    """
+
+    dx, dy = np.asarray(x) - x0, np.asarray(y) - y0
+    c, s = np.cos(angle), np.sin(angle)
+
+    return c*dx + s*dy, -s*dx + c*dy
 
 
 class BasisSet(object):
@@ -378,12 +408,30 @@ class FringeZernikes(BasisSet):
     http://www.jcmwave.com/JCMsuite/doc/html/ParameterReference/0c19949d2f03c5a96890075a6695b258.html
     """
 
-    def __init__(self, x, y, R_norm=1.0, x0=0.0, y0=0.0):
+    def __init__(self, x, y, R_norm=1.0, x0=0.0, y0=0.0, angle=0.0):
+        """Fringe Zernikes on the disk of radius R_norm around (x0, y0).
+
+        Parameters
+        ----------
+        x, y : arrays
+            Linear coordinates of the grid.
+        R_norm : number, optional
+            Normalization radius (radius of the unit disk).
+        x0, y0 : numbers, optional
+            Center of the disk.
+        angle : number, optional
+            Rotation of the basis functions in radians, counterclockwise. The
+            azimuth phi of the polynomials is measured from the rotated x axis,
+            e.g. Z_2 (x tilt) rotated by pi/2 equals Z_3 (y tilt).
+        """
+
         super(FringeZernikes, self).__init__(x-x0, y-y0)
 
         self.R_norm = R_norm
-        self.Rho = np.sqrt((self.XX)**2 + (self.YY)**2)/R_norm
-        self.Phi = np.arctan2(self.YY, self.XX)
+        self.x0, self.y0, self.angle = x0, y0, angle
+        U, V = local_coordinates(self.XX, self.YY, 0.0, 0.0, angle)
+        self.Rho = np.sqrt(U**2 + V**2)/R_norm
+        self.Phi = np.arctan2(V, U)
 
         self.mask = circular_mask(x-x0, y-y0, R_norm)
         self._has_norm = True
@@ -396,9 +444,13 @@ class FringeZernikes(BasisSet):
         return R*Y*self.mask
 
     def eval_single_scattered(self, x, y, j):
+        """Return the j-th Fringe Zernike at scattered points (x, y) (no
+        mask is applied)."""
+
         n, m = fringe_to_n_m(j)
-        rho = np.sqrt(x**2 + y**2)/self.R_norm
-        phi = np.arctan2(y, x)
+        u, v = local_coordinates(x, y, self.x0, self.y0, self.angle)
+        rho = np.sqrt(u**2 + v**2)/self.R_norm
+        phi = np.arctan2(v, u)
 
         R = fringe_zernike_R_nm(n, abs(m), rho)
         Y = fringe_zernike_Y_m(m, phi)
@@ -471,89 +523,106 @@ def legendre_norm_2d(j, a=1.0, b=1.0):
 
 
 
-class LegendrePolynomials(BasisSet):
-    """Legendre polynomials are a suitable basis set for fields defined on
-    rectangular apertures.
+class TensorProductBasis(BasisSet, metaclass=ABCMeta):
+    """Abstract base class for tensor product bases P_n(u/a)*P_m(v/b) on the
+    rectangle |u| <= a, |v| <= b, built from a family P_n of 1D polynomials.
 
-    The basis set is the product of two Legendre polynomials L_i(x)*L_j(y).
+    (u, v) are the local coordinates of the rectangle that is centered at
+    (x0, y0) and rotated counterclockwise by angle (see local_coordinates()).
+    Subclasses implement eval_1d(); a subclass that knows its norms sets
+    _has_norm = True and implements normalization_factor().
 
+    The single index j enumerates the pairs (n, m) by total order n + m:
+    (0, 0), (1, 0), (0, 1), (2, 0), (1, 1), (0, 2), ...
     """
 
-    def __init__(self, x, y, a=1.0, b=1.0, x0=0.0, y0=0.0):
-        super(LegendrePolynomials, self).__init__(x, y)
+    def __init__(self, x, y, a=1.0, b=1.0, x0=0.0, y0=0.0, angle=0.0):
+        """Parameters
+        ----------
+        x, y : arrays
+            Linear coordinates of the grid.
+        a, b : numbers, optional
+            Half side lengths of the rectangle along the (rotated) x and y
+            axes.
+        x0, y0 : numbers, optional
+            Center of the rectangle.
+        angle : number, optional
+            Rotation of the rectangle and the basis functions in radians,
+            counterclockwise.
+        """
+
+        super(TensorProductBasis, self).__init__(x, y)
         self.a = a
         self.b = b
         self.x0 = x0
         self.y0 = y0
-        self._has_norm = True
+        self.angle = angle
+        self._has_norm = False
 
-        # store scaled x and y arrays (should contain interval (-1, +1))
-        # for NumPy legval calls:
-        self.x_scaled, self.y_scaled = (x-x0)/a, (y-y0)/b
-        self.XX_scaled, self.YY_scaled = np.meshgrid(self.x_scaled, self.y_scaled)
+        # scaled coordinates (the rectangle is [-1, +1] x [-1, +1]):
+        U, V = local_coordinates(self.XX, self.YY, x0, y0, angle)
+        self.XX_scaled, self.YY_scaled = U/a, V/b
 
-        # mask is a rectangle x_scaled = [-1, +1], y_scaled = [-1, +1]
-        self.mask, self.mask_x, self.mask_y = rectangluar_mask(x, y, a, b, x0, y0, True)
+        if angle == 0.0:
+            # axis parallel: the basis functions are outer products of 1D
+            # arrays, which is faster to evaluate
+            self.x_scaled, self.y_scaled = (x-x0)/a, (y-y0)/b
+            self.mask, self.mask_x, self.mask_y = rectangluar_mask(x, y, a, b, x0, y0, True)
+        else:
+            self.x_scaled = self.y_scaled = None
+            self.mask_x = self.mask_y = None
+            self.mask = ((np.abs(self.XX_scaled) <= 1) & (np.abs(self.YY_scaled) <= 1)).astype(int)
 
-    ## TODO: implement __call__() that uses legval2d
-    #def __call__(self, indices, coeffs=None):
-        #"""Return basis functions for given indices.
-        #"""
-
-        #if coeffs is None:
-            #coeffs = np.ones(len(indices))
-
-        #for index in indices:
-            #n, m = self.single_index_to_n_m(index)
-
-            #c = np.zeros(2*(max(n, m)+1,))
-            ##c = np.zeros([n, m])
-            ## using legval2d, row index goes to x polynomial, column index to y polynmomial:
-            #c[n, m] = 1.0
-            #xy_poly = legval2d(self.XX_scaled, self.YY_scaled, c)
-
-            #xy_poly
-
-        ## TODO: fix this routine!
-
-        #return val
+    @abstractmethod
+    def eval_1d(self, t, n):
+        """Evaluate the n-th 1D polynomial at t (scaled coordinates)."""
 
     def eval_single(self, index):
         n, m = self.single_index_to_n_m(index)
 
-        # outer product approach:
-        cx = np.zeros(n+1)
-        cx[n] = 1.0
-        cy = np.zeros(m+1)
-        cy[m] = 1.0
-        xy_poly = np.outer(legval(self.y_scaled, cy), legval(self.x_scaled, cx))  # TODO: order?
+        if self.x_scaled is not None:
+            xy_poly = np.outer(self.eval_1d(self.y_scaled, m), self.eval_1d(self.x_scaled, n))
+        else:
+            xy_poly = self.eval_1d(self.XX_scaled, n)*self.eval_1d(self.YY_scaled, m)
 
         return self.mask*xy_poly
 
     def eval_single_scattered(self, x, y, i):
-        """Return i-th basis function at scattered (x, y) points.
+        """Return i-th basis function at scattered (x, y) points (no mask is
+        applied).
         """
 
         n, m = self.single_index_to_n_m(i)
+        u, v = local_coordinates(x, y, self.x0, self.y0, self.angle)
 
-        cx = np.zeros(n+1)
-        cx[n] = 1.0
-        cy = np.zeros(m+1)
-        cy[m] = 1.0
-
-        Lx = legval(x, cx)
-        Ly = legval(y, cy)
-
-        return Lx*Ly
-
+        return self.eval_1d(u/self.a, n)*self.eval_1d(v/self.b, m)
 
     def single_index_to_n_m(self, index):
-        """Convert single index to indices n, m for L_n(x) and L_m(y).
+        """Convert single index to indices n, m for P_n(x) and P_m(y).
         """
 
         n, m = _poly_single_index_to_n_m(index)
 
         return n, m
+
+
+class LegendrePolynomials(TensorProductBasis):
+    """Legendre polynomials are a suitable basis set for fields defined on
+    rectangular apertures.
+
+    The basis set is the product of two Legendre polynomials L_n(u/a)*L_m(v/b);
+    see TensorProductBasis for the parameters.
+    """
+
+    def __init__(self, x, y, a=1.0, b=1.0, x0=0.0, y0=0.0, angle=0.0):
+        super(LegendrePolynomials, self).__init__(x, y, a, b, x0, y0, angle)
+        self._has_norm = True
+
+    def eval_1d(self, t, n):
+        c = np.zeros(n+1)
+        c[n] = 1.0
+
+        return legval(t, c)
 
     def normalization_factor(self, i):
         """Norm <L_i|L_i> of i-th Legendre basis function.
@@ -575,67 +644,21 @@ class LegendrePolynomials(BasisSet):
         return norm
 
 
-class ChebyshevPolynomials(BasisSet):
+class ChebyshevPolynomials(TensorProductBasis):
     """Chebyshev polynomials are a suitable basis set for fields defined on
     rectangular apertures.
 
-    The basis set is the product of two Chebyshev polynomials T_i(x)*T_j(y).
-    The basis is orthogonal with respect to a specific scalar product with
-    weight function 1/sqrt(1-x**2) for each dimension.
-
+    The basis set is the product of two Chebyshev polynomials T_n(u/a)*T_m(v/b);
+    see TensorProductBasis for the parameters. The basis is orthogonal with
+    respect to a specific scalar product with weight function 1/sqrt(1-x**2)
+    for each dimension.
     """
 
-    def __init__(self, x, y, a=1.0, b=1.0, x0=0.0, y0=0.0):
-        super(ChebyshevPolynomials, self).__init__(x, y)
-        self.a = a
-        self.b = b
-        self.x0 = x0
-        self.y0 = y0
-        self._has_norm = False
+    def eval_1d(self, t, n):
+        c = np.zeros(n+1)
+        c[n] = 1.0
 
-        # store scaled x and y arrays (should contain interval (-1, +1))
-        # for NumPy legval calls:
-        self.x_scaled, self.y_scaled = (x-x0)/a, (y-y0)/b
-        self.XX_scaled, self.YY_scaled = np.meshgrid(self.x_scaled, self.y_scaled)
-
-        # mask is a rectangle x_scaled = [-1, +1], y_scaled = [-1, +1]
-        self.mask, self.mask_x, self.mask_y = rectangluar_mask(x, y, a, b, x0, y0, True)
-
-    def eval_single(self, index):
-        n, m = self.single_index_to_n_m(index)
-
-        # outer product approach:
-        cx = np.zeros(n+1)
-        cx[n] = 1.0
-        cy = np.zeros(m+1)
-        cy[m] = 1.0
-        xy_poly = np.outer(chebval(self.y_scaled, cy), chebval(self.x_scaled, cx))  # TODO: order?
-
-        return self.mask*xy_poly
-
-    def eval_single_scattered(self, x, y, i):
-        """Return i-th basis function at scattered (x, y) points.
-        """
-
-        n, m = self.single_index_to_n_m(i)
-
-        cx = np.zeros(n+1)
-        cx[n] = 1.0
-        cy = np.zeros(m+1)
-        cy[m] = 1.0
-
-        Lx = chebval(x, cx)
-        Ly = chebval(y, cy)
-
-        return Lx*Ly
-
-    def single_index_to_n_m(self, index):
-        """Convert single index to indices n, m for L_n(x) and L_m(y).
-        """
-
-        n, m = _poly_single_index_to_n_m(index)
-
-        return n, m
+        return chebval(t, c)
 
 
 def _poly_single_index_to_n_m(single_ind):

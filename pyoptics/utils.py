@@ -73,6 +73,93 @@ def ensure_meshgrid(x, y):
     return XX, YY
 
 
+def _pad_offset(N, N_pad):
+    """Offset of the original samples in a padded axis such that the sample
+    at index N//2 lands at index N_pad//2 (a centered grid stays centered)."""
+
+    if N_pad < N:
+        raise ValueError("Padded size {} is smaller than the size {}".format(N_pad, N))
+
+    return N_pad//2 - N//2
+
+
+def pad(field, x, y, shape=None, factor=None, value=0.0):
+    """Pad a field symmetrically and extend its coordinate arrays.
+
+    The sample at index N//2 is moved to index N_pad//2 of the padded array,
+    so a grid that is centered as pyoptics.fft expects (x = 0 at index N//2)
+    stays centered and FT() of the padded field has no additional phase.
+
+    Parameters
+    ----------
+    field : array
+        Field of shape (Ny, Nx) or a stack of shape (Ny, Nx, ...) (images
+        along the last axes, as in pyoptics.processing).
+    x, y : arrays
+        Linear, equidistant coordinates of the field.
+    shape : tuple of ints, optional
+        New shape (Ny_pad, Nx_pad) of the first two axes.
+    factor : number, optional
+        Alternatively to shape: enlarge both axes by this factor (rounded up
+        to the next integer number of samples). Exactly one of shape and
+        factor must be given.
+    value : number, optional
+        Value to pad with. Defaults to 0.
+
+    Returns
+    -------
+    field_pad : array
+        Padded field of the same dtype.
+    x_pad, y_pad : arrays
+        Coordinates of the padded field with the same spacing.
+    """
+
+    if (shape is None) == (factor is None):
+        raise ValueError("Give exactly one of shape and factor")
+
+    field = np.asarray(field)
+    Ny, Nx = field.shape[:2]
+    if factor is not None:
+        shape = (int(np.ceil(factor*Ny)), int(np.ceil(factor*Nx)))
+    Ny_pad, Nx_pad = shape
+    off_y, off_x = _pad_offset(Ny, Ny_pad), _pad_offset(Nx, Nx_pad)
+
+    field_pad = np.full((Ny_pad, Nx_pad) + field.shape[2:], value, dtype=field.dtype)
+    field_pad[off_y:off_y + Ny, off_x:off_x + Nx] = field
+
+    x_pad = x[Nx//2] + get_dx(x)*(np.arange(Nx_pad) - Nx_pad//2)
+    y_pad = y[Ny//2] + get_dx(y)*(np.arange(Ny_pad) - Ny_pad//2)
+
+    return field_pad, x_pad, y_pad
+
+
+def unpad(field, x, y, shape):
+    """Crop a field to the central region of a given shape; inverse of pad().
+
+    Parameters
+    ----------
+    field : array
+        Field of shape (Ny_pad, Nx_pad) or a stack (Ny_pad, Nx_pad, ...).
+    x, y : arrays
+        Coordinates of the field.
+    shape : tuple of ints
+        Shape (Ny, Nx) of the cropped field.
+
+    Returns
+    -------
+    field_cropped : array
+    x_cropped, y_cropped : arrays
+    """
+
+    field = np.asarray(field)
+    Ny_pad, Nx_pad = field.shape[:2]
+    Ny, Nx = shape
+    off_y, off_x = _pad_offset(Ny, Ny_pad), _pad_offset(Nx, Nx_pad)
+
+    return (field[off_y:off_y + Ny, off_x:off_x + Nx],
+            np.asarray(x)[off_x:off_x + Nx], np.asarray(y)[off_y:off_y + Ny])
+
+
 def sgn(x):
     """Sign function using the convention sgn(0) = 1.0.
     """
