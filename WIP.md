@@ -71,6 +71,9 @@
   resonators, Collins integral (notebook 18)
 * 2D phase unwrapping (`unwrap`): least squares (DCT and weighted PCG),
   quality guided, residues (notebook 21)
+* interferometry (`interferometry`): phase-shifting algorithms (N-step,
+  4-step, Carré, Hariharan), Takeda's Fourier-transform method,
+  interferogram simulation, shifter miscalibration sensitivity (notebook 22)
 * chirp-z transform (`fft.czt()`, `zoom_FT()`, `zoom_inv_FT()`), shifted
   angular spectrum, scaled Fresnel/Fraunhofer propagators, far field in
   chosen directions, zoomed PSFs (notebook 20)
