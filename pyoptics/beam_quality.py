@@ -34,6 +34,7 @@ two Rayleigh lengths. The fit is done separately for each principal axis
 (for simple astigmatic beams).
 """
 
+import warnings
 from collections import namedtuple
 
 import numpy as np
@@ -143,12 +144,15 @@ def widths_from_moments(moments):
     sx2, sy2, sxy2 = moments.sigma_x2, moments.sigma_y2, moments.sigma_xy2
     diff = sx2 - sy2
 
-    if diff != 0:
+    if abs(diff) + abs(sxy2) <= 1E-12*(sx2 + sy2):
+        # round beam: the azimuth is undefined, report 0
+        gamma, phi = 1.0, 0.0
+    elif diff != 0:
         gamma = np.sign(diff)
         phi = 0.5*np.arctan(2*sxy2/diff)
     else:
-        # principal axes along the diagonals (or a round beam with phi = 0);
-        # the principal x axis at phi = +-pi/4 is the major axis:
+        # principal axes along the diagonals; the principal x axis at
+        # phi = +-pi/4 is the major axis:
         gamma = 1.0
         phi = np.sign(sxy2)*np.pi/4
 
@@ -174,7 +178,10 @@ def beam_widths(I, x, y, background=0.0, iterate=True, window=3.0, max_iter=50, 
         If True (default), restrict the integration to a rectangle of window
         times the beam widths around the centroid, aligned with the principal
         axes, and iterate until the widths change by less than rtol (ISO
-        11146-3). If False, integrate over the whole image.
+        11146-3); for round beams (ellipticity > 0.87) the window is a square
+        of window times d_r aligned with x and y. The iteration starts from the moments of the region above half
+        the (background corrected) maximum. If False, integrate over
+        the whole image.
     window : number, optional
         Size of the integration area in units of the beam widths. ISO
         prescribes 3.
@@ -189,17 +196,51 @@ def beam_widths(I, x, y, background=0.0, iterate=True, window=3.0, max_iter=50, 
     """
 
     X, Y = ensure_meshgrid(x, y)
-    widths = widths_from_moments(second_moments(I, X, Y, background))
 
     if iterate:
+        # start from the moments of the region above half the maximum: with
+        # noisy images, the moments of the whole image can be far off or even
+        # undefined (negative variances), and the iteration would not recover
+        # from such a start. The half maximum region underestimates the widths,
+        # and the iteration converges from below, which is robust against
+        # noise far from the beam:
+        I_corrected = np.asarray(I, dtype=float) - background
+        widths = widths_from_moments(second_moments(I_corrected, X, Y,
+                                                    mask=I_corrected > 0.5*I_corrected.max()))
+    else:
+        widths = widths_from_moments(second_moments(I, X, Y, background))
+
+    if iterate:
+        seen_areas = set()
         for _ in range(max_iter):
-            U, V = local_coordinates(X, Y, widths.x_c, widths.y_c, widths.phi)
-            area = (np.abs(U) <= window*widths.d_x/2) & (np.abs(V) <= window*widths.d_y/2)
-            new = widths_from_moments(second_moments(I, X, Y, background, area))
+            if widths.ellipticity > 0.87:
+                # round beam (ISO 11146-1): the azimuth is not defined and
+                # would jump from iteration to iteration with noise, so use a
+                # square window aligned with x and y
+                U, V = X - widths.x_c, Y - widths.y_c
+                half_x = half_y = window*widths.d_r/2
+            else:
+                U, V = local_coordinates(X, Y, widths.x_c, widths.y_c, widths.phi)
+                half_x, half_y = window*widths.d_x/2, window*widths.d_y/2
+            area = (np.abs(U) <= half_x) & (np.abs(V) <= half_y)
+            key = np.packbits(area).tobytes()
+            if key in seen_areas:
+                # the same pixels as in an earlier step: the iteration has
+                # converged or (with noise) runs in a cycle between a few
+                # windows that differ by single pixels
+                break
+            seen_areas.add(key)
+            with np.errstate(invalid="ignore"):
+                new = widths_from_moments(second_moments(I, X, Y, background, area))
+            if not np.all(np.isfinite([new.d_x, new.d_y])):
+                raise ValueError("Beam width iteration failed (negative variance in the window); "
+                                 "the signal to noise ratio is too low, average several frames")
             converged = np.allclose([new.d_x, new.d_y], [widths.d_x, widths.d_y], rtol=rtol, atol=0)
             widths = new
             if converged:
                 break
+        else:
+            warnings.warn("Beam width iteration did not converge within {} steps".format(max_iter))
 
     return widths
 

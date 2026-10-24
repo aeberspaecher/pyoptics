@@ -115,3 +115,19 @@ def test_moments_with_mask():
 
     assert np.allclose(moments, [2, 2, 1, 0, 0])
     assert widths_from_moments(moments).d_x == pytest.approx(4.0)
+
+
+def test_iteration_with_camera_noise_and_offset():
+    """ISO window iteration on camera images (shot noise, read noise, offset
+    subtracted with a dark frame) gives unbiased widths."""
+
+    from pyoptics.processing import CameraNoiser, Scaler
+
+    x, y, X, Y = grid2d(-128, 128, -128, 128, 256)
+    beam = np.exp(-2*(X**2 + Y**2)/12.0**2)
+    camera = CameraNoiser(model="camera", read_noise=5.0, offset=100.0, rng=2)
+    dark = np.mean([camera(np.zeros_like(beam)) for _ in range(20)], axis=0)
+    d = [beam_widths(camera(Scaler(1000.0)(beam)), x, y, background=dark).d_x for _ in range(20)]
+
+    assert np.mean(d) == pytest.approx(24.0, rel=0.01)
+    assert np.std(d) < 0.03*24.0
