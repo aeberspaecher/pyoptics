@@ -18,6 +18,7 @@ running anything (e.g. directly on GitHub).
 | [08_WPM](08_WPM.ipynb) | `wpm` | Wave propagation method: test in a homogeneous medium, GRIN medium, step-index waveguide, thick cylindrical lens with spherical aberration |
 | [09_bases](09_bases.ipynb) | `bases`, `masks` | Zernike pyramid and radial polynomials, orthogonality on the grid (Gram matrices), least squares vs. overlap integrals, Legendre and Chebyshev bases on rectangles, coefficient drift on non-native apertures, numerical orthogonalization on annulus and hexagon, rescaling, fits to scattered data, presampling |
 | [10_layer_stacks](10_layer_stacks.ipynb) | `thin_films`, `materials` | Interactive layer stack designer (ipywidgets): R, T, A vs. wavelength and angle for s, p and unpolarized light; AR coatings, Bragg mirror, Fabry-Perot filter, metal film; Abbe dispersion model (n_d, V_d) compared with Sellmeier, dispersive Bragg mirror and AR coating |
+| [11_image_processing](11_image_processing.ipynb) | `processing`, `utils.center_of_mass`, `utils.add_camera_noise` | Scaling by field strength or intensity (peak, mean, power; per image or per stack), Poisson vs. Gaussian noise, photon transfer curve and SNR (EMVA 1288 camera model), fixed pattern noise and frame averaging, bit depth and saturation, centering jittered stacks, background and threshold, centroid precision vs. photon number, complete measurement pipeline |
 
 All notebooks use the pyoptics convention $\exp(i(\mathbf{k}\cdot\mathbf{r} - \omega t))$
 (see the main README).

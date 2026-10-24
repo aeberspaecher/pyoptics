@@ -334,13 +334,60 @@ def get_z_derivative(stack, dz, order):
     return np.einsum("ijk,k->ij", stack, deriv_coeffs)
 
 
-def add_camera_noise():
-    """Apply a simple noise model to an image stack.
+def add_camera_noise(stack, model="camera", **kwargs):
+    """Apply a camera noise model to an image or an image stack.
+
+    Shortcut for processing.CameraNoiser(model, **kwargs)(stack); see there
+    for the models and parameters.
+
+    Parameters
+    ----------
+    stack : array
+        Image (2d) or image stack (3d, last index numbering the images). For
+        the "poisson" and "camera" models: expected photons per pixel.
+    model : str, optional
+        "gaussian", "poisson" or "camera".
+
+    Returns
+    -------
+    noisy : array
     """
 
-    # TODO: implement a noise model with Poissonian photon noise, and Gaussian
-    # other noise
-    pass
+    from .processing import CameraNoiser  # processing imports utils
+
+    return CameraNoiser(model, **kwargs)(stack)
+
+
+def center_of_mass(img, x, y, threshold=0.0):
+    """Return the center of mass (centroid) of a (non-negative) image.
+
+    Parameters
+    ----------
+    img : array
+        Image of shape (len(y), len(x)), usually an intensity.
+    x, y : arrays
+        1d coordinate grids.
+    threshold : float, optional
+        Pixels below threshold*max(img) are ignored (set to zero).
+
+    Returns
+    -------
+    x_c, y_c : float
+        Coordinates of the centroid.
+    """
+
+    img = np.asarray(img, dtype=float)
+    if threshold > 0:
+        img = np.where(img >= threshold*np.max(img), img, 0.0)
+
+    total = np.sum(img)
+    if total == 0:
+        raise ValueError("cannot compute the center of mass of an empty image")
+
+    x_c = np.sum(np.sum(img, axis=0)*x)/total
+    y_c = np.sum(np.sum(img, axis=1)*y)/total
+
+    return x_c, y_c
 
 
 def scalar_product(field1, field2, x, y, weight_func=None):
