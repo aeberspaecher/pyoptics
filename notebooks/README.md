@@ -23,7 +23,8 @@ running anything (e.g. directly on GitHub).
 | [13_beam_quality](13_beam_quality.ipynb) | `beam_quality`, `propagators`, `processing` | ISO 11146 widths and principal axes of elliptical and Hermite-Gaussian beams, M² of a focused beam with spherical aberration (two-step caustic measurement, focal shift), M² from a single plane vs. ISO window, noise and background: why ISO iterates a 3× window |
 | [14_stack_transfer_functions](14_stack_transfer_functions.ipynb) | `thin_films.stack_transfer_functions` | Phase of r at total internal reflection, Goos-Hänchen shift vs. Artmann's formula, frustrated total internal reflection (tunnelling), focused beam on a Fabry-Perot etalon: Haidinger rings and reduced peak transmission |
 | [15_vectorial_diffraction](15_vectorial_diffraction.ipynb) | `propagators` (vectorial) | Longitudinal field of tilted plane waves and tight Gaussian waists, radially and azimuthally polarized beams, vectorized Fresnel and Fraunhofer propagation, padding vector fields, high NA focusing with Mansuripur's method vs. Richards-Wolf, focal spots for linear, circular, radial and azimuthal polarization, through focus, energy conservation |
-| [16_vectorial_imaging_lithography](16_vectorial_imaging_lithography.ipynb) | `vectorial_imaging`, `polarization` | Two-beam interference of TE and TM waves, L/S masks and illumination sources (dipole, annular, quasar) with polarization in the pupil, aerial images of 40 nm L/S at NA 1.35 for TE, TM and unpolarized light vs. the scalar model, contrast and NILS through pitch, dry vs. immersion, defocus, partially polarized illumination (IPS), attenuated PSM, contact holes with azimuthal and radial polarization |
+| [16_vectorial_imaging_lithography](16_vectorial_imaging_lithography.ipynb) | `litho`, `vectorial_imaging`, `polarization` | Two-beam interference of TE and TM waves, L/S masks and illumination sources (dipole, annular, quasar) with polarization and pupil fill, aerial images of 40 nm L/S at NA 1.35 for TE, TM and unpolarized light vs. the scalar model, contrast and NILS through pitch, dry vs. immersion, defocus, partially polarized illumination (IPS), attenuated PSM, contact holes with azimuthal and radial polarization and printed contours, Bossung curves and process windows of TE vs. unpolarized light |
+| [17_lithography_toolbox](17_lithography_toolbox.ipynb) | `litho`, `thin_films` | Tour of the lithography toolbox: source shapes and polarizations, NILS for different sources, mask layouts (L/S, iso line, trench, dense, isolated and staggered contacts) with pupil fill and printed contours, iso-dense bias, NILS and MEEF through pitch, mask stacks (thin mask vs. MoSi and Cr absorbers from thin films, PSM phase tuning, angle and TE/TM dependence, boundary layer model), images in the resist (BARC design, standing waves, swing curve, TE/TM in the resist), focus-exposure matrices, Bossung curves and EL vs. DOF for contact holes (why radial polarization can win), spherical aberration and coma, resist blur |
 
 All notebooks use the pyoptics convention $\exp(i(\mathbf{k}\cdot\mathbf{r} - \omega t))$
 (see the main README).
@@ -43,7 +44,9 @@ The widgets of notebook 10 only work with a running kernel; static viewers
 such as GitHub show the static figures stored below each interactive cell.
 
 Run times on an ordinary laptop range from a few seconds to about a minute per
-notebook (longest: 01 and 08).
+notebook (longest: 01 and 08), except for the lithography notebooks 16 (about
+1.5 minutes) and 17 (about 3 minutes), which compute many focus-exposure
+matrices and through-pitch series.
 
 To re-execute all notebooks and store their outputs:
 
