@@ -17,6 +17,7 @@ running anything (e.g. directly on GitHub).
 | [07_IFTA](07_IFTA.ipynb) | `ifta` | Beam shaping with Gerchberg-Saxton, convergence, hybrid output-output, influence of the start phase, phase quantization and the twin image |
 | [08_WPM](08_WPM.ipynb) | `wpm` | Wave propagation method: test in a homogeneous medium, GRIN medium, step-index waveguide, thick cylindrical lens with spherical aberration |
 | [09_bases](09_bases.ipynb) | `bases`, `masks` | Zernike pyramid and radial polynomials, orthogonality on the grid (Gram matrices), least squares vs. overlap integrals, Legendre and Chebyshev bases on rectangles, coefficient drift on non-native apertures, numerical orthogonalization on annulus and hexagon, rescaling, fits to scattered data, presampling |
+| [10_layer_stacks](10_layer_stacks.ipynb) | `thin_films`, `materials` | Interactive layer stack designer (ipywidgets): R, T, A vs. wavelength and angle for s, p and unpolarized light; AR coatings, Bragg mirror, Fabry-Perot filter, metal film; Abbe dispersion model (n_d, V_d) compared with Sellmeier, dispersive Bragg mirror and AR coating |
 
 All notebooks use the pyoptics convention $\exp(i(\mathbf{k}\cdot\mathbf{r} - \omega t))$
 (see the main README).
@@ -24,12 +25,16 @@ All notebooks use the pyoptics convention $\exp(i(\mathbf{k}\cdot\mathbf{r} - \o
 ## Running
 
 You need an installation of pyoptics as described in the main README, plus
-matplotlib and Jupyter:
+matplotlib, Jupyter and (for notebook 10) ipywidgets, all contained in the
+`notebooks` extra:
 
 ```bash
-pip install matplotlib jupyterlab
+pip install -e ".[notebooks]"
 jupyter lab notebooks/
 ```
+
+The widgets of notebook 10 only work with a running kernel; static viewers
+such as GitHub show the static figures stored below each interactive cell.
 
 Run times on an ordinary laptop range from a few seconds to about a minute per
 notebook (longest: 01 and 08).
