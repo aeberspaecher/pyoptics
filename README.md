@@ -35,8 +35,13 @@ Status of the modules:
 - `propagators`: mature and tested (Rayleigh-Sommerfeld, Fresnel, Fraunhofer,
   band-limited and padded propagation; vectorial propagation of [E_x, E_y]
   with the longitudinal component E_z, any scalar propagator vectorized,
-  Mansuripur's high NA focusing, checked against the Richards-Wolf integrals)
+  Mansuripur's high NA focusing, checked against the Richards-Wolf integrals;
+  propagation onto free output windows: shifted angular spectrum method with
+  Matsushima's band limit, scaled Fresnel and Fraunhofer integrals, far field
+  in chosen directions)
 - `fft`, `utils`, `masks`, `geometry`, `analytical`: mature and tested
+  (`fft.czt()`: Bluestein's chirp-z transform; `fft.zoom_FT()` and
+  `zoom_inv_FT()` evaluate `FT()` and `inv_FT()` on any equidistant grid)
   (`utils.pad()`/`unpad()` for centered zero padding; `analytical` holds the
   Airy pattern, its encircled energy and the diffraction limited OTF)
 - `bases`: mature (Zernike, Legendre, Chebyshev bases, numerical
@@ -76,7 +81,8 @@ Status of the modules:
   Bossung curves, process windows)
 - `polarization`: TE/TM bases, Stokes to Jones decomposition, DOP and IPS
 - `imaging`: scalar imaging, tested: coherent imaging through a circular
-  pupil, PSF with pupil masks (obscuration, apodization) and phases, OTF and
+  pupil, PSF with pupil masks (obscuration, apodization) and phases (also
+  zoomed onto any output window via the chirp-z transform), OTF and
   MTF, Strehl ratio and Maréchal approximations
 - `abcd`: ABCD (ray transfer) matrices, tested: thin and thick lenses,
   spherical interfaces, tilted mirrors (tangential/sagittal), GRIN media;

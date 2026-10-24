@@ -23,6 +23,10 @@ dx <= wavelength/(4*NA) to sample the OTF without aliasing. The pupil is
 sampled with spacing 2*pi/L (L: size of the image plane window), i.e. with
 about L*NA/wavelength samples across its radius; the larger the window, the
 better the pupil (and with it the PSF) is resolved.
+
+get_psf() can evaluate the PSF on a separate output grid x_out, y_out (e.g. a
+fine grid around the core or an off-axis window) by a chirp-z transform of
+the pupil, without zero padding: x, y then only set the pupil sampling.
 """
 
 import warnings
@@ -31,8 +35,8 @@ import numpy as np
 from numpy import pi
 from math import sqrt
 from numpy.lib.scimath import sqrt as cmpl_sqrt
-from .fft import FT, inv_FT
-from .utils import freq_grid
+from .fft import FT, inv_FT, zoom_inv_FT
+from .utils import freq_grid, frequencies
 
 
 def image(obj, x, y, NA, k):
@@ -151,7 +155,8 @@ def pupil_function(x, y, NA, k, pupil_mask=None, phase=None):
     return P
 
 
-def get_psf(x, y, NA, k, pupil_mask=None, phase=None, normalization="peak"):
+def get_psf(x, y, NA, k, pupil_mask=None, phase=None, normalization="peak",
+            x_out=None, y_out=None):
     """Amplitude point spread function of an imaging system.
 
     The PSF is the (inverse) Fourier transform of the pupil function, located
@@ -171,25 +176,40 @@ def get_psf(x, y, NA, k, pupil_mask=None, phase=None, normalization="peak"):
         "peak" (default): scale such that the aberration-free PSF of the same
         pupil mask has the amplitude 1 at its center, so that
         |psf[Ny//2, Nx//2]|**2 is the Strehl ratio. "energy": scale such that
-        sum(|psf|**2)*dx*dy = 1. None: plain inverse DFT of the pupil.
+        sum(|psf|**2)*dx*dy = 1 on the grid x, y (with x_out, y_out the
+        same scale factor is used, so the PSF energy on the full plane is
+        1). None: plain inverse DFT of the pupil.
+    x_out, y_out : arrays, optional
+        Linear, equidistant output coordinates. If given, the PSF is
+        evaluated there by a chirp-z transform (fft.zoom_inv_FT()) of the
+        pupil sampled on the frequency grid of x, y: any center, extent and
+        sampling, e.g. a fine grid over the Airy disk without padding. The
+        PSF is periodic with the window size of x, y. Defaults to None (PSF
+        on x, y).
 
     Returns
     -------
     psf : array
-        Complex amplitude PSF, shape (Ny, Nx). The intensity PSF is
-        |psf|**2.
+        Complex amplitude PSF, shape (Ny, Nx) or (len(y_out), len(x_out)).
+        The intensity PSF is |psf|**2.
     """
 
     _check_sampling(x, y, NA, k, 1)
     P = pupil_function(x, y, NA, k, pupil_mask, phase)
-    psf = inv_FT(P)
+    if (x_out is None) != (y_out is None):
+        raise ValueError("Give both x_out and y_out or none of them")
+    if x_out is None:
+        psf = inv_FT(P)
+    else:
+        psf = zoom_inv_FT(P, frequencies(x), frequencies(y), x_out, y_out)
 
     if normalization == "peak":
         # the aberration-free amplitude at the center is sum(|P|)/(Nx*Ny):
         psf *= np.size(P)/np.sum(np.abs(P))
     elif normalization == "energy":
+        # Parseval: sum(|inv_FT(P)|**2) = sum(|P|**2)/(Nx*Ny)
         dx, dy = x[1] - x[0], y[1] - y[0]
-        psf /= np.sqrt(np.sum(np.abs(psf)**2)*dx*dy)
+        psf /= np.sqrt(np.sum(np.abs(P)**2)/np.size(P)*dx*dy)
     elif normalization is not None:
         raise ValueError("normalization must be one of 'peak', 'energy' or None")
 

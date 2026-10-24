@@ -19,7 +19,6 @@
 * Tests for `ifta` and more tests for `wpm` and `TIE`
 * Documentation for propagators
 * Incoherence in thin films (spatial and temporal incoherence)
-* CZT
 * Basis class factory for numbering scheme plus callable
 
 ## More challenging
@@ -72,3 +71,6 @@
   resonators, Collins integral (notebook 18)
 * 2D phase unwrapping (`unwrap`): least squares (DCT and weighted PCG),
   quality guided, residues (notebook 21)
+* chirp-z transform (`fft.czt()`, `zoom_FT()`, `zoom_inv_FT()`), shifted
+  angular spectrum, scaled Fresnel/Fraunhofer propagators, far field in
+  chosen directions, zoomed PSFs (notebook 20)
