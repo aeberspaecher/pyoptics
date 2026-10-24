@@ -34,6 +34,8 @@ Status of the modules:
   beams)
 - `interfaces`, `thin_films`: mature and tested (Fresnel coefficients,
   coherent multilayer stacks)
+- `materials`: Abbe (n_d, V_d) dispersion model via a two-term Cauchy
+  formula, tested
 - `polarization.mueller`, `polarization.jones`: Mueller calculus and basic
   Jones vectors and matrices, tested
 - `imaging`: basic: coherent imaging through a circular pupil and its PSF;
@@ -122,6 +124,8 @@ example `".[plot,fftw,test]"`:
 - `plot`: matplotlib, for the plotting tools
 - `fftw`: pyFFTW, for faster FFTs
 - `tie`: sympy and matplotlib, for the TIE module
+- `notebooks`: matplotlib, JupyterLab and ipywidgets, for running the example
+  notebooks (including the interactive one)
 - `test`: pytest (and matplotlib, which some modules import), for running the tests
 
 Use `python -m pip install -e .` if you want no extras at all.
@@ -158,7 +162,8 @@ Example notebooks
 The directory `notebooks/` contains executed Jupyter notebooks that
 illustrate the individual modules with visual, physically intuitive examples:
 free space propagation, Gaussian beams, interfaces and thin films,
-polarization, imaging and aberrations, TIE, IFTA, WPM and basis functions. See
+polarization, imaging and aberrations, TIE, IFTA, WPM, basis functions and an
+interactive layer stack designer. See
 `notebooks/README.md` for an overview.
 
 Conventions
