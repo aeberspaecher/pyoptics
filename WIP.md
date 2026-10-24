@@ -67,4 +67,5 @@
 * lithography toolbox `litho` (sources, mask layouts, thin and thin film
   mask stacks, boundary layer, resist on a thin film stack with TE/TM
   Fresnel transmission, NILS, CD, MEEF, Bossung curves, process windows;
-  notebooks 16 and 17)
+  notebooks 16 and 17), pupil apodization (apodization Zernikes) and KrF
+  material data
