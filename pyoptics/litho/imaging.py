@@ -57,22 +57,27 @@ class Projector(object):
     phase : callable, optional
         Additional pupil phase phase(P_x, P_y) in radians.
     apodization_zernikes : dict, optional
-        Apodization (pupil transmission) as Fringe Zernike coefficients of
-        the log amplitude: the amplitude transmission of the pupil is
-        exp(sum_j a_j*Z_j(P_x, P_y)), its intensity transmission
-        exp(2*sum_j a_j*Z_j). E.g. {4: -0.1} lets the transmission fall
-        off towards the rim of the pupil (Z_4 = 2*rho**2 - 1),
-        {4: -0.1, 9: 0.05} adds a fourth order term; a_1 is a constant
-        factor that cancels in normalized images. The exponential keeps the
-        amplitude positive for any coefficients and makes the coefficients
-        of two apodizing elements add up, like wavefront Zernikes.
+        Apodization (pupil amplitude transmission) as Fringe Zernike
+        coefficients a_j. With apodization_model="linear" (default) the
+        amplitude transmission is A = 1 + sum_j a_j*Z_j(P_x, P_y), so the
+        pupil function is A*exp(i*W); e.g. {4: -0.1} lets the transmission
+        fall off towards the rim of the pupil (Z_4 = 2*rho**2 - 1), {4: -0.1,
+        9: 0.05} adds a fourth order term, and a constant (a_1) cancels in
+        normalized images. A must not become negative inside the pupil
+        (ValueError). With apodization_model="log" the coefficients describe
+        the log amplitude instead: A = exp(sum_j a_j*Z_j), which is positive
+        for any coefficients and makes the coefficients of two apodizing
+        elements add up; both agree to first order in a_j.
+    apodization_model : {"linear", "log"}, optional
+        How apodization_zernikes are turned into the amplitude (see above).
     apodization : callable, optional
         Additional amplitude transmission apodization(P_x, P_y) (real, >= 0)
         on normalized pupil coordinates, multiplied with the Zernike part.
     """
 
     def __init__(self, NA, wavelength, n=1.0, magnification=4.0, vectorial=True, obliquity=True,
-                 zernikes=None, phase=None, apodization_zernikes=None, apodization=None):
+                 zernikes=None, phase=None, apodization_zernikes=None, apodization=None,
+                 apodization_model="linear"):
         if NA > n:
             raise ValueError("NA = {} exceeds the refractive index n = {}".format(NA, n))
         self.NA, self.wavelength, self.n = NA, wavelength, n
@@ -82,6 +87,9 @@ class Projector(object):
         self.phase = phase
         self.apodization_zernikes = dict(apodization_zernikes or {})
         self.apodization = apodization
+        if apodization_model not in ("linear", "log"):
+            raise ValueError("apodization_model must be 'linear' or 'log', not {!r}".format(apodization_model))
+        self.apodization_model = apodization_model
 
     @property
     def k0(self):
@@ -111,7 +119,15 @@ class Projector(object):
         """Amplitude transmission of the pupil (apodization) on normalized
         pupil coordinates; 1 without apodization."""
 
-        A = np.exp(self._zernike_sum(self.apodization_zernikes, P_x, P_y))
+        S = self._zernike_sum(self.apodization_zernikes, P_x, P_y)
+        if self.apodization_model == "log":
+            A = np.exp(S)
+        else:
+            A = 1.0 + S
+            inside = np.broadcast_to(np.hypot(P_x, P_y) <= 1.0, np.shape(A))
+            if np.any(A[inside] < 0):
+                raise ValueError("apodization_zernikes give a negative amplitude transmission "
+                                 "inside the pupil (min {:.3g})".format(np.min(A[inside])))
         if self.apodization is not None:
             A = A*self.apodization(P_x, P_y)
 
@@ -123,7 +139,8 @@ class Projector(object):
         p = dict(NA=self.NA, wavelength=self.wavelength, n=self.n,
                  magnification=self.magnification, vectorial=self.vectorial,
                  obliquity=self.obliquity, zernikes=self.zernikes, phase=self.phase,
-                 apodization_zernikes=self.apodization_zernikes, apodization=self.apodization)
+                 apodization_zernikes=self.apodization_zernikes, apodization=self.apodization,
+                 apodization_model=self.apodization_model)
         p.update(kwargs)
 
         return Projector(**p)
