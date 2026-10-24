@@ -21,7 +21,6 @@
 * Incoherence in thin films (spatial and temporal incoherence)
 * CZT
 * Basis class factory for numbering scheme plus callable
-* ABCD matrices
 
 ## More challenging
 
@@ -69,3 +68,5 @@
   Fresnel transmission, NILS, CD, MEEF, Bossung curves, process windows;
   notebooks 16 and 17), pupil apodization (apodization Zernikes) and KrF
   material data
+* ABCD matrices (`abcd`): rays, cardinal points, Gaussian beams via q,
+  resonators, Collins integral (notebook 18)

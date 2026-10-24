@@ -16,7 +16,7 @@ polished library. It runs on Python 3.9 to 3.13. The API may still change
 between versions, and there is no release on PyPI; install it from source as
 described below.
 
-The core is tested: a suite of about 340 pytest tests checks the numerics
+The core is tested: a suite of about 370 pytest tests checks the numerics
 against analytical results (Fresnel and Fraunhofer diffraction, Gaussian beam
 propagation, Mahajan's on-axis intensity, Airy pattern and OTF, Fresnel
 equations, thin film stacks, Goos-Hänchen shift, beam widths and M² of
@@ -24,7 +24,8 @@ Hermite-Gaussian beams, Mueller and Jones calculus, FFT conventions,
 Richards-Wolf integrals for high NA foci, two-beam interference of TE and
 TM waves, in air and in a resist, standing waves in a resist on silicon,
 threshold CDs and process windows of analytic images, apodized two-beam
-images) and runs in GitHub
+images, ABCD matrices against lens and resonator formulas and the Collins
+integral against Gaussian beams) and runs in GitHub
 Actions on Python 3.9, 3.11 and 3.13 for every push and pull request. A
 consistent phase convention is used throughout (see Conventions).
 
@@ -76,6 +77,15 @@ Status of the modules:
 - `imaging`: scalar imaging, tested: coherent imaging through a circular
   pupil, PSF with pupil masks (obscuration, apodization) and phases, OTF and
   MTF, Strehl ratio and Maréchal approximations
+- `abcd`: ABCD (ray transfer) matrices, tested: thin and thick lenses,
+  spherical interfaces, tilted mirrors (tangential/sagittal), GRIN media;
+  `OpticalSystem` builds systems element by element and traces rays and
+  Gaussian beams (beam radius, wavefront radius, Gouy phase) anywhere, also
+  inside elements; cardinal points and images; complex beam parameter q and
+  the ABCD law (also in media), mode matching efficiency; resonator
+  stability, eigenmodes and round trip Gouy phase; `collins()` propagates any
+  field through an ABCD system (Collins integral, separate x and y matrices
+  for astigmatic systems)
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
 - `TIE`: basic transport of intensity solver, partly tested
@@ -205,8 +215,9 @@ The directory `notebooks/` contains executed Jupyter notebooks that
 illustrate the individual modules with visual, physically intuitive examples:
 free space propagation, Gaussian beams, interfaces and thin films,
 polarization, imaging and aberrations, TIE, IFTA, WPM, basis functions, an
-interactive layer stack designer and image processing (scaling, camera noise,
-centering). See
+interactive layer stack designer, image processing (scaling, camera noise,
+centering), beam quality, lithography and ABCD matrices (rays, Gaussian
+beams, resonators). See
 `notebooks/README.md` for an overview.
 
 Conventions
@@ -229,6 +240,11 @@ vary as exp(i(**k**·**r** − ωt)). In particular:
   helical phase exp(+ilφ).
 - A converging thin lens of focal length f > 0 has the transmission
   exp(−ik r²/(2f)) (`masks.thin_lens()`).
+- ABCD matrices (`abcd`) act on rays (y, nθ) with the reduced angle nθ, so
+  det M = 1. Radii are positive if the centre of curvature lies in +z,
+  concave mirrors have R > 0. The complex beam parameter is the textbook
+  q = z + i z_R with 1/q = 1/R − iλ₀/(π n w²); the field is
+  ∝ exp(+ik r²/(2R)) exp(−r²/w²) and the Gouy phase enters as exp(−iψ).
 - Absorbing media have the complex refractive index n + iκ with κ > 0. Under
   total internal reflection, the transmitted wave decays away from the
   interface.
