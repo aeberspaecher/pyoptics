@@ -16,12 +16,11 @@ conjugates.
 # McLeod, Thin Film Optical Filters, Institute of Physics Publishing, 2001
 
 from copy import copy
-from functools import reduce  # Python 3 compatibility
 from itertools import product
 
 import numpy as np
 from numpy.lib.scimath import sqrt as complex_sqrt
-from numpy import sin, cos
+from numpy import sin
 
 from .utils import Z_0 as Z_vac, wavenumber, freq_grid
 
@@ -262,9 +261,13 @@ def stack_transfer_functions(x, y, n, k, t, embedding_n, embedding_k, substrate_
     K_X, K_Y = freq_grid(x, y, wavenumbers=True, normal_order=normal_order)
     complex_n = (np.asarray([embedding_n] + list(n) + [substrate_n])
                  + 1j*np.asarray([embedding_k] + list(k) + [substrate_k]))
-    sin_theta_0 = np.sqrt(K_X**2 + K_Y**2)/wavenumber(wavelength, complex_n[0])
+    # r and t only depend on |k_perp|: evaluate the stack once per distinct
+    # value (about 8 times fewer than grid points) and map back to the grid
+    k_perp_sq, grid_index = np.unique(K_X**2 + K_Y**2, return_inverse=True)
+    sin_theta_0 = np.sqrt(k_perp_sq)/wavenumber(wavelength, complex_n[0])
+    r, t = _r_t(sin_theta_0, complex_n, t, pol, wavelength)
 
-    return _r_t(sin_theta_0, complex_n, t, pol, wavelength)
+    return r[grid_index].reshape(K_X.shape), t[grid_index].reshape(K_X.shape)
 
 
 def R_T_A_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
