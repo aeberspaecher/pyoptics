@@ -16,18 +16,21 @@ polished library. It runs on Python 3.9 to 3.13. The API may still change
 between versions, and there is no release on PyPI; install it from source as
 described below.
 
-The core is tested: a suite of about 250 pytest tests checks the numerics
+The core is tested: a suite of about 270 pytest tests checks the numerics
 against analytical results (Fresnel and Fraunhofer diffraction, Gaussian beam
 propagation, Mahajan's on-axis intensity, Airy pattern and OTF, Fresnel
 equations, thin film stacks, Goos-Hänchen shift, beam widths and M² of
-Hermite-Gaussian beams, Mueller and Jones calculus, FFT conventions) and runs in GitHub
+Hermite-Gaussian beams, Mueller and Jones calculus, FFT conventions,
+Richards-Wolf integrals for high NA foci) and runs in GitHub
 Actions on Python 3.9, 3.11 and 3.13 for every push and pull request. A
 consistent phase convention is used throughout (see Conventions).
 
 Status of the modules:
 
 - `propagators`: mature and tested (Rayleigh-Sommerfeld, Fresnel, Fraunhofer,
-  band-limited and padded propagation, vectorial Fresnel)
+  band-limited and padded propagation; vectorial propagation of [E_x, E_y]
+  with the longitudinal component E_z, any scalar propagator vectorized,
+  Mansuripur's high NA focusing, checked against the Richards-Wolf integrals)
 - `fft`, `utils`, `masks`, `geometry`, `analytical`: mature and tested
   (`utils.pad()`/`unpad()` for centered zero padding; `analytical` holds the
   Airy pattern, its encircled energy and the diffraction limited OTF)

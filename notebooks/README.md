@@ -22,6 +22,7 @@ running anything (e.g. directly on GitHub).
 | [12_psf_mtf_strehl](12_psf_mtf_strehl.ipynb) | `imaging`, `analytical` | Airy pattern and encircled energy, MTF of clear and obscured pupils, defocus and contrast reversal (chirped bar target), Strehl ratio vs. Maréchal approximations for several aberrations, apodization |
 | [13_beam_quality](13_beam_quality.ipynb) | `beam_quality`, `propagators`, `processing` | ISO 11146 widths and principal axes of elliptical and Hermite-Gaussian beams, M² of a focused beam with spherical aberration (two-step caustic measurement, focal shift), M² from a single plane vs. ISO window, noise and background: why ISO iterates a 3× window |
 | [14_stack_transfer_functions](14_stack_transfer_functions.ipynb) | `thin_films.stack_transfer_functions` | Phase of r at total internal reflection, Goos-Hänchen shift vs. Artmann's formula, frustrated total internal reflection (tunnelling), focused beam on a Fabry-Perot etalon: Haidinger rings and reduced peak transmission |
+| [15_vectorial_diffraction](15_vectorial_diffraction.ipynb) | `propagators` (vectorial) | Longitudinal field of tilted plane waves and tight Gaussian waists, radially and azimuthally polarized beams, vectorized Fresnel and Fraunhofer propagation, padding vector fields, high NA focusing with Mansuripur's method vs. Richards-Wolf, focal spots for linear, circular, radial and azimuthal polarization, through focus, energy conservation |
 
 All notebooks use the pyoptics convention $\exp(i(\mathbf{k}\cdot\mathbf{r} - \omega t))$
 (see the main README).
