@@ -18,7 +18,8 @@ exchangeable:
   with a polarization dependent boundary layer at the edges (`BoundaryLayer`)
   as an approximation to thick mask effects,
 - `Projector`: the projection lens (NA, wavelength, immersion, vectorial or
-  scalar model, Zernike aberrations, defocus),
+  scalar model, Zernike aberrations, apodization (e.g. apodization
+  Zernikes), defocus),
 - `WaferStack`: optional resist on a thin film stack (BARC, substrate, top
   coat), computed with `pyoptics.thin_films` for TE and TM, with standing
   waves; without it the aerial image in the immersion medium is computed,

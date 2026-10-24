@@ -23,7 +23,8 @@ equations, thin film stacks, Goos-Hänchen shift, beam widths and M² of
 Hermite-Gaussian beams, Mueller and Jones calculus, FFT conventions,
 Richards-Wolf integrals for high NA foci, two-beam interference of TE and
 TM waves, in air and in a resist, standing waves in a resist on silicon,
-threshold CDs and process windows of analytic images) and runs in GitHub
+threshold CDs and process windows of analytic images, apodized two-beam
+images) and runs in GitHub
 Actions on Python 3.9, 3.11 and 3.13 for every push and pull request. A
 consistent phase convention is used throughout (see Conventions).
 
@@ -62,8 +63,9 @@ Status of the modules:
   field); mask stacks in the thin mask approximation (binary, attenuated
   PSM), with absorber transmissions from `thin_films` (angle and TE/TM
   dependent) and an optional boundary layer model for thick mask edges;
-  projector with immersion, vectorial or scalar model and Fringe Zernike
-  aberrations; images in the resist on a thin film wafer stack (BARC, top
+  projector with immersion (or dry), vectorial or scalar model, Fringe
+  Zernike aberrations and pupil apodization (Fringe Zernikes of the log
+  amplitude, or any transmission function); images in the resist on a thin film wafer stack (BARC, top
   coat, substrate; TE/TM Fresnel transmission, standing waves); metrics
   (contrast, ILS/NILS, threshold CD, dose to size, MEEF, focus-exposure
   matrix, Bossung curves, process window, exposure latitude vs. depth of

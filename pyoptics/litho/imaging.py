@@ -7,9 +7,10 @@ For every source point the mask (a MaskLayout with a mask stack) diffracts
 the illuminating plane wave into orders with the transverse wave vectors
 k_0*NA*s + 2*pi*(m/p_x, n/p_y) and Jones matrices given by the Fourier
 coefficients of its regions times their transmissions. The projector passes
-the orders inside its pupil, applies aberrations and defocus and, in the
-vectorial model, turns each order into a plane wave in the immersion medium
-with the aplanatic polarization rotation (as vectorial_imaging does). The
+the orders inside its pupil, applies apodization, aberrations and defocus
+and, in the vectorial model, turns each order into a plane wave in the
+immersion medium with the aplanatic polarization rotation (as
+vectorial_imaging does). The
 optional WaferStack then gives the field inside the resist. Fields are
 summed over the orders on any rectilinear grid by two matrix products
 (exp(i*k_y*y) @ A @ exp(i*k_x*x).T), which is exact for any pitch and any
@@ -55,10 +56,23 @@ class Projector(object):
         0.02} (spherical aberration), on the normalized pupil.
     phase : callable, optional
         Additional pupil phase phase(P_x, P_y) in radians.
+    apodization_zernikes : dict, optional
+        Apodization (pupil transmission) as Fringe Zernike coefficients of
+        the log amplitude: the amplitude transmission of the pupil is
+        exp(sum_j a_j*Z_j(P_x, P_y)), its intensity transmission
+        exp(2*sum_j a_j*Z_j). E.g. {4: -0.1} lets the transmission fall
+        off towards the rim of the pupil (Z_4 = 2*rho**2 - 1),
+        {4: -0.1, 9: 0.05} adds a fourth order term; a_1 is a constant
+        factor that cancels in normalized images. The exponential keeps the
+        amplitude positive for any coefficients and makes the coefficients
+        of two apodizing elements add up, like wavefront Zernikes.
+    apodization : callable, optional
+        Additional amplitude transmission apodization(P_x, P_y) (real, >= 0)
+        on normalized pupil coordinates, multiplied with the Zernike part.
     """
 
     def __init__(self, NA, wavelength, n=1.0, magnification=4.0, vectorial=True, obliquity=True,
-                 zernikes=None, phase=None):
+                 zernikes=None, phase=None, apodization_zernikes=None, apodization=None):
         if NA > n:
             raise ValueError("NA = {} exceeds the refractive index n = {}".format(NA, n))
         self.NA, self.wavelength, self.n = NA, wavelength, n
@@ -66,32 +80,50 @@ class Projector(object):
         self.vectorial, self.obliquity = vectorial, obliquity
         self.zernikes = dict(zernikes or {})
         self.phase = phase
+        self.apodization_zernikes = dict(apodization_zernikes or {})
+        self.apodization = apodization
 
     @property
     def k0(self):
         return 2*np.pi/self.wavelength
 
+    @staticmethod
+    def _zernike_sum(coeffs, P_x, P_y):
+        W = np.zeros(np.shape(P_x))
+        if coeffs:
+            rho, phi = np.hypot(P_x, P_y), np.arctan2(P_y, P_x)
+            for j, c in coeffs.items():
+                n, m = fringe_to_n_m(j)
+                W = W + c*fringe_zernike_R_nm(n, abs(m), rho)*fringe_zernike_Y_m(m, phi)
+
+        return W
+
     def pupil_phase(self, P_x, P_y):
         """Wavefront phase in radians on normalized pupil coordinates."""
 
-        W = np.zeros(np.shape(P_x))
-        if self.zernikes:
-            rho, phi = np.hypot(P_x, P_y), np.arctan2(P_y, P_x)
-            for j, c in self.zernikes.items():
-                n, m = fringe_to_n_m(j)
-                W = W + c*fringe_zernike_R_nm(n, abs(m), rho)*fringe_zernike_Y_m(m, phi)
-        W = 2*np.pi*W
+        W = 2*np.pi*self._zernike_sum(self.zernikes, P_x, P_y)
         if self.phase is not None:
             W = W + self.phase(P_x, P_y)
 
         return W
+
+    def pupil_amplitude(self, P_x, P_y):
+        """Amplitude transmission of the pupil (apodization) on normalized
+        pupil coordinates; 1 without apodization."""
+
+        A = np.exp(self._zernike_sum(self.apodization_zernikes, P_x, P_y))
+        if self.apodization is not None:
+            A = A*self.apodization(P_x, P_y)
+
+        return A
 
     def with_(self, **kwargs):
         """Copy with changed parameters, e.g. projector.with_(vectorial=False)."""
 
         p = dict(NA=self.NA, wavelength=self.wavelength, n=self.n,
                  magnification=self.magnification, vectorial=self.vectorial,
-                 obliquity=self.obliquity, zernikes=self.zernikes, phase=self.phase)
+                 obliquity=self.obliquity, zernikes=self.zernikes, phase=self.phase,
+                 apodization_zernikes=self.apodization_zernikes, apodization=self.apodization)
         p.update(kwargs)
 
         return Projector(**p)
@@ -197,7 +229,8 @@ class LithoSimulation(object):
 
             Sigma_x, Sigma_y = np.where(passed, K_x/k, 0.0), np.where(passed, K_y/k, 0.0)
             cos_theta = np.sqrt(np.clip(1 - Sigma_x**2 - Sigma_y**2, 1E-12, None))
-            pupil = passed*np.exp(1j*(P.pupil_phase(K_x/kNA, K_y/kNA) + k*cos_theta*focus))
+            P_x, P_y = K_x/kNA, K_y/kNA
+            pupil = passed*P.pupil_amplitude(P_x, P_y)*np.exp(1j*(P.pupil_phase(P_x, P_y) + k*cos_theta*focus))
             if P.vectorial:
                 R = aplanatic_rotation(Sigma_x, Sigma_y)
                 if P.obliquity:
