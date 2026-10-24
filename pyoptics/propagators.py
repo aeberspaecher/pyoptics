@@ -53,7 +53,7 @@ from numpy.lib.scimath import sqrt as complex_sqrt
 import numpy as np
 
 from .fft import fft2, ifft2, fftfreq, fftshift, ifftshift, FT, inv_FT, FT_unitary, inv_FT_unitary
-from .utils import freq_grid, wavenumber, k_z, TWOPI, simpson_weights, weight_grid, ensure_meshgrid, get_dx
+from .utils import freq_grid, wavenumber, k_z, TWOPI, simpson_weights, weight_grid, ensure_meshgrid, get_dx, pad, unpad
 
 
 def _linear_coords(x, y):
@@ -114,21 +114,11 @@ def propagate_padded(propagator, field, x_prime, y_prime, z, wavelength, n=1.0,
                          "field yourself instead.".format(propagator.__name__))
 
     x, y = _linear_coords(x_prime, y_prime)
-    Ny, Nx = np.shape(field)
-    Ny_pad, Nx_pad = int(ceil(pad_factor*Ny)), int(ceil(pad_factor*Nx))
-
-    # keep the sample at index N//2 at index N_pad//2 so that a centered grid
-    # stays centered:
-    off_y, off_x = Ny_pad//2 - Ny//2, Nx_pad//2 - Nx//2
-    x_pad = x[Nx//2] + get_dx(x)*(np.arange(Nx_pad) - Nx_pad//2)
-    y_pad = y[Ny//2] + get_dx(y)*(np.arange(Ny_pad) - Ny_pad//2)
-
-    field_pad = np.zeros([Ny_pad, Nx_pad], dtype=complex)
-    field_pad[off_y:off_y + Ny, off_x:off_x + Nx] = field
+    field_pad, x_pad, y_pad = pad(np.asarray(field, dtype=complex), x, y, factor=pad_factor)
 
     propagated_pad, _, _ = propagator(field_pad, x_pad, y_pad, z, wavelength, n=n, **kwargs)
 
-    return propagated_pad[off_y:off_y + Ny, off_x:off_x + Nx], x_prime, y_prime
+    return unpad(propagated_pad, x_pad, y_pad, np.shape(field))[0], x_prime, y_prime
 
 
 # NOTE: wavelength arguments are vacuum wavelengths; inside a medium of
