@@ -13,6 +13,16 @@ The following propagators are available:
 - fraunhofer()
 - rayleigh_sommerfeld_I_DI()
 
+Propagators onto a free output window (center, extent and sampling chosen
+independently of the input grid, evaluated with chirp-z transforms, see
+fft.czt()):
+
+- shifted_angular_spectrum(): exact (Rayleigh-Sommerfeld) propagation to an
+  off-axis or rescaled window, band limited after Matsushima (2010)
+- fresnel_scaled(): Fresnel integral (single transform) on any window
+- fraunhofer_scaled(): Fraunhofer integral on any window
+- far_field(): far field amplitude in chosen directions
+
 Vectorial propagation (fields of shape (Ny, Nx, 2) or (Ny, Nx, 3) with the
 components [E_x, E_y(, E_z)]):
 
@@ -51,15 +61,16 @@ media can be described by a complex n = n' + i*kappa with kappa > 0.
 """
 
 # TODO: can from_spectrum switches be implemented? this might save Fourier transforms.
-# TODO: implement shifted windows
 
 import warnings
 from math import pi, ceil
 
 import numpy as np
 
-from .fft import fft2, ifft2, fftfreq, fftshift, ifftshift, FT, inv_FT, FT_unitary, inv_FT_unitary
-from .utils import freq_grid, wavenumber, k_z, TWOPI, simpson_weights, weight_grid, ensure_meshgrid, get_dx, pad, unpad
+from .fft import (fft2, ifft2, fftfreq, fftshift, ifftshift, FT, inv_FT, FT_unitary,
+                  inv_FT_unitary, zoom_FT, zoom_inv_FT)
+from .utils import (freq_grid, frequencies, wavenumber, k_z, TWOPI, simpson_weights,
+                    weight_grid, ensure_meshgrid, get_dx, pad, unpad)
 
 
 def _linear_coords(x, y):
@@ -463,6 +474,311 @@ def _fraunhofer_coord_scale(x, y, z, wavelength):
     x_new, y_new = wavelength*z*f_x, wavelength*z*f_y
 
     return x_new, y_new
+
+
+# Propagation onto free output windows
+# ------------------------------------
+#
+# The following propagators evaluate the final field on an output grid
+# x_out, y_out of their own: any center, extent and sampling (equidistant).
+# Fourier sums are evaluated with chirp-z transforms (fft.zoom_FT() and
+# zoom_inv_FT()), which cost about as much as a few FFTs of size N + M.
+
+def _window_coords(x_out, y_out, func_name):
+    """Linear output coordinates from linear or meshed x_out, y_out."""
+
+    if x_out is None or y_out is None:
+        raise ValueError("{}() needs output coordinates x_out and y_out".format(func_name))
+
+    return _linear_coords(np.atleast_1d(x_out), np.atleast_1d(y_out))
+
+
+def _extent(coords):
+    """Distance between the first and the last sample (at least one sample
+    spacing, also for a single sample)."""
+
+    return max(abs(coords[-1] - coords[0]), abs(get_dx(coords)) if len(coords) > 1 else 0.0)
+
+
+def shifted_angular_spectrum(field, x_prime, y_prime, z, wavelength, x_out, y_out,
+                             n=1.0, band_limit=True, pad_factor="auto"):
+    """Angular spectrum propagation onto a shifted (and rescaled) window.
+
+    Evaluates the exact solution of the Helmholtz equation (as
+    rayleigh_sommerfeld_I_TF())
+
+        U(x, y, z) = 1/(Nx*Ny) sum_mn A[m, n]*exp(i*(k_x*x + k_y*y + k_z*z))
+
+    with the plane wave amplitudes A of the field in the initial plane, at
+    the points of an output window x_out, y_out that may lie anywhere (e.g.
+    off-axis, beside the input window) and may have a sampling of its own.
+    The sum is evaluated with chirp-z transforms (fft.zoom_inv_FT()).
+
+    The discrete spectrum describes a periodic continuation of the input
+    field. To keep the replicas out of the output window, the input is zero
+    padded to a window of at least the size of input plus output window, and
+    (band_limit=True) only plane waves that travel from the input window into
+    the output window are kept: a plane wave with the wavevector (k_x, k_y,
+    k_z) moves laterally by z*k_x/k_z, which must lie between
+    min(x_out) - max(x_prime) and max(x_out) - min(x_prime) (the same for y).
+    This also guarantees that the transfer function is sampled finely enough
+    (Matsushima's shifted angular spectrum method; for an output window
+    equal to the input window it is the band limit of
+    rayleigh_sommerfeld_I_TF(band_limit=True)). Evanescent waves are dropped
+    if band_limit is True.
+
+    The band shrinks with the distance: the spectral spacing 2*pi/L_pad
+    (L_pad: padded window) must resolve it. A warning is issued if fewer
+    than four plane waves are kept along x or y; increase pad_factor then, or
+    use fresnel_scaled() or far_field(), which have no such limit (in the
+    Fresnel and far field regime).
+
+    Parameters
+    ----------
+    field : array
+    x_prime, y_prime : arrays
+        Linear or 2d equidistant coordinates of the field. They need not be
+        centered.
+    z : number
+        Propagation distance (negative z propagates backwards).
+    wavelength : number
+        Vacuum wavelength.
+    x_out, y_out : arrays
+        Linear or 2d equidistant coordinates of the output window.
+    n : number, optional
+        Refractive index.
+    band_limit : boolean, optional
+        Apply the band limit described above (default). Without it, light
+        that leaves the output window may reenter from the periodic replicas.
+    pad_factor : "auto" or number, optional
+        Size of the padded input window relative to the input window. "auto"
+        (default) pads to at least input plus output window in x and y. Use
+        1 to switch padding off.
+
+    Returns
+    -------
+    field_propagated : array
+        Field of shape (len(y_out), len(x_out)).
+    x_out, y_out : arrays
+        The output coordinates as given.
+
+    Sources
+    -------
+    K. Matsushima, "Shifted angular spectrum method for off-axis numerical
+    propagation," Opt. Express 18, 18453-18463 (2010)
+    K. Matsushima and T. Shimobaba, "Band-limited angular spectrum method for
+    numerical simulation of free-space propagation in far and near fields,"
+    Opt. Express 17, 19662-19673 (2009)
+    """
+
+    x_in, y_in = _linear_coords(x_prime, y_prime)
+    x_o, y_o = _window_coords(x_out, y_out, "shifted_angular_spectrum")
+    field = np.asarray(field, dtype=complex)
+    Ny, Nx = field.shape
+
+    if pad_factor == "auto":
+        shape = tuple(int(ceil((_extent(c_in) + _extent(c_o))/abs(get_dx(c_in)))) + 1
+                      for c_in, c_o in ((y_in, y_o), (x_in, x_o)))
+        shape = (max(shape[0], Ny), max(shape[1], Nx))
+        field_pad, x_pad, y_pad = pad(field, x_in, y_in, shape=shape)
+    else:
+        field_pad, x_pad, y_pad = pad(field, x_in, y_in, factor=pad_factor)
+
+    # plane wave amplitudes referring to the origin (the grid need not be centered):
+    kx, ky = frequencies(x_pad), frequencies(y_pad)
+    K_X, K_Y = np.meshgrid(kx, ky)
+    A = FT(field_pad)*np.exp(-1j*(K_X*x_pad[len(x_pad)//2] + K_Y*y_pad[len(y_pad)//2]))
+
+    k = wavenumber(wavelength, n)
+    KZ = k_z(k, K_X, K_Y)
+    TF = np.exp(1j*KZ*z)
+
+    if band_limit:
+        propagating = (np.real(KZ) > 0) & (np.abs(np.imag(KZ)) < 1E-12*np.abs(k))
+        KZ_safe = np.where(propagating, np.real(KZ), 1.0)
+        keep = propagating.copy()
+        for K, c_in, c_o in ((K_X, x_in, x_o), (K_Y, y_in, y_o)):
+            shift = z*K/KZ_safe
+            keep &= (shift >= c_o.min() - c_in.max()) & (shift <= c_o.max() - c_in.min())
+        TF = np.where(keep, TF, 0.0)
+        N_band = min(np.count_nonzero(keep.any(axis=0)), np.count_nonzero(keep.any(axis=1)))
+        if N_band < 4:
+            warnings.warn("shifted_angular_spectrum(): the band limit keeps only {} "
+                          "plane wave(s) along x or y; the angular spectrum is too coarse "
+                          "for this distance. Increase pad_factor or use fresnel_scaled() "
+                          "or far_field() for large distances.".format(N_band), stacklevel=2)
+
+    field_propagated = zoom_inv_FT(A*TF, kx, ky, x_o, y_o)
+
+    return field_propagated, x_out, y_out
+
+
+def _check_fresnel_sampling(x, y, z, wl_medium, x_out, y_out, chirp, func_name):
+    """Warn if the input chirp exp(i*k*r**2/(2z)) is undersampled or if the
+    output window is larger than the period wl*z/dx of the discrete Fresnel
+    transform.
+    """
+
+    for name, c, c_o in (("x", x, x_out), ("y", y, y_out)):
+        dx = abs(get_dx(c))
+        if chirp:
+            r_max = np.max(np.abs(c))
+            # local frequency of the chirp k*r/z must stay below pi/dx:
+            if r_max/(wl_medium*abs(z)) > 1/(2*dx):
+                warnings.warn("{}(): the Fresnel chirp is undersampled at the edge "
+                              "of the input window in {} (|z| = {:g} < 2*max|{}|*d{}/wavelength "
+                              "= {:g}); use shifted_angular_spectrum() for short distances"
+                              .format(func_name, name, abs(z), name, name,
+                                      2*r_max*dx/wl_medium), stacklevel=3)
+        if _extent(c_o) > wl_medium*abs(z)/dx:
+            warnings.warn("{}(): the output window in {} is larger than the period "
+                          "wavelength*z/d{} = {:g} of the discrete transform; it "
+                          "contains replicas".format(func_name, name, name,
+                                                     wl_medium*abs(z)/dx), stacklevel=3)
+
+
+def _fresnel_single_transform(field, x_prime, y_prime, z, wavelength, x_out, y_out, n,
+                              chirp, func_name):
+    x_in, y_in = _linear_coords(x_prime, y_prime)
+    x_o, y_o = _window_coords(x_out, y_out, func_name)
+
+    k = wavenumber(wavelength, n)
+    wl_medium = wavelength/n
+    _check_fresnel_sampling(x_in, y_in, z, wl_medium, x_o, y_o, chirp, func_name)
+
+    X_in, Y_in = np.meshgrid(x_in, y_in)
+    X_o, Y_o = np.meshgrid(x_o, y_o)
+    if chirp:
+        field = field*np.exp(1j*k/(2.0*z)*(X_in**2 + Y_in**2))
+
+    prefactor = np.exp(1j*k*z)/(1j*wl_medium*z)*np.exp(1j*k/(2.0*z)*(X_o**2 + Y_o**2))
+    dx, dy = get_dx(x_in), get_dx(y_in)
+
+    # the kernel exp(-i*k*(x*x' + y*y')/z) is FT() at k_x = k*x/z:
+    field_propagated = prefactor*zoom_FT(field, x_in, y_in, k*x_o/z, k*y_o/z)*dx*dy
+
+    return field_propagated, x_out, y_out
+
+
+def fresnel_scaled(field, x_prime, y_prime, z, wavelength, x_out, y_out, n=1.0):
+    """Fresnel diffraction integral on a free output window.
+
+    Evaluates the single transform form of the Fresnel integral
+
+        U(x, y) = exp(i*k*z)/(i*wavelength*z)*exp(i*k*(x**2 + y**2)/(2*z))
+                  * sum U'(x', y')*exp(i*k*(x'**2 + y'**2)/(2*z))
+                               *exp(-i*k*(x*x' + y*y')/z)*dx'*dy'
+
+    with chirp-z transforms (fft.zoom_FT()), on any equidistant output grid.
+    In contrast to fresnel_rescaling() (output spacing wavelength*z/L), the
+    output spacing, center and number of samples are free; e.g. the focus of
+    a lens can be sampled finely without padding.
+
+    The sum is exact for the sampled input, so the result does not suffer
+    from wrap-around. It is accurate as long as the input chirp
+    exp(i*k*r'**2/(2z)) times the field is sampled well; a warning is issued
+    if the chirp alone is undersampled at the edge of the input window
+    (|z| < 2*max|x'|*dx/wavelength) or if the output window exceeds the
+    period wavelength*z/dx of the result (it then contains replicas). For
+    short distances use shifted_angular_spectrum().
+
+    Parameters
+    ----------
+    field : array
+    x_prime, y_prime : arrays
+        Linear or 2d equidistant coordinates of the field. They need not be
+        centered: the phases refer to x' = y' = 0.
+    z : number
+        Propagation distance (z != 0, negative z propagates backwards).
+    wavelength : number
+        Vacuum wavelength.
+    x_out, y_out : arrays
+        Linear or 2d equidistant output coordinates.
+    n : number, optional
+        Refractive index.
+
+    Returns
+    -------
+    field_propagated : array
+        Field of shape (len(y_out), len(x_out)).
+    x_out, y_out : arrays
+        The output coordinates as given.
+
+    Note
+    ----
+    With x_out, y_out the output grid of fresnel_rescaling(), the results of
+    both agree.
+    """
+
+    return _fresnel_single_transform(field, x_prime, y_prime, z, wavelength, x_out, y_out,
+                                     n, True, "fresnel_scaled")
+
+
+def fraunhofer_scaled(field, x_prime, y_prime, z, wavelength, x_out, y_out, n=1.0):
+    """Fraunhofer integral on a free output window.
+
+    As fresnel_scaled(), but without the input chirp (far field
+    approximation, Fresnel number of the input much smaller than one). With
+    x_out, y_out the output grid of fraunhofer(), both agree.
+
+    Parameters and returns as for fresnel_scaled().
+    """
+
+    return _fresnel_single_transform(field, x_prime, y_prime, z, wavelength, x_out, y_out,
+                                     n, False, "fraunhofer_scaled")
+
+
+def far_field(field, x_prime, y_prime, wavelength, sigma_x, sigma_y, n=1.0):
+    """Far field amplitude of a field in chosen directions.
+
+    For r -> infinity in the direction of the unit vector s = (sigma_x,
+    sigma_y, sigma_z), the Rayleigh-Sommerfeld (first kind) field of the
+    input plane becomes
+
+        U(r*s) = f(s)*exp(i*k*r)/r,
+        f(s) = k*sigma_z/(2*pi*i) * sum U'(x', y')*exp(-i*k*(sigma_x*x' + sigma_y*y'))*dx'*dy'
+
+    (stationary phase evaluation of the angular spectrum; exact in this
+    limit, no paraxial approximation). f is evaluated on an equidistant grid
+    of direction cosines with chirp-z transforms, so the angular range and
+    resolution are free (e.g. a fine grid over one diffraction order).
+    Directions with sigma_x**2 + sigma_y**2 > 1 get f = 0.
+
+    Parameters
+    ----------
+    field : array
+    x_prime, y_prime : arrays
+        Linear or 2d equidistant coordinates of the field; the phase of f
+        refers to x' = y' = 0.
+    wavelength : number
+        Vacuum wavelength.
+    sigma_x, sigma_y : arrays
+        Linear, equidistant direction cosines, sigma_x = sin(theta_x) for a
+        direction in the x-z plane at the angle theta_x to the z axis (inside
+        the medium of index n).
+    n : number, optional
+        Refractive index.
+
+    Returns
+    -------
+    f : array
+        Far field amplitude of shape (len(sigma_y), len(sigma_x)); |f|**2 is
+        the radiant intensity (power per solid angle up to the medium's
+        impedance factor).
+    sigma_x, sigma_y : arrays
+        The directions as given.
+    """
+
+    x_in, y_in = _linear_coords(x_prime, y_prime)
+    s_x, s_y = _linear_coords(np.atleast_1d(sigma_x), np.atleast_1d(sigma_y))
+
+    k = wavenumber(wavelength, n)
+    S_X, S_Y = np.meshgrid(s_x, s_y)
+    sigma_z = np.sqrt(np.clip(1.0 - S_X**2 - S_Y**2, 0.0, None))
+    A = zoom_FT(field, x_in, y_in, k*s_x, k*s_y)*get_dx(x_in)*get_dx(y_in)
+    f = np.where(S_X**2 + S_Y**2 <= 1.0, k*sigma_z/(1j*TWOPI)*A, 0.0)
+
+    return f, sigma_x, sigma_y
 
 
 # Vectorial propagation
