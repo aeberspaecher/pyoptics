@@ -70,3 +70,5 @@
   material data
 * ABCD matrices (`abcd`): rays, cardinal points, Gaussian beams via q,
   resonators, Collins integral (notebook 18)
+* 2D phase unwrapping (`unwrap`): least squares (DCT and weighted PCG),
+  quality guided, residues (notebook 21)
