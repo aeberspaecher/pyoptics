@@ -16,13 +16,14 @@ polished library. It runs on Python 3.9 to 3.13. The API may still change
 between versions, and there is no release on PyPI; install it from source as
 described below.
 
-The core is tested: a suite of about 300 pytest tests checks the numerics
+The core is tested: a suite of about 340 pytest tests checks the numerics
 against analytical results (Fresnel and Fraunhofer diffraction, Gaussian beam
 propagation, Mahajan's on-axis intensity, Airy pattern and OTF, Fresnel
 equations, thin film stacks, Goos-Hänchen shift, beam widths and M² of
 Hermite-Gaussian beams, Mueller and Jones calculus, FFT conventions,
 Richards-Wolf integrals for high NA foci, two-beam interference of TE and
-TM waves) and runs in GitHub
+TM waves, in air and in a resist, standing waves in a resist on silicon,
+threshold CDs and process windows of analytic images) and runs in GitHub
 Actions on Python 3.9, 3.11 and 3.13 for every push and pull request. A
 consistent phase convention is used throughout (see Conventions).
 
@@ -51,6 +52,23 @@ Status of the modules:
   of 1D and 2D masks with conventional, annular, dipole and quasar sources,
   TE/TM/unpolarized/partially polarized illumination, contrast and NILS,
   tested (two-beam contrast of TE and TM waves)
+- `litho`: lithography imaging toolbox built on `vectorial_imaging`,
+  tested: illumination sources (conventional, annular, dipole, quadrupole,
+  quasar, multipole with sector or circular poles, freeform maps) for any
+  sigma and any polarization (x, y, TE/azimuthal, TM/radial, unpolarized,
+  Jones, Stokes, degree of polarization); mask layouts with analytic
+  diffraction orders (lines and spaces, isolated lines, trenches, dense,
+  isolated and staggered contact holes, any rectangles, clear or dark
+  field); mask stacks in the thin mask approximation (binary, attenuated
+  PSM), with absorber transmissions from `thin_films` (angle and TE/TM
+  dependent) and an optional boundary layer model for thick mask edges;
+  projector with immersion, vectorial or scalar model and Fringe Zernike
+  aberrations; images in the resist on a thin film wafer stack (BARC, top
+  coat, substrate; TE/TM Fresnel transmission, standing waves); metrics
+  (contrast, ILS/NILS, threshold CD, dose to size, MEEF, focus-exposure
+  matrix, Bossung curves, process window, exposure latitude vs. depth of
+  focus, Gaussian resist blur) and plots (source, mask, pupil fill, images,
+  Bossung curves, process windows)
 - `polarization`: TE/TM bases, Stokes to Jones decomposition, DOP and IPS
 - `imaging`: scalar imaging, tested: coherent imaging through a circular
   pupil, PSF with pupil masks (obscuration, apodization) and phases, OTF and

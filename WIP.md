@@ -13,8 +13,9 @@
 ## Medium
 
 * Finish the stub `interpolator.TrigInterpolator`
-* Thin film stack (resist, BARC) and Fresnel transmission in vectorial
-  imaging
+* Lithography: rigorous mask diffraction (RCWA) to calibrate the boundary
+  layer model, Hopkins/TCC (SOCS) imaging for speed, resist models beyond
+  threshold and blur (development, PEB), OPC helpers
 * Tests for `ifta` and more tests for `wpm` and `TIE`
 * Documentation for propagators
 * Incoherence in thin films (spatial and temporal incoherence)
@@ -63,3 +64,7 @@
   against Richards-Wolf (notebook 15)
 * vectorial imaging (Abbe, s/p/unpolarized, lithography notebook 16),
   polarization converters x/y <-> TE/TM, Stokes -> Jones, DOP, IPS
+* lithography toolbox `litho` (sources, mask layouts, thin and thin film
+  mask stacks, boundary layer, resist on a thin film stack with TE/TM
+  Fresnel transmission, NILS, CD, MEEF, Bossung curves, process windows;
+  notebooks 16 and 17)
