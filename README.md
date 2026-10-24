@@ -25,7 +25,8 @@ Richards-Wolf integrals for high NA foci, two-beam interference of TE and
 TM waves, in air and in a resist, standing waves in a resist on silicon,
 threshold CDs and process windows of analytic images, apodized two-beam
 images, ABCD matrices against lens and resonator formulas and the Collins
-integral against Gaussian beams) and runs in GitHub
+integral against Gaussian beams, phase unwrapping of wrapped Zernike
+wavefronts, vortices and noisy wavefronts) and runs in GitHub
 Actions on Python 3.9, 3.11 and 3.13 for every push and pull request. A
 consistent phase convention is used throughout (see Conventions).
 
@@ -86,6 +87,11 @@ Status of the modules:
   stability, eigenmodes and round trip Gouy phase; `collins()` propagates any
   field through an ABCD system (Collins integral, separate x and y matrices
   for astigmatic systems)
+- `unwrap`: 2D phase unwrapping, tested: least squares unwrapping with a
+  DCT Poisson solver (Ghiglia-Romero), weighted least squares with
+  modulation or amplitude weights and masks (conjugate gradients
+  preconditioned by the DCT solver), quality guided unwrapping by
+  reliability sorting (Herráez), residue maps, `wrap()` and a 1D helper
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
 - `TIE`: basic transport of intensity solver, partly tested
@@ -217,7 +223,7 @@ free space propagation, Gaussian beams, interfaces and thin films,
 polarization, imaging and aberrations, TIE, IFTA, WPM, basis functions, an
 interactive layer stack designer, image processing (scaling, camera noise,
 centering), beam quality, lithography and ABCD matrices (rays, Gaussian
-beams, resonators). See
+beams, resonators) and phase unwrapping. See
 `notebooks/README.md` for an overview.
 
 Conventions
