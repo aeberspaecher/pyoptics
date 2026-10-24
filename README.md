@@ -64,8 +64,9 @@ Status of the modules:
   PSM), with absorber transmissions from `thin_films` (angle and TE/TM
   dependent) and an optional boundary layer model for thick mask edges;
   projector with immersion (or dry), vectorial or scalar model, Fringe
-  Zernike aberrations and pupil apodization (Fringe Zernikes of the log
-  amplitude, or any transmission function); images in the resist on a thin film wafer stack (BARC, top
+  Zernike aberrations and pupil apodization (amplitude transmission
+  1 + sum of Fringe Zernikes, optionally as log amplitude, or any
+  transmission function); images in the resist on a thin film wafer stack (BARC, top
   coat, substrate; TE/TM Fresnel transmission, standing waves); metrics
   (contrast, ILS/NILS, threshold CD, dose to size, MEEF, focus-exposure
   matrix, Bossung curves, process window, exposure latitude vs. depth of

@@ -188,10 +188,12 @@ def test_zernike_defocus_equals_focus_at_low_NA():
 
 
 @pytest.mark.parametrize("vectorial", [True, False])
-def test_apodization_of_two_beam_image(vectorial):
+@pytest.mark.parametrize("model", ["linear", "log"])
+def test_apodization_of_two_beam_image(vectorial, model):
     """Orders -+1 of an alternating PSM at the pupil radius rho: an apodization
-    exp(a*Z_4) scales the image relative to the open frame (rho = 0) by
-    exp(2*a*(Z_4(rho) - Z_4(0))) and keeps the contrast."""
+    a*Z_4 scales the image relative to the open frame (rho = 0) by
+    (A(rho)/A(0))**2 and keeps the contrast; A = 1 + a*Z_4 (linear) or
+    exp(a*Z_4) (log)."""
 
     pitch, a = 200.0, -0.3
     rho = WL/(pitch*NA)
@@ -200,28 +202,53 @@ def test_apodization_of_two_beam_image(vectorial):
     proj = Projector(NA, WL, N_WATER, vectorial=vectorial)
     x = np.linspace(-pitch/2, pitch/2, 201)
     I = LithoSimulation(layout, ThinMask(-1.0), ill, proj).image(x)
-    I_apo = LithoSimulation(layout, ThinMask(-1.0), ill, proj.with_(apodization_zernikes={4: a})).image(x)
+    proj_apo = proj.with_(apodization_zernikes={4: a}, apodization_model=model)
+    I_apo = LithoSimulation(layout, ThinMask(-1.0), ill, proj_apo).image(x)
+    Z4 = lambda r: 2*r**2 - 1
+    A = (lambda r: 1 + a*Z4(r)) if model == "linear" else (lambda r: np.exp(a*Z4(r)))
 
-    assert np.allclose(I_apo, I*np.exp(2*a*(2*rho**2 - 1 - (-1))))
+    assert np.allclose(I_apo, I*(A(rho)/A(0.0))**2)
     assert np.isclose(metrics.contrast(I_apo), metrics.contrast(I))
 
 
-def test_apodization_callable_and_constant_term():
+@pytest.mark.parametrize("model", ["linear", "log"])
+def test_apodization_callable_and_constant_term(model):
     layout = MaskLayout.contact_holes(130.0, 65.0)
     ill = Illumination.quasar(0.95, 0.7, n_samples=15, polarization="TE")
-    proj = Projector(NA, WL, N_WATER)
+    proj = Projector(NA, WL, N_WATER, apodization_model=model)
     x = np.linspace(-65, 65, 21)
     sim = LithoSimulation(layout, ThinMask.att_psm(0.06), ill, proj)
     I_z = sim.with_(projector=proj.with_(apodization_zernikes={4: -0.2, 9: 0.1})).image(x, x)
     rho2 = lambda P_x, P_y: P_x**2 + P_y**2
-    apo = lambda P_x, P_y: np.exp(-0.2*(2*rho2(P_x, P_y) - 1) + 0.1*(6*rho2(P_x, P_y)**2 - 6*rho2(P_x, P_y) + 1))
-    I_c = sim.with_(projector=proj.with_(apodization=apo)).image(x, x)
+    S = lambda P_x, P_y: -0.2*(2*rho2(P_x, P_y) - 1) + 0.1*(6*rho2(P_x, P_y)**2 - 6*rho2(P_x, P_y) + 1)
+    apo = (lambda P_x, P_y: 1 + S(P_x, P_y)) if model == "linear" else (lambda P_x, P_y: np.exp(S(P_x, P_y)))
+    I_c = sim.with_(projector=Projector(NA, WL, N_WATER, apodization=apo)).image(x, x)
 
     assert np.allclose(I_z, I_c)
     assert not np.allclose(I_z, sim.image(x, x))
     # a constant factor (Z_1) cancels in the normalized image:
     assert np.allclose(sim.with_(projector=proj.with_(apodization_zernikes={1: 0.5})).image(x, x),
                        sim.image(x, x))
+
+
+def test_apodization_linear_is_default_and_checked():
+    proj = Projector(NA, WL, N_WATER, apodization_zernikes={4: -0.2})
+    rho = np.linspace(0, 1, 11)
+    assert proj.apodization_model == "linear"
+    assert np.allclose(proj.pupil_amplitude(rho, 0*rho), 1 - 0.2*(2*rho**2 - 1))
+    # small coefficients: linear and log agree to first order
+    p_lin, p_log = (Projector(NA, WL, N_WATER, apodization_zernikes={4: 1E-4}, apodization_model=m)
+                    for m in ("linear", "log"))
+    assert np.allclose(p_lin.pupil_amplitude(rho, 0*rho), p_log.pupil_amplitude(rho, 0*rho), atol=1E-7)
+    # negative amplitude inside the pupil is an error, outside it is ignored
+    with pytest.raises(ValueError):
+        Projector(NA, WL, N_WATER, apodization_zernikes={4: -2.0}).pupil_amplitude(rho, 0*rho)
+    Projector(NA, WL, N_WATER, apodization_zernikes={4: -0.6}).pupil_amplitude(np.array([0.0, 1.5]), np.zeros(2))
+    # the log model accepts any coefficients
+    assert np.all(Projector(NA, WL, N_WATER, apodization_zernikes={4: -2.0}, apodization_model="log")
+                  .pupil_amplitude(rho, 0*rho) > 0)
+    with pytest.raises(ValueError):
+        Projector(NA, WL, N_WATER, apodization_model="quadratic")
 
 
 # mask stacks:
