@@ -16,7 +16,7 @@ polished library. It runs on Python 3.9 to 3.13. The API may still change
 between versions, and there is no release on PyPI; install it from source as
 described below.
 
-The core is tested: a suite of about 170 pytest tests checks the numerics
+The core is tested: a suite of about 200 pytest tests checks the numerics
 against analytical results (Fresnel and Fraunhofer diffraction, Gaussian beam
 propagation, Mahajan's on-axis intensity, Fresnel equations, thin film
 stacks, Mueller and Jones calculus, FFT conventions) and runs in GitHub
@@ -45,10 +45,14 @@ Status of the modules:
   tests
 - `wpm`: wave propagation method (Cython extension), basic; one test, more
   examples in the notebook
-- Unfinished stubs: in `processing` only `Shifter` works (`Scaler`,
-  `CameraNoiser`, `Centerer` are empty), `interpolator.TrigInterpolator` cannot
-  be evaluated yet, `utils.add_camera_noise()` and the functions in
-  `polarization._polarization` are empty
+- `processing`: image processors for single images and image stacks, tested:
+  `Scaler` (peak, mean or total of field strength or intensity),
+  `CameraNoiser` (Gaussian, Poisson shot noise, linear camera model after
+  EMVA 1288 with dark current, read noise, full well, gain, ADC and fixed
+  pattern noise), `Shifter` (subpixel Fourier shift) and `Centerer`
+  (centering on the intensity centroid, `utils.center_of_mass()`)
+- Unfinished stubs: `interpolator.TrigInterpolator` cannot be evaluated yet,
+  the functions in `polarization._polarization` are empty
 
 See `WIP.md` for planned work.
 
@@ -162,8 +166,9 @@ Example notebooks
 The directory `notebooks/` contains executed Jupyter notebooks that
 illustrate the individual modules with visual, physically intuitive examples:
 free space propagation, Gaussian beams, interfaces and thin films,
-polarization, imaging and aberrations, TIE, IFTA, WPM, basis functions and an
-interactive layer stack designer. See
+polarization, imaging and aberrations, TIE, IFTA, WPM, basis functions, an
+interactive layer stack designer and image processing (scaling, camera noise,
+centering). See
 `notebooks/README.md` for an overview.
 
 Conventions

@@ -25,8 +25,7 @@
 
 ## Medium
 
-* Finish the stubs: `processing` (Scaler, CameraNoiser, Centerer),
-  `interpolator.TrigInterpolator`, `utils.add_camera_noise()`,
+* Finish the stubs: `interpolator.TrigInterpolator`,
   `polarization._polarization`
 * Tests for `ifta` and more tests for `wpm` and `TIE`
 * Documentation for propagators
@@ -60,3 +59,4 @@
 * consistent phase convention exp(i(k·r − ωt)), documented in the README
 * basic Jones vectors and matrices
 * example notebooks
+* image processors: Scaler, CameraNoiser (EMVA 1288 camera model), Centerer
