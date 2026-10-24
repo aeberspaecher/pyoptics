@@ -144,16 +144,24 @@ def test_trig_interpolator_cutoff():
     assert len(interp.F_X) > 0
 
 
-def test_TIE_paraxial_propagation():
-    from pyoptics.TIE import field_prop_paraxial
-    from pyoptics.propagators import fresnel_TF
+def test_TIE_matches_propagated_intensity():
+    """tie() agrees with the central difference of intensities propagated with
+    rayleigh_sommerfeld_I_TF() (same convention, exp(i(k.r - omega*t)))."""
+    from pyoptics.TIE import tie
+    from pyoptics.propagators import rayleigh_sommerfeld_I_TF
 
-    x, y, X, Y = grid2d(-20, 20, -20, 20, 64)
-    field = np.exp(-(X**2 + Y**2)/3.0**2)
-    U_tie = field_prop_paraxial(field, x, y, 30.0, 1.0)
-    U_ref, _, _ = fresnel_TF(field, x, y, 30.0, 1.0)
+    wl, dz = 0.5, 0.5
+    x, y, X, Y = grid2d(-30, 30, -30, 30, 256)
+    phase = np.exp(-((X - 5)**2 + (Y - 3)**2)/(2*1.5**2))
+    I = np.exp(-(X**2 + Y**2)/(2*20**2))
+    U = np.sqrt(I)*np.exp(1j*phase)
 
-    assert np.allclose(U_tie, U_ref)
+    I_plus = np.abs(rayleigh_sommerfeld_I_TF(U, x, y, dz, wl)[0])**2
+    I_minus = np.abs(rayleigh_sommerfeld_I_TF(np.conj(U), x, y, dz, wl)[0])**2  # time reversal
+    dI_dz_num = (I_plus - I_minus)/(2*dz)
+    dI_dz_tie = tie(phase, I, x, y, wl)
+
+    assert np.max(np.abs(dI_dz_num - dI_dz_tie)) < 2E-2*np.max(np.abs(dI_dz_tie))
 
 
 def test_TIE_inv_laplacian():

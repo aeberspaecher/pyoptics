@@ -10,6 +10,10 @@ sqrt(I)*exp(i*phase). The transport of intensity equation then reads
 
 so a converging wave (phase decreasing away from the axis, e.g. a thin lens
 exp(-i k r**2/(2f))) has dI/dz > 0 on axis.
+
+The module contains no propagator of its own: to compute defocused images, use
+pyoptics.propagators, e.g. rayleigh_sommerfeld_I_TF(), which follows the same
+convention.
 """
 
 import numpy as np
@@ -22,7 +26,6 @@ from .fft import FT, inv_FT
 RMS = lambda x: np.sqrt(1.0/np.size(x)*np.sum(np.abs(x)**2))
 
 # TODO: kick all general deriavtive stuff out of this module
-# TODO: put propagation stuff in different module
 
 def low_pass(img, x, y, sigma_cutoff, NA, lam):
     """Perform low pass filtering with frequencies that should not be
@@ -58,55 +61,6 @@ def low_pass_stack(stack, x, y, sigma_cutoff, NA, lam):
         ret_stack[:,:,i] = low_pass(stack[:,:,i], x, y, sigma_cutoff, NA, lam)
 
     return ret_stack
-
-
-def field_prop(field, x, y, delta_z, lam):
-    """Propagte a complex field along z axis.
-    """
-
-    KX, KY = get_k_grid(x, y)
-    k = 2*pi/lam
-    kz = np.lib.scimath.sqrt(k**2 - KX**2 - KY**2)
-
-    #if(delta_z < 0.0):
-        #warning.warn("Discarding parts of transfer function!")
-    H = np.exp(1j*kz*delta_z)  # transfer function
-
-    #plt.imshow(np.abs(H), cmap=plt.cm.hot)
-    #plt.colorbar()
-    #plt.title("Transferfunc")
-    #plt.show()
-
-    #H = np.real(H)  # TODO: discard negative parts of transfer function
-
-    propagated = inv_FT(H*FT(field))
-
-    return propagated
-
-
-def field_prop_paraxial(field, x, y, delta_z, lam):
-    """Propagte a complex field along z axis.
-    """
-
-    KX, KY = get_k_grid(x, y)
-    k = 2*pi/lam
-    #kz = np.lib.scimath.sqrt(k**2 - KX**2 - KY**2)
-
-    #if(delta_z < 0.0):
-        #warning.warn("Discarding parts of transfer function!")
-    H = np.exp(1j*k*delta_z)*np.exp(-1j*(KX**2 + KY**2)*delta_z/(2*k))  # paraxial (Fresnel) transfer function
-
-    #plt.imshow(np.abs(H), cmap=plt.cm.hot)
-    #plt.colorbar()
-    #plt.title("Transferfunc")
-    #plt.show()
-
-    #H = np.real(H)  # TODO: discard negative parts of transfer function
-
-    propagated = inv_FT(H*FT(field))
-
-    return propagated
-
 
 
 def smoothed_deriv(stack, x, x0, order):
