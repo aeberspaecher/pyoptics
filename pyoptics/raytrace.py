@@ -84,13 +84,35 @@ all tilts and decentres set to zero; a fold mirror is then an unfolded plane
 mirror. Real rays always see the actual geometry. Spot diagrams, ray fans,
 OPDs and PSFs are evaluated in the local frame of the image plane.
 
+Polarization and energy
+-----------------------
+`System.trace_polarization()` follows the polarization and the power of
+every ray with Chipman's 3 x 3 polarization ray tracing matrices P (global
+coordinates, E_out = P E_in). Each surface contributes
+
+- refraction: the Fresnel transmission of the s and p components, through
+  the thin film `coatings.Coating` of the surface if it has one, times
+  sqrt(n' cos(theta')/(n cos(theta))), so that ``|P E|**2`` is the transmitted
+  power fraction,
+- reflection (mirrors): the reflection coefficients of the coating on its
+  substrate; a mirror without a coating is a perfect reflector,
+- ideal lenses: a rotation of the field with the ray (no loss),
+
+and the medium behind it, if it is a `materials.Material`, its absorption,
+retardance and diattenuation along the path. `PolarizedBundle` turns the
+matrices into the power along the trace, the transmittance and Jones
+matrices on the aplanatic bases of the object and image space ray
+directions. The optical path (and with it the OPD) stays the scalar one; P
+holds only the polarization dependent part of the phase.
+
 Units: all lengths (radii, thicknesses, wavelength) share one unit, set by
 `units` of `System` ("mm" by default). It is only used to convert the
 wavelength to nm for the dispersion of materials.
 
 Limitations: monochromatic traces (build systems at several wavelengths for
 colour), uniform pupil amplitude in the PSF, surfaces of revolution only (no
-toroids or freeforms), paraxial data only for the nominal centred system.
+toroids or freeforms), paraxial data only for the nominal centred system,
+no ray splitting in birefringent media (see `materials`).
 """
 
 import copy
@@ -103,7 +125,7 @@ from . import abcd
 from . import imaging
 from .bases import fringe_zernike
 from .geometry import R_x, R_y, R_z
-from .materials import abbe_dispersion
+from .materials import Material, abbe_dispersion, complex_index, transverse_basis
 
 
 NM_PER_UNIT = {"nm": 1.0, "um": 1e3, "mm": 1e6, "cm": 1e7, "m": 1e9}
@@ -157,9 +179,11 @@ class Surface:
         Refractive index behind the surface. If neither n_after nor material
         are given, the medium does not change (dummy surfaces, stops,
         mirrors).
-    material : tuple or callable, optional
-        (n_d, V_d) for `materials.abbe_dispersion()`, or a function
-        n(wavelength_nm). Overrides n_after.
+    material : tuple, callable or materials.Material, optional
+        (n_d, V_d) for `materials.abbe_dispersion()`, a function
+        n(wavelength_nm) or a Material (absorbing or anisotropic media for
+        trace_polarization(); rays see its n_geometric()). Overrides
+        n_after.
     conic : number, optional
         Conic constant K.
     aspheric : sequence, optional
@@ -176,12 +200,15 @@ class Surface:
         module docstring. Neither changes the axis of the following
         surfaces; the thickness is measured along the (untilted) axis from
         the undisplaced vertex.
+    coating : coatings.Coating, optional
+        Thin film stack for trace_polarization() (layers from the medium in
+        front of the surface); None: bare surface.
     label : str, optional
     """
 
     def __init__(self, R=np.inf, thickness=0.0, n_after=None, material=None, conic=0.0,
                  aspheric=(), semi_diameter=None, mirror=False, decenter=(0.0, 0.0),
-                 tilt=(0.0, 0.0, 0.0), label=None):
+                 tilt=(0.0, 0.0, 0.0), coating=None, label=None):
         if mirror and (n_after is not None or material is not None):
             raise ValueError("A mirror does not change the medium.")
         self.R = R
@@ -194,6 +221,7 @@ class Surface:
         self.mirror = mirror
         self.decenter = tuple(decenter)
         self.tilt = tuple(tilt) + (0.0,)*(3 - len(tilt))
+        self.coating = coating
         self.label = label
 
     @property
@@ -208,6 +236,10 @@ class Surface:
                                            self.semi_diameter))
 
     @property
+    def changes_medium(self):
+        return self.material is not None or self.n_after is not None
+
+    @property
     def c(self):
         """Vertex curvature 1/R."""
 
@@ -217,6 +249,8 @@ class Surface:
         """Refractive index behind the surface."""
 
         if self.material is not None:
+            if isinstance(self.material, Material):
+                return self.material.n_geometric(wavelength_nm)
             if callable(self.material):
                 return float(self.material(wavelength_nm))
             n_d, V_d = self.material
@@ -391,6 +425,167 @@ class CoordinateBreak(Surface):
 
     def abcd_matrix(self, n1, n2, sigma):
         return np.eye(2)
+
+
+# polarization ray tracing matrices:
+def _sp_basis(k1, k2, normal):
+    """s = k1 x normal (normalized; any perpendicular vector at normal
+    incidence) and the p vectors k1 x s, k2 x s of the rays k1 -> k2."""
+
+    s = np.cross(k1, normal)
+    small = _norm(s) < 1e-12
+    s[small] = transverse_basis(k1[small])[:, :, 0]
+    s = s/_norm(s)[:, None]
+
+    return s, np.cross(k1, s), np.cross(k2, s)
+
+
+def _refraction_prt(k1, k2, normal, n1, n2, coating, wavelength, wavelength_nm=None, x=None, y=None):
+    """Polarization ray tracing matrices (N, 3, 3) of the refraction k1 -> k2
+    at a surface with the unit normals (bare, or through a Coating), for the
+    transmitted amplitude: ``|P E|**2`` is the transmitted power fraction."""
+
+    from .coatings import Coating
+
+    cos_i = np.abs(_dot(k1, normal))
+    cos_t = np.abs(_dot(k2, normal))
+    coating = Coating() if coating is None else coating
+    _, _, t_s, t_p = coating.amplitudes(cos_i, n1, n2, wavelength, wavelength_nm, x, y)
+    t_p = t_p*cos_i/cos_t  # tangential -> full field
+    power = np.sqrt(n2*cos_t/(n1*cos_i))
+    s, p1, p2 = _sp_basis(k1, k2, normal)
+
+    return power[:, None, None]*(t_s[:, None, None]*s[:, :, None]*s[:, None, :]
+                                 + t_p[:, None, None]*p2[:, :, None]*p1[:, None, :])
+
+
+def _reflection_prt(k1, k2, normal, n1, coating, wavelength, wavelength_nm=None, x=None, y=None):
+    """Polarization ray tracing matrices of the reflection k1 -> k2 on a
+    mirror with an optional Coating (with substrate); without a coating a
+    perfect reflector (r_s = r_p = -1 for the tangential fields)."""
+
+    if coating is None:
+        r_s = r_p = -np.ones(len(k1))
+    else:
+        if coating.substrate is None:
+            raise ValueError("The coating of a mirror needs a substrate.")
+        r_s, r_p = coating.amplitudes(np.abs(_dot(k1, normal)), n1, None, wavelength,
+                                      wavelength_nm, x, y)[:2]
+    s, p1, p2 = _sp_basis(k1, k2, normal)
+    # the tangential part of p flips on reflection, so the full p field
+    # is reflected with -r_p:
+    return (r_s[:, None, None]*s[:, :, None]*s[:, None, :]
+            - r_p[:, None, None]*p2[:, :, None]*p1[:, None, :])
+
+
+def _rotation_prt(k1, k2):
+    """Rotations (N, 3, 3) about k1 x k2 that turn k1 into k2 (lossless
+    deflection, e.g. by an ideal lens)."""
+
+    v = np.cross(k1, k2)
+    c = _dot(k1, k2)
+    V = np.zeros((len(k1), 3, 3))
+    V[:, 0, 1], V[:, 0, 2], V[:, 1, 2] = -v[:, 2], v[:, 1], -v[:, 0]
+    V = V - np.transpose(V, (0, 2, 1))
+
+    return np.eye(3) + V + V @ V/(1 + c)[:, None, None]
+
+
+def _aplanatic_basis(d):
+    """Aplanatic bases (N, 3, 2) of the directions d (of -d for d_z < 0)."""
+
+    from .propagators import aplanatic_rotation
+
+    sign = np.where(d[:, 2] < 0, -1.0, 1.0)
+
+    return np.transpose(aplanatic_rotation(sign*d[:, 0], sign*d[:, 1]), (2, 0, 1))
+
+
+class PolarizedBundle(object):
+    """Rays traced with their polarization (System.trace_polarization()).
+
+    Attributes
+    ----------
+    bundle : RayBundle
+        The traced rays.
+    P : (S + 2, N, 3, 3) complex array
+        Accumulated polarization ray tracing matrices (global frame) from
+        the start of the rays to each plane of the bundle (the start, behind
+        each surface, the image plane), including the media in between. NaN
+        for lost rays.
+    image_rotation : (3, 3) array
+        Rotation R of the image frame (global = R @ local).
+    """
+
+    def __init__(self, bundle, P, image_rotation):
+        self.bundle, self.P, self.image_rotation = bundle, P, image_rotation
+
+    def __len__(self):
+        return self.P.shape[1]
+
+    @property
+    def valid(self):
+        return self.bundle.valid
+
+    @property
+    def basis_in(self):
+        """Aplanatic bases (N, 3, 2) of the object space ray directions
+        (global frame), the basis of the input Jones vectors."""
+
+        return _aplanatic_basis(self.bundle.directions[0])
+
+    @property
+    def basis_out(self):
+        """Aplanatic bases (N, 3, 2) of the image space ray directions in the
+        image frame, the basis of the output Jones vectors."""
+
+        return _aplanatic_basis(self.bundle.directions[-1] @ self.image_rotation)
+
+    def _inputs(self, E_in):
+        """Input fields (N, 3, m): two orthogonal states (unpolarized) or the
+        Jones vectors E_in (2,) or (N, 2) on basis_in."""
+
+        B = self.basis_in
+        if E_in is None:
+            return B/np.sqrt(2)
+        E_in = np.broadcast_to(np.asarray(E_in, dtype=complex), (len(self), 2))
+        E_in = E_in/np.linalg.norm(E_in, axis=-1)[:, None]
+
+        return np.einsum("nij,nj->ni", B, E_in)[:, :, None]
+
+    def power(self, E_in=None):
+        """Power fractions (S + 2, N) of the rays at each plane: 1 at the
+        start, then after every surface (and the medium in front of it).
+
+        E_in : Jones vector (2,) or (N, 2) on basis_in, optional
+            Input polarization (normalized here); None: unpolarized.
+        """
+
+        E = np.einsum("pnij,njm->pnim", self.P, self._inputs(E_in))
+
+        return np.sum(np.abs(E)**2, axis=(-2, -1))
+
+    def transmittance(self, E_in=None):
+        """Power transmittance (N,) of the rays to the image plane."""
+
+        return self.power(E_in)[-1]
+
+    def field(self, E_in):
+        """Output fields (N, 3) in the image frame for the input Jones
+        vectors E_in (2,) or (N, 2) on basis_in (not normalized)."""
+
+        E_in = np.broadcast_to(np.asarray(E_in, dtype=complex), (len(self), 2))
+        E = np.einsum("nij,nj->ni", self.basis_in, E_in)
+
+        return np.einsum("ji,njk,nk->ni", self.image_rotation, self.P[-1], E)
+
+    def jones(self):
+        """Jones matrices (N, 2, 2) from basis_in to basis_out (see
+        litho.jones_pupil.decompose() for diattenuation and retardance)."""
+
+        P_img = np.einsum("ji,njk->nik", self.image_rotation, self.P[-1])
+
+        return np.einsum("nji,njk,nkl->nil", self.basis_out, P_img, self.basis_in)
 
 
 # results:
@@ -1036,6 +1231,84 @@ class System:
         """Trace rays through the pupil points (px, py) at field."""
 
         return self.trace(self.rays(field, px, py), clip=clip)
+
+    def trace_polarization(self, rays, clip=True, coatings=None, media=None):
+        """Trace rays with their polarization and power (see the module
+        docstring).
+
+        Parameters
+        ----------
+        rays : Rays
+        clip : bool, optional
+            Vignette rays outside the semi diameters.
+        coatings : dict {i: Coating or None}, optional
+            Coatings that replace those of the surfaces i.
+        media : dict {i: Material}, optional
+            Media behind the surfaces i for the polarization (e.g. a
+            materials.CubicCrystal); the refractive index of the rays stays
+            that of the system.
+
+        Returns
+        -------
+        PolarizedBundle
+        """
+
+        bundle = self.trace(rays, clip=clip)
+        ok = bundle.valid
+        n, wl, wl_nm = bundle.n, self.wavelength, self.wavelength_nm
+        frames, (_, R_img) = self.frames()
+        coatings, media = coatings or {}, media or {}
+        P = np.full((len(ok), 3, 3), np.nan, dtype=complex)
+        P[ok] = np.eye(3)
+        planes = [P.copy()]
+        medium, R_medium = None, np.eye(3)
+
+        def propagate(j):
+            # through the medium from plane j - 1 to plane j
+            if medium is None:
+                return
+            L = _norm(bundle.points[j][ok] - bundle.points[j - 1][ok])
+            k = bundle.directions[j - 1][ok] @ R_medium
+            M = medium.propagation(k, L, wl, wl_nm)
+            P[ok] = R_medium @ M @ R_medium.T @ P[ok]
+
+        for i, s in enumerate(self.surfaces):
+            propagate(i + 1)
+            o, R = frames[i]
+            k1, k2 = bundle.directions[i][ok], bundle.directions[i + 1][ok]
+            coating = coatings.get(i, s.coating)
+            if isinstance(s, CoordinateBreak):
+                M = None
+            elif isinstance(s, IdealLens):
+                M = _rotation_prt(k1, k2)
+            elif s.mirror or n[i] != n[i + 1] or coating is not None:
+                Q = (bundle.points[i + 1][ok] - o) @ R
+                normal = s.normal(Q) @ R.T
+                if s.mirror:
+                    M = _reflection_prt(k1, k2, normal, n[i], coating, wl, wl_nm, Q[:, 0], Q[:, 1])
+                else:
+                    M = _refraction_prt(k1, k2, normal, n[i], n[i + 1], coating, wl, wl_nm,
+                                        Q[:, 0], Q[:, 1])
+            else:
+                M = None
+            if M is not None:
+                P[ok] = M @ P[ok]
+            if i in media:
+                medium, R_medium = media[i], R
+            elif s.changes_medium and not isinstance(s, CoordinateBreak):
+                medium = s.material if isinstance(s.material, Material) else None
+                R_medium = R
+            planes.append(P.copy())
+        propagate(len(self.surfaces) + 1)
+        planes.append(P.copy())
+
+        return PolarizedBundle(bundle, np.array(planes), R_img)
+
+    def trace_pupil_polarization(self, field=None, px=0.0, py=0.0, clip=True, coatings=None,
+                                 media=None):
+        """trace_polarization() of the rays through the pupil points (px, py)."""
+
+        return self.trace_polarization(self.rays(field, px, py), clip, coatings, media)
 
     def _image_hits(self, bundle):
         """Image plane points and directions in the local image frame."""

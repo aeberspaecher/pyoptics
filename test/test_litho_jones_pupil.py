@@ -13,6 +13,7 @@ import pytest
 from pyoptics.litho import (Illumination, LithoSimulation, MaskLayout, Projector, ThinMask, hopkins,
                             lens)
 from pyoptics.litho import jones_pupil as jp
+from pyoptics.materials import transverse_basis
 from pyoptics.raytrace import caldwell_krf_lens
 
 
@@ -183,8 +184,7 @@ def test_off_axis_field(caldwell):
 def test_cubic_crystal_birefringence():
     def delta_index(crystal, k):
         k = np.atleast_2d(k)/np.linalg.norm(k)
-        s, p = lens._ray_basis(k, np.array([[0.0, 0.0, 1.0]]))
-        return np.ptp(np.linalg.eigvalsh(crystal.index_change(k, np.stack([s, p], axis=-1))))
+        return np.ptp(np.linalg.eigvalsh(crystal.index_change(k, transverse_basis(k))))
 
     c100, c111 = lens.CubicCrystal(-3.4e-7, "100"), lens.CubicCrystal(-3.4e-7, "111")
     assert delta_index(c100, [0, 0, 1]) < 1e-20 and delta_index(c111, [0, 0, 1]) < 1e-20
