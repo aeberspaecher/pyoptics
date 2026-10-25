@@ -105,7 +105,12 @@ Status of the modules:
   the linear scanner correction, and Zernike sensitivities with a quick
   aberration budget; `litho.hopkins` computes transmission cross
   coefficients (TCC) and their SOCS decomposition, equal to Abbe's method
-  for thin masks and fast for many masks with the same optics
+  for thin masks and fast for many masks with the same optics; swing
+  curves and BARC optimization (`litho.wafer`, absorbed energy exact
+  against `thin_films`) and `litho.resist`, a chemically amplified resist
+  in an x-z cross section (exposure, PEB with acid diffusion, quencher and
+  amplification, Mack development with a fast marching front; profile, CD
+  at top/middle/bottom, sidewall angle, top loss, dose to size, E0)
 - `polarization`: TE/TM bases, Stokes to Jones decomposition, DOP and IPS
 - `imaging`: scalar imaging, tested: coherent imaging through a circular
   pupil, PSF with pupil masks (obscuration, apodization) and phases (also

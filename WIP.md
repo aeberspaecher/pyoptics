@@ -12,8 +12,7 @@
 ## Medium
 
 * Finish the stub `interpolator.TrigInterpolator`
-* Lithography (DUV, see the roadmap in the project files): resist models beyond threshold and blur (Dill
-  exposure, PEB, Mack development) with swing curves, rigorous mask
+* Lithography (DUV, see the roadmap in the project files): rigorous mask
   diffraction (RCWA) to calibrate the boundary layer model, Jones pupil,
   source optimization, OPC helpers
 * More tests for `wpm` and `TIE`
@@ -35,6 +34,9 @@
 * Lithography: lens aberrations from the ray tracer across the scanner
   slit, Zernike sensitivities (`litho.lens`, notebook 27)
 * Lithography: Hopkins TCC and SOCS imaging (`litho.hopkins`, notebook 28)
+* Lithography: swing curves, BARC optimization and a resist model
+  (exposure, PEB, Mack development; `litho.wafer`, `litho.resist`,
+  notebook 29)
 
 * FFT module
 * fitting bases to scattered data

@@ -34,6 +34,12 @@ exchangeable:
 - `hopkins`: Hopkins imaging with transmission cross coefficients (`TCC`)
   and their SOCS decomposition, exact against Abbe for thin masks and fast
   for many masks with the same optics,
+- `wafer`: also swing curves (reflectance, absorbed energy through resist
+  thickness) and BARC optimization over the angles of the image,
+- `resist`: a chemically amplified resist in an x-z cross section:
+  exposure, post-exposure bake (acid diffusion, quencher, amplification),
+  Mack development with a fast marching front, resist profiles, dose to
+  size and dose to clear,
 - `plot`: source, mask, pupil fill, images, Bossung plots, process windows.
 
 All lengths are image-side (wafer scale) values; mask dimensions are given
@@ -46,7 +52,9 @@ Convention: fields vary as exp(i(k.r - omega*t)).
 from .illumination import Illumination
 from .mask import MaskLayout, ThinMask, FilmMask, BoundaryLayer
 from .wafer import WaferStack
+from . import wafer
 from .imaging import Projector, LithoSimulation
 from . import metrics
 from . import lens
 from . import hopkins
+from . import resist
