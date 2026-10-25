@@ -79,3 +79,7 @@
 * chirp-z transform (`fft.czt()`, `zoom_FT()`, `zoom_inv_FT()`), shifted
   angular spectrum, scaled Fresnel/Fraunhofer propagators, far field in
   chosen directions, zoomed PSFs (notebook 20)
+* sequential ray tracing (`raytrace`): spheres, conics, aspheres, mirrors,
+  paraxial pupils and Seidel sums checked against `abcd`, OPD maps, Zernike
+  fits, PSF/MTF/Strehl via `imaging`, spot diagrams and ray fans
+  (notebook 24)

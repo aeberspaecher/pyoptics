@@ -10,3 +10,4 @@ from . import imaging
 from . import unwrap
 from . import interferometry
 from . import holography
+from . import raytrace

@@ -16,7 +16,7 @@ polished library. It runs on Python 3.9 to 3.13. The API may still change
 between versions, and there is no release on PyPI; install it from source as
 described below.
 
-The core is tested: a suite of about 480 pytest tests checks the numerics
+The core is tested: a suite of about 500 pytest tests checks the numerics
 against analytical results (Fresnel and Fraunhofer diffraction, Gaussian beam
 propagation, Mahajan's on-axis intensity, Airy pattern and OTF, Fresnel
 equations, thin film stacks, Goos-Hänchen shift, beam widths and M² of
@@ -28,7 +28,8 @@ images, ABCD matrices against lens and resonator formulas and the Collins
 integral against Gaussian beams, phase unwrapping of wrapped Zernike
 wavefronts, vortices and noisy wavefronts, phase-shifting and Fourier
 fringe analysis of known Zernike phases, holograms of known objects
-reconstructed, refocused and autofocused) and runs in GitHub
+reconstructed, refocused and autofocused, exact ray traces against Snell's
+law, perfect conics, Seidel sums and the Airy pattern) and runs in GitHub
 Actions on Python 3.9, 3.11 and 3.13 for every push and pull request. A
 consistent phase convention is used throughout (see Conventions).
 
@@ -119,6 +120,16 @@ Status of the modules:
   autofocus (amplitude variance, Tamura coefficient, gradient, Laplacian);
   quantitative phase with background compensation, tilt removal and
   unwrapping (`unwrap`)
+- `raytrace`: sequential ray tracing through rotationally symmetric systems,
+  tested: spherical, conic and even aspheric surfaces, lenses and mirrors,
+  ideal (paraxial) lenses, apertures and vignetting, indices from constants
+  or `materials.abbe_dispersion`; exact intersections and vector Snell's
+  law, total internal reflection; ray aiming at the real stop; paraxial
+  marginal and chief rays, cardinal points, entrance and exit pupils (system
+  matrix identical to `abcd`, `to_abcd()`), Seidel sums; OPD maps over the
+  pupil relative to the reference sphere on the chief ray, Fringe Zernike
+  fits, RMS OPD and Strehl ratio; PSF and MTF via `imaging`; spot diagrams,
+  ray fans and layout plots
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
 - `TIE`: basic transport of intensity solver, partly tested
@@ -250,8 +261,8 @@ free space propagation, Gaussian beams, interfaces and thin films,
 polarization, imaging and aberrations, TIE, IFTA, WPM, basis functions, an
 interactive layer stack designer, image processing (scaling, camera noise,
 centering), beam quality, lithography and ABCD matrices (rays, Gaussian
-beams, resonators), phase unwrapping, interferometry and digital
-holography. See
+beams, resonators), phase unwrapping, interferometry, digital
+holography and ray tracing to OPD maps. See
 `notebooks/README.md` for an overview.
 
 Conventions
@@ -279,6 +290,12 @@ vary as exp(i(**k**·**r** − ωt)). In particular:
   concave mirrors have R > 0. The complex beam parameter is the textbook
   q = z + i z_R with 1/q = 1/R − iλ₀/(π n w²); the field is
   ∝ exp(+ik r²/(2R)) exp(−r²/w²) and the Gouy phase enters as exp(−iψ).
+- Ray tracing (`raytrace`) uses the same radius convention; a concave mirror
+  facing the incoming light has R < 0 there (real geometry, not unfolded),
+  and thicknesses behind mirrors are negative. The OPD is
+  OPL_ray − OPL_chief on the reference sphere, so the pupil phase is
+  +2π·OPD/λ: an image plane behind the focus gives OPD < 0 at the rim, as
+  the propagators' exp(+ik_z z).
 - Absorbing media have the complex refractive index n + iκ with κ > 0. Under
   total internal reflection, the transmitted wave decays away from the
   interface.
