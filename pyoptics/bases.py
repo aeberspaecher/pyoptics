@@ -407,6 +407,39 @@ def fringe_zernike_Y_m(m, phi):
     return val
 
 
+def fringe_zernike(j, x, y):
+    """Fringe Zernike Z_j at the points (x, y) of the unit disk (no mask is
+    applied, peak value 1 on the unit circle).
+
+    Parameters
+    ----------
+    j : int
+        Fringe index.
+    x, y : arrays or numbers
+        Coordinates normalized to the radius of the disk.
+
+    Returns
+    -------
+    Z_j : array
+    """
+
+    n, m = fringe_to_n_m(j)
+    rho, phi = np.hypot(x, y), np.arctan2(y, x)
+
+    return fringe_zernike_R_nm(n, abs(m), rho)*fringe_zernike_Y_m(m, phi)
+
+
+def fringe_zernike_sum(coeffs, x, y):
+    """sum_j c_j Z_j at the points (x, y) of the unit disk for the
+    coefficients {j: c_j} (real or complex); zeros for no coefficients."""
+
+    out = np.zeros(np.broadcast(x, y).shape)
+    for j, c in (coeffs or {}).items():
+        out = out + c*fringe_zernike(j, x, y)
+
+    return out
+
+
 class FringeZernikes(BasisSet):
     """Fringe Zernike polyonimals as described in Gross' Handbook of Optics
     (2nd vol) or
@@ -452,15 +485,9 @@ class FringeZernikes(BasisSet):
         """Return the j-th Fringe Zernike at scattered points (x, y) (no
         mask is applied)."""
 
-        n, m = fringe_to_n_m(j)
         u, v = local_coordinates(x, y, self.x0, self.y0, self.angle)
-        rho = np.sqrt(u**2 + v**2)/self.R_norm
-        phi = np.arctan2(v, u)
 
-        R = fringe_zernike_R_nm(n, abs(m), rho)
-        Y = fringe_zernike_Y_m(m, phi)
-
-        return R*Y
+        return fringe_zernike(j, u/self.R_norm, v/self.R_norm)
 
     def normalization_factor(self, i):
         """Norm ``<Z_i|Z_i>`` of i-th Fringe-Zernike polynomial.

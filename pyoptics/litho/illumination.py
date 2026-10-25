@@ -43,20 +43,7 @@ unpolarized. For "TE" the intensity in the preferred state (IPS) is then
 
 import numpy as np
 
-from ..vectorial_imaging import _polarization_states
-
-
-def _angle_dist(phi, phi_0):
-    """Angular distance in degrees, in [0, 180]."""
-
-    return np.abs((phi - phi_0 + 180) % 360 - 180)
-
-
-def _grid(n_samples):
-    s = np.linspace(-1, 1, n_samples)
-    S_x, S_y = np.meshgrid(s, s)
-
-    return S_x.ravel(), S_y.ravel()
+from ..vectorial_imaging import _angle_dist, _polarization_states, _sigma_grid as _grid
 
 
 class Illumination(object):

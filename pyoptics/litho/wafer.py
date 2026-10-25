@@ -53,6 +53,7 @@ n + i*k with k > 0.
 import numpy as np
 from numpy.lib.scimath import sqrt as complex_sqrt
 
+from ..polarization import TE_TM_basis
 from ..thin_films import _r_t
 
 
@@ -152,17 +153,16 @@ class WaferStack(object):
             out[:2] = E[:2]*(down + up)
             return out
 
-        phi = np.arctan2(K_y, K_x)
-        c, s = np.cos(phi), np.sin(phi)
-        a_TE = -s*E[0] + c*E[1]
-        a_TM = c*E[0] + s*E[1]  # tangential part of the TM field
+        e_TE, e_TM = TE_TM_basis(K_x, K_y)
+        a_TE = e_TE[0]*E[0] + e_TE[1]*E[1]
+        a_TM = e_TM[0]*E[0] + e_TM[1]*E[1]  # tangential part of the TM field
         d_TE, u_TE, _ = self.factors(k_perp, k0, n_medium, depth, "TE")
         d_TM, u_TM, k_z = self.factors(k_perp, k0, n_medium, depth, "TM")
         TE = a_TE*(d_TE + u_TE)
         TM = a_TM*(d_TM + u_TM)
         E_z = -k_perp/k_z*a_TM*(d_TM - u_TM)
 
-        return np.array([-s*TE + c*TM, c*TE + s*TM, E_z])
+        return np.array([e_TE[0]*TE + e_TM[0]*TM, e_TE[1]*TE + e_TM[1]*TM, E_z])
 
     # plane wave quantities for swing curves:
 

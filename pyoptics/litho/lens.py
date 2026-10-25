@@ -64,6 +64,8 @@ from collections import namedtuple
 import numpy as np
 
 from . import metrics
+from ..bases import fringe_zernike
+from ..geometry import R_z
 from .imaging import Projector
 from .jones_pupil import decompose
 
@@ -127,10 +129,6 @@ aberrations : LensAberrations, list (over x) of lists (over y)
 """
 
 
-def _basis(j, P_x, P_y):
-    return Projector._zernike_sum({j: 1.0}, P_x, P_y)
-
-
 def _pupil_rays(system, field, N):
     """OPD (waves) and directions of rays on an N x N pupil grid and the
     chief ray, at the object point belonging to the image field point."""
@@ -189,7 +187,7 @@ def lens_aberrations(system, field=(0.0, 0.0), n_terms=36, N=48, NA=None, length
     W, q, I_c, d_c, ideal = _pupil_rays(system, field, N)
     P = q/NA
     use = np.hypot(P[:, 0], P[:, 1]) <= 1.0
-    A = np.column_stack([_basis(j, P[use, 0], P[use, 1]) for j in range(1, n_terms + 1)])
+    A = np.column_stack([fringe_zernike(j, P[use, 0], P[use, 1]) for j in range(1, n_terms + 1)])
     c, *_ = np.linalg.lstsq(A, W[use], rcond=None)
     residual = W[use] - A @ c
     zernikes = {j: float(c[j - 1]) for j in range(2, n_terms + 1)}
@@ -335,12 +333,6 @@ def _interface(k1, k2, normal, n1, n2, layers, wavelength):
                                  + t_p[:, None, None]*p2[:, :, None]*p1[:, None, :])
 
 
-def _rotation_z(angle):
-    c, s = np.cos(angle), np.sin(angle)
-
-    return np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
-
-
 class CubicCrystal(object):
     """Intrinsic (spatial dispersion induced) birefringence of a cubic
     crystal such as CaF2, for lens_jones_pupil(birefringent=...).
@@ -382,7 +374,7 @@ class CubicCrystal(object):
             raise ValueError("axis must be one of {}".format(sorted(self._AXES)))
         self.delta_n, self.axis, self.clocking = delta_n, axis, clocking
         # _AXES rows: the lens x, y, z axes in crystal coordinates (unclocked)
-        self.to_crystal = self._AXES[axis].T @ _rotation_z(-clocking)
+        self.to_crystal = self._AXES[axis].T @ R_z(-clocking)
 
     def __repr__(self):
         return "CubicCrystal(delta_n={}, axis={!r}, clocking={})".format(self.delta_n, self.axis,
