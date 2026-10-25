@@ -90,5 +90,7 @@
   (`System.with_axial_shift`; focus, Z9, magnification; notebook 24)
 * phase retrieval (`phase_retrieval`): error reduction and hybrid
   input-output with support, reality and positivity constraints,
-  shrink-wrap, phase diversity (multi-plane Gerchberg-Saxton and Zernike
-  fit) from through-focus PSFs; first tests for `ifta` (notebook 25)
+  shrink-wrap, near-field (Fresnel) CDI via the propagators, phase
+  diversity (multi-plane Gerchberg-Saxton and Zernike fit, paraxial or
+  exact defocus) from through-focus PSFs; first tests for `ifta`
+  (notebook 25)

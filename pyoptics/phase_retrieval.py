@@ -10,7 +10,9 @@ Two problems are covered:
    of its far field alone. ER() implements Fienup's error reduction, HIO()
    the hybrid input-output algorithm, both with support and optionally
    positivity constraints and a shrink-wrap support update (ShrinkWrap,
-   Marchesini et al. 2003).
+   Marchesini et al. 2003). With a distance z, the detector sits in the near
+   field instead (Fresnel coherent diffractive imaging): the Fourier
+   transforms are replaced by a pyoptics propagator to z and back.
 
 2. Pupil phase retrieval from through-focus PSFs (phase diversity): the
    pupil phase of an imaging system is found from intensity PSFs measured at
@@ -34,6 +36,9 @@ abs(FT(g)) does not change if g is shifted cyclically by whole pixels,
 multiplied by a constant phase factor or replaced by its twin
 conj(g(-x, -y)). Support-based retrieval therefore can recover g only up to
 these operations; align() removes them for a comparison with a reference.
+In the near field (z given), only the constant phase factor remains: the
+curvature of the Fresnel kernel distinguishes the object from its twin, and
+a shift of the object shifts the measured magnitude.
 Likewise, a single in-focus PSF cannot distinguish a pupil phase phi(P) from
 -phi(-P), so the sign of the even Zernikes (defocus, astigmatism, spherical
 aberration, ...) is undetermined. A known defocus applied to some of the
@@ -48,6 +53,8 @@ from scipy.ndimage import gaussian_filter
 from scipy.optimize import least_squares
 
 from .fft import FT, inv_FT
+from .propagators import rayleigh_sommerfeld_I_TF
+from .utils import freq_grid, get_dx, k_z
 from .bases import FringeZernikes
 from .imaging import pupil_coordinates, pupil_function
 from .unwrap import unwrap_quality_guided
@@ -185,12 +192,36 @@ def _start_object(magnitude, support, start, positivity, real, rng):
     return g*support
 
 
+def _transforms(z, x, y, wavelength, n, propagator):
+    """Forward (object to detector) and backward transforms."""
+
+    if z is None:
+        return FT, inv_FT
+
+    if x is None or y is None or wavelength is None:
+        raise ValueError("A detector distance z needs the grid x, y and the wavelength")
+    if propagator is None:
+        propagator = rayleigh_sommerfeld_I_TF
+        if min(get_dx(x), get_dx(y)) < wavelength/(2*np.real(n)):
+            # back propagation by -z would amplify evanescent waves
+            raise ValueError("The grid contains evanescent spatial frequencies "
+                             "(dx < wavelength/(2*n)); use dx >= wavelength/(2*n)")
+
+    forward = lambda u: propagator(u, x, y, z, wavelength, n)[0]
+    backward = lambda u: propagator(u, x, y, -z, wavelength, n)[0]
+
+    return forward, backward
+
+
 def _iterate(magnitude, support, N_iter, beta, hio, start, positivity, real,
-             shrinkwrap, rng, callback):
+             shrinkwrap, rng, callback, z, x, y, wavelength, n, propagator):
     """Common loop of ER and HIO."""
 
+    forward, backward = _transforms(z, x, y, wavelength, n, propagator)
     magnitude = np.asarray(magnitude, dtype=float)
     if support is None:
+        if z is not None:
+            raise ValueError("In the near field (z given), a support is needed")
         support = autocorrelation_support(magnitude)
     support = np.asarray(support, dtype=bool)
     if support.shape != magnitude.shape:
@@ -203,9 +234,9 @@ def _iterate(magnitude, support, N_iter, beta, hio, start, positivity, real,
     errors, errors_obj = np.empty(N_iter), np.empty(N_iter)
 
     for i in range(N_iter):
-        G = FT(g)
+        G = forward(g)
         errors[i] = np.sqrt(np.sum((np.abs(G) - magnitude)**2)/np.sum(magnitude**2))
-        g_prime = inv_FT(magnitude*np.exp(1j*np.angle(G)))  # Fourier projection
+        g_prime = backward(magnitude*np.exp(1j*np.angle(G)))  # Fourier projection
         if real:
             g_prime = g_prime.real.astype(complex)
 
@@ -229,7 +260,7 @@ def _iterate(magnitude, support, N_iter, beta, hio, start, positivity, real,
             callback(i + 1, np.where(valid, g_prime, 0.0), support)
 
     # the estimate: last Fourier projection with the object constraints
-    g_prime = inv_FT(magnitude*np.exp(1j*np.angle(FT(g))))
+    g_prime = backward(magnitude*np.exp(1j*np.angle(forward(g))))
     if real:
         g_prime = g_prime.real.astype(complex)
     valid = support & (g_prime.real >= 0) if positivity else support
@@ -241,7 +272,8 @@ def _iterate(magnitude, support, N_iter, beta, hio, start, positivity, real,
 
 
 def ER(magnitude, support, N_iter=200, start=None, positivity=False, real=False,
-       shrinkwrap=None, rng=None, callback=None):
+       shrinkwrap=None, rng=None, callback=None, z=None, x=None, y=None,
+       wavelength=None, n=1.0, propagator=None):
     """Fienup's error reduction algorithm.
 
     Alternates the projection onto the measured Fourier magnitude,
@@ -278,26 +310,52 @@ def ER(magnitude, support, N_iter=200, start=None, positivity=False, real=False,
         support), with the iteration counted from 1 and the current estimate
         (the Fourier projection with the object constraints applied), e.g.
         to record snapshots.
+    z : number, optional
+        Distance of the detector from the object. None (default): far field,
+        magnitude = abs(fft.FT(g)). Otherwise magnitude is the modulus of the
+        field propagated by z on the same grid, magnitude =
+        abs(propagator(g, x, y, z, wavelength, n)[0]), and the projection
+        propagates back by -z (Fresnel coherent diffractive imaging). The
+        support is then required.
+    x, y : arrays, optional
+        Linear grid coordinates (needed with z).
+    wavelength : number, optional
+        Vacuum wavelength (needed with z).
+    n : number, optional
+        Refractive index between object and detector.
+    propagator : callable, optional
+        Grid preserving pyoptics propagator with the signature
+        propagator(field, x, y, z, wavelength, n) -> (field, x, y), used for
+        +z and -z, e.g. propagators.fresnel_TF or
+        functools.partial(propagators.propagate_padded,
+        propagators.rayleigh_sommerfeld_I_TF). Defaults to the angular
+        spectrum method propagators.rayleigh_sommerfeld_I_TF, which needs a
+        grid without evanescent frequencies, dx >= wavelength/(2*n), so that
+        the back propagation is the inverse of the forward one.
 
     Returns
     -------
     result : RetrievalResult
         obj: retrieved object (real if positivity or real), support: final
-        support, errors: Fourier error fourier_error() of the iterate before
-        each Fourier projection, errors_object: object domain error.
+        support, errors: normalized rms deviation of the modulus in the
+        detector plane from magnitude, before each projection (in the far
+        field this is fourier_error()), errors_object: object domain error.
 
     Notes
     -----
-    The object is found only up to a cyclic shift by whole pixels, a constant
-    phase factor and the twin image conj(g(-x, -y)); see align().
+    In the far field, the object is found only up to a cyclic shift by whole
+    pixels, a constant phase factor and the twin image conj(g(-x, -y)); see
+    align(). In the near field, only the constant phase factor remains.
     """
 
     return _iterate(magnitude, support, N_iter, 0.0, False, start, positivity,
-                    real, shrinkwrap, rng, callback)
+                    real, shrinkwrap, rng, callback, z, x, y, wavelength, n,
+                    propagator)
 
 
 def HIO(magnitude, support, beta=0.9, N_iter=500, start=None, positivity=False,
-        real=False, shrinkwrap=None, rng=None, callback=None):
+        real=False, shrinkwrap=None, rng=None, callback=None, z=None, x=None,
+        y=None, wavelength=None, n=1.0, propagator=None):
     """Fienup's hybrid input-output algorithm.
 
     Like ER(), but outside the valid region the iterate is not set to zero:
@@ -309,7 +367,8 @@ def HIO(magnitude, support, beta=0.9, N_iter=500, start=None, positivity=False,
 
     Parameters
     ----------
-    magnitude, support, N_iter, start, positivity, real, shrinkwrap, rng, callback :
+    magnitude, support, N_iter, start, positivity, real, shrinkwrap, rng,
+    callback, z, x, y, wavelength, n, propagator :
         See ER().
     beta : number, optional
         Feedback parameter, typically 0.5 to 1.
@@ -323,7 +382,8 @@ def HIO(magnitude, support, beta=0.9, N_iter=500, start=None, positivity=False,
     """
 
     return _iterate(magnitude, support, N_iter, beta, True, start, positivity,
-                    real, shrinkwrap, rng, callback)
+                    real, shrinkwrap, rng, callback, z, x, y, wavelength, n,
+                    propagator)
 
 
 def twin(obj):
@@ -405,6 +465,21 @@ def defocus_to_waves(dz, NA, k):
     return -k*np.asarray(dz)*NA**2/(8*pi)
 
 
+def _diversity_factors(x, y, NA, k, defocus_waves, defocus_z):
+    """Pupil factors of the diversity planes, shape (M, Ny, Nx)."""
+
+    if (defocus_waves is None) == (defocus_z is None):
+        raise ValueError("Give either defocus_waves or defocus_z")
+    if defocus_z is not None:
+        # exact: the angular spectrum propagator exp(i*k_z*dz), piston removed
+        K_X, K_Y = freq_grid(x, y, wavenumbers=True, normal_order=True)
+        KZ = np.real(k_z(k, K_X, K_Y)) - k
+        return np.exp(1j*np.atleast_1d(defocus_z).astype(float)[:, None, None]*KZ)
+
+    Z4 = _pupil_zernikes(x, y, NA, k, [4])[0]
+    return np.exp(2j*pi*np.atleast_1d(defocus_waves).astype(float)[:, None, None]*Z4)
+
+
 def _pupil_zernikes(x, y, NA, k, indices):
     """Fringe Zernikes on the normalized pupil coordinates."""
 
@@ -414,7 +489,8 @@ def _pupil_zernikes(x, y, NA, k, indices):
     return np.array([basis.eval_single_scattered(P_x, P_y, j) for j in indices])
 
 
-def diversity_psfs(x, y, NA, k, defocus_waves, pupil_mask=None, phase=None):
+def diversity_psfs(x, y, NA, k, defocus_waves=None, pupil_mask=None, phase=None,
+                   defocus_z=None):
     """Intensity PSFs at a series of known defoci.
 
     Parameters
@@ -425,23 +501,29 @@ def diversity_psfs(x, y, NA, k, defocus_waves, pupil_mask=None, phase=None):
         Numerical aperture.
     k : number
         Wavenumber.
-    defocus_waves : sequence of numbers
+    defocus_waves : sequence of numbers, optional
         Fringe Z4 coefficient (waves) added to the pupil phase for each PSF,
-        see defocus_to_waves().
+        see defocus_to_waves() (paraxial defocus).
     pupil_mask, phase : arrays or callables, optional
         See imaging.pupil_function(); phase is the unknown pupil phase in
         radians.
+    defocus_z : sequence of numbers, optional
+        Instead of defocus_waves: distances of the observation planes from
+        the focal plane (positive downstream). The pupil is multiplied by
+        the exact angular spectrum propagator exp(i*(k_z - k)*dz), so the
+        PSFs equal propagators.rayleigh_sommerfeld_I_TF() of the in-focus
+        PSF.
 
     Returns
     -------
     psfs : array
-        Intensity PSFs |inv_FT(P*exp(i*2*pi*c_4*Z4))|**2, shape
-        (len(defocus_waves), Ny, Nx), each normalized to a total of 1.
+        Intensity PSFs |inv_FT(P*D_m)|**2 with the diversity factors D_m,
+        shape (M, Ny, Nx), each normalized to a total of 1.
     """
 
     P = pupil_function(x, y, NA, k, pupil_mask, phase)
-    Z4 = _pupil_zernikes(x, y, NA, k, [4])[0]
-    psfs = np.array([np.abs(inv_FT(P*np.exp(2j*pi*d*Z4)))**2 for d in defocus_waves])
+    D = _diversity_factors(x, y, NA, k, defocus_waves, defocus_z)
+    psfs = np.abs(inv_FT(P[None]*D))**2
 
     return psfs/np.sum(psfs, axis=(1, 2), keepdims=True)
 
@@ -458,7 +540,8 @@ def _fit_zernikes_to_phase(phase, P_abs, Z, indices):
 
 
 def phase_diversity(psfs, defocus_waves, x, y, NA, k, n_zernike=15, method="fit",
-                    pupil_mask=None, N_iter=None, start=None, tol=1e-12, solver="trf"):
+                    pupil_mask=None, N_iter=None, start=None, tol=1e-12, solver="trf",
+                    defocus_z=None):
     """Retrieve the pupil phase from intensity PSFs at known defoci.
 
     Parameters
@@ -467,9 +550,10 @@ def phase_diversity(psfs, defocus_waves, x, y, NA, k, n_zernike=15, method="fit"
         Measured intensity PSFs, shape (M, Ny, Nx), sampled on x, y with the
         PSF at the grid center as in imaging.get_psf(). Their scale does not
         matter; each is normalized to the energy of the model PSF.
-    defocus_waves : sequence of M numbers
+    defocus_waves : sequence of M numbers or None
         Known defocus of each PSF as Fringe Z4 coefficient in waves (see
-        defocus_to_waves()). At least one value should be nonzero: with a
+        defocus_to_waves()), i.e. paraxial defocus. None if defocus_z is
+        given. At least one value should be nonzero: with a
         single in-focus PSF, the sign of the even aberrations is ambiguous.
         Values of about +-0.5 to +-1 wave work well.
     x, y : arrays
@@ -508,6 +592,12 @@ def phase_diversity(psfs, defocus_waves, x, y, NA, k, n_zernike=15, method="fit"
         region default "trf" is robust; Levenberg-Marquardt ("lm") is
         somewhat faster on well posed problems but can run away on ill
         posed ones (e.g. a single in-focus PSF).
+    defocus_z : sequence of M numbers, optional
+        Instead of defocus_waves: the distances of the PSF planes from the
+        focal plane (positive downstream, in the units of x and 2*pi/k), e.g.
+        the positions of a focus stage. The defocus is applied exactly
+        (non-paraxially) as the angular spectrum propagator, see
+        diversity_psfs().
 
     Returns
     -------
@@ -527,10 +617,10 @@ def phase_diversity(psfs, defocus_waves, x, y, NA, k, n_zernike=15, method="fit"
     """
 
     psfs = np.asarray(psfs, dtype=float)
-    defocus_waves = np.atleast_1d(defocus_waves).astype(float)
     if psfs.ndim == 2:
         psfs = psfs[None]
-    if len(psfs) != len(defocus_waves):
+    diversity = _diversity_factors(x, y, NA, k, defocus_waves, defocus_z)
+    if len(psfs) != len(diversity):
         raise ValueError("Need one defocus value per PSF")
     if method not in ("fit", "gs"):
         raise ValueError("method must be 'fit' or 'gs'")
@@ -540,8 +630,6 @@ def phase_diversity(psfs, defocus_waves, x, y, NA, k, n_zernike=15, method="fit"
     P_abs = np.abs(P0)
     inside = P_abs > 0
     Z = _pupil_zernikes(x, y, NA, k, indices)
-    Z4 = _pupil_zernikes(x, y, NA, k, [4])[0]
-    diversity = np.exp(2j*pi*defocus_waves[:, None, None]*Z4)
 
     # normalize the measurements to the energy of the model (Parseval: the
     # energy of inv_FT(P*exp(i*phi)) does not depend on phi):

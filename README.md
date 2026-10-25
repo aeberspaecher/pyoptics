@@ -149,8 +149,10 @@ Status of the modules:
   removal of the trivial ambiguities (shift, constant phase, twin image);
   pupil phase retrieval from through-focus PSFs (phase diversity) by a
   multi-plane Gerchberg-Saxton iteration (with unwrapping via `unwrap`) or a
-  least squares fit of Fringe Zernikes with the analytic Jacobian;
-  defocus distance to Z4 coefficient
+  least squares fit of Fringe Zernikes with the analytic Jacobian, with
+  paraxial (Z4) or exact (angular spectrum) defocus; near-field (Fresnel)
+  coherent diffractive imaging with any pyoptics propagator in place of the
+  Fourier transform
 - `wpm`: wave propagation method (Cython extension), basic; one test, more
   examples in the notebook
 - `processing`: image processors for single images and image stacks, tested:

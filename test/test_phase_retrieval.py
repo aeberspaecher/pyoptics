@@ -12,7 +12,7 @@ from pyoptics import phase_retrieval as pr
 from pyoptics.bases import FringeZernikes
 from pyoptics.fft import FT, FT_unitary
 from pyoptics.imaging import get_psf, pupil_coordinates
-from pyoptics.propagators import rayleigh_sommerfeld_I_TF
+from pyoptics.propagators import fresnel_TF, rayleigh_sommerfeld_I_TF
 from pyoptics.utils import grid1d
 
 
@@ -100,6 +100,51 @@ def test_shape_mismatch_raises():
         pr.ER(np.ones((8, 8)), np.ones((4, 4), dtype=bool))
 
 
+# near field (Fresnel) coherent diffractive imaging:
+
+def _near_field_setup():
+    N_nf = 128
+    x = (np.arange(N_nf) - N_nf//2).astype(float)  # dx = 1 >= wavelength/2
+    Xn, Yn = np.meshgrid(x, x)
+    obj = np.zeros((N_nf, N_nf))
+    obj[(np.abs(Xn + 10) < 12) & (np.abs(Yn - 14) < 3)] = 1.0
+    obj[(np.abs(Xn - 12) < 3) & (np.abs(Yn + 2) < 18)] = 0.8
+    obj[(Xn + 10)**2 + (Yn + 10)**2 < 8**2] = 0.6
+    support = (np.abs(Xn + 1) < 24) & (np.abs(Yn) < 24)  # centrosymmetric box
+
+    return x, obj, support
+
+
+@pytest.mark.parametrize("propagator", [None, fresnel_TF])
+def test_near_field_hio_without_positivity(propagator):
+    # in the far field, a real object in a centrosymmetric box stagnates
+    # between object and twin; in the near field, the Fresnel curvature
+    # breaks the twin ambiguity
+    x, obj, support = _near_field_setup()
+    z, wl = 1000.0, 0.5
+    magnitude = np.abs((propagator or rayleigh_sommerfeld_I_TF)(obj, x, x, z, wl)[0])
+    kw = dict(z=z, x=x, y=x, wavelength=wl, propagator=propagator, real=True)
+    hio = pr.HIO(magnitude, support, N_iter=400, rng=0, **kw)
+    er = pr.ER(magnitude, support, N_iter=100, start=hio.obj, **kw)
+
+    # no shift or twin needed, only the sign (the constant phase of a real
+    # object):
+    sign = np.sign(np.sum(er.obj*obj))
+    assert np.linalg.norm(sign*er.obj - obj)/np.linalg.norm(obj) < 1e-4
+    assert er.errors[-1] < 1e-4
+
+
+def test_near_field_input_checks():
+    x, obj, support = _near_field_setup()
+    magnitude = np.abs(obj)
+    with pytest.raises(ValueError):  # grid missing
+        pr.ER(magnitude, support, z=100.0, wavelength=0.5)
+    with pytest.raises(ValueError):  # support needed
+        pr.ER(magnitude, None, z=100.0, x=x, y=x, wavelength=0.5)
+    with pytest.raises(ValueError):  # evanescent frequencies on the grid
+        pr.ER(magnitude, support, z=100.0, x=x/8, y=x/8, wavelength=0.5)
+
+
 # phase diversity:
 
 WL = 0.5
@@ -159,6 +204,44 @@ def test_phase_diversity_recovers_random_zernike_phase(method):
     assert max(abs(result.zernikes[j] - true[j]) for j in true) < 0.005
     assert result.errors[-1] < 1e-6
     assert np.allclose(np.abs(result.obj), inside)
+
+
+def test_exact_defocus_matches_angular_spectrum_propagation():
+    NA, N_grid = 0.5, 128
+    L = N_grid*WL/(4*NA)
+    x = grid1d(-L/2, L/2, N_grid)
+    coma = lambda P_x, P_y: 2*np.pi*0.2*(3*(P_x**2 + P_y**2) - 2)*P_x
+    psf = get_psf(x, x, NA, K, phase=coma)
+
+    # positive z only: back propagation would amplify the round-off in the
+    # evanescent part of the PSF spectrum
+    for dz in (2.0, 6.0):
+        I = np.abs(rayleigh_sommerfeld_I_TF(psf, x, x, dz, WL)[0])**2
+        I /= I.sum()
+        model = pr.diversity_psfs(x, x, NA, K, phase=coma, defocus_z=[dz])[0]
+        assert np.allclose(model, I, atol=1e-12*I.max())
+
+
+def test_phase_diversity_with_exact_defocus_at_high_NA():
+    NA = 0.8
+    x, P_x, P_y, basis = _pupil_setup(NA=NA)
+    rng = np.random.default_rng(0)
+    true = {j: rng.normal(0, 0.4)/np.sqrt(j) for j in range(2, 16)}
+    inside = P_x**2 + P_y**2 <= 1
+    phase = 2*np.pi*sum(c*basis.eval_single_scattered(P_x, P_y, j) for j, c in true.items())*inside
+    dz = 0.75*4*WL/NA**2
+    planes = [-dz, 0.0, dz]
+    psfs = pr.diversity_psfs(x, x, NA, K, phase=phase, defocus_z=planes)
+
+    exact = pr.phase_diversity(psfs, None, x, x, NA, K, defocus_z=planes)
+    paraxial = pr.phase_diversity(psfs, pr.defocus_to_waves(np.array(planes), NA, K), x, x, NA, K)
+
+    assert _rms_waves(exact.phase, phase, inside) < 1e-8
+    assert _rms_waves(paraxial.phase, phase, inside) > 0.01  # paraxial defocus model is off
+    with pytest.raises(ValueError):
+        pr.phase_diversity(psfs, [0.0, 0.0, 0.0], x, x, NA, K, defocus_z=planes)
+    with pytest.raises(ValueError):
+        pr.diversity_psfs(x, x, NA, K)
 
 
 def test_phase_diversity_is_scale_invariant_and_accepts_start():
