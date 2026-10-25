@@ -1129,12 +1129,74 @@ class System:
         return Q[:, 0], Q[:, 1]
 
     def _aim(self, field, a, b, px, py):
+        """Launch parameters (a, b) of the rays that hit the stop at (px, py)
+        times its semi diameter: Newton's method from the paraxial guess.
+        Rays for which that fails (a strong pupil aberration, as in high NA
+        lenses, sends the paraxial guess outside the aspheres or the spheres
+        of the lens) are aimed by continuation: in steps from the chief ray
+        to the target, each step starting from the previous solution, with
+        the steps halved where Newton's method still fails."""
+
         a_s = self.surfaces[self.stop_index].semi_diameter
         sign = np.sign(self._ep_matrix()[0]) if self.infinite_object else 1.0
         tx, ty = sign*px*a_s, sign*py*a_s
+        a, b, done = self._newton_aim(field, a, b, tx, ty, iterations=6)
+        if np.all(done):
+            return a, b
+        lost = ~done
+        if self.infinite_object:
+            a_c, b_c = np.zeros(1), np.zeros(1)
+        else:
+            u_c = self._object_slopes()[1]
+            a_c, b_c = (np.array([u_c*f]) for f in _field_xy(field))
+        a_c, b_c, _ = self._newton_aim(field, a_c, b_c, np.zeros(1), np.zeros(1))
+        n_lost = np.count_nonzero(lost)
+        a_l, b_l = np.full(n_lost, a_c[0]), np.full(n_lost, b_c[0])
+        # small steps keep the rays on the physical branch (large ones can
+        # converge to rays that pass the stop on folded paths outside the
+        # clear apertures):
+        steps = 8
+        for k in range(steps):
+            a_l, b_l = self._continue_aim(field, a_l, b_l, tx[lost], ty[lost], k/steps,
+                                          (k + 1)/steps)
+        a, b = a.copy(), b.copy()
+        ok = np.isfinite(a_l + b_l)
+        a[lost] = np.where(ok, a_l, a[lost])
+        b[lost] = np.where(ok, b_l, b[lost])
+
+        return a, b
+
+    def _continue_aim(self, field, a, b, tx, ty, s0, s1, depth=0):
+        """Aim from the solutions (a, b) for the stop hits s0*(tx, ty) to
+        those for s1*(tx, ty), bisecting the step for the rays that fail
+        (NaN where they still fail after 6 bisections)."""
+
+        a_n, b_n, done = self._newton_aim(field, a, b, s1*tx, s1*ty, iterations=5)
+        if np.all(done):
+            return a_n, b_n
+        a_n, b_n = a_n.copy(), b_n.copy()
+        bad = ~done
+        if depth == 6:
+            a_n[bad], b_n[bad] = np.nan, np.nan
+            return a_n, b_n
+        s_m = (s0 + s1)/2
+        a_m, b_m = self._continue_aim(field, a[bad], b[bad], tx[bad], ty[bad], s0, s_m, depth + 1)
+        ok = np.isfinite(a_m + b_m)
+        a_m[ok], b_m[ok] = self._continue_aim(field, a_m[ok], b_m[ok], tx[bad][ok], ty[bad][ok],
+                                              s_m, s1, depth + 1)
+        a_n[bad], b_n[bad] = a_m, b_m
+
+        return a_n, b_n
+
+    def _newton_aim(self, field, a, b, tx, ty, iterations=30):
+        """Newton's method for the stop hits (tx, ty); also returns which
+        rays converged."""
+
+        a_s = self.surfaces[self.stop_index].semi_diameter
         scale = max(a_s, 1e-12)
         eps = 1e-6*scale if self.infinite_object else 1e-6*max(abs(self._object_slopes()[0]), 1e-12)
-        for _ in range(30):
+        a, b = np.array(a, dtype=float), np.array(b, dtype=float)
+        for _ in range(iterations):
             hx, hy = self._stop_hits(field, a, b)
             rx, ry = hx - tx, hy - ty
             bad = ~np.isfinite(rx + ry)
@@ -1151,8 +1213,10 @@ class System:
             ok = np.isfinite(da + db)
             a = np.where(ok, a - da, a)
             b = np.where(ok, b - db, b)
+        hx, hy = self._stop_hits(field, a, b)
+        done = np.hypot(hx - tx, hy - ty) < 1e-9*scale
 
-        return a, b
+        return a, b, done
 
     def trace(self, rays, clip=True, last=None):
         """Trace rays through the system.
@@ -1731,3 +1795,169 @@ def caldwell_krf_lens(wavelength=248.3e-6, aperture_margin=1.02, refocus=True):
     system = System(surfaces, stop, wavelength, object_distance=107.954, object_height=46.8)
 
     return system.at_paraxial_focus() if refocus else system
+
+
+# Water immersion ArF lens: surface, radius, thickness to the next surface,
+# medium behind ("A": air, "S": fused silica, "H": helium, "W": water), semi
+# diameter, all in mm; numbered as in the patent (surface 0 is the object).
+_ZEISS_ARFI = """
+ 1     0.000000000   -0.016913454 A  61.135
+ 2 -1424.443154673    9.987985063 S  61.131
+ 3   531.050343653    9.225587631 H  62.641
+ 4 -1315.866097532    9.986132305 S  63.624
+ 5   143.128482593   40.559989076 H  67.531
+ 6   641.321043150   49.240502472 S  81.211
+ 7  -218.977712869    0.998798945 H  87.963
+ 8 -1092.677562181   19.902882081 S  90.014
+ 9  -311.840626623    0.998466971 H  91.145
+10   231.495479260    9.997963953 S  91.384
+11   136.424871433   14.583455774 H  88.174
+12   207.612238848   41.794232842 S  89.096
+13  -342.405731396    0.999019752 H  88.753
+14    88.460595521   57.657980357 S  76.562
+15    95.574785628   11.929831887 H  56.768
+16   143.800783044    9.998912890 S  54.565
+17    54.871822384   37.580075846 H  43.961
+18   -91.160542057   26.385017659 S  43.259
+19   145.971856718   33.207912138 H  47.597
+20   -63.479146081   10.065790428 S  48.739
+21   566.741654029   18.182386924 H  69.201
+22  -295.688670061   40.326191169 S  75.940
+23  -137.879376820    1.058510991 H  90.451
+24  -234.461401510   32.298714405 S 101.105
+25  -155.870582526    2.467573485 H 108.928
+26  -457.573287328   34.513989921 S 128.678
+27  -256.328309848    0.999233259 H 133.138
+28 -7362.805157612   33.881595936 S 143.939
+29  -433.193106668    0.999119988 H 145.845
+30   733.950029037   33.171028525 S 150.039
+31  -797.700668581    0.999523145 H 149.920
+32   628.671569204   54.808414933 S 149.124
+33  -421.327827135   40.550671041 H 148.061
+34  -183.041534671   14.245361502 S 146.048
+35  -590.419446395    0.999852843 H 153.746
+36   420.004155385   46.911699389 S 156.958
+37 -1311.368773664   30.643333522 H 155.907
+38     0.000000000  -29.650615857 H 149.419
+39   302.808388697   60.633906849 S 148.251
+40 -1328.310374037    0.997714230 H 145.494
+41   124.075249887   53.974430752 S 102.260
+42   598.110457937    0.995860546 H  92.898
+43    59.889952115   60.109366540 S  54.202
+44     0.000000000    1.000052369 W   9.767
+"""
+
+# aspheric constants C1 ... C6 (C7 ... C9 and the conic constants are zero)
+_ZEISS_ARFI_ASPHERES = {
+    2: (2.26821920e-07, -4.48881873e-11, 2.12450788e-15, 8.08450652e-19, -3.44540449e-22,
+        4.10209860e-26),
+    5: (-3.11728384e-07, 2.80630147e-12, 1.91939883e-15, -8.18512919e-19, 1.50584700e-22,
+        -8.32448975e-27),
+    6: (-1.40214999e-07, 1.58684255e-11, -8.63321874e-16, -3.40279126e-20, 1.56369475e-23,
+        -9.12764213e-28),
+    11: (-4.72454704e-08, 3.46416480e-12, -1.09160042e-16, -9.56055803e-21, 1.67190428e-24,
+         -7.08525660e-29),
+    19: (-2.76571892e-07, -1.85643840e-11, -1.36453442e-15, 3.50300729e-19, -1.87275583e-22,
+         5.25847463e-26),
+    26: (4.80486857e-09, 8.75328485e-13, -1.21918811e-17, 1.75313663e-22, -1.92362253e-26,
+         9.56346186e-31),
+    31: (1.19764229e-08, 1.91699881e-13, -7.05272499e-18, 1.33971804e-22, -4.92635133e-27,
+         6.37372485e-32),
+    34: (1.71472327e-08, 4.46253272e-14, 5.49240286e-18, -2.26404865e-22, 1.06225351e-26,
+         2.30721400e-31),
+    37: (-2.25392291e-09, 8.74411421e-13, -4.61128670e-17, 9.65794382e-22, 4.85877680e-27,
+         -2.79511512e-31),
+    40: (-1.45855175e-08, 5.45064648e-14, 5.13932305e-17, -3.50786399e-21, 9.44625063e-26,
+         -9.23548061e-31),
+    42: (4.95488619e-08, -1.77810485e-12, 1.38634050e-16, -2.17059559e-21, 1.34695165e-25,
+         -9.49441000e-30),
+}
+
+ARF_WAVELENGTH_NM = 193.368
+SIO2_ARF = 1.56078570  # fused silica at 193.368 nm (SIO2V of the patent)
+HELIUM_ARF = 1.00003289
+WATER_ARF = 1.43662694  # H2OV193B of the patent
+
+
+def fused_silica_arf(wavelength_nm):
+    """Fused silica for ArF lenses: Malitson's dispersion shifted to the
+    index 1.56078570 at 193.368 nm of the Zeiss designs (Malitson's formula
+    itself gives 1.56019 there); dn/dlambda = -1.58e-3 per nm."""
+
+    return fused_silica(wavelength_nm) - fused_silica(ARF_WAVELENGTH_NM) + SIO2_ARF
+
+
+def zeiss_arfi_lens(wavelength=ARF_WAVELENGTH_NM*1e-6, aperture_margin=1.01, refocus=True,
+                    n_water=WATER_ARF):
+    """Dioptric water immersion ArF projection lens, NA 1.35, by Carl Zeiss.
+
+    US patent 7,187,503 B2, "Refractive projection objective for immersion
+    lithography" (H.-J. Rostalski, A. Dodoc, A. Epple, H. Beierl; Carl Zeiss
+    SMT AG, 2007), second embodiment (FIG. 4, Tables 6 and 7). Reduction 8x
+    (magnification -0.125), image side NA 1.35 in water, image field radius
+    7 mm (object height up to 56 mm), 960 mm from object to image; all lenses
+    of fused silica, filled with helium, 11 even aspheres (no conics), 1 mm
+    of water between the last lens (a plane surface) and the wafer. The
+    image side chief rays are not telecentric: up to 40 mrad (in water) at
+    the rim of the field.
+
+    The aperture stop is the plane surface 38 of the patent (index 37 of
+    the system, in the air space in front of lens 39, which it reaches back
+    into with the negative thickness); with the semi diameter of the table
+    the real NA is 1.35 and all other semi diameters of the table are met by
+    the rim rays of the full field to 0.1%. They are enlarged by
+    aperture_margin. On axis the RMS wavefront error is about 16 mwaves, at
+    the rim of the field about 24 mwaves.
+
+    The first embodiment of the patent (NA 1.3, 5x, Tables 1 and 2) is not
+    included: its aspheric constants are printed without decimal points and,
+    read as d.dddddddd, leave several waves of spherical aberration.
+
+    Parameters
+    ----------
+    wavelength : number, optional
+        Vacuum wavelength in mm (default: 193.368 nm, the design wavelength
+        of the patent). Fused silica follows fused_silica_arf(); helium
+        (1.00003289) and water (n_water) are taken as constant, so the axial
+        colour (about 0.3 um per pm) is that of the glass only.
+    aperture_margin : number, optional
+        Factor for the semi diameters of all surfaces but the stop.
+    refocus : bool, optional
+        Move the image plane by the change of the paraxial image distance
+        relative to 193.368 nm, so that it stays at the best focus of the
+        design (the table's image distance, 20 nm behind the paraxial image).
+    n_water : number, optional
+        Index of the immersion water (patent: 1.43662694 at 193.368 nm).
+
+    Returns
+    -------
+    System
+        Lengths in mm, object 29.960 mm in front of the first (dummy)
+        surface, maximum field object_height = 56 mm. Surface labels are the
+        surface numbers of the patent.
+    """
+
+    stop = 37
+    media = {"A": 1.0, "H": HELIUM_ARF, "W": n_water}
+
+    def build(wl):
+        surfaces = []
+        for i, line in enumerate(_ZEISS_ARFI.strip().splitlines()):
+            number, R, t, medium, sd = line.split()
+            R = float(R)
+            surfaces.append(Surface(R if R != 0 else np.inf, float(t),
+                                    material=fused_silica_arf if medium == "S" else None,
+                                    n_after=None if medium == "S" else media[medium],
+                                    aspheric=_ZEISS_ARFI_ASPHERES.get(int(number), ()),
+                                    semi_diameter=float(sd)*(1 if i == stop else aperture_margin),
+                                    label=number))
+
+        return System(surfaces, stop, wl, object_distance=29.959527308, object_height=56.0)
+
+    system = build(wavelength)
+    if refocus and wavelength != ARF_WAVELENGTH_NM*1e-6:
+        design = build(ARF_WAVELENGTH_NM*1e-6)
+        dz = system.paraxial().image_distance - design.paraxial().image_distance
+        system = system.with_image_distance(system.surfaces[-1].thickness + dz)
+
+    return system

@@ -110,6 +110,9 @@
   Caldwell KrF lithography lens as an example (notebook 24)
 * axial (z) shift sensitivity of the Caldwell lens elements
   (`System.with_axial_shift`; focus, Z9, magnification; notebook 24)
+* water immersion ArF lens (NA 1.35, 8x, 11 aspheres) from Zeiss patent
+  US 7,187,503 B2, second embodiment (`raytrace.zeiss_arfi_lens()`); ray
+  aiming by continuation for the rim rays of high NA lenses
 * phase retrieval (`phase_retrieval`): error reduction and hybrid
   input-output with support, reality and positivity constraints,
   shrink-wrap, near-field (Fresnel) CDI via the propagators, phase

@@ -51,8 +51,10 @@ intrinsic birefringence (materials.CubicCrystal), with
 raytrace.System.trace_polarization(). The result is fitted with
 pyoptics.litho.jones_pupil and handed to Projector(jones_pupil=...).
 
-Caldwell's lens is a dry KrF design (NA 0.56). It is the ray traced model
-of a projection lens here; it cannot reach the NA 1.35 of ArF immersion.
+Two ray traced projection lenses come with pyoptics.raytrace: Caldwell's
+dry KrF design (caldwell_krf_lens(), NA 0.56, 4x) and a Zeiss water
+immersion ArF design from a patent (zeiss_arfi_lens(), NA 1.35, 8x, 11
+aspheres, not telecentric in the image space).
 
 Units: the system (e.g. caldwell_krf_lens()) is in mm, the lithography
 simulation in its own length unit; length_unit is that unit in mm (1e-6
