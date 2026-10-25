@@ -310,9 +310,12 @@ class ThinMask(object):
         return cls(np.sqrt(transmission)*np.exp(1j*np.radians(phase)), **kwargs)
 
     def jones(self, s_x, s_y, NA, wavelength, magnification):
-        """Jones matrices (J_clear, J_absorber) for the source point."""
+        """Jones matrices (J_clear, J_absorber) for the source point(s),
+        shape np.shape(s_x) + (2, 2)."""
 
-        return self.t_clear*np.eye(2), self.t_absorber*np.eye(2)
+        eye = np.broadcast_to(np.eye(2), np.shape(s_x) + (2, 2))
+
+        return self.t_clear*eye, self.t_absorber*eye
 
 
 class FilmMask(object):
@@ -371,16 +374,16 @@ class FilmMask(object):
         return t_abs, t_clear
 
     def jones(self, s_x, s_y, NA, wavelength, magnification):
-        """Jones matrices (J_clear, J_absorber) for the source point."""
+        """Jones matrices (J_clear, J_absorber) for the source point(s),
+        shape np.shape(s_x) + (2, 2)."""
 
         sin_theta = NA*np.hypot(s_x, s_y)/(magnification*np.real(self.substrate))
         t_abs, t_clear = self.transmissions(sin_theta, wavelength)
         if self.normalize:
-            t_abs, t_clear = t_abs/t_clear, np.ones(2)
-        e_TE, e_TM = TE_TM_basis(s_x, s_y)
-        B = np.array([e_TE, e_TM]).T  # columns: TE and TM Jones vectors
+            t_abs, t_clear = t_abs/t_clear, np.ones_like(t_clear)
+        B = np.array(TE_TM_basis(s_x, s_y))  # B[0]: TE, B[1]: TM Jones vector
 
-        def to_xy(t):
-            return B @ np.diag(t) @ B.T
+        def to_xy(t):  # sum over TE and TM of t*e e^T
+            return np.einsum("ki...,k...,kj...->...ij", B, t, B)
 
         return to_xy(t_clear), to_xy(t_abs)

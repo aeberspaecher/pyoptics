@@ -10,6 +10,7 @@ sets.
 """
 
 from abc import ABCMeta, abstractmethod
+from functools import lru_cache
 from math import sqrt, floor, ceil
 
 import numpy as np
@@ -331,8 +332,9 @@ def fringe_to_n_m(j):
     return int(n), int(m)
 
 
+@lru_cache(maxsize=None)
 def _fringe_zernike_R_nm_coeffs(n, m):
-    """Coefficients of R_nm.
+    """Coefficients of R_nm (cached, read-only).
 
     Parameters
     ----------
@@ -355,7 +357,10 @@ def _fringe_zernike_R_nm_coeffs(n, m):
         else:
             coeffs[N-2*k] = (-1.0)**k * fac(N-k) / denom
 
-    return coeffs[::-1]  # highest power first, for np.polyval()
+    coeffs = coeffs[::-1]  # highest power first, for np.polyval()
+    coeffs.flags.writeable = False  # shared by all callers through the cache
+
+    return coeffs
 
 
 def fringe_zernike_R_nm(n, m, rho):
@@ -372,7 +377,7 @@ def fringe_zernike_R_nm(n, m, rho):
     R_mm : number or array
     """
 
-    coeffs = _fringe_zernike_R_nm_coeffs(n, m)
+    coeffs = _fringe_zernike_R_nm_coeffs(int(n), int(m))
     R = np.polyval(coeffs, rho)
 
     return R
