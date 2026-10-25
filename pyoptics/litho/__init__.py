@@ -20,7 +20,7 @@ exchangeable:
   as an approximation to thick mask effects,
 - `Projector`: the projection lens (NA, wavelength, immersion, vectorial or
   scalar model, Zernike aberrations, apodization (e.g. apodization
-  Zernikes), defocus),
+  Zernikes), a Jones pupil, defocus),
 - `WaferStack`: optional resist on a thin film stack (BARC, substrate, top
   coat), computed with `pyoptics.thin_films` for TE and TM, with standing
   waves; without it the aerial image in the immersion medium is computed,
@@ -43,6 +43,11 @@ exchangeable:
   size and dose to clear,
 - `rcwa`: rigorous mask diffraction of 1D layouts (RCWA), `RigorousMask`
   for Abbe and Hopkins imaging, calibration of the boundary layer model,
+- `jones_pupil`: polarization of the lens as Jones pupils, in the
+  representations of the literature (Jones-Zernike, Pauli-Zernike,
+  retardance and diattenuation in orientation Zernike polynomials), with
+  the polar decomposition; `lens.lens_jones_pupil` traces it through a
+  coated or uncoated lens,
 - `plot`: source, mask, pupil fill, images, Bossung plots, process windows.
 
 All lengths are image-side (wafer scale) values; mask dimensions are given
@@ -62,4 +67,5 @@ from . import lens
 from . import hopkins
 from . import resist
 from . import rcwa
+from . import jones_pupil
 from .rcwa import RigorousMask

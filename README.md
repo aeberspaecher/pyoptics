@@ -114,7 +114,13 @@ Status of the modules:
   `litho.rcwa`: rigorous mask diffraction of 1D layouts by RCWA (Li's
   factorization, conical incidence, enhanced transmittance matrices; exact
   against `thin_films`, energy conserving), `RigorousMask` for Abbe and
-  Hopkins imaging and a calibration of the boundary layer model
+  Hopkins imaging and a calibration of the boundary layer model;
+  `litho.jones_pupil`: polarization of the lens as Jones pupils in the
+  representations of the literature (Pauli-Zernike, polar decomposition,
+  retardance and diattenuation in orientation Zernike polynomials) with
+  fits, used by `Projector(jones_pupil=...)` in Abbe and Hopkins imaging,
+  and a polarization ray trace of coated or uncoated lenses
+  (`litho.lens.lens_jones_pupil`)
 - `polarization`: TE/TM bases, Stokes to Jones decomposition, DOP and IPS
 - `imaging`: scalar imaging, tested: coherent imaging through a circular
   pupil, PSF with pupil masks (obscuration, apodization) and phases (also

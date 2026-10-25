@@ -54,6 +54,7 @@ import numpy as np
 
 from . import metrics
 from .imaging import Projector
+from .jones_pupil import decompose
 
 
 LensAberrations = namedtuple("LensAberrations", ["field", "zernikes", "rms_residual", "distortion",
@@ -247,6 +248,164 @@ def projector_from_system(system, field=(0.0, 0.0), n_terms=36, N=48, NA=None, l
     kwargs.setdefault("magnification", 1/abs(system.paraxial().magnification))
 
     return Projector(ab.NA, system.wavelength/length_unit, zernikes=ab.zernikes, **kwargs)
+
+
+# polarization ray trace:
+
+LensJonesPupil = namedtuple("LensJonesPupil", ["P_x", "P_y", "J", "transmission", "field", "NA"])
+LensJonesPupil.__doc__ = """Jones pupil of a ray traced lens.
+
+Attributes
+----------
+P_x, P_y : (N,) arrays
+    Normalized pupil coordinates of the rays (as in lens_aberrations()).
+J : (N, 2, 2) array
+    Jones matrices from the object space to the image space, both in the
+    aplanatic bases of the ray directions (the identity for an ideal lens).
+transmission : number
+    Mean intensity transmission of the chief ray (that J is normalized to
+    if normalize was True).
+field, NA : image field point and the NA of the pupil coordinates
+"""
+
+
+def quarter_wave_coating(n_glass, wavelength, n_coating=None):
+    """Single layer antireflection coating: a quarter wave layer at normal
+    incidence of index n_coating (default sqrt(n_glass), zero reflection;
+    MgF2 has about 1.40 at 248 nm and 1.43 at 193 nm).
+
+    Returns
+    -------
+    list of (n, thickness)
+        The layers from the air side, thickness in the units of wavelength,
+        for lens_jones_pupil(coating=...).
+    """
+
+    n_c = np.sqrt(n_glass) if n_coating is None else n_coating
+
+    return [(n_c, wavelength/(4*n_c))]
+
+
+def _ray_basis(k, normal):
+    """Unit s vectors k x normal (any perpendicular vector at normal
+    incidence) and the p vectors k x s, for rows of k."""
+
+    s = np.cross(k, normal)
+    small = np.linalg.norm(s, axis=-1) < 1e-12
+    s[small] = np.cross(k[small], [1.0, 0.0, 0.0])
+    s = s/np.linalg.norm(s, axis=-1)[:, None]
+
+    return s, np.cross(k, s)
+
+
+def _interface(k1, k2, normal, n1, n2, layers, wavelength):
+    """Polarization ray tracing matrices (Chipman's P, shape (N, 3, 3)) of the
+    refraction of the rays k1 -> k2 at a surface with the unit normals,
+    for the transmitted amplitude: ``|P E|**2`` is the transmitted power fraction
+    (Fresnel transmission times n2*cos_t/(n1*cos_i))."""
+
+    from ..thin_films import _r_t
+
+    cos_i = np.abs(np.sum(k1*normal, axis=-1))
+    cos_t = np.abs(np.sum(k2*normal, axis=-1))
+    sin_i = np.sqrt(np.clip(1 - cos_i**2, 0, None))
+    if n1 < n2:  # layers on the side of the lower index
+        n_stack, t_stack = [n1] + [n for n, _ in layers] + [n2], [t for _, t in layers]
+    else:
+        n_stack, t_stack = [n1] + [n for n, _ in layers[::-1]] + [n2], [t for _, t in layers[::-1]]
+    n_stack = np.array(n_stack, dtype=complex)
+    t_s = _r_t(sin_i, n_stack, t_stack, "TE", wavelength)[1]
+    t_p = _r_t(sin_i, n_stack, t_stack, "TM", wavelength)[1]*cos_i/cos_t  # tangential -> full field
+    power = np.sqrt(n2*cos_t/(n1*cos_i))
+    s, p1 = _ray_basis(k1, normal)
+    p2 = np.cross(k2, s)
+
+    return power[:, None, None]*(t_s[:, None, None]*s[:, :, None]*s[:, None, :]
+                                 + t_p[:, None, None]*p2[:, :, None]*p1[:, None, :])
+
+
+def lens_jones_pupil(system, field=(0.0, 0.0), N=32, NA=None, coating=None, normalize=True):
+    """Polarization ray trace of a lens: its Jones pupil at an image field
+    point.
+
+    Every refraction contributes the Fresnel transmission of its s and p
+    components (with an optional thin film coating), as a 3 x 3 polarization
+    ray tracing matrix (Chipman); the product over the surfaces, between the
+    aplanatic bases of the object and image space ray directions (see
+    propagators.aplanatic_rotation), is the Jones matrix. The bases use the
+    absolute ray directions, which for a lens telecentric on both sides
+    differ little from those relative to the chief ray that the pupil
+    coordinates use. An uncoated surface is a weak diattenuator (s is
+    reflected more, so p is transmitted better) with radial orientation;
+    coatings add retardance. The geometric optical path is not included
+    (that is the wavefront of lens_aberrations()), and neither is the stress
+    birefringence or the intrinsic birefringence of the glass.
+
+    Parameters
+    ----------
+    system : pyoptics.raytrace.System
+        Finite conjugate projection lens without mirrors.
+    field : pair, optional
+        Image field point (units of the system).
+    N : int, optional
+        Rays across the pupil.
+    NA : number, optional
+        Normalization of the pupil coordinates; default lens_NA(system).
+    coating : list of (n, thickness) or callable, optional
+        Thin film layers on every glass-air surface, from the air side (e.g.
+        quarter_wave_coating()), thickness in the units of the system; or a
+        function coating(i, n_glass) of the surface index returning such a
+        list (or None). None: uncoated.
+    normalize : bool, optional
+        Divide by the square root of the transmission of the chief ray and
+        by its scalar phase (see jones_pupil.decompose()), so that the Jones
+        pupil leaves the overall dose unchanged.
+
+    Returns
+    -------
+    LensJonesPupil
+        Fit it with jones_pupil.PauliZernikePupil.fit() or
+        PhysicalJonesPupil.fit() to use it in Projector(jones_pupil=...).
+    """
+
+    from ..propagators import aplanatic_rotation
+    from ..raytrace import CoordinateBreak
+
+    if any(s.mirror for s in system.surfaces):
+        raise NotImplementedError("polarization ray tracing of mirrors")
+    if NA is None:
+        NA = lens_NA(system, N)
+    m = system.paraxial().magnification
+    obj = np.asarray(field, dtype=float)/m
+    _, PX, PY, inside = system._pupil_grid(N)
+    px = np.concatenate([[0.0], PX[inside]])
+    py = np.concatenate([[0.0], PY[inside]])
+    bundle = system.trace_pupil(obj, px, py)
+    ok = bundle.valid
+    n = bundle.n
+    frames = system.frames()[0]
+    P = np.tile(np.eye(3, dtype=complex), (len(px), 1, 1))
+    for i, s in enumerate(system.surfaces):
+        if isinstance(s, CoordinateBreak) or n[i] == n[i + 1]:
+            continue
+        o, R = frames[i]
+        k1, k2 = bundle.directions[i][ok], bundle.directions[i + 1][ok]
+        normal = s.normal((bundle.points[i + 1][ok] - o) @ R) @ R.T
+        layers = coating(i, max(n[i], n[i + 1])) if callable(coating) else coating
+        P_i = np.tile(np.eye(3, dtype=complex), (len(px), 1, 1))
+        P_i[ok] = _interface(k1, k2, normal, n[i], n[i + 1], layers or [], system.wavelength)
+        P = P_i @ P
+    d_in, d_out = bundle.directions[0], system._image_hits(bundle)[1]
+    B_in, B_out = aplanatic_rotation(d_in[:, 0], d_in[:, 1]), aplanatic_rotation(d_out[:, 0], d_out[:, 1])
+    J = np.einsum("jip,pjk,klp->pil", B_out, P, B_in)
+    transmission = float(np.sum(np.abs(J[0])**2)/2)
+    if normalize:
+        chief = decompose(J[0])
+        J = J/(np.sqrt(chief["transmission"])*np.exp(1j*chief["phase"]))
+    q = n[-1]*(d_out[:, :2] - d_out[0, :2])/NA
+    ok[0] = False
+
+    return LensJonesPupil(q[ok, 0], q[ok, 1], J[ok], transmission, tuple(float(f) for f in field), NA)
 
 
 # feature response:
