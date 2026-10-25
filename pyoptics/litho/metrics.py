@@ -36,7 +36,7 @@ from ..vectorial_imaging import contrast, nils
 def image_log_slope(x, I, x_edge):
     """``|d ln(I)/dx|`` at x_edge."""
 
-    return np.abs(np.interp(x_edge, x, np.gradient(np.log(I), x)))
+    return nils(x, I, x_edge, 1.0)
 
 
 def _crossing(u, f, i, j):

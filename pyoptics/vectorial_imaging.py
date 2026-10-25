@@ -91,6 +91,22 @@ def lines_spaces_orders(pitch, linewidth, max_order, line=0.0, space=1.0):
     return m, c_m.astype(complex)
 
 
+def _angle_dist(phi, phi_0):
+    """Angular distance in degrees, in [0, 180]."""
+
+    return np.abs((phi - phi_0 + 180) % 360 - 180)
+
+
+def _sigma_grid(n_samples):
+    """Square grid of n_samples x n_samples points on [-1, 1]**2 in the
+    sigma plane, flattened."""
+
+    s = np.linspace(-1, 1, n_samples)
+    S_x, S_y = np.meshgrid(s, s)
+
+    return S_x.ravel(), S_y.ravel()
+
+
 def source_points(shape="conventional", sigma=0.5, sigma_in=0.0, opening_angle=None,
                   n_samples=21, axis="x"):
     """Sample an illumination source on a square grid in the sigma plane.
@@ -125,14 +141,9 @@ def source_points(shape="conventional", sigma=0.5, sigma_in=0.0, opening_angle=N
         s_x, s_y = (sigma, 0.0) if np.isscalar(sigma) else sigma
         return np.array([s_x], dtype=float), np.array([s_y], dtype=float), np.array([1.0])
 
-    s = np.linspace(-1, 1, n_samples)
-    S_x, S_y = np.meshgrid(s, s)
-    S_x, S_y = S_x.ravel(), S_y.ravel()
+    S_x, S_y = _sigma_grid(n_samples)
     r, phi = np.hypot(S_x, S_y), np.degrees(np.arctan2(S_y, S_x))
     half_opening = (35.0 if opening_angle is None else opening_angle)/2
-
-    def angle_dist(phi, phi_0):
-        return np.abs((phi - phi_0 + 180) % 360 - 180)
 
     if shape == "conventional":
         inside = r <= sigma
@@ -141,11 +152,11 @@ def source_points(shape="conventional", sigma=0.5, sigma_in=0.0, opening_angle=N
     elif shape == "dipole":
         phi_0 = 0.0 if axis == "x" else 90.0
         inside = ((r <= sigma) & (r >= sigma_in)
-                  & ((angle_dist(phi, phi_0) <= half_opening)
-                     | (angle_dist(phi, phi_0 + 180) <= half_opening)))
+                  & ((_angle_dist(phi, phi_0) <= half_opening)
+                     | (_angle_dist(phi, phi_0 + 180) <= half_opening)))
     elif shape == "quasar":
         inside = ((r <= sigma) & (r >= sigma_in)
-                  & np.any([angle_dist(phi, a) <= half_opening for a in (45, 135, 225, 315)], axis=0))
+                  & np.any([_angle_dist(phi, a) <= half_opening for a in (45, 135, 225, 315)], axis=0))
     else:
         raise ValueError("Unknown source shape {}".format(shape))
 

@@ -101,7 +101,8 @@ from numpy import pi
 
 from . import abcd
 from . import imaging
-from .bases import FringeZernikes
+from .bases import fringe_zernike
+from .geometry import R_x, R_y, R_z
 from .materials import abbe_dispersion
 
 
@@ -120,14 +121,7 @@ def rotation(a_x=0.0, a_y=0.0, a_z=0.0):
     """Rotation matrix R_x(a_x) @ R_y(a_y) @ R_z(a_z) (angles in radians,
     counterclockwise about the respective axis)."""
 
-    cx, sx = np.cos(a_x), np.sin(a_x)
-    cy, sy = np.cos(a_y), np.sin(a_y)
-    cz, sz = np.cos(a_z), np.sin(a_z)
-    R_x = np.array([[1, 0, 0], [0, cx, -sx], [0, sx, cx]])
-    R_y = np.array([[cy, 0, sy], [0, 1, 0], [-sy, 0, cy]])
-    R_z = np.array([[cz, -sz, 0], [sz, cz, 0], [0, 0, 1]])
-
-    return R_x @ R_y @ R_z
+    return R_x(a_x) @ R_y(a_y) @ R_z(a_z)
 
 
 def _frame(origin, R, decenter=(0.0, 0.0), tilt=(0.0, 0.0, 0.0)):
@@ -1126,8 +1120,7 @@ class System:
         m = self.opd(field, N)
         PX, PY = np.meshgrid(m.px, m.py)
         ok = np.isfinite(m.W)
-        Z = FringeZernikes(m.px, m.py)
-        A = np.column_stack([Z.eval_single_scattered(PX[ok], PY[ok], j)
+        A = np.column_stack([fringe_zernike(j, PX[ok], PY[ok])
                              for j in range(1, n_terms + 1)])
 
         return np.linalg.lstsq(A, m.W[ok], rcond=None)[0]

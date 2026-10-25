@@ -55,7 +55,7 @@ from scipy.optimize import least_squares
 from .fft import FT, inv_FT
 from .propagators import rayleigh_sommerfeld_I_TF
 from .utils import freq_grid, get_dx, k_z
-from .bases import FringeZernikes
+from .bases import fringe_zernike
 from .imaging import pupil_coordinates, pupil_function
 from .unwrap import unwrap_quality_guided
 
@@ -484,9 +484,8 @@ def _pupil_zernikes(x, y, NA, k, indices):
     """Fringe Zernikes on the normalized pupil coordinates."""
 
     P_x, P_y = pupil_coordinates(x, y, NA, k)
-    basis = FringeZernikes(P_x[0, :], P_y[:, 0])
 
-    return np.array([basis.eval_single_scattered(P_x, P_y, j) for j in indices])
+    return np.array([fringe_zernike(j, P_x, P_y) for j in indices])
 
 
 def diversity_psfs(x, y, NA, k, defocus_waves=None, pupil_mask=None, phase=None,

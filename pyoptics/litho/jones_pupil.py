@@ -94,7 +94,7 @@ Convention: fields vary as exp(i(k.r - omega*t)).
 
 import numpy as np
 
-from ..bases import fringe_to_n_m, fringe_zernike_R_nm, fringe_zernike_Y_m
+from ..bases import fringe_to_n_m, fringe_zernike_R_nm, fringe_zernike, fringe_zernike_sum
 
 
 SIGMA = np.array([[[1, 0], [0, 1]],
@@ -134,23 +134,13 @@ def _expm_pauli(c):
 
 # scalar and orientation Zernikes:
 
-def zernike(j, P_x, P_y):
-    """Fringe Zernike Z_j (peak value 1 on the unit circle)."""
-
-    n, m = fringe_to_n_m(j)
-    rho, phi = np.hypot(P_x, P_y), np.arctan2(P_y, P_x)
-
-    return fringe_zernike_R_nm(n, abs(m), rho)*fringe_zernike_Y_m(m, phi)
+zernike = fringe_zernike  # Fringe Zernike Z_j(P_x, P_y), see pyoptics.bases
 
 
 def zernike_sum(coefficients, P_x, P_y):
     """sum_j c_j Z_j (complex coefficients allowed)."""
 
-    out = np.zeros(np.broadcast(P_x, P_y).shape, dtype=complex)
-    for j, c in (coefficients or {}).items():
-        out = out + c*zernike(j, P_x, P_y)
-
-    return out
+    return fringe_zernike_sum(coefficients, P_x, P_y).astype(complex)
 
 
 def orientation_zernike(oz, P_x, P_y):

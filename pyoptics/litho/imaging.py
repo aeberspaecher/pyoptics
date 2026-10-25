@@ -38,7 +38,7 @@ plane wave gets exp(+i*k_z*z).
 
 import numpy as np
 
-from ..bases import fringe_to_n_m, fringe_zernike_R_nm, fringe_zernike_Y_m
+from ..bases import fringe_zernike_sum
 from ..propagators import aplanatic_rotation
 from . import metrics
 
@@ -132,21 +132,10 @@ class Projector(object):
     def k0(self):
         return 2*np.pi/self.wavelength
 
-    @staticmethod
-    def _zernike_sum(coeffs, P_x, P_y):
-        W = np.zeros(np.shape(P_x))
-        if coeffs:
-            rho, phi = np.hypot(P_x, P_y), np.arctan2(P_y, P_x)
-            for j, c in coeffs.items():
-                n, m = fringe_to_n_m(j)
-                W = W + c*fringe_zernike_R_nm(n, abs(m), rho)*fringe_zernike_Y_m(m, phi)
-
-        return W
-
     def pupil_phase(self, P_x, P_y):
         """Wavefront phase in radians on normalized pupil coordinates."""
 
-        W = 2*np.pi*self._zernike_sum(self.zernikes, P_x, P_y)
+        W = 2*np.pi*fringe_zernike_sum(self.zernikes, P_x, P_y)
         if self.phase is not None:
             W = W + self.phase(P_x, P_y)
 
@@ -156,7 +145,7 @@ class Projector(object):
         """Amplitude transmission of the pupil (apodization) on normalized
         pupil coordinates; 1 without apodization."""
 
-        S = self._zernike_sum(self.apodization_zernikes, P_x, P_y)
+        S = fringe_zernike_sum(self.apodization_zernikes, P_x, P_y)
         if self.apodization_model == "log":
             A = np.exp(S)
         else:
