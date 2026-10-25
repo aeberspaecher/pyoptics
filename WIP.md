@@ -86,3 +86,5 @@
 * tilts and decentres in `raytrace` (decentred/tilted surfaces, coordinate
   breaks, fold mirrors, tilted image planes), telecentric objects, the
   Caldwell KrF lithography lens as an example (notebook 24)
+* axial (z) shift sensitivity of the Caldwell lens elements
+  (`System.with_axial_shift`; focus, Z9, magnification; notebook 24)

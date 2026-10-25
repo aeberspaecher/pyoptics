@@ -468,3 +468,20 @@ def test_caldwell_lithography_lens():
         # nearly diffraction limited (Marechal: 0.07 waves RMS)
         assert lens.rms_opd(h, 33) < 0.1
     assert lens.rms_opd(0.0, 33) < 0.05
+
+
+def test_axial_shift_of_an_element():
+    # a thin lens f = 50 between object and image plane 200 mm apart; moving
+    # it changes the image distance as the lens equation says
+    f, s = 50.0, 100.0
+    system = rt.System([rt.IdealLens(f, 100.0, semi_diameter=5.0)], 0, WL, object_distance=s)
+    moved = system.with_axial_shift(0, 0, 10.0)
+    assert moved.object_distance + moved.surfaces[-1].thickness == pytest.approx(200.0)
+    s1 = s + 10.0
+    assert moved.paraxial().image_distance == pytest.approx(1/(1/f - 1/s1))
+    # a lens inside a system: the gaps around it change, the rest stays
+    lens = rt.caldwell_krf_lens()
+    moved = lens.with_axial_shift(4, 5, 0.01)
+    assert moved.vertex_z[4] - lens.vertex_z[4] == pytest.approx(0.01)
+    assert moved.vertex_z[6] == pytest.approx(lens.vertex_z[6])
+    assert moved.image_z == pytest.approx(lens.image_z)

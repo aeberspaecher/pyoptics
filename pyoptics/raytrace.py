@@ -646,6 +646,26 @@ class System:
 
         return other
 
+    def with_axial_shift(self, first, last, dz):
+        """Copy with the surfaces first...last (inclusive, e.g. the two
+        surfaces of a lens) moved by dz along the axis; all other surfaces,
+        the object and the image plane stay in place.
+
+        The gap in front of `first` (or the object distance for first = 0)
+        grows by dz and the gap behind `last` shrinks by dz.
+        """
+
+        other = self.copy()
+        if first == 0:
+            # with an object at infinity, nothing in front needs to stay fixed
+            if not self.infinite_object:
+                other.object_distance += dz
+        else:
+            other.surfaces[first - 1].thickness += dz
+        other.surfaces[last].thickness -= dz
+
+        return other
+
     def at_paraxial_focus(self):
         """Copy of the system with the image plane in the paraxial image."""
 
