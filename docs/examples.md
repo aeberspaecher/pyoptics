@@ -83,6 +83,7 @@ notebooks/14_stack_transfer_functions
 - {doc}`notebooks/28_hopkins_socs`
 - {doc}`notebooks/29_litho_resist_swing`
 - {doc}`notebooks/30_litho_rigorous_mask`
+- {doc}`notebooks/31_litho_jones_pupil`
 
 ```{toctree}
 :hidden:
@@ -94,6 +95,7 @@ notebooks/27_litho_lens_aberrations
 notebooks/28_hopkins_socs
 notebooks/29_litho_resist_swing
 notebooks/30_litho_rigorous_mask
+notebooks/31_litho_jones_pupil
 ```
 
 ## Measurement, phase retrieval and beam shaping

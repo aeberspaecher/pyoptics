@@ -102,11 +102,18 @@ class Projector(object):
     apodization : callable, optional
         Additional amplitude transmission apodization(P_x, P_y) (real, >= 0)
         on normalized pupil coordinates, multiplied with the Zernike part.
+    jones_pupil : callable, optional
+        Polarization of the lens: jones_pupil(P_x, P_y) returns Jones
+        matrices of shape np.shape(P_x) + (2, 2) that act on the Jones
+        vector (E_x, E_y) of every order before the aplanatic rotation into
+        the image space, on top of the scalar pupil above (see
+        pyoptics.litho.jones_pupil, e.g. PauliZernikePupil or
+        PhysicalJonesPupil). None: a polarization-free lens.
     """
 
     def __init__(self, NA, wavelength, n=1.0, magnification=4.0, vectorial=True, obliquity=True,
                  zernikes=None, phase=None, apodization_zernikes=None, apodization=None,
-                 apodization_model="linear"):
+                 apodization_model="linear", jones_pupil=None):
         if NA > n:
             raise ValueError("NA = {} exceeds the refractive index n = {}".format(NA, n))
         self.NA, self.wavelength, self.n = NA, wavelength, n
@@ -119,6 +126,7 @@ class Projector(object):
         if apodization_model not in ("linear", "log"):
             raise ValueError("apodization_model must be 'linear' or 'log', not {!r}".format(apodization_model))
         self.apodization_model = apodization_model
+        self.jones_pupil = jones_pupil
 
     @property
     def k0(self):
@@ -169,7 +177,7 @@ class Projector(object):
                  magnification=self.magnification, vectorial=self.vectorial,
                  obliquity=self.obliquity, zernikes=self.zernikes, phase=self.phase,
                  apodization_zernikes=self.apodization_zernikes, apodization=self.apodization,
-                 apodization_model=self.apodization_model)
+                 apodization_model=self.apodization_model, jones_pupil=self.jones_pupil)
         p.update(kwargs)
 
         return Projector(**p)
@@ -417,6 +425,9 @@ class LithoSimulation(object):
         else:
             G = np.zeros((3, 2) + passed.shape)
             G[0, 0], G[1, 1] = 1.0, 1.0
+        if P.jones_pupil is not None:
+            J = P.jones_pupil(np.where(passed, P_x, 0.0), np.where(passed, P_y, 0.0))
+            G = np.einsum("ij...,...jk->ik...", G, J)
         if self.wafer is not None:
             K_x_in, K_y_in = np.where(passed, K_x, 0.0), np.where(passed, K_y, 0.0)
             G = np.where(passed, self.wafer.transmit(G.astype(complex), K_x_in, K_y_in, k0,

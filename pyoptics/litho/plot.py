@@ -11,7 +11,9 @@
   feature outlines and the printed contour,
 - plot_bossung(): CD vs. focus for several doses,
 - plot_process_window(): focus-dose plane with the CD spec contours and
-  exposure latitude vs. depth of focus.
+  exposure latitude vs. depth of focus,
+- plot_orientation(): orientation fields on the pupil (retardance,
+  diattenuation, orientation Zernikes of a Jones pupil).
 """
 
 import numpy as np
@@ -202,3 +204,56 @@ def plot_process_window(foci, doses, cd, cd_target, tolerance=0.1, axes=None, el
         axes[1].set_ylim(0, top)
 
     return dof, el
+
+
+def plot_orientation(orientator, ax=None, N=41, n_ticks=13, scale=None, cmap="viridis", title=None,
+                     colorbar=True, label=None):
+    """Orientation field on the pupil, such as a retardance or diattenuation
+    (see jones_pupil): color = magnitude, ticks along the orientation psi
+    (``o = |o|*exp(2*i*psi)``) with lengths ~ magnitude.
+
+    Parameters
+    ----------
+    orientator : callable or tuple
+        orientator(P_x, P_y) returning o_1 + i*o_2, e.g.
+        lambda P_x, P_y: jp.orientation_zernike(5, P_x, P_y); or samples
+        (P_x, P_y, o) on scattered pupil points.
+    N, n_ticks : int, optional
+        Grid for the color map and the number of ticks across the pupil.
+    scale : number, optional
+        Magnitude of a full length tick; default: the maximum.
+    """
+
+    ax = _ax(ax)
+    p = np.linspace(-1, 1, N)
+    q = np.linspace(-1, 1, n_ticks)
+    if callable(orientator):
+        PX, PY = np.meshgrid(p, p)
+        QX, QY = np.meshgrid(q, q)
+        o, o_t = orientator(PX, PY), orientator(QX, QY)
+        o = np.where(PX**2 + PY**2 <= 1, o, np.nan)
+        im = ax.pcolormesh(p, p, np.abs(o), cmap=cmap, shading="auto")
+    else:
+        from scipy.interpolate import griddata
+        P_x, P_y, values = orientator
+        QX, QY = np.meshgrid(q, q)
+        o_t = griddata((P_x, P_y), values, (QX, QY))
+        im = ax.tripcolor(P_x, P_y, np.abs(values), cmap=cmap, shading="gouraud")
+    inside = (QX**2 + QY**2 <= 1) & np.isfinite(o_t)
+    a = np.abs(o_t[inside])
+    scale = (np.max(a) if a.size and np.max(a) > 0 else 1.0) if scale is None else scale
+    psi = np.angle(o_t[inside])/2
+    length = 0.9*(q[1] - q[0])*a/scale
+    ax.quiver(QX[inside], QY[inside], length*np.cos(psi), length*np.sin(psi), angles="xy",
+              scale_units="xy", scale=1, pivot="middle", headwidth=0, headlength=0,
+              headaxislength=0, width=0.006, color="w")
+    ax.add_patch(Circle((0, 0), 1, fill=False, ec="k", lw=1))
+    ax.set_xlim(-1.05, 1.05), ax.set_ylim(-1.05, 1.05)
+    ax.set_aspect("equal")
+    ax.set_xticks([]), ax.set_yticks([])
+    if title is not None:
+        ax.set_title(title, fontsize=10)
+    if colorbar:
+        plt.colorbar(im, ax=ax, shrink=0.8, label=label)
+
+    return ax
