@@ -19,6 +19,12 @@ The diffraction orders are the Fourier coefficients of the transmission on
 one period. They are computed analytically from the rectangles (products of
 sinc functions), so there is no pixelation of the mask.
 
+Manhattan polygons (MaskLayout.from_polygons()) are turned into the exact
+union of non-overlapping rectangles, so L and T shapes, line ends with
+hammerheads or serifs and OPC'd shapes have exact Fourier coefficients too.
+Overlapping polygons are merged. The boundary layer model is not available
+for polygon layouts (the rectangles of a polygon share internal edges).
+
 Mask stacks and approximations
 ------------------------------
 A mask stack gives the transmissions of the clear and absorber regions as
@@ -57,6 +63,103 @@ from ..thin_films import _r_t
 
 # layouts:
 
+def _check_polygon(polygon):
+    P = np.asarray(polygon, dtype=float)
+    if P.ndim != 2 or P.shape[1] != 2 or len(P) < 4:
+        raise ValueError("a polygon is a sequence of at least four (x, y) vertices")
+    d = np.roll(P, -1, axis=0) - P
+    if np.any((d[:, 0] != 0) & (d[:, 1] != 0)):
+        raise ValueError("polygon edges must be parallel to x or y (Manhattan)")
+
+    return P
+
+
+def polygon_area(polygon):
+    """Signed area (positive for counterclockwise vertices)."""
+
+    P = np.asarray(polygon, dtype=float)
+    x, y = P[:, 0], P[:, 1]
+
+    return 0.5*float(np.sum(x*np.roll(y, -1) - np.roll(x, -1)*y))
+
+
+def counterclockwise(polygon):
+    """The polygon with counterclockwise vertices, without repeated or
+    collinear vertices."""
+
+    P = _check_polygon(polygon)
+    if polygon_area(P) < 0:
+        P = P[::-1]
+    P = P[np.any(P != np.roll(P, 1, axis=0), axis=1)]
+    keep = []
+    for i in range(len(P)):  # (exact tests: the edges are parallel to x or y)
+        a, b, c = P[i - 1], P[i], P[(i + 1) % len(P)]
+        if (b - a)[0]*(c - b)[1] - (b - a)[1]*(c - b)[0] != 0:  # not collinear
+            keep.append(b)
+
+    return np.array(keep)
+
+
+def offset_polygon(polygon, distance):
+    """Move every edge of a Manhattan polygon outward by distance
+    (negative: inward), keeping it rectilinear."""
+
+    P = counterclockwise(polygon)
+    d = np.roll(P, -1, axis=0) - P
+    normal = np.column_stack([d[:, 1], -d[:, 0]])/np.linalg.norm(d, axis=1)[:, None]
+    out = []
+    for i in range(len(P)):  # vertex i joins edge i - 1 and edge i
+        out.append(P[i] + distance*(normal[i - 1] + normal[i]))
+
+    return np.array(out)
+
+
+def polygon_rectangles(polygons):
+    """The union of Manhattan polygons as non-overlapping rectangles (x0,
+    y0, w_x, w_y) (exact; cells of the grid of all vertex coordinates,
+    merged along x and then along y)."""
+
+    polys = [_check_polygon(P) for P in polygons]
+    if not polys:
+        return []
+    xs = np.unique(np.concatenate([P[:, 0] for P in polys]))
+    ys = np.unique(np.concatenate([P[:, 1] for P in polys]))
+    XC, YC = np.meshgrid((xs[:-1] + xs[1:])/2, (ys[:-1] + ys[1:])/2)
+    inside = np.zeros(XC.shape, dtype=bool)
+    for P in polys:  # even-odd rule with the vertical edges
+        crossings = np.zeros(XC.shape, dtype=int)
+        Q = np.roll(P, -1, axis=0)
+        for (x_a, y_a), (x_b, y_b) in zip(P, Q):
+            if x_a == x_b and y_a != y_b:
+                crossings += (x_a > XC) & (YC > min(y_a, y_b)) & (YC < max(y_a, y_b))
+        inside |= crossings % 2 == 1
+    # runs along x in every row, then merge equal runs of consecutive rows
+    rects, open_runs = [], {}
+    for j in range(len(ys) - 1):
+        runs, i = [], 0
+        row = inside[j]
+        while i < len(row):
+            if row[i]:
+                k = i
+                while k + 1 < len(row) and row[k + 1]:
+                    k += 1
+                runs.append((xs[i], xs[k + 1]))
+                i = k + 1
+            else:
+                i += 1
+        new_open = {}
+        for run in runs:
+            y0 = open_runs.pop(run, ys[j])
+            new_open[run] = y0
+        for (x_a, x_b), y0 in open_runs.items():  # runs that ended below row j
+            rects.append(((x_a + x_b)/2, (y0 + ys[j])/2, x_b - x_a, ys[j] - y0))
+        open_runs = new_open
+    for (x_a, x_b), y0 in open_runs.items():
+        rects.append(((x_a + x_b)/2, (y0 + ys[-1])/2, x_b - x_a, ys[-1] - y0))
+
+    return [tuple(float(v) for v in r) for r in rects]
+
+
 def _rect_coeffs(m, P, center, size):
     """1D Fourier coefficients of a rect of width size at center on the
     period P; P None: invariant direction (only order 0, coefficient 1)."""
@@ -94,6 +197,31 @@ class MaskLayout(object):
         self.features = [tuple(float(v) for v in f) for f in features]
         self.tone = tone
         self.name = name
+        self.polygons = None
+
+    @classmethod
+    def from_polygons(cls, pitch_x, pitch_y, polygons, tone="clear", name=None):
+        """Layout of Manhattan polygons (sequences of (x, y) vertices, edges
+        parallel to x or y) in one period of pitch_x x pitch_y (both
+        periodic). The polygons should lie within one period (they are
+        repeated periodically, images in neighbouring periods are not merged).
+        Overlapping polygons are merged; the first polygon is the
+        feature that cut_coordinates() and the CD metrics use (through its
+        first rectangle)."""
+
+        if pitch_x is None or pitch_y is None:
+            raise ValueError("polygon layouts must be periodic in x and y")
+        polys = [counterclockwise(P) for P in polygons]
+        rects = polygon_rectangles(polys)
+        if rects:  # the rectangle holding the center of the first polygon's first rectangle first
+            x0, y0 = polygon_rectangles(polys[:1])[0][:2]
+            i = next(i for i, (x, y, a, b) in enumerate(rects)
+                     if abs(x0 - x) <= a/2 and abs(y0 - y) <= b/2)
+            rects.insert(0, rects.pop(i))
+        layout = cls(pitch_x, pitch_y, rects, tone, name or "polygons")
+        layout.polygons = polys
+
+        return layout
 
     # common layouts:
 
@@ -163,6 +291,12 @@ class MaskLayout(object):
         """Copy with all feature sizes multiplied by factor_cd and enlarged
         by bias (e.g. a mask CD error for MEEF)."""
 
+        if self.polygons is not None:
+            if factor_cd != 1.0:
+                raise ValueError("polygon layouts can only be biased (factor_cd = 1)")
+            return MaskLayout.from_polygons(self.pitch_x, self.pitch_y,
+                                            [offset_polygon(P, bias/2) for P in self.polygons],
+                                            self.tone, self.name)
         feats = [(x0, y0, w*factor_cd + bias, h*factor_cd + bias) for x0, y0, w, h in self.features]
 
         return MaskLayout(self.pitch_x, self.pitch_y, feats, self.tone, self.name)
@@ -199,6 +333,8 @@ class MaskLayout(object):
 
         m, n = np.atleast_1d(m), np.atleast_1d(n)
         Px, Py, w = self.pitch_x, self.pitch_y, boundary_width
+        if w > 0 and self.polygons is not None:
+            raise ValueError("the boundary layer model is not available for polygon layouts")
         shape = (len(n), len(m))
 
         def rect(x0, y0, a, b):

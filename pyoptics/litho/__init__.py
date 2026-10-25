@@ -11,7 +11,8 @@ exchangeable:
   (x, y, TE/azimuthal, TM/radial, unpolarized, Jones or Stokes vectors,
   partially polarized via a degree of polarization),
 - mask: a `MaskLayout` (geometry of one period: lines and spaces, isolated
-  lines, dense and isolated contact holes, any set of rectangles) and a mask
+  lines, dense and isolated contact holes, any set of rectangles, Manhattan
+  polygons via `MaskLayout.from_polygons`) and a mask
   stack (`ThinMask`: Kirchhoff transmissions such as binary or attenuated
   PSM; `FilmMask`: transmissions of the absorber computed with
   `pyoptics.thin_films`, angle and polarization dependent; `RigorousMask`:
@@ -51,6 +52,9 @@ exchangeable:
   (`lens.CubicCrystal`),
 - `source_opt`: source optimization of a pixelated (freeform) source for
   a set of clips by linear programming on the Abbe responses,
+- `opc`: optical proximity correction of Manhattan polygons: bias tables
+  through pitch, SRAF rules, fragments and edge placement errors,
+  model-based OPC,
 - `plot`: source, mask, pupil fill, images, Bossung plots, process windows.
 
 All lengths are image-side (wafer scale) values; mask dimensions are given
@@ -72,4 +76,5 @@ from . import resist
 from . import rcwa
 from . import jones_pupil
 from . import source_opt
+from . import opc
 from .rcwa import RigorousMask
