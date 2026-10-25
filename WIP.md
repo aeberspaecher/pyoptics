@@ -12,8 +12,7 @@
 ## Medium
 
 * Finish the stub `interpolator.TrigInterpolator`
-* Lithography (DUV, see the roadmap in the project files): source
-  optimization, OPC helpers, RCWA for 2D masks, ray traced stress
+* Lithography (DUV, see the roadmap in the project files): OPC helpers, RCWA for 2D masks, ray traced stress
   birefringence
 * More tests for `wpm` and `TIE`
 * Docstrings: NumPy-style Parameters/Returns sections for raytrace, abcd,
@@ -43,6 +42,8 @@
   decomposition) and the polarization ray trace of a lens with coatings
   and CaF2 intrinsic birefringence (`litho.jones_pupil`, `litho.lens`,
   notebook 31)
+* Lithography: source optimization of pixelated sources (`litho.source_opt`,
+  notebook 32)
 
 * FFT module
 * fitting bases to scattered data

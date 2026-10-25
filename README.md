@@ -121,7 +121,10 @@ Status of the modules:
   fits, used by `Projector(jones_pupil=...)` in Abbe and Hopkins imaging,
   and a polarization ray trace of coated or uncoated lenses with optional
   CaF2 elements and their intrinsic birefringence
-  (`litho.lens.lens_jones_pupil`, `litho.lens.CubicCrystal`)
+  (`litho.lens.lens_jones_pupil`, `litho.lens.CubicCrystal`);
+  `litho.source_opt`: source optimization of a pixelated source with
+  symmetry, pupil fill and common dose constraints, maximizing the worst
+  NILS over clips and foci by linear programming on the Abbe responses
 - `polarization`: TE/TM bases, Stokes to Jones decomposition, DOP and IPS
 - `imaging`: scalar imaging, tested: coherent imaging through a circular
   pupil, PSF with pupil masks (obscuration, apodization) and phases (also

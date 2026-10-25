@@ -49,6 +49,8 @@ exchangeable:
   the polar decomposition; `lens.lens_jones_pupil` traces it through a
   coated or uncoated lens, optionally with CaF2 elements
   (`lens.CubicCrystal`),
+- `source_opt`: source optimization of a pixelated (freeform) source for
+  a set of clips by linear programming on the Abbe responses,
 - `plot`: source, mask, pupil fill, images, Bossung plots, process windows.
 
 All lengths are image-side (wafer scale) values; mask dimensions are given
@@ -69,4 +71,5 @@ from . import hopkins
 from . import resist
 from . import rcwa
 from . import jones_pupil
+from . import source_opt
 from .rcwa import RigorousMask

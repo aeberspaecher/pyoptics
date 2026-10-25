@@ -57,6 +57,7 @@ Lithography
    pyoptics.litho.resist
    pyoptics.litho.rcwa
    pyoptics.litho.jones_pupil
+   pyoptics.litho.source_opt
    pyoptics.litho.plot
 
 Interfaces, thin films and polarization
