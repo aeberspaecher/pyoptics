@@ -94,3 +94,6 @@
   diversity (multi-plane Gerchberg-Saxton and Zernike fit, paraxial or
   exact defocus) from through-focus PSFs; first tests for `ifta`
   (notebook 25)
+* mode analysis and fibres (`modes`): HG/LG decomposition with fitted basis,
+  M² from the mode content, LP modes of step-index fibres, Marcuse mode
+  field radius, coupling efficiency and misalignment sweeps (notebook 26)

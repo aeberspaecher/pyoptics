@@ -12,3 +12,4 @@ from . import interferometry
 from . import holography
 from . import raytrace
 from . import phase_retrieval
+from . import modes
