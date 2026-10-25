@@ -20,6 +20,7 @@ Metrics:
 - fem_cd(): focus-exposure matrix of CDs (Bossung curves),
 - process_window(), el_dof(): in-spec doses per focus, exposure latitude
   vs. depth of focus,
+- best_focus(): vertex of CD through focus,
 - gaussian_blur(): a simple resist diffusion model.
 
 The functions work on 1D cuts u, I with u increasing and finely sampled
@@ -218,6 +219,41 @@ def dof_at_el(dof, el, el_min):
     ok = np.asarray(el) >= el_min
 
     return float(np.max(np.asarray(dof)[ok])) if np.any(ok) else 0.0
+
+
+def best_focus(foci, values, n_fit=None):
+    """Best focus: the vertex of a parabola fitted to a quantity through
+    focus, e.g. CD (the vertex of a Bossung curve) or NILS.
+
+    Parameters
+    ----------
+    foci, values : arrays
+        Foci (increasing) and the quantity (nan where undefined).
+    n_fit : int, optional
+        Fit only the n_fit valid points around the largest value (for a
+        dome like NILS through focus); default: all valid points.
+
+    Returns
+    -------
+    number
+        nan if fewer than three values are valid, the fit has no curvature
+        or its vertex lies outside the fitted foci.
+    """
+
+    foci, values = np.asarray(foci, dtype=float), np.asarray(values, dtype=float)
+    ok = np.isfinite(values)
+    foci, values = foci[ok], values[ok]
+    if n_fit is not None and len(values) > n_fit:
+        i = min(max(int(np.argmax(values)) - n_fit//2, 0), len(values) - n_fit)
+        foci, values = foci[i:i + n_fit], values[i:i + n_fit]
+    if len(values) < 3:
+        return np.nan
+    a, b, _ = np.polyfit(foci, values, 2)
+    f = -b/(2*a) if a != 0 else np.nan
+    if not np.min(foci) <= f <= np.max(foci):
+        return np.nan
+
+    return f
 
 
 def gaussian_blur(I, dx, sigma, dy=None):

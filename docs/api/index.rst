@@ -52,6 +52,7 @@ Lithography
    pyoptics.litho.wafer
    pyoptics.litho.imaging
    pyoptics.litho.metrics
+   pyoptics.litho.lens
    pyoptics.litho.plot
 
 Interfaces, thin films and polarization
