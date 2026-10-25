@@ -29,7 +29,8 @@ integral against Gaussian beams, phase unwrapping of wrapped Zernike
 wavefronts, vortices and noisy wavefronts, phase-shifting and Fourier
 fringe analysis of known Zernike phases, holograms of known objects
 reconstructed, refocused and autofocused, exact ray traces against Snell's
-law, perfect conics, Seidel sums and the Airy pattern) and runs in GitHub
+law, perfect conics, Seidel sums and the Airy pattern, tilted plates and
+fold mirrors) and runs in GitHub
 Actions on Python 3.9, 3.11 and 3.13 for every push and pull request. A
 consistent phase convention is used throughout (see Conventions).
 
@@ -120,16 +121,20 @@ Status of the modules:
   autofocus (amplitude variance, Tamura coefficient, gradient, Laplacian);
   quantitative phase with background compensation, tilt removal and
   unwrapping (`unwrap`)
-- `raytrace`: sequential ray tracing through rotationally symmetric systems,
-  tested: spherical, conic and even aspheric surfaces, lenses and mirrors,
-  ideal (paraxial) lenses, apertures and vignetting, indices from constants
-  or `materials.abbe_dispersion`; exact intersections and vector Snell's
-  law, total internal reflection; ray aiming at the real stop; paraxial
+- `raytrace`: sequential ray tracing, tested: spherical, conic and even
+  aspheric surfaces, lenses and mirrors, ideal (paraxial) lenses, apertures
+  and vignetting, indices from constants, `materials.abbe_dispersion` or any
+  function (fused silica after Malitson); decentred and tilted surfaces,
+  coordinate breaks (fold mirrors), tilted image planes, fields in any
+  direction, object space telecentric systems; exact intersections and
+  vector Snell's law, total internal reflection; ray aiming at the real
+  stop; paraxial
   marginal and chief rays, cardinal points, entrance and exit pupils (system
   matrix identical to `abcd`, `to_abcd()`), Seidel sums; OPD maps over the
   pupil relative to the reference sphere on the chief ray, Fringe Zernike
   fits, RMS OPD and Strehl ratio; PSF and MTF via `imaging`; spot diagrams,
-  ray fans and layout plots
+  ray fans and layout plots; example: Caldwell's all fused silica KrF
+  lithography projection lens (NA 0.56, 4x)
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
 - `TIE`: basic transport of intensity solver, partly tested
@@ -292,7 +297,8 @@ vary as exp(i(**k**·**r** − ωt)). In particular:
   ∝ exp(+ik r²/(2R)) exp(−r²/w²) and the Gouy phase enters as exp(−iψ).
 - Ray tracing (`raytrace`) uses the same radius convention; a concave mirror
   facing the incoming light has R < 0 there (real geometry, not unfolded),
-  and thicknesses behind mirrors are negative. The OPD is
+  and thicknesses behind mirrors are negative. Tilts are rotations
+  R_x(a_x) R_y(a_y) R_z(a_z), counterclockwise, after the decentre. The OPD is
   OPL_ray − OPL_chief on the reference sphere, so the pupil phase is
   +2π·OPD/λ: an image plane behind the focus gives OPD < 0 at the rim, as
   the propagators' exp(+ik_z z).
