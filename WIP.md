@@ -74,6 +74,8 @@
 * interferometry (`interferometry`): phase-shifting algorithms (N-step,
   4-step, Carré, Hariharan), Takeda's Fourier-transform method,
   interferogram simulation, shifter miscalibration sensitivity (notebook 22)
+* digital holography (`holography`): off-axis, phase-shifting and Gabor
+  reconstruction, refocusing, autofocus, quantitative phase (notebook 23)
 * chirp-z transform (`fft.czt()`, `zoom_FT()`, `zoom_inv_FT()`), shifted
   angular spectrum, scaled Fresnel/Fraunhofer propagators, far field in
   chosen directions, zoomed PSFs (notebook 20)

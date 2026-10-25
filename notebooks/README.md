@@ -29,6 +29,7 @@ running anything (e.g. directly on GitHub).
 | [20_chirp_z_transform](20_chirp_z_transform.ipynb) | `fft`, `propagators`, `imaging` | Bluestein's chirp-z transform vs. the DFT, zoomed spectra vs. zero padded FFTs (accuracy and run time), PSF on a λ/100 grid without padding vs. the Airy pattern, zoom onto the flare of a comatic PSF, focus of a lens with `fresnel_scaled()` vs. `fresnel_rescaling()`, off-axis propagation of a tilted beam with the shifted angular spectrum method (replicas without band limit), rescaled detector windows, far field of a grating at chosen angles (fine structure between the orders) |
 | [21_phase_unwrapping](21_phase_unwrapping.ipynb) | `unwrap`, `bases`, `processing` | Wrapped phases and the Itoh condition in 1D, Zernike wavefront in a pupil with and without mask, residues of a vortex pair and branch cuts (least squares vs. congruent vs. quality guided), noisy wavefronts with dark spots: unweighted vs. weighted least squares vs. quality guided, rms error vs. photon number and the noise limit, obscured pupils and disconnected regions, run times |
 | [22_interferometry](22_interferometry.ipynb) | `interferometry`, `unwrap`, `bases`, `processing` | Interferograms of a Zernike wavefront and the phase-shift sign convention, 4-step, Hariharan, Carré (unknown step) and least squares with irregular shifts recover the phase to 1e-10 rad and the Zernike coefficients, phase error vs. shifter miscalibration (first vs. second order, fringe print-through), phase noise vs. photon number against the shot noise limit, Takeda's Fourier-transform method with carrier search and pupil mask, spectral overlap vs. carrier size, window shapes and apodization |
+| [23_holography](23_holography.ipynb) | `holography`, `unwrap`, `interferometry`, `processing` | Off-axis hologram of cells (phase objects) and a bar target, the three orders in the spectrum, sampling condition for the reference angle and overlapping orders, sideband filtering and refocusing (sign of z, the twin image in focus at +d), window shape vs. resolution, zero order suppression, autofocus metrics for amplitude and phase objects, quantitative phase with background compensation of object arm aberrations and a spherical reference, image shift from carrier errors, phase noise vs. photon number, in-line phase-shifting holography using the full camera bandwidth, Gabor holography with iterative twin image suppression |
 
 All notebooks use the pyoptics convention $\exp(i(\mathbf{k}\cdot\mathbf{r} - \omega t))$
 (see the main README).
@@ -50,7 +51,8 @@ such as GitHub show the static figures stored below each interactive cell.
 Run times on an ordinary laptop range from a few seconds to about a minute per
 notebook (longest: 01 and 08), except for the lithography notebooks 16 (about
 1.5 minutes) and 17 (about 5 minutes), which compute many focus-exposure
-matrices and through-pitch series.
+matrices and through-pitch series, and the holography notebook 23 (about 2
+minutes, many refocusing runs on 1024² padded grids).
 
 To re-execute all notebooks and store their outputs:
 

@@ -9,3 +9,4 @@ from . import propagators
 from . import imaging
 from . import unwrap
 from . import interferometry
+from . import holography

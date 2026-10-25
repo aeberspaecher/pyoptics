@@ -16,7 +16,7 @@ polished library. It runs on Python 3.9 to 3.13. The API may still change
 between versions, and there is no release on PyPI; install it from source as
 described below.
 
-The core is tested: a suite of about 450 pytest tests checks the numerics
+The core is tested: a suite of about 480 pytest tests checks the numerics
 against analytical results (Fresnel and Fraunhofer diffraction, Gaussian beam
 propagation, Mahajan's on-axis intensity, Airy pattern and OTF, Fresnel
 equations, thin film stacks, Goos-Hänchen shift, beam widths and M² of
@@ -27,7 +27,8 @@ threshold CDs and process windows of analytic images, apodized two-beam
 images, ABCD matrices against lens and resonator formulas and the Collins
 integral against Gaussian beams, phase unwrapping of wrapped Zernike
 wavefronts, vortices and noisy wavefronts, phase-shifting and Fourier
-fringe analysis of known Zernike phases) and runs in GitHub
+fringe analysis of known Zernike phases, holograms of known objects
+reconstructed, refocused and autofocused) and runs in GitHub
 Actions on Python 3.9, 3.11 and 3.13 for every push and pull request. A
 consistent phase convention is used throughout (see Conventions).
 
@@ -108,6 +109,16 @@ Status of the modules:
   interferograms with a carrier (sideband window, automatic carrier search,
   masks, apodization, overlap warning); phase error vs. shifter
   miscalibration
+- `holography`: digital holography, tested: off-axis and in-line holograms
+  (tilted reference, phase shifts; camera noise via `processing.CameraNoiser`),
+  sampling condition for the reference angle; reconstruction by sideband
+  filtering (circular, Tukey, Hann, Gaussian windows, automatic carrier
+  search), phase-shifting holography (via `interferometry.psi_n_step()`) and
+  Gabor holography with iterative twin image suppression; zero order
+  suppression; numerical refocusing (angular spectrum or Fresnel, padded);
+  autofocus (amplitude variance, Tamura coefficient, gradient, Laplacian);
+  quantitative phase with background compensation, tilt removal and
+  unwrapping (`unwrap`)
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
 - `TIE`: basic transport of intensity solver, partly tested
@@ -239,7 +250,8 @@ free space propagation, Gaussian beams, interfaces and thin films,
 polarization, imaging and aberrations, TIE, IFTA, WPM, basis functions, an
 interactive layer stack designer, image processing (scaling, camera noise,
 centering), beam quality, lithography and ABCD matrices (rays, Gaussian
-beams, resonators), phase unwrapping and interferometry. See
+beams, resonators), phase unwrapping, interferometry and digital
+holography. See
 `notebooks/README.md` for an overview.
 
 Conventions
