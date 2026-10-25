@@ -30,7 +30,8 @@ wavefronts, vortices and noisy wavefronts, phase-shifting and Fourier
 fringe analysis of known Zernike phases, holograms of known objects
 reconstructed, refocused and autofocused, exact ray traces against Snell's
 law, perfect conics, Seidel sums and the Airy pattern, tilted plates and
-fold mirrors) and runs in GitHub
+fold mirrors, Fienup's HIO and phase diversity recovering known objects and
+Zernike pupil phases) and runs in GitHub
 Actions on Python 3.9, 3.11 and 3.13 for every push and pull request. A
 consistent phase convention is used throughout (see Conventions).
 
@@ -139,8 +140,19 @@ Status of the modules:
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
 - `TIE`: basic transport of intensity solver, partly tested
-- `ifta`: basic Gerchberg-Saxton and variants, only shown in a notebook, no
-  tests
+- `ifta`: basic Gerchberg-Saxton and variants for beam shaping, tested
+  (convergence of GS, HIO-HOO and over-compensation on a reachable target,
+  phase quantization)
+- `phase_retrieval`: phase retrieval, tested: Fienup's error reduction and
+  hybrid input-output with support, reality and positivity constraints,
+  shrink-wrap support and the autocorrelation support, error histories,
+  removal of the trivial ambiguities (shift, constant phase, twin image);
+  pupil phase retrieval from through-focus PSFs (phase diversity) by a
+  multi-plane Gerchberg-Saxton iteration (with unwrapping via `unwrap`) or a
+  least squares fit of Fringe Zernikes with the analytic Jacobian, with
+  paraxial (Z4) or exact (angular spectrum) defocus; near-field (Fresnel)
+  coherent diffractive imaging with any pyoptics propagator in place of the
+  Fourier transform
 - `wpm`: wave propagation method (Cython extension), basic; one test, more
   examples in the notebook
 - `processing`: image processors for single images and image stacks, tested:
@@ -268,7 +280,7 @@ polarization, imaging and aberrations, TIE, IFTA, WPM, basis functions, an
 interactive layer stack designer, image processing (scaling, camera noise,
 centering), beam quality, lithography and ABCD matrices (rays, Gaussian
 beams, resonators), phase unwrapping, interferometry, digital
-holography and ray tracing to OPD maps. See
+holography, ray tracing to OPD maps and phase retrieval. See
 `notebooks/README.md` for an overview.
 
 Conventions

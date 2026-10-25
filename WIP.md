@@ -16,7 +16,7 @@
 * Lithography: rigorous mask diffraction (RCWA) to calibrate the boundary
   layer model, Hopkins/TCC (SOCS) imaging for speed, resist models beyond
   threshold and blur (development, PEB), OPC helpers
-* Tests for `ifta` and more tests for `wpm` and `TIE`
+* More tests for `wpm` and `TIE`
 * Documentation for propagators
 * Incoherence in thin films (spatial and temporal incoherence)
 * Basis class factory for numbering scheme plus callable
@@ -88,3 +88,9 @@
   Caldwell KrF lithography lens as an example (notebook 24)
 * axial (z) shift sensitivity of the Caldwell lens elements
   (`System.with_axial_shift`; focus, Z9, magnification; notebook 24)
+* phase retrieval (`phase_retrieval`): error reduction and hybrid
+  input-output with support, reality and positivity constraints,
+  shrink-wrap, near-field (Fresnel) CDI via the propagators, phase
+  diversity (multi-plane Gerchberg-Saxton and Zernike fit, paraxial or
+  exact defocus) from through-focus PSFs; first tests for `ifta`
+  (notebook 25)
