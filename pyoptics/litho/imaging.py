@@ -17,6 +17,14 @@ summed over the orders on any rectilinear grid by two matrix products
 grid; intensities are summed over the mutually incoherent polarization
 states and source points.
 
+All source points, polarization states and foci are computed together in
+batches of array operations. Usually the intensities are not summed field by
+field but via the mutual intensities of the orders, sum_b w_b*A_b*A_b^H over
+all fields A_b, which are then synthesized into the image once; this is the
+same sum in another order (no approximation as in Hopkins' SOCS
+decompositions) and is much faster unless there are many orders and few
+image points.
+
 Images are normalized to the open frame (a clear mask) in the same plane, so
 a threshold of e.g. 0.3 means 30 % of the clear field intensity; a dose D
 prints where D*I exceeds the threshold.
@@ -202,10 +210,20 @@ class LithoSimulation(object):
         return m, n, f_x, f_y
 
     def _region_jones(self, s_x, s_y):
-        """Jones matrices of the regions of the layout for the source point."""
+        """Jones matrices of the regions of the layout for the source
+        point(s), shape np.shape(s_x) + (2, 2)."""
 
         P = self.projector
-        J_clear, J_abs = self.stack.jones(s_x, s_y, P.NA, P.wavelength, P.magnification)
+        try:
+            J_clear, J_abs = self.stack.jones(s_x, s_y, P.NA, P.wavelength, P.magnification)
+        except Exception:  # a stack for single points only; errors reappear below
+            J_clear = None
+        if np.shape(J_clear) != np.shape(s_x) + (2, 2):
+            J_clear, J_abs = (np.array(J) for J in zip(*[
+                self.stack.jones(a, b, P.NA, P.wavelength, P.magnification)
+                for a, b in zip(np.ravel(s_x), np.ravel(s_y))]))
+            J_clear = J_clear.reshape(np.shape(s_x) + (2, 2))
+            J_abs = J_abs.reshape(np.shape(s_x) + (2, 2))
         if self.layout.tone == "clear":
             J = {"field": J_clear, "feature": J_abs}
         else:
@@ -213,7 +231,8 @@ class LithoSimulation(object):
         J["clear"] = J_clear
         bl = getattr(self.stack, "boundary_layer", None)
         if bl is not None:
-            J["edge_y"], J["edge_x"] = bl.jones()
+            J["edge_y"], J["edge_x"] = (np.broadcast_to(J_bl, np.shape(s_x) + (2, 2))
+                                        for J_bl in bl.jones())
 
         return J
 
@@ -224,57 +243,172 @@ class LithoSimulation(object):
 
     # images:
 
-    def _intensity(self, coeffs, f_x, f_y, x, y, focus, depth, return_components):
+    # Memory for the fields of one batch of source points (the sum over the
+    # source is done in batches of points, polarization states and foci with
+    # a few large array operations instead of many small ones), and for the
+    # mutual intensities of the orders (see _intensity):
+    batch_bytes = 32*2**20
+    mutual_bytes = 256*2**20
+
+    def _polarization_table(self):
+        """Weights (shape (points, states)) and Jones vectors (points, states,
+        2) of the polarization states of all source points; points with
+        fewer states are padded with zero weights."""
+
+        ill = self.illumination
+        n_points = len(ill.s_x)
+        if not callable(ill.polarization):  # same states everywhere, TE/TM vectors vary
+            states = ill.polarization_states(ill.s_x, ill.s_y)
+            w = np.array([np.broadcast_to(weight, n_points) for weight, J in states]).T
+            jones = np.array([np.broadcast_to(np.reshape(J, (2, -1)).T, (n_points, 2))
+                              for weight, J in states]).transpose(1, 0, 2)
+            return ill.weights[:, None]*w, jones
+
+        states = [ill.polarization_states(s_x, s_y) for s_x, s_y in zip(ill.s_x, ill.s_y)]
+        n_states = max(len(st) for st in states)
+        w = np.zeros((n_points, n_states))
+        jones = np.zeros((n_points, n_states, 2), dtype=complex)
+        for i, st in enumerate(states):
+            for j, (weight, J) in enumerate(st):
+                w[i, j], jones[i, j] = weight, J
+
+        return ill.weights[:, None]*w, jones
+
+    def _intensity(self, coeffs, f_x, f_y, x, y, foci, depth):
+        """|E_x|**2, |E_y|**2, |E_z|**2 summed over the source, shape
+        (len(foci), 3, len(y), len(x))."""
+
         P = self.projector
         k0, kNA = P.k0, P.k0*P.NA
         k = k0*P.n
         x, y = np.atleast_1d(np.asarray(x, dtype=float)), np.atleast_1d(np.asarray(y, dtype=float))
+        foci = np.atleast_1d(np.asarray(foci, dtype=float))
         W_x, W_y = np.exp(1j*np.outer(x, f_x)), np.exp(1j*np.outer(y, f_y))
-        I_xyz = np.zeros((3, len(y), len(x)))
+        n_x, n_y = len(f_x), len(f_y)
+        I_xyz = np.zeros((len(foci), 3, len(y), len(x)))
 
-        for s_x, s_y, w, states in self.illumination:
-            K_x, K_y = np.meshgrid(f_x + kNA*s_x, f_y + kNA*s_y)
-            passed = K_x**2 + K_y**2 <= kNA**2*(1 + 1E-12)
+        regions = list(coeffs)
+        C = np.array([coeffs[r] for r in regions])  # (regions, n_y, n_x)
+        weights, jones = self._polarization_table()
+        s_x_all, s_y_all = self.illumination.s_x, self.illumination.s_y
+        n_states = weights.shape[1]
+        n_f, n_o = len(foci)*n_states*3, n_y*n_x  # fields per source point, orders
+        n_b = len(s_x_all)*n_f
+
+        # Two exact ways to sum the intensities: directly, as |W_y @ F @
+        # W_x.T|**2 for each field F of each source point, polarization state
+        # and focus, or via the mutual intensities M = sum_b w_b*F_b*F_b^H of
+        # the orders (shape (orders, orders), summed over the source first),
+        # I(x, y) = sum W_y[y, n]*W_y[y, n']^* M[(n, m), (n', m')]
+        # W_x[x, m]*W_x[x, m']^*. The latter is much cheaper unless there are
+        # many orders and few image points.
+        cost_direct = n_b*min(len(y)*n_o + len(y)*n_x*len(x), n_o*len(x) + len(y)*n_y*len(x))
+        cost_mutual = n_b*n_o**2 + len(foci)*3*min(len(y)*n_o**2 + len(y)*n_x**2*len(x),
+                                                    n_o**2*len(x) + len(y)*n_y**2*len(x))
+        mutual = (cost_mutual < cost_direct
+                  and 16*len(foci)*3*n_o**2 <= self.mutual_bytes)
+        if mutual:
+            M = np.zeros((len(foci), 3, n_o, n_o), dtype=complex)
+            per_point = 16*n_f*n_o*4
+        else:
+            per_point = 16*n_f*(n_o + len(y)*len(x) + max(len(y)*n_x, n_y*len(x)))
+        batch = max(1, int(self.batch_bytes//per_point))
+
+        for start in range(0, len(s_x_all), batch):
+            sl = slice(start, start + batch)
+            s_x, s_y = s_x_all[sl], s_y_all[sl]
+            K_x, K_y = np.broadcast_arrays(f_x[None, None, :] + kNA*s_x[:, None, None],
+                                           f_y[None, :, None] + kNA*s_y[:, None, None])
+            passed = K_x**2 + K_y**2 <= kNA**2*(1 + 1E-12)  # (points, n_y, n_x)
             if not np.any(passed):
                 continue
-            rows, cols = np.any(passed, axis=1), np.any(passed, axis=0)
-            K_x, K_y, passed = K_x[rows][:, cols], K_y[rows][:, cols], passed[rows][:, cols]
-            Wx, Wy = W_x[:, cols], W_y[:, rows]
 
+            # Jones vectors behind the mask: sum over the regions of their
+            # Jones matrices times the incident states times their coefficients
             J = self._region_jones(s_x, s_y)
-            T = sum(J[r][:, :, None, None]*c[rows][:, cols] for r, c in coeffs.items())
+            J = np.stack([J[r] for r in regions], axis=1)  # (points, regions, 2, 2)
+            V = np.einsum("prij,psj->psri", J, jones[sl])
+            E_pupil = np.einsum("psri,rnm->psinm", V, C)  # (points, states, 2, n_y, n_x)
 
             Sigma_x, Sigma_y = np.where(passed, K_x/k, 0.0), np.where(passed, K_y/k, 0.0)
             cos_theta = np.sqrt(np.clip(1 - Sigma_x**2 - Sigma_y**2, 1E-12, None))
             P_x, P_y = K_x/kNA, K_y/kNA
-            pupil = passed*P.pupil_amplitude(P_x, P_y)*np.exp(1j*(P.pupil_phase(P_x, P_y) + k*cos_theta*focus))
+            amplitude = passed*P.pupil_amplitude(P_x, P_y)
+            phase = P.pupil_phase(P_x, P_y)
+            pupil = amplitude*np.exp(1j*(phase + k*cos_theta*foci[:, None, None, None]))
+
+            # G maps pupil Jones vectors to the fields in image space (or in
+            # the resist), shape (3, 2, points, n_y, n_x):
             if P.vectorial:
-                R = aplanatic_rotation(Sigma_x, Sigma_y)
+                G = aplanatic_rotation(Sigma_x, Sigma_y)
                 if P.obliquity:
-                    R = R/np.sqrt(cos_theta)
+                    G = G/np.sqrt(cos_theta)
+            else:
+                G = np.zeros((3, 2) + passed.shape)
+                G[0, 0], G[1, 1] = 1.0, 1.0
+            if self.wafer is not None:
+                K_x_in, K_y_in = np.where(passed, K_x, 0.0), np.where(passed, K_y, 0.0)
+                G = np.where(passed, self.wafer.transmit(G.astype(complex), K_x_in, K_y_in, k0,
+                                                         P.n, depth, P.vectorial), 0.0)
 
-            for weight, jones in states:
-                E_pupil = np.einsum("ijnm,j->inm", T, jones)*pupil
-                if P.vectorial:
-                    E = np.einsum("ijnm,jnm->inm", R, E_pupil)
-                else:
-                    E = np.concatenate([E_pupil, np.zeros((1,) + E_pupil.shape[1:])])
-                if self.wafer is not None:
-                    E = self.wafer.transmit(E, K_x, K_y, k0, P.n, depth, P.vectorial)
-                for i in range(3):
-                    I_xyz[i] += w*weight*np.abs(Wy @ E[i] @ Wx.T)**2
+            H = np.einsum("ijpnm,psjnm->psinm", G, E_pupil)  # (points, states, 3, n_y, n_x)
+            F = pupil[:, :, None, None]*H[None]  # (foci, points, states, 3, n_y, n_x)
+            w = weights[sl]
 
-        I = I_xyz.sum(axis=0)
+            if mutual:
+                F = F.transpose(0, 3, 4, 5, 1, 2).reshape(len(foci), 3, n_o, -1)*np.sqrt(w.ravel())
+                M += F @ F.conj().swapaxes(-1, -2)
+                continue
 
-        return (I, I_xyz) if return_components else I
+            # W_y @ F[b] @ W_x.T for all b as two matrix products
+            F = F.reshape(-1, n_y, n_x)
+            if len(y)*n_x <= n_y*len(x):
+                A = np.tensordot(W_y, F, axes=(1, 1))  # (len(y), b, n_x)
+                A = (A.reshape(-1, n_x) @ W_x.T).reshape(len(y), -1, len(x))
+            else:
+                A = (F.reshape(-1, n_x) @ W_x.T).reshape(-1, n_y, len(x))
+                A = np.tensordot(W_y, A, axes=(1, 1))  # (len(y), b, len(x))
+            A = A.reshape((len(y), len(foci)) + w.shape + (3, len(x)))
+            I_xyz += np.tensordot(A.real**2 + A.imag**2, w,
+                                  axes=([2, 3], [0, 1])).transpose(1, 2, 0, 3)
+
+        if mutual:
+            # M[(n, m), (n', m')] -> M[(n, n'), (m, m')], then U_y @ M @ U_x.T
+            M = M.reshape(len(foci), 3, n_y, n_x, n_y, n_x).transpose(0, 1, 2, 4, 3, 5)
+            M = M.reshape(len(foci), 3, n_y**2, n_x**2)
+            U_x = (W_x[:, :, None]*W_x.conj()[:, None, :]).reshape(len(x), n_x**2)
+            U_y = (W_y[:, :, None]*W_y.conj()[:, None, :]).reshape(len(y), n_y**2)
+            if len(y)*n_o**2 + len(y)*n_x**2*len(x) <= n_o**2*len(x) + len(y)*n_y**2*len(x):
+                I_xyz = ((U_y @ M) @ U_x.T).real
+            else:
+                I_xyz = (U_y @ (M @ U_x.T)).real
+
+        return I_xyz
+
+    def _open_frames(self, foci, depth):
+        clear = {"clear": np.ones((1, 1), dtype=complex)}
+        I_xyz = self._intensity(clear, np.zeros(1), np.zeros(1), [0.0], [0.0], foci, depth)
+
+        return I_xyz.sum(axis=1)[:, 0, 0]
 
     def open_frame(self, focus=0.0, depth=0.0):
         """Intensity of a clear mask in the same plane (normalization)."""
 
-        clear = {"clear": np.ones((1, 1), dtype=complex)}
-        I = self._intensity(clear, np.zeros(1), np.zeros(1), [0.0], [0.0], focus, depth, False)
+        return self._open_frames([focus], depth)[0]
 
-        return I[0, 0]
+    def _images(self, x, y, foci, depth):
+        """Images and components for all foci, shapes (len(foci),) + image
+        shape and (len(foci), 3) + image shape."""
+
+        m, n, f_x, f_y = self.orders()
+        coeffs = self.layout.region_coefficients(m, n, self._boundary_width())
+        I_xyz = self._intensity(coeffs, f_x, f_y, x, [0.0] if y is None else y, foci, depth)
+        if self.normalize:
+            I_xyz = I_xyz/self._open_frames(foci, depth)[:, None, None, None]
+        if y is None:
+            I_xyz = I_xyz[:, :, 0]
+
+        return I_xyz.sum(axis=1), I_xyz
 
     def image(self, x, y=None, focus=0.0, depth=0.0, return_components=False):
         """Image intensity.
@@ -302,22 +436,14 @@ class LithoSimulation(object):
             Shape (3,) + I.shape.
         """
 
-        m, n, f_x, f_y = self.orders()
-        coeffs = self.layout.region_coefficients(m, n, self._boundary_width())
-        I, I_xyz = self._intensity(coeffs, f_x, f_y, x, [0.0] if y is None else y, focus, depth,
-                                   True)
-        if self.normalize:
-            I0 = self.open_frame(focus, depth)
-            I, I_xyz = I/I0, I_xyz/I0
-        if y is None:
-            I, I_xyz = I[0], I_xyz[:, 0]
+        I, I_xyz = self._images(x, y, [focus], depth)
 
-        return (I, I_xyz) if return_components else I
+        return (I[0], I_xyz[0]) if return_components else I[0]
 
     def through_focus(self, x, foci, y=None, depth=0.0):
         """Images for all foci, shape (len(foci),) + image shape."""
 
-        return np.array([self.image(x, y, f, depth) for f in foci])
+        return self._images(x, y, foci, depth)[0]
 
     # helpers for metrics:
 
@@ -337,18 +463,25 @@ class LithoSimulation(object):
 
         return u, center, cd, direction
 
-    def cut(self, N=401, periods=1.0, direction=None, focus=0.0, depth=0.0):
-        """Image along a cut through the first feature: returns (u, I)."""
+    def _cuts(self, N, periods, direction, foci, depth):
+        """Images along the cut for all foci: returns (u, I), I of shape
+        (len(foci), N)."""
 
         u, center, cd, direction = self.cut_coordinates(N, periods, direction)
         x0, y0 = self.layout.features[0][:2]
         if direction == "x":
-            I = self.image(u, None if self.layout.pitch_y is None else [y0], focus, depth)
+            I = self._images(u, None if self.layout.pitch_y is None else [y0], foci, depth)[0]
         else:
-            I = self.image([x0], u, focus, depth)
-        I = np.ravel(I)
+            I = self._images([x0], u, foci, depth)[0]
 
-        return u, I
+        return u, I.reshape(len(foci), -1)
+
+    def cut(self, N=401, periods=1.0, direction=None, focus=0.0, depth=0.0):
+        """Image along a cut through the first feature: returns (u, I)."""
+
+        u, I = self._cuts(N, periods, direction, [focus], depth)
+
+        return u, I[0]
 
     def cd(self, threshold=0.3, dose=1.0, focus=0.0, depth=0.0, N=401, direction=None):
         """Printed CD of the first feature for the threshold model."""
@@ -363,7 +496,7 @@ class LithoSimulation(object):
         (len(doses), len(foci))."""
 
         u, center, cd, direction = self.cut_coordinates(N, 1.0, direction)
-        cuts = [self.cut(N, 1.0, direction, f, depth)[1] for f in foci]
+        cuts = self._cuts(N, 1.0, direction, foci, depth)[1]
 
         return metrics.fem_cd(u, cuts, doses, threshold, center, self.layout.feature_is_bright)
 

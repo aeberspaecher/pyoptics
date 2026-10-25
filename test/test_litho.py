@@ -251,6 +251,65 @@ def test_apodization_linear_is_default_and_checked():
         Projector(NA, WL, N_WATER, apodization_model="quadratic")
 
 
+# summation over the source (batched, direct or via mutual intensities):
+
+def _sim_for_summation(polarization="TE", dop=1.0):
+    bl = BoundaryLayer(4.0, 0.9 + 0.1j, 0.8 - 0.2j)
+    wafer = WaferStack((1.7, 0.02, 100.0), below=[(1.8, 0.4, 40.0)])
+    ill = Illumination.quasar(0.9, 0.6, n_samples=15, polarization=polarization, dop=dop)
+    return LithoSimulation(MaskLayout.staggered_contacts(200.0, 240.0, 80.0),
+                           FilmMask([2.3], [0.6], [60.0], boundary_layer=bl), ill,
+                           Projector(NA, WL, N_WATER, zernikes={7: 0.03}), wafer)
+
+
+def test_direct_and_mutual_sums_agree():
+    sim = _sim_for_summation("unpolarized", dop=0.7)
+    x, y = np.linspace(-100, 100, 41), np.linspace(-120, 120, 31)
+    I, I_xyz = sim.image(x, y, focus=30.0, depth=20.0, return_components=True)
+    sim.mutual_bytes = 0  # always sum the fields directly
+    I_d, I_xyz_d = sim.image(x, y, focus=30.0, depth=20.0, return_components=True)
+
+    assert np.allclose(I, I_d, rtol=1E-12, atol=1E-14)
+    assert np.allclose(I_xyz, I_xyz_d, rtol=1E-12, atol=1E-14)
+
+
+@pytest.mark.parametrize("batch_bytes", [1, 2**16, 2**30])
+def test_through_focus_matches_single_images(batch_bytes):
+    sim = _sim_for_summation()
+    sim.batch_bytes = batch_bytes  # one, some and all source points per batch
+    x, foci = np.linspace(-100, 100, 21), [-60.0, 0.0, 45.0]
+    I = sim.through_focus(x, foci, depth=10.0)
+    for I_f, f in zip(I, foci):
+        assert np.allclose(I_f, sim.image(x, focus=f, depth=10.0), rtol=1E-12)
+
+
+def test_callable_polarization_matches_constant():
+    sim = _sim_for_summation("TE")
+    sim_c = sim.with_(illumination=sim.illumination.with_polarization(lambda s_x, s_y: "TE"))
+    x = np.linspace(-100, 100, 21)
+
+    assert np.allclose(sim.image(x, x), sim_c.image(x, x), rtol=1E-12)
+
+
+def test_stack_for_single_points_only():
+    class PointStack(object):  # a user-defined stack without array support
+        def jones(self, s_x, s_y, NA, wavelength, magnification):
+            assert np.ndim(s_x) == 0
+            t = 1.0 + 0.1*s_x + 0.2j*s_y
+            return np.eye(2), np.array([[0.2*t, 0.05], [0.0, -0.25*t]])
+
+    class ArrayStack(PointStack):
+        def jones(self, s_x, s_y, NA, wavelength, magnification):
+            return tuple(np.array([PointStack.jones(self, a, b, NA, wavelength, magnification)[i]
+                                   for a, b in zip(np.ravel(s_x), np.ravel(s_y))])
+                         for i in range(2))
+
+    sim = _sim_for_summation().with_(stack=PointStack())
+    x = np.linspace(-100, 100, 21)
+
+    assert np.allclose(sim.image(x, x), sim.with_(stack=ArrayStack()).image(x, x), rtol=1E-12)
+
+
 # mask stacks:
 
 def test_film_mask_matches_thin_mask_at_normal_incidence():
@@ -283,6 +342,13 @@ def test_film_mask_jones_is_diagonal_in_TE_TM():
     # an "absorber" of exit medium is clear:
     J_c, J_a = FilmMask([1.0], [0.0], [50.0]).jones(s_x, s_y, NA, WL, 4.0)
     assert np.allclose(J_a, J_c)
+    # arrays of source points (also on the axis) give the same matrices as single points:
+    S_x, S_y = np.array([[0.6, 0.0], [-0.3, 0.0]]), np.array([[0.5, 0.7], [0.2, 0.0]])
+    J_clear, J_abs = film.jones(S_x, S_y, NA, WL, 4.0)
+    assert J_abs.shape == (2, 2, 2, 2)
+    for idx in np.ndindex(S_x.shape):
+        J_c, J_a = film.jones(S_x[idx], S_y[idx], NA, WL, 4.0)
+        assert np.allclose(J_clear[idx], J_c) and np.allclose(J_abs[idx], J_a)
 
 
 @pytest.mark.parametrize("layout", [MaskLayout.lines_spaces(120.0, 50.0),
