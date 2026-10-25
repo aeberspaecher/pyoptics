@@ -37,6 +37,7 @@ running anything (e.g. directly on GitHub).
 | [27_litho_lens_aberrations](27_litho_lens_aberrations.ipynb) | `litho.lens`, `litho`, `raytrace` | Caldwell's KrF lens handed to the lithography simulation: Fringe Zernikes fitted on the projector's pupil (wavefront maps at the slit centre and edge), Zernikes and RMS wavefront over a 22 × 8 mm scanner slit, chief ray distortion vs. image placement (PSF centroid) and the linear scanner correction, telecentricity; CD, placement and best focus across the slit for dense vertical and horizontal and semi-isolated lines, static vs. scanned (image fading), Bossung curves at the slit centre and edge; Zernike sensitivities of placement, best focus and CD (parities, linear vs. quadratic, iso-dense focus difference) and an aberration budget against the full simulation |
 | [28_hopkins_socs](28_hopkins_socs.ipynb) | `litho.hopkins`, `litho` | Hopkins imaging: TCC matrices of a 1D mask for coherent, conventional, annular and dipole sources, agreement with Abbe (exact for thin masks, Hopkins approximation for a MoSi film mask), SOCS eigenvalue spectra for five sources and the first kernels of a quasar, image and CD error vs. the number of kernels, timing of Abbe vs. TCC vs. SOCS for 20 variants of a 1 µm clip, bias to size for dense contact holes by Newton steps |
 | [29_litho_resist_swing](29_litho_resist_swing.ipynb) | `litho.resist`, `litho.wafer` | Resist model and swing curves at ArF immersion: reflectance and absorbed energy through resist thickness, the angles a dipole image uses at NA 1.35, BARC thickness for normal incidence vs. those angles, the image inside the resist with and without BARC, the resist chain step by step (acid, bake with quencher, inhibitor, Mack rate, development front, profile), standing waves in the profile vs. acid diffusion length, CD through dose against the threshold model with different quencher loadings, E0 swing curve and CD swing through thickness |
+| [30_litho_rigorous_mask](30_litho_rigorous_mask.ipynb) | `litho.rcwa`, `litho.hopkins`, `litho.lens` | Rigorous mask diffraction with RCWA at ArF immersion: energy conservation and convergence (Li vs. Laurent factorization for TM on chrome), order amplitudes and phases of a MoSi att. PSM through pitch for TE and TM against the film mask, order amplitudes vs. angle of incidence and Abbe vs. Hopkins with a rigorous mask, CD and best focus through pitch for MoSi and chrome (rigorous vs. film), boundary layer calibration and the CD error of the calibrated thin model |
 
 All notebooks use the pyoptics convention $\exp(i(\mathbf{k}\cdot\mathbf{r} - \omega t))$
 (see the main README).
@@ -65,7 +66,8 @@ notebook 25 (about 3 minutes, many HIO runs) and the mode analysis notebook
 26 (about 1.5 minutes, basis fits and large LG expansions) and the lens
 aberration notebook 27 (about 2 minutes, ray traces over the slit and
 Zernike sensitivities); notebook 28 (Hopkins/SOCS) takes about 20 seconds, notebook 29 (resist
-model and swing curves) about 30 seconds.
+model and swing curves) about 30 seconds, notebook 30 (rigorous mask)
+about 20 seconds.
 
 To re-execute all notebooks and store their outputs:
 

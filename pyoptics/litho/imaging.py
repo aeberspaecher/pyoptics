@@ -6,7 +6,9 @@
 For every source point the mask (a MaskLayout with a mask stack) diffracts
 the illuminating plane wave into orders with the transverse wave vectors
 k_0*NA*s + 2*pi*(m/p_x, n/p_y) and Jones matrices given by the Fourier
-coefficients of its regions times their transmissions. The projector passes
+coefficients of its regions times their transmissions (a RigorousMask
+gives the Jones matrices of the orders directly, computed with RCWA for each
+source point). The projector passes
 the orders inside its pupil, applies apodization, aberrations and defocus
 and, in the vectorial model, turns each order into a plane wave in the
 immersion medium with the aplanatic polarization rotation (as
@@ -190,7 +192,7 @@ class LithoSimulation(object):
     Parameters
     ----------
     layout : MaskLayout
-    stack : ThinMask or FilmMask
+    stack : ThinMask, FilmMask or RigorousMask
     illumination : Illumination
     projector : Projector
     wafer : WaferStack, optional
@@ -303,8 +305,12 @@ class LithoSimulation(object):
         n_x, n_y = len(f_x), len(f_y)
         I_xyz = np.zeros((len(foci), 3, len(y), len(x)))
 
-        regions = list(coeffs)
-        C = np.array([coeffs[r] for r in regions])  # (regions, n_y, n_x)
+        rigorous = coeffs is None  # the mask stack gives the Jones matrices of the orders
+        if rigorous:
+            m, n = self.orders()[:2]
+        else:
+            regions = list(coeffs)
+            C = np.array([coeffs[r] for r in regions])  # (regions, n_y, n_x)
         weights, jones = self._polarization_table()
         s_x_all, s_y_all = self.illumination.s_x, self.illumination.s_y
         n_states = weights.shape[1]
@@ -339,10 +345,16 @@ class LithoSimulation(object):
 
             # Jones vectors behind the mask: sum over the regions of their
             # Jones matrices times the incident states times their coefficients
-            J = self._region_jones(s_x, s_y)
-            J = np.stack([J[r] for r in regions], axis=1)  # (points, regions, 2, 2)
-            V = np.einsum("prij,psj->psri", J, jones[sl])
-            E_pupil = np.einsum("psri,rnm->psinm", V, C)  # (points, states, 2, n_y, n_x)
+            if rigorous:
+                P_ = self.projector
+                J_o = self.stack.order_jones(self.layout, m, n, s_x, s_y, P_.NA, P_.wavelength,
+                                             P_.magnification)  # (points, 2, 2, n_y, n_x)
+                E_pupil = np.einsum("pijnm,psj->psinm", J_o, jones[sl])
+            else:
+                J = self._region_jones(s_x, s_y)
+                J = np.stack([J[r] for r in regions], axis=1)  # (points, regions, 2, 2)
+                V = np.einsum("prij,psj->psri", J, jones[sl])
+                E_pupil = np.einsum("psri,rnm->psinm", V, C)  # (points, states, 2, n_y, n_x)
 
             H = np.einsum("ijpnm,psjnm->psinm", G, E_pupil)  # (points, states, 3, n_y, n_x)
             F = pupil[:, :, None, None]*H[None]  # (foci, points, states, 3, n_y, n_x)
@@ -428,7 +440,8 @@ class LithoSimulation(object):
         shape and (len(foci), 3) + image shape."""
 
         m, n, f_x, f_y = self.orders()
-        coeffs = self.layout.region_coefficients(m, n, self._boundary_width())
+        coeffs = (None if hasattr(self.stack, "order_jones")
+                  else self.layout.region_coefficients(m, n, self._boundary_width()))
         I_xyz = self._intensity(coeffs, f_x, f_y, x, [0.0] if y is None else y, foci, depth)
         if self.normalize:
             I_xyz = I_xyz/self._open_frames(foci, depth)[:, None, None, None]
