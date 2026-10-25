@@ -12,9 +12,8 @@
 ## Medium
 
 * Finish the stub `interpolator.TrigInterpolator`
-* Lithography (DUV, see the roadmap in the project files): rigorous mask
-  diffraction (RCWA) to calibrate the boundary layer model, Jones pupil,
-  source optimization, OPC helpers
+* Lithography (DUV, see the roadmap in the project files): Jones pupil,
+  source optimization, OPC helpers, RCWA for 2D masks
 * More tests for `wpm` and `TIE`
 * Docstrings: NumPy-style Parameters/Returns sections for raytrace, abcd,
   modes, litho, TIE, interfaces and bases; numpydoc validation in CI
@@ -37,6 +36,8 @@
 * Lithography: swing curves, BARC optimization and a resist model
   (exposure, PEB, Mack development; `litho.wafer`, `litho.resist`,
   notebook 29)
+* Lithography: rigorous mask diffraction with 1D RCWA and boundary layer
+  calibration (`litho.rcwa`, notebook 30)
 
 * FFT module
 * fitting bases to scattered data

@@ -30,7 +30,9 @@ the identity (thin masks, film masks at normal incidence), the mask is
 scalar and the TCC is indexed by the orders o. Otherwise (e.g. a boundary
 layer with different TE and TM transmissions) each used element (j, k) of
 the Jones matrices (j: pupil component, k: incident component) is a
-"channel" c, and the TCC is indexed by (o, c).
+"channel" c, and the TCC is indexed by (o, c). For a RigorousMask the mask
+spectrum is the Jones matrices of the orders that rcwa computes at normal
+incidence; Abbe's method recomputes them for every source point.
 
 The TCC is Hermitian and positive semidefinite, so its eigenvectors phi_k
 and eigenvalues lambda_k >= 0 give the SOCS decomposition::
@@ -91,7 +93,14 @@ class TCC(object):
         self.depth = depth
         self.m, self.n, self.f_x, self.f_y = sim.orders()
         J = self._jones(sim)
-        if all(Jr[0, 1] == 0 and Jr[1, 0] == 0 and Jr[0, 0] == Jr[1, 1] for Jr in J.values()):
+        self._rigorous = hasattr(sim.stack, "order_jones")
+        if self._rigorous:  # channels of the order Jones matrices at normal incidence
+            J_o = self._order_jones(sim.layout)
+            self.channels = [(j, k) for j in range(2) for k in range(2) if np.any(np.abs(J_o[j, k]) > 0)]
+            self._basis = np.zeros((len(self.channels), 2, 2))
+            for c, (j, k) in enumerate(self.channels):
+                self._basis[c, j, k] = 1.0
+        elif all(Jr[0, 1] == 0 and Jr[1, 0] == 0 and Jr[0, 0] == Jr[1, 1] for Jr in J.values()):
             self.channels = ["scalar"]
             self._basis = np.eye(2)[None]
         else:
@@ -110,6 +119,14 @@ class TCC(object):
 
         J = sim._region_jones(np.zeros(1), np.zeros(1))
         return {r: np.asarray(v)[0] for r, v in J.items()}
+
+    def _order_jones(self, layout):
+        """Jones matrices of the orders of a rigorous mask stack at normal
+        incidence (Hopkins), shape (2, 2, n_y, n_x)."""
+
+        P = self.sim.projector
+        return self.sim.stack.order_jones(layout, self.m, self.n, np.zeros(1), np.zeros(1), P.NA,
+                                          P.wavelength, P.magnification)[0]
 
     @property
     def shape(self):
@@ -173,6 +190,9 @@ class TCC(object):
         if layout.pitch_x != L0.pitch_x or layout.pitch_y != L0.pitch_y:
             raise ValueError("The layout must have the pitches of the TCC ({}, {})"
                              .format(L0.pitch_x, L0.pitch_y))
+        if self._rigorous:
+            J_o = self._order_jones(layout)
+            return np.stack([J_o[c] for c in self.channels], axis=-1).ravel()
         sim = self.sim.with_(layout=layout)
         J = self._jones(sim)
         coeffs = layout.region_coefficients(self.m, self.n, sim._boundary_width())

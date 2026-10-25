@@ -14,7 +14,8 @@ exchangeable:
   lines, dense and isolated contact holes, any set of rectangles) and a mask
   stack (`ThinMask`: Kirchhoff transmissions such as binary or attenuated
   PSM; `FilmMask`: transmissions of the absorber computed with
-  `pyoptics.thin_films`, angle and polarization dependent), both optionally
+  `pyoptics.thin_films`, angle and polarization dependent; `RigorousMask`:
+  RCWA of the patterned absorber for 1D layouts), the thin ones optionally
   with a polarization dependent boundary layer at the edges (`BoundaryLayer`)
   as an approximation to thick mask effects,
 - `Projector`: the projection lens (NA, wavelength, immersion, vectorial or
@@ -40,6 +41,8 @@ exchangeable:
   exposure, post-exposure bake (acid diffusion, quencher, amplification),
   Mack development with a fast marching front, resist profiles, dose to
   size and dose to clear,
+- `rcwa`: rigorous mask diffraction of 1D layouts (RCWA), `RigorousMask`
+  for Abbe and Hopkins imaging, calibration of the boundary layer model,
 - `plot`: source, mask, pupil fill, images, Bossung plots, process windows.
 
 All lengths are image-side (wafer scale) values; mask dimensions are given
@@ -58,3 +61,5 @@ from . import metrics
 from . import lens
 from . import hopkins
 from . import resist
+from . import rcwa
+from .rcwa import RigorousMask

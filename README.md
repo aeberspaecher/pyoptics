@@ -110,7 +110,11 @@ Status of the modules:
   against `thin_films`) and `litho.resist`, a chemically amplified resist
   in an x-z cross section (exposure, PEB with acid diffusion, quencher and
   amplification, Mack development with a fast marching front; profile, CD
-  at top/middle/bottom, sidewall angle, top loss, dose to size, E0)
+  at top/middle/bottom, sidewall angle, top loss, dose to size, E0);
+  `litho.rcwa`: rigorous mask diffraction of 1D layouts by RCWA (Li's
+  factorization, conical incidence, enhanced transmittance matrices; exact
+  against `thin_films`, energy conserving), `RigorousMask` for Abbe and
+  Hopkins imaging and a calibration of the boundary layer model
 - `polarization`: TE/TM bases, Stokes to Jones decomposition, DOP and IPS
 - `imaging`: scalar imaging, tested: coherent imaging through a circular
   pupil, PSF with pupil masks (obscuration, apodization) and phases (also
