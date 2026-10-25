@@ -12,7 +12,7 @@
 ## Medium
 
 * Finish the stub `interpolator.TrigInterpolator`
-* Lithography (DUV, see the roadmap in the project files): OPC helpers, RCWA for 2D masks, ray traced stress
+* Lithography (DUV, see the roadmap in the project files): RCWA for 2D masks, ray traced stress
   birefringence
 * More tests for `wpm` and `TIE`
 * Docstrings: NumPy-style Parameters/Returns sections for raytrace, abcd,
@@ -44,6 +44,8 @@
   notebook 31)
 * Lithography: source optimization of pixelated sources (`litho.source_opt`,
   notebook 32)
+* Lithography: OPC of Manhattan polygons (bias tables, SRAFs, model-based
+  OPC with fragments and EPE; `litho.opc`, notebook 33)
 
 * FFT module
 * fitting bases to scattered data

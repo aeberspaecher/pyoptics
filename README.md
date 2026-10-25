@@ -124,7 +124,12 @@ Status of the modules:
   (`litho.lens.lens_jones_pupil`, `litho.lens.CubicCrystal`);
   `litho.source_opt`: source optimization of a pixelated source with
   symmetry, pupil fill and common dose constraints, maximizing the worst
-  NILS over clips and foci by linear programming on the Abbe responses
+  NILS over clips and foci by linear programming on the Abbe responses;
+  `litho.opc`: optical proximity correction of Manhattan polygons
+  (`MaskLayout.from_polygons`, exact unions of rectangles): bias tables
+  through pitch, SRAF rules with a printability check, fragmentation, edge
+  placement errors and model-based OPC with a regularized Jacobian update
+  (Abbe, Hopkins or SOCS imaging)
 - `polarization`: TE/TM bases, Stokes to Jones decomposition, DOP and IPS
 - `imaging`: scalar imaging, tested: coherent imaging through a circular
   pupil, PSF with pupil masks (obscuration, apodization) and phases (also
