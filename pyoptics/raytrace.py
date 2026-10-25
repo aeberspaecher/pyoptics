@@ -1133,7 +1133,9 @@ class System:
         times its semi diameter: Newton's method from the paraxial guess.
         Rays for which that fails (a strong pupil aberration, as in high NA
         lenses, sends the paraxial guess outside the aspheres or the spheres
-        of the lens) are aimed by continuation: in steps from the chief ray
+        of the lens, or Newton's method converges to a ray that passes the
+        stop on a folded path far outside the clear apertures) are aimed by
+        continuation: in steps from the chief ray
         to the target, each step starting from the previous solution, with
         the steps halved where Newton's method still fails."""
 
@@ -1215,8 +1217,28 @@ class System:
             b = np.where(ok, b - db, b)
         hx, hy = self._stop_hits(field, a, b)
         done = np.hypot(hx - tx, hy - ty) < 1e-9*scale
+        # a solution far outside the clear apertures passes the stop on a
+        # folded path (a wrong branch of the aspheres or spheres):
+        done &= self._inside_apertures(field, a, b, 1.05)
 
         return a, b, done
+
+    def _inside_apertures(self, field, a, b, margin):
+        """Whether the rays stay within margin times the semi diameters of
+        all surfaces."""
+
+        bundle = self.trace(self._launch(field, a, b), clip=False, last=len(self.surfaces) - 1)
+        inside = np.ones(len(a), dtype=bool)
+        frames = self.frames()[0]
+        for i, s in enumerate(self.surfaces):
+            if s.semi_diameter is None or isinstance(s, CoordinateBreak):
+                continue
+            o, R = frames[i]
+            Q = (bundle.points[i + 1] - o) @ R
+            with np.errstate(invalid="ignore"):
+                inside &= ~(np.hypot(Q[:, 0], Q[:, 1]) > margin*s.semi_diameter)
+
+        return inside
 
     def trace(self, rays, clip=True, last=None):
         """Trace rays through the system.

@@ -57,6 +57,15 @@ def test_rim_rays_hit_the_stop(arfi):
     assert np.allclose(stop[:, 1], a_s*PY[inside], atol=1e-8)
 
 
+def test_no_rays_on_folded_paths(arfi):
+    # Newton's method from the paraxial guess can find rays that hit the
+    # stop target on a folded path far outside the clear apertures (here in
+    # the middle of the pupil on a 41 x 41 grid); those are aimed again:
+    _, PX, PY, inside = arfi._pupil_grid(41)
+    bundle = arfi.trace_pupil(0.0, PX[inside], PY[inside])
+    assert np.all(bundle.valid)
+
+
 def test_diffraction_limited(arfi):
     assert arfi.rms_opd(0.0, N=24) < 0.025
     assert arfi.rms_opd((0.0, 56.0), N=24) < 0.035
