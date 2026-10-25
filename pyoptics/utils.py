@@ -218,8 +218,8 @@ def k_z(k, k_x, k_y):
     -------
     k_z : array
 
-    Note
-    ----
+    Notes
+    -----
     The function carefully handles evanescent waves: the branch with
     Im(k_z) >= 0 is returned, so that exp(+i*k_z*z) decays for z > 0
     (exp(-i*omega*t) time dependence). The same holds for complex k in
@@ -424,7 +424,7 @@ def get_z_derivative(stack, dz, order):
 def add_camera_noise(stack, model="camera", **kwargs):
     """Apply a camera noise model to an image or an image stack.
 
-    Shortcut for processing.CameraNoiser(model, **kwargs)(stack); see there
+    Shortcut for ``processing.CameraNoiser(model, **kwargs)(stack)``; see there
     for the models and parameters.
 
     Parameters
@@ -478,7 +478,7 @@ def center_of_mass(img, x, y, threshold=0.0):
 
 
 def scalar_product(field1, field2, x, y, weight_func=None):
-    """Compute the scalar product <field_1|field_2> (using the physicist's
+    """Compute the scalar product ``<field_1|field_2>`` (using the physicist's
     convention of complex conjugation for field1).
 
     Parameters
@@ -508,7 +508,7 @@ def scalar_product(field1, field2, x, y, weight_func=None):
 
 
 def scalar_product_with_weights(field1, field2, x, y, weights):
-    """Compute the scalar product <field_1|field_2> (using the physicist's
+    """Compute the scalar product ``<field_1|field_2>`` (using the physicist's
     convention of complex conjugation for field1).
 
     Parameters
@@ -533,7 +533,7 @@ def scalar_product_with_weights(field1, field2, x, y, weights):
 
 
 def scalar_product_without_weights(field1, field2, x, y):
-    """Compute the scalar product <field_1|field_2> (using the physicist's
+    """Compute the scalar product ``<field_1|field_2>`` (using the physicist's
     convention of complex conjugation for field1).
 
     Parameters
@@ -573,8 +573,8 @@ def simpson_weights(N):
     w : array
         Simpson weigths.
 
-    Note
-    ----
+    Notes
+    -----
     If N is even, the right-most indices will be treated by a different
     interpolation formula (of same order). This allows Simpson integration for
     even length sampled data.

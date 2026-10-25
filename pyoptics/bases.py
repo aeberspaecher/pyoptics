@@ -174,8 +174,8 @@ class BasisSet(object):
         coeffs : array
             Expansion coefficients.
 
-        Note
-        ----
+        Notes
+        -----
         Least square fitting may be better than direct integration as it tries
         to optimally describe the given field. However, balancing the basis
         functions for minimum residual can be unphysical, specifically if the
@@ -463,7 +463,7 @@ class FringeZernikes(BasisSet):
         return R*Y
 
     def normalization_factor(self, i):
-        """Norm <Z_i|Z_i> of i-th Fringe-Zernike polynomial.
+        """Norm ``<Z_i|Z_i>`` of i-th Fringe-Zernike polynomial.
 
         Parameters
         ----------
@@ -473,8 +473,8 @@ class FringeZernikes(BasisSet):
         -------
         norm : double
 
-        Note
-        ----
+        Notes
+        -----
         The Fringe Zernikes get their normalization from the choice of
         R(R_max) = 1. This means the norm over the entire (unit) disk may
         differ with the Fringe index.
@@ -530,7 +530,7 @@ def legendre_norm_2d(j, a=1.0, b=1.0):
 
 class TensorProductBasis(BasisSet, metaclass=ABCMeta):
     """Abstract base class for tensor product bases P_n(u/a)*P_m(v/b) on the
-    rectangle |u| <= a, |v| <= b, built from a family P_n of 1D polynomials.
+    rectangle ``|u|`` <= a, ``|v|`` <= b, built from a family P_n of 1D polynomials.
 
     (u, v) are the local coordinates of the rectangle that is centered at
     (x0, y0) and rotated counterclockwise by angle (see local_coordinates()).
@@ -630,7 +630,7 @@ class LegendrePolynomials(TensorProductBasis):
         return legval(t, c)
 
     def normalization_factor(self, i):
-        """Norm <L_i|L_i> of i-th Legendre basis function.
+        """Norm ``<L_i|L_i>`` of i-th Legendre basis function.
 
         Parameters
         ----------
@@ -736,8 +736,8 @@ class NumericallyOrthogonalized(PresampledBasisSet):
         kwargs : dict
             Handed over to basis_type object.
 
-        Note
-        ----
+        Notes
+        -----
         As the QR decomposition used in the orthogonalization process may change
         signs, a rescaling to prevent overall sign is performed. In this process
         the signs of the first element within the mask are evaluated. These
@@ -900,7 +900,7 @@ def basis_from_generating_function(index_func, field_func, **kwargs):
         Maps a single integer n to one or several indices i, j, k...
     field_func : callable
         Field or basis function generating function with signature
-        field_func(i, j, k, ..., x, y, **kwargs).
+        ``field_func(i, j, k, ..., x, y, **kwargs)``.
 
     Returns
     -------

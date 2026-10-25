@@ -11,6 +11,7 @@ feature (contact hole, trench) is opened where D*I >= threshold. Its CD is
 the distance of the two contour crossings around the feature center.
 
 Metrics:
+
 - contrast(): Michelson contrast,
 - image_log_slope(), nils(): (normalized) image log slope at an edge,
 - feature_edges(), threshold_cd(): printed edges and CD,
@@ -32,7 +33,7 @@ from ..vectorial_imaging import contrast, nils
 
 
 def image_log_slope(x, I, x_edge):
-    """|d ln(I)/dx| at x_edge."""
+    """``|d ln(I)/dx|`` at x_edge."""
 
     return np.abs(np.interp(x_edge, x, np.gradient(np.log(I), x)))
 
@@ -88,7 +89,7 @@ def threshold_cd(u, I, threshold, center=0.0, bright=False):
 
 
 def nils_at_threshold(u, I, threshold, center=0.0, bright=False, cd=None):
-    """NILS at the printed edges: cd*|d ln(I)/du|, averaged over both edges;
+    """NILS at the printed edges: ``cd*|d ln(I)/du|``, averaged over both edges;
     cd defaults to the printed CD."""
 
     left, right = feature_edges(u, I, threshold, center, bright)

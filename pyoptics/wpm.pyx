@@ -81,8 +81,8 @@ cpdef wpm_propagate(n_func, field_z, double[:] x, double[:] y, double z,
     field_propagted : array
         Field propagated to z_new = z + delta_z.
 
-    Note
-    ----
+    Notes
+    -----
     For N x-samples and M y-samples, the WPM scales with O(N^2*M^2). This fact
     should render it close to unusable for large problems.
 

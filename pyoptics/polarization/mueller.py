@@ -162,8 +162,8 @@ def M_reflection_dielectric(r_s, r_p, *args):
         Müller matrix for reflection in a coordinate system in which
         p-polarization is x-axis and s-polarization is y-axis.
 
-    Note
-    ----
+    Notes
+    -----
     The function accepts additional (unused) arguments which allows to call it
     with a signature as used in transmission_dielectric().
     """
@@ -234,8 +234,8 @@ def M_reflection_metal(theta, n_metal, n_embedding=1.0):
         Müller matrix for reflection in a coordinate system in which
         p-polarization is x-axis and s-polarization is y-axis.
 
-    Note
-    ----
+    Notes
+    -----
     Source: Christoph Keller's book "Astrophysical Spectropolarimetry", p. 330,
     with signs adapted to the conventions of this module (p along x,
     exp(-i*omega*t) time dependence, absorbing metals with Im(n_metal) > 0).
@@ -305,8 +305,8 @@ def retardance_from_AOI(theta, phi, delta_0, n_o, n_e):
     delta : number
         Retardance for oblique incidence
 
-    Note
-    ----
+    Notes
+    -----
     The formula is only valid for sin(theta)**2 << n_o**2, n_e**2.
     """
 

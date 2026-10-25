@@ -10,7 +10,7 @@ direction is given by the partial coherence coordinates (s_x, s_y) (sigma in
 lithography): the transverse wave vector of the illuminating plane wave in
 image space is k_0*NA*(s_x, s_y). The mask diffracts it into plane waves
 (diffraction orders) with the transverse wave vectors k_0*NA*s + k_mask, which
-the projection lens passes if |k_perp| <= k_0*NA. All quantities refer to the
+the projection lens passes if ``|k_perp|`` <= k_0*NA. All quantities refer to the
 image side: pitches and NA are image-side values (for a reduction lens the
 mask dimensions divided by the reduction ratio).
 
@@ -25,11 +25,12 @@ obliquity (radiometric) factor 1/sqrt(cos(theta)) conserves the energy
 flowing through the lens, as in propagators.vectorial_mansuripur(). In the
 scalar model the Jones vector is kept as it is.
 
-The image is the energy density |E_x|**2 + |E_y|**2 + |E_z|**2, summed over
+The image is the energy density ``|E_x|**2`` + ``|E_y|**2`` + ``|E_z|**2``, summed over
 the source points (weighted) and over the mutually incoherent polarization
 states of each source point.
 
 Polarization of the illumination can be given as
+
 - a Jones vector, e.g. polarization.jones.J_V,
 - a Stokes vector (shape (4,)), e.g. polarization.mueller.S_unpol (it is
   decomposed into two incoherent Jones vectors, see
@@ -98,7 +99,7 @@ def source_points(shape="conventional", sigma=0.5, sigma_in=0.0, opening_angle=N
     ----------
     shape : str
         "coherent" (one point at sigma), "conventional" (disk of radius
-        sigma), "annular" (sigma_in <= |s| <= sigma), "dipole" (two poles on
+        sigma), "annular" (sigma_in <= ``|s|`` <= sigma), "dipole" (two poles on
         the axis, annular sector with the opening angle) or "quasar" (four
         poles on the diagonals).
     sigma : number or tuple
@@ -256,9 +257,9 @@ def image_1d(x, pitch, orders, NA, wavelength, source=None, polarization="unpola
     Returns
     -------
     I : array
-        Image intensity |E|**2 at x.
+        Image intensity ``|E|**2`` at x.
     I_xyz : array, optional
-        Shape (3,) + x.shape: |E_x|**2, |E_y|**2, |E_z|**2.
+        Shape (3,) + x.shape: ``|E_x|**2``, ``|E_y|**2``, ``|E_z|**2``.
     """
 
     if NA > n:
@@ -363,7 +364,7 @@ def contrast(I):
 
 
 def nils(x, I, x_edge, linewidth):
-    """Normalized image log slope NILS = linewidth*|d ln(I)/dx| at x_edge.
+    """Normalized image log slope NILS = ``linewidth*|d ln(I)/dx|`` at x_edge.
 
     Parameters
     ----------
@@ -389,7 +390,7 @@ def two_beam_contrast(theta, polarization):
     that travel at the angles +theta and -theta to the z axis.
 
     TE (s) polarized waves are parallel and give contrast 1, TM (p) polarized
-    waves enclose the angle 2*theta and give |cos(2*theta)|. Unpolarized light
+    waves enclose the angle 2*theta and give ``|cos(2*theta)|``. Unpolarized light
     is the incoherent mean of both, I = 2 + (1 + cos(2*theta))*cos(Delta),
     with the contrast (1 + cos(2*theta))/2 = cos(theta)**2.
 

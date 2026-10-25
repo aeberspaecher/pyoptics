@@ -4,7 +4,7 @@
 """Digital holography: recording, reconstruction, refocusing and autofocus.
 
 A hologram is the intensity of an object wave O and a reference wave R on a
-camera,
+camera, ::
 
     H = |O + R|**2 = |O|**2 + |R|**2 + O*conj(R) + conj(O)*R.
 
@@ -112,9 +112,9 @@ def max_object_bandwidth(x, y):
     """Largest object bandwidth for which an off-axis hologram on this grid
     can separate the orders.
 
-    The +1 order (radius B) has to stay clear of the zero order (|O|**2 has
-    radius 2B), so the carrier must satisfy |k_c| >= 3B, and it has to stay
-    below the Nyquist frequency, |k_c| + B <= pi/dx. Both are possible for
+    The +1 order (radius B) has to stay clear of the zero order (``|O|**2`` has
+    radius 2B), so the carrier must satisfy ``|k_c|`` >= 3B, and it has to stay
+    below the Nyquist frequency, ``|k_c|`` + B <= pi/dx. Both are possible for
     B <= pi/(4*dx) with the carrier along one axis of the grid. (A diagonal
     carrier allows somewhat more, but the axis-aligned value is the simple
     and safe bound.)
@@ -141,8 +141,8 @@ def off_axis_angle_range(bandwidth, x, y, wavelength, n=1.0, axis="x"):
     off-axis hologram.
 
     For an object with the bandwidth B = k*NA (radius of its angular
-    spectrum), the +1 order must not overlap the zero order, |k_c| >= 3B, and
-    must be sampled by the camera, |k_c| + B <= pi/dx, where k_c = k*sin(theta)
+    spectrum), the +1 order must not overlap the zero order, ``|k_c|`` >= 3B, and
+    must be sampled by the camera, ``|k_c|`` + B <= pi/dx, where k_c = k*sin(theta)
     is the carrier.
 
     Parameters
@@ -181,7 +181,7 @@ def off_axis_angle_range(bandwidth, x, y, wavelength, n=1.0, axis="x"):
 
 def hologram(obj_field, x, y, wavelength, ref_angle=(0.0, 0.0), ref_amp=1.0,
              phase_shift=0.0, n=1.0):
-    """Record the hologram |O + R|**2 of an object field O.
+    """Record the hologram ``|O + R|**2`` of an object field O.
 
     Parameters
     ----------
@@ -243,7 +243,7 @@ def phase_shifted_holograms(obj_field, x, y, wavelength, shifts, ref_angle=(0.0,
 
 def suppress_zero_order(H, x=None, y=None, method="mean", I_ref=None, I_obj=None,
                         radius=None):
-    """Remove the zero order |O|**2 + |R|**2 from a hologram.
+    """Remove the zero order ``|O|**2`` + ``|R|**2`` from a hologram.
 
     Parameters
     ----------
@@ -255,9 +255,9 @@ def suppress_zero_order(H, x=None, y=None, method="mean", I_ref=None, I_obj=None
         - "mean": subtract the mean of H (removes the DC peak only).
         - "highpass": subtract a Gaussian low pass of H with the 1/e radius
           `radius` in k space (rad per length unit), which removes the slowly
-          varying |O|**2 + |R|**2 for objects with little bandwidth.
-        - "recorded": subtract separately recorded intensities I_ref = |R|**2
-          and I_obj = |O|**2 (exact).
+          varying ``|O|**2`` + ``|R|**2`` for objects with little bandwidth.
+        - "recorded": subtract separately recorded intensities I_ref = ``|R|**2``
+          and I_obj = ``|O|**2`` (exact).
     I_ref, I_obj : arrays or numbers, optional
         Intensities of reference and object alone (method="recorded"; a
         missing I_obj is treated as zero).
@@ -307,11 +307,11 @@ def find_carrier(H, x, y, exclude_radius=None):
     -------
     k_x, k_y : numbers
         Carrier of the reference (the +1 order O*conj(R) sits at -(k_x, k_y)),
-        refined to sub-pixel precision by a parabola fit of log|FT(H)|.
+        refined to sub-pixel precision by a parabola fit of ``log|FT(H)|``.
 
-    Note
-    ----
-    The spectrum of a real hologram is symmetric, |FT(H)(k)| = |FT(H)(-k)|,
+    Notes
+    -----
+    The spectrum of a real hologram is symmetric, ``|FT(H)(k)|`` = ``|FT(H)(-k)|``,
     so the +1 order cannot be told from the twin. The carrier with k_x > 0
     (or k_y > 0 if k_x = 0) is returned. If the true reference has the
     opposite sign, the reconstruction gives conj(O), which is in focus at +d
@@ -368,7 +368,7 @@ def reconstruct_off_axis(H, x, y, wavelength, ref_angle=None, carrier=None, wind
     filtering.
 
     The hologram is multiplied by the (numerical) reference wave R, which
-    moves the object term O*|R|**2 to k = 0, the zero order to the carrier
+    moves the object term ``O*|R|**2`` to k = 0, the zero order to the carrier
     k_c and the twin to 2*k_c. A window of the given radius around k = 0 then
     selects the object.
 
@@ -394,8 +394,8 @@ def reconstruct_off_axis(H, x, y, wavelength, ref_angle=None, carrier=None, wind
         that multiplies the shifted spectrum.
     radius : number, optional
         Window radius in rad per length unit; the object bandwidth k*NA if it
-        is known. Defaults to |k_c|/3, the largest radius that keeps the zero
-        order out for an object fulfilling |k_c| >= 3B.
+        is known. Defaults to ``|k_c|/3``, the largest radius that keeps the zero
+        order out for an object fulfilling ``|k_c|`` >= 3B.
     ref_amp : number, optional
         Reference amplitude A; the result is divided by A.
     n : number, optional
@@ -464,11 +464,11 @@ def reconstruct_phase_shifting(frames, shifts=None, x=None, y=None, wavelength=N
                                ref_angle=(0.0, 0.0), ref_amp=1.0, n=1.0, reference=None):
     """Reconstruct the object field from phase-shifted holograms.
 
-    Each frame is H_j = |O + R*exp(i*delta_j)|**2 = a + b*cos(phi - delta_j)
-    with phi = arg(O*conj(R)) and b = 2*|O*conj(R)|. The least squares
+    Each frame is H_j = ``|O + R*exp(i*delta_j)|**2`` = a + b*cos(phi - delta_j)
+    with phi = arg(O*conj(R)) and b = ``2*|O*conj(R)|``. The least squares
     phase-shifting algorithm interferometry.psi_n_step() gives phi, a and the
     modulation b/a per pixel, hence C = O*conj(R) = (b/2)*exp(i*phi) and
-    O = C*R/|R|**2. This is exact for any N >= 3 distinct known shifts and
+    O = ``C*R/|R|**2``. This is exact for any N >= 3 distinct known shifts and
     removes the zero order and the twin image, also for in-line holograms.
 
     Parameters
@@ -513,14 +513,14 @@ def reconstruct_gabor(H, x, y, z, wavelength, n_iter=0, support=None, ref_amp=1.
 
     The object, a transmission t = 1 + o at the distance z in front of the
     camera, is illuminated by a plane wave of amplitude A. The camera records
-    H = A**2*|1 + O|**2 with O the scattered wave on the camera. Propagating
-    H/A**2 = 1 + O + conj(O) + |O|**2 back by -z gives 1 + o (in focus) plus
+    H = ``A**2*|1 + O|**2`` with O the scattered wave on the camera. Propagating
+    H/A**2 = 1 + O + conj(O) + ``|O|**2`` back by -z gives 1 + o (in focus) plus
     the twin image, conj(O) propagated by -z, which is o* defocused by 2z,
-    and the small |O|**2 term.
+    and the small ``|O|**2`` term.
 
     With n_iter > 0, the twin image is suppressed iteratively (Gerchberg-Saxton
     type, cf. Latychevskaia and Fink, PRL 98, 233901 (2007)): in the object
-    plane the transmission is forced to |t| <= 1 (absorption, no gain) and to
+    plane the transmission is forced to ``|t|`` <= 1 (absorption, no gain) and to
     t = 1 outside the support; in the camera plane the amplitude is replaced
     by the measured sqrt(H)/A.
 
@@ -656,12 +656,12 @@ def focus_metric(field, metric="tamura", mask=None):
     Parameters
     ----------
     field : array
-        Complex field (only its amplitude |field| enters).
+        Complex field (only its amplitude ``|field|`` enters).
     metric : str, optional
-        - "variance": variance of the normalized amplitude, var(|U|)/mean(|U|)**2
-        - "tamura": Tamura coefficient sqrt(std(|U|)/mean(|U|))
-        - "gradient": mean squared gradient of |U|, normalized by mean(|U|)**2
-        - "laplacian": mean squared Laplacian of |U|, normalized likewise
+        - "variance": variance of the normalized amplitude, ``var(|U|)/mean(|U|)**2``
+        - "tamura": Tamura coefficient ``sqrt(std(|U|)/mean(|U|))``
+        - "gradient": mean squared gradient of ``|U|``, normalized by ``mean(|U|)**2``
+        - "laplacian": mean squared Laplacian of ``|U|``, normalized likewise
     mask : bool array, optional
         Evaluate the metric only where mask is True.
 
@@ -669,8 +669,8 @@ def focus_metric(field, metric="tamura", mask=None):
     -------
     value : float
 
-    Note
-    ----
+    Notes
+    -----
     For amplitude objects all metrics are largest in focus. Pure phase
     objects have a uniform amplitude in focus, the metrics are smallest
     there (they rise on both sides, with phase contrast of opposite sign).

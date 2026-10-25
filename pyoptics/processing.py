@@ -4,6 +4,7 @@
 """Module that defines image processing classes.
 
 The following processors are defined:
+
 - Scaler: scale images to a given peak, mean or total value of the field
   strength or of the intensity
 - CameraNoiser: apply a camera noise model (Gaussian, Poisson photon noise or
@@ -14,7 +15,7 @@ The following processors are defined:
 All processors are callables that accept a single image (2d array) or an
 image stack (3d array, the last index numbering the images). Images may be
 complex valued fields E or (real) intensities. The intensity of a field is
-taken as |E|**2 throughout this module, without the prefactor n/(2 Z_0) of
+taken as ``|E|**2`` throughout this module, without the prefactor n/(2 Z_0) of
 utils.I().
 """
 
@@ -30,8 +31,9 @@ class ImageProcessor(object):
     """Base class for all image processor.
 
     All derived classes need to
+
     - have a constructor that correctly sets the processor up
-    - implement process_single_image(self, image, *params)
+    - implement ``process_single_image(self, image, *params)``
     """
 
     @abstractmethod
@@ -76,7 +78,7 @@ def _is_field(image, image_type):
 
 
 def _intensity(image, image_type="auto"):
-    """Intensity |E|**2 of a field, or the image itself if it is an intensity."""
+    """Intensity ``|E|**2`` of a field, or the image itself if it is an intensity."""
 
     if _is_field(image, image_type):
         return np.abs(image)**2
@@ -87,7 +89,7 @@ class Scaler(ImageProcessor):
     """Processor that scales an image or an image stack.
 
     The image is multiplied by a real factor such that a chosen measure of
-    either the field strength |E| or the intensity I = |E|**2 equals a given
+    either the field strength ``|E|`` or the intensity I = ``|E|**2`` equals a given
     value. Images may be fields or intensities: a field is multiplied by c, an
     intensity by c**2 if the field strength is to be scaled by c.
 
@@ -98,7 +100,7 @@ class Scaler(ImageProcessor):
     measure : str, optional
         "peak" (maximum), "mean" or "total". For the intensity, "total" is
         the power sum(I)*pixel_area; for the field strength it is the norm
-        sqrt(sum(|E|**2)*pixel_area), so that scaling the field to a total of
+        ``sqrt(sum(|E|**2)*pixel_area)``, so that scaling the field to a total of
         sqrt(P) is the same as scaling the intensity to a total of P.
     quantity : str, optional
         "intensity" or "field": the quantity whose measure is set to value.
@@ -199,7 +201,7 @@ class CameraNoiser(ImageProcessor):
       photons per pixel; the result is a Poisson distributed photon count.
     - "camera": linear camera model following the EMVA 1288 standard. The
       image is the expected number of photons per pixel and exposure. The
-      chain is
+      chain is ::
 
           photons --(Poisson, quantum_efficiency)--> photo electrons
           + dark electrons (Poisson, dark_current*exposure_time)
@@ -214,7 +216,7 @@ class CameraNoiser(ImageProcessor):
       images processed by this noiser, like on a real sensor.
 
     For the "poisson" and "camera" models, fields are converted to intensities
-    |E|**2 first. Use a Scaler to bring images to photon numbers, e.g.
+    ``|E|**2`` first. Use a Scaler to bring images to photon numbers, e.g.
     Scaler(1000.0) for a peak of 1000 photons per pixel.
 
     Parameters
@@ -388,7 +390,7 @@ class Centerer(Shifter):
 
     Every image is shifted (with the periodic Fourier shift of Shifter) such
     that its intensity centroid (center of mass, see utils.center_of_mass())
-    lies at (x0, y0). Fields are centered on the centroid of |E|**2.
+    lies at (x0, y0). Fields are centered on the centroid of ``|E|**2``.
 
     Parameters
     ----------

@@ -4,12 +4,12 @@
 """Simple dispersion models for optical materials.
 
 Glass catalogues characterize a glass by its refractive index n_d at the
-helium d line and its Abbe number
+helium d line and its Abbe number ::
 
     V_d = (n_d - 1)/(n_F - n_C),
 
 with the hydrogen F and C lines. The functions here build a dispersion curve
-n(wavelength) from these two numbers using the two-term Cauchy formula
+n(wavelength) from these two numbers using the two-term Cauchy formula ::
 
     n(wavelength) = A + B/wavelength**2,
 
@@ -81,8 +81,8 @@ def abbe_dispersion(wavelength, n_d, V_d, lambda_d=LAMBDA_d,
 
     See cauchy_coeffs_from_abbe() for the parameters.
 
-    Example
-    -------
+    Examples
+    --------
     >>> n_bk7 = abbe_dispersion([450, 550, 650], 1.5168, 64.17)
     """
 

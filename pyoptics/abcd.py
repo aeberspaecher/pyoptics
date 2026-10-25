@@ -9,7 +9,7 @@ A paraxial ray in a meridional plane is described by its height y and its
 *reduced* angle u = n*theta, where theta is the angle to the optical axis and
 n the refractive index of the medium the ray is in. An optical system maps
 the ray vector (y, u) in its input plane onto the output plane by a real
-2x2 matrix
+2x2 matrix ::
 
     [y_out]   [A  B] [y_in]
     [u_out] = [C  D] [u_in].
@@ -25,6 +25,7 @@ Mirrors are unfolded, i.e. light continues in +z behind them.
 
 Sign conventions
 ----------------
+
 - Radii of curvature R > 0 if the centre of curvature lies to the right of
   the surface (in +z). A biconvex lens thus has R1 > 0 and R2 < 0.
 - A converging thin lens has f > 0.
@@ -36,7 +37,7 @@ Sign conventions
 Gaussian beams
 --------------
 A fundamental Gaussian beam is described by its complex beam parameter q,
-with
+with ::
 
     1/q = 1/R - i*lambda_0/(pi*n*w**2),   q = z + i*z_R at distance z
                                            behind the waist,
@@ -44,7 +45,7 @@ with
 where w is the 1/e**2 intensity radius, R the radius of curvature of the
 wavefront, lambda_0 the vacuum wavelength and z_R = pi*n*w_0**2/lambda_0 the
 Rayleigh length. This is the q of most textbooks (Siegman, Kogelnik & Li).
-The ABCD law holds for the reduced parameter q/n:
+The ABCD law holds for the reduced parameter q/n::
 
     q_out/n_out = (A*q_in/n_in + B)/(C*q_in/n_in + D).
 
@@ -59,6 +60,7 @@ wavelengths.
 
 Contents
 --------
+
 - element matrices: `free_space()`, `thin_lens()`, `refraction()`,
   `mirror()`, `thick_lens()`, `grin()`, `compose()`
 - `OpticalSystem`: builds a system element by element and traces rays and
@@ -267,7 +269,7 @@ def gouy_phase(M, q, n_in=1.0):
     """Gouy phase psi accumulated by a fundamental Gaussian beam in a system.
 
     psi = -arg(A + B*n_in/q), wrapped to (-pi, pi]. The field is multiplied
-    by exp(-i*psi)/|A + B*n_in/q| (rotationally symmetric beam in a
+    by ``exp(-i*psi)/|A + B*n_in/q|`` (rotationally symmetric beam in a
     rotationally symmetric system). In one transverse dimension (or for each
     axis of an astigmatic system) the phase is psi/2; a Hermite-Gaussian
     HG_lm acquires (l + 1/2)*psi_x + (m + 1/2)*psi_y.
@@ -303,7 +305,7 @@ def gaussian_field(x, y, q, wavelength, n=1.0, q_y=None, x0=0.0, y0=0.0):
     -------
     E : array
         sqrt(2/(pi*w_x*w_y))*exp(i*k*(x**2/(2*R_x) + y**2/(2*R_y)))
-        *exp(-x**2/w_x**2 - y**2/w_y**2), normalized to unit power. The
+        ``*exp(-x**2/w_x**2 - y**2/w_y**2)``, normalized to unit power. The
         Gouy phase is not included (see `gouy_phase()`).
     """
 
@@ -321,7 +323,7 @@ def coupling_efficiency(q1, q2, wavelength, n=1.0):
     """Power coupling efficiency of two coaxial fundamental Gaussian beams
     (rotationally symmetric) given in the same plane.
 
-    eta = |<E1|E2>|**2 = 4/((w1/w2 + w2/w1)**2
+    eta = ``|<E1|E2>|**2`` = 4/((w1/w2 + w2/w1)**2
                             + (pi*n*w1*w2/wavelength)**2*(1/R1 - 1/R2)**2).
 
     This is the mode matching efficiency into a fibre or a resonator mode.
@@ -336,7 +338,7 @@ def coupling_efficiency(q1, q2, wavelength, n=1.0):
 
 # resonators:
 def stability_parameter(M):
-    """m = (A + D)/2 of a round trip matrix; a resonator is stable for |m| < 1."""
+    """m = (A + D)/2 of a round trip matrix; a resonator is stable for ``|m|`` < 1."""
 
     return (M[0][0] + M[1][1])/2
 
@@ -350,12 +352,12 @@ def is_stable(M):
 def eigenmode(M, n=1.0):
     """Self-reproducing beam parameter of a round trip matrix M.
 
-    Solves q = (A*q + B)/(C*q + D) for a confined beam (Im q > 0):
+    Solves q = (A*q + B)/(C*q + D) for a confined beam (Im q > 0)::
 
         n/q = (D - A)/(2*B) - i*sqrt(1 - m**2)/|B|,   m = (A + D)/2.
 
     Combine with `beam_radius()` (with the wavelength) to get the mode size.
-    Raises ValueError for an unstable resonator (|m| >= 1).
+    Raises ValueError for an unstable resonator (``|m|`` >= 1).
 
     Parameters
     ----------
@@ -745,7 +747,7 @@ def _magnify(field, x, y, A_x, A_y, C_x, C_y, wavelength):
 def collins(field, x, y, M, wavelength, M_y=None):
     """Propagate a field through a paraxial ABCD system (Collins integral).
 
-    The generalized Fresnel integral of S. A. Collins (JOSA 60, 1168 (1970)),
+    The generalized Fresnel integral of S. A. Collins (JOSA 60, 1168 (1970)), ::
 
         E_out(x) = (i*lambda*B)**(-1/2) * integral E_in(x')
                    * exp(i*pi/(lambda*B)*(A*x'**2 - 2*x'*x + D*x**2)) dx'

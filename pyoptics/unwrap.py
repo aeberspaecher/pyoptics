@@ -162,7 +162,7 @@ def residues(phase_wrapped):
 def reliability(phase_wrapped, mask=None):
     """Reliability (quality) map after Herráez et al. (2002).
 
-    The reliability of a pixel is 1/D with the second difference
+    The reliability of a pixel is 1/D with the second difference ::
 
         D² = H² + V² + D₁² + D₂²,
 
@@ -277,7 +277,7 @@ def unwrap_ls(phase_wrapped, weights=None, mask=None, method="auto",
               congruent=False, tol=1E-10, max_iter=500, return_info=False):
     """Least squares phase unwrapping (Ghiglia and Romero 1994).
 
-    Minimizes
+    Minimizes ::
 
         Σ w_x (φ[i, j+1] − φ[i, j] − Δ_x ψ)² + Σ w_y (φ[i+1, j] − φ[i, j] − Δ_y ψ)²
 

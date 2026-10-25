@@ -15,14 +15,17 @@ the pupil, which can be fitted with Fringe Zernikes and handed on to
 
 Sign conventions
 ----------------
+
 - The optical axis is z, light enters the system travelling in +z. The
   vertex of the first surface lies at z = 0. The field lies in the
   meridional y-z plane (field points at +y).
 - Radii R > 0 if the centre of curvature lies in +z of the vertex (as in
   `abcd`). A biconvex lens has R1 > 0 and R2 < 0; a concave mirror facing
   light that travels in +z has R < 0.
-- The sag of a surface is
+- The sag of a surface is ::
+
       z(r) = c r**2/(1 + sqrt(1 - (1 + K) c**2 r**2)) + A4 r**4 + A6 r**6 + ...
+
   with c = 1/R, the conic constant K (0 sphere, -1 paraboloid, < -1
   hyperboloid, (-1, 0) prolate ellipsoid, > 0 oblate ellipsoid) and the
   aspheric coefficients aspheric = (A4, A6, ...).
@@ -49,14 +52,15 @@ the chief ray, OPD = OPL_ray - OPL_chief. The reference sphere is centred on
 the point where the real chief ray hits the image plane and passes through
 the point where the chief ray crosses the paraxial exit pupil plane. With the
 pyoptics convention exp(i(k.r - omega*t)), the field on the reference
-sphere is proportional to exp(+i k_0 OPL), so the pupil phase is
+sphere is proportional to exp(+i k_0 OPL), so the pupil phase is ::
 
     phase = +2*pi*OPD/wavelength.
 
-E.g. an image plane dz behind a perfect focus gives OPD = n' dz (cos(alpha)
-- 1) < 0 at the rim, the same phase that the angular spectrum propagator
-applies over dz. A positive lens with undercorrected spherical aberration
-(marginal rays focus short) has OPD < 0 at the rim (W040 < 0). The
+E.g. an image plane dz behind a perfect focus gives
+OPD = n' dz (cos(alpha) - 1) < 0 at the rim, the same phase that the angular
+spectrum propagator applies over dz. A positive lens with undercorrected
+spherical aberration (marginal rays focus short) has OPD < 0 at the rim
+(W040 < 0). The
 transverse ray aberration is eps = (R/n') dW/dY (R: radius of the reference
 sphere, Y: height in the exit pupil).
 
@@ -422,6 +426,8 @@ Paraxial = namedtuple("Paraxial", ["efl", "bfl", "ffl", "cardinal_points", "ep_z
                                    "chief", "matrix"])
 Paraxial.__doc__ = """Paraxial (first order) properties of a System.
 
+Attributes
+----------
 efl, bfl, ffl : effective, back and front focal length (bfl from the last
     vertex, ffl in front of the first vertex)
 cardinal_points : abcd.CardinalPoints along the unfolded axis, z = 0 at the
@@ -432,7 +438,7 @@ image_distance : signed z distance of the paraxial image from the last vertex
 image_height : paraxial chief ray height in the paraxial image plane
 magnification : lateral magnification (0 for an object at infinity)
 f_number : efl/(2*ep_radius) (working F-number 1/(2*na) for finite objects)
-na : image space numerical aperture n'*|u'| of the marginal ray
+na : image space numerical aperture ``n'*|u'|`` of the marginal ray
 lagrange : Lagrange invariant H = n*(u_chief*y_marginal - u_marginal*y_chief)
 marginal, chief : (S, 2) arrays of the ray height y at each vertex and the
     slope u = dy/dz behind each surface
@@ -453,18 +459,22 @@ imaging.get_psf(x, y, pupil.NA, pupil.k, pupil.mask, pupil.phase)."""
 Seidel = namedtuple("Seidel", ["S", "total", "W040", "W131", "W222", "W220", "W311"])
 Seidel.__doc__ = """Seidel sums.
 
+Attributes
+----------
 S : (S_surfaces, 5) array of the contributions S_I...S_V of each surface
 total : the five sums S_I (spherical aberration), S_II (coma), S_III
     (astigmatism), S_IV (Petzval curvature), S_V (distortion)
 W040, W131, W222, W220, W311 : wavefront coefficients in waves at full
     aperture and the given field, in the OPD convention of this module
     (Welford's sums S_I...S_V are positive for undercorrected systems, which
-    have W040 < 0 here):
-    W = W040 rho**4 + W131 H rho**3 cos(theta) + W222 H**2 rho**2 cos(theta)**2
-        + W220 H**2 rho**2 + W311 H**3 rho cos(theta),
-    W040 = -S_I/8, W131 = -S_II/2, W222 = -S_III/2, W220 = -(S_III + S_IV)/4,
-    W311 = -S_V/2 (divided by the wavelength), theta measured from the y
-    axis.
+    have W040 < 0 here)::
+
+        W = W040 rho**4 + W131 H rho**3 cos(theta) + W222 H**2 rho**2 cos(theta)**2
+            + W220 H**2 rho**2 + W311 H**3 rho cos(theta),
+        W040 = -S_I/8, W131 = -S_II/2, W222 = -S_III/2, W220 = -(S_III + S_IV)/4,
+        W311 = -S_V/2
+
+    (divided by the wavelength), theta measured from the y axis.
 """
 
 SpotDiagram = namedtuple("SpotDiagram", ["x", "y", "rms", "centroid"])
@@ -1142,7 +1152,7 @@ class System:
         return np.sqrt(np.mean((W - W.mean())**2))
 
     def strehl(self, field=None, N=64, remove_tilt=True):
-        """Strehl ratio |<exp(2*pi*i*W)>|**2 over the (vignetted) pupil.
+        """Strehl ratio ``|<exp(2*pi*i*W)>|**2`` over the (vignetted) pupil.
 
         With remove_tilt (default), the best fitting tilt is removed, i.e.
         the reference point is moved close to the diffraction focus. Without,
@@ -1162,7 +1172,7 @@ class System:
         (P_x, P_y) = n' (d_x, d_y)/NA with the image space ray directions d
         taken relative to the chief ray. The OPD of the traced rays is
         interpolated there; vignetted and unsampled regions are masked. NA is
-        the largest n'|d - d_chief| of all rays.
+        the largest ``n'|d - d_chief|`` of all rays.
         """
 
         from scipy.interpolate import griddata
@@ -1197,7 +1207,7 @@ class System:
         """Amplitude PSF on the image plane grid x, y centred on the chief
         ray, from `imaging.get_psf()` with the traced pupil.
 
-        With normalization="peak", |psf|**2 is relative to the peak of the
+        With normalization="peak", ``|psf|**2`` is relative to the peak of the
         aberration-free PSF of the same pupil (Strehl ratio at the centre).
         """
 

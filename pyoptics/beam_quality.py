@@ -6,16 +6,16 @@
 The beam width is defined by the second moments of the intensity
 distribution (ISO 11146-1). For a beam with centroid (x_c, y_c), the
 variances sigma_x**2, sigma_y**2 and the covariance sigma_xy**2 give the
-widths along the principal axes,
+widths along the principal axes, ::
 
     d_x = 2*sqrt(2)*sqrt(sigma_x**2 + sigma_y**2 + g*sqrt((sigma_x**2 - sigma_y**2)**2 + 4*sigma_xy**4)),
     d_y = 2*sqrt(2)*sqrt(sigma_x**2 + sigma_y**2 - g*sqrt(...)),
 
-with g = sgn(sigma_x**2 - sigma_y**2), and the azimuth
+with g = sgn(sigma_x**2 - sigma_y**2), and the azimuth ::
 
     phi = 1/2*arctan(2*sigma_xy**2/(sigma_x**2 - sigma_y**2))
 
-of the principal axis "x" (the one closer to the lab x axis, |phi| <= pi/4).
+of the principal axis "x" (the one closer to the lab x axis, ``|phi|`` <= pi/4).
 For a TEM_00 beam with 1/e**2 intensity radius w, d_x = d_y = 2*w.
 
 The second moments are very sensitive to noise and background far from the

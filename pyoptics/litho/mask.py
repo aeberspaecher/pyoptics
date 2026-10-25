@@ -33,7 +33,7 @@ Jones matrices for an illuminating plane wave (source point (s_x, s_y)):
   film stacks (a thin mask whose local transmissions are those of the films):
   their transmissions t_TE and t_TM are computed with pyoptics.thin_films for
   the angle of incidence of each source point at the mask, n*sin(theta) =
-  NA*|s|/M (M: reduction ratio), and for TE and TM with respect to its plane
+  ``NA*|s|/M`` (M: reduction ratio), and for TE and TM with respect to its plane
   of incidence. Phase and amplitude of the absorber, e.g. of an attenuated
   PSM, follow from the material data instead of being set by hand.
 - BoundaryLayer (optional for both): thick mask (mask 3D) effects at the

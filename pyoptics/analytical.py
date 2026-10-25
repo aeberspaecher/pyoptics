@@ -30,8 +30,8 @@ def mahajan_on_axis_intensity(a, epsilon, I0, wavelength, z, R=None):
     I_z : number
         On axis intensity at distance z from aperture.
 
-    Note
-    ----
+    Notes
+    -----
     Mahajan's results are obtained using scalar Rayleigh-Sommerfeld
     diffraction theory.
 
@@ -119,7 +119,7 @@ def circular_otf(f, NA, wavelength):
     Returns
     -------
     OTF : number or array
-        2/pi*(arccos(s) - s*sqrt(1 - s**2)) with s = |f|/f_c and the cut-off
+        2/pi*(arccos(s) - s*sqrt(1 - s**2)) with s = ``|f|/f_c`` and the cut-off
         frequency f_c = 2*NA/wavelength; zero for s > 1. The OTF is real and
         non-negative, so it is identical to the MTF.
     """

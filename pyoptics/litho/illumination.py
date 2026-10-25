@@ -14,7 +14,7 @@ unit circle:
 
 - coherent: one point,
 - conventional: disk of radius sigma,
-- annular: sigma_in <= |s| <= sigma_out,
+- annular: sigma_in <= ``|s|`` <= sigma_out,
 - dipole: two poles on the x (or y) axis,
 - quadrupole: four poles on the x and y axes (also called C-quad or cross
   quadrupole),
@@ -27,12 +27,14 @@ angle ("sector", the default), or disks that fill the ring between sigma_in
 and sigma_out ("circle").
 
 Polarization is one of
+
 - "x", "y", "unpolarized",
 - "TE" (= "azimuthal", "tangential": perpendicular to the radius vector of
   each source point) or "TM" (= "radial"); on the axis they fall back to y and
   x, see polarization.TE_TM_basis(),
 - a Jones vector [E_x, E_y] or a Stokes vector [S_0, S_1, S_2, S_3],
 - a callable pol(s_x, s_y) returning one of the above for each point.
+
 A degree of polarization dop < 1 mixes the polarization with unpolarized
 light: the fraction dop of the intensity is in the given state, the rest is
 unpolarized. For "TE" the intensity in the preferred state (IPS) is then
@@ -115,7 +117,7 @@ class Illumination(object):
 
     @classmethod
     def annular(cls, sigma_out, sigma_in, n_samples=31, **kwargs):
-        """Ring sigma_in <= |s| <= sigma_out."""
+        """Ring sigma_in <= ``|s|`` <= sigma_out."""
 
         S_x, S_y = _grid(n_samples)
         r = np.hypot(S_x, S_y)
@@ -249,7 +251,7 @@ class Illumination(object):
 
     @property
     def sigma_max(self):
-        """Largest |s| of the source."""
+        """Largest ``|s|`` of the source."""
 
         return float(np.max(np.hypot(self.s_x, self.s_y)))
 

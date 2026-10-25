@@ -6,7 +6,7 @@
 Hermite- and Laguerre-Gaussian decomposition
 --------------------------------------------
 decompose_hg() and decompose_lg() expand a sampled field in the paraxial
-modes of beams.gauss_hermite() and beams.gauss_laguerre(),
+modes of beams.gauss_hermite() and beams.gauss_laguerre(), ::
 
     E(x, y) = sum_j c_j u_j(x, y; w0, z),
 
@@ -14,9 +14,9 @@ for a basis with waist radius w0 whose waist lies a distance z in front of
 the plane of the field (z > 0: the basis diverges in the plane, R(z) > 0).
 The modes include the Gouy phase, so the coefficients do not change when the
 field and the basis are propagated together. The modes are normalized
-numerically on the grid, |c_j|**2/P is the fraction of the power P in mode
+numerically on the grid, ``|c_j|**2/P`` is the fraction of the power P in mode
 j, and the expansion is truncated at the mode order N = l + m (HG) or
-N = 2p + |l| (LG) <= max_order.
+N = 2p + ``|l|`` (LG) <= max_order.
 
 The basis (w0, z and the centre x0, y0) can be given or fitted
 (fit_basis()). The choice matters: any w0 gives a complete basis, but a basis
@@ -29,7 +29,7 @@ The Hermite functions are the eigenstates of the harmonic oscillator. With
 xi = sqrt(2)*x/w0 the position xi and the (dimensionless) direction p are
 xi = (a + a^+)/sqrt(2) and p = i*(a^+ - a)/sqrt(2), so the second moments of
 any coherent superposition follow from <a>, <a^+ a> and <a^2>, which are
-sums over the HG coefficients. Then
+sums over the HG coefficients. Then ::
 
     M²_x = 2*sqrt(Var(xi)*Var(p) - Cov(xi, p)**2),
 
@@ -42,13 +42,13 @@ Step-index fibres
 -----------------
 In the weakly guiding approximation (n_core - n_clad << n_core), the modes
 of a step-index fibre with core radius a are linearly polarized LP_lm modes
-with the field
+with the field ::
 
     E(r, phi) = J_l(U*r/a)/J_l(U) * cos(l*phi)   for r <= a,
     E(r, phi) = K_l(W*r/a)/K_l(W) * cos(l*phi)   for r >  a
 
 (or sin(l*phi), or exp(+-i*l*phi)). U and W follow from the characteristic
-equation
+equation ::
 
     U*J_{l-1}(U)/J_l(U) = -W*K_{l-1}(W)/K_l(W),   U**2 + W**2 = V**2,
 
@@ -61,7 +61,7 @@ twofold degenerate (polarization), LP_lm with l >= 1 fourfold (cos/sin and
 polarization). Vectorial effects (splitting into HE, EH, TE, TM modes) are
 not modelled.
 
-Marcuse's Gaussian approximation of LP01 has the mode field radius
+Marcuse's Gaussian approximation of LP01 has the mode field radius ::
 
     w/a = 0.65 + 1.619/V**1.5 + 2.879/V**6
 
@@ -71,7 +71,7 @@ V < 2.4.
 Coupling efficiency
 -------------------
 coupling_efficiency() is the power coupling efficiency of a field into a mode
-(or any other field), the normalized overlap integral
+(or any other field), the normalized overlap integral ::
 
     eta = |<u|E>|**2/(<u|u>*<E|E>).
 
@@ -166,7 +166,7 @@ def hg_indices(max_order):
 
 
 def lg_indices(max_order):
-    """Indices (p, l) of all LG modes with 2p + |l| <= max_order, by order."""
+    """Indices (p, l) of all LG modes with 2p + ``|l|`` <= max_order, by order."""
 
     return [(p, l) for N in range(max_order + 1) for l in range(-N, N + 1, 2)
             for p in [(N - abs(l))//2]]
@@ -186,7 +186,7 @@ def _power(field, x, y):
 def _initial_basis(field, x, y, wavelength):
     """Centre, radius and curvature from the moments of the field: w from the
     second moments, and 1/R from the intensity weighted mean of r*dphi/dr,
-    sum(x*dphi/dx + y*dphi/dy)*|E|**2 = k/R*sum(r**2*|E|**2).
+    ``sum((x*dphi/dx + y*dphi/dy)*|E|**2) = k/R*sum(r**2*|E|**2)``.
     """
 
     X, Y = ensure_meshgrid(x, y)
@@ -308,9 +308,9 @@ class ModeDecomposition:
         Waist, distance from the waist and centre of the basis.
     wavelength : number
     power : number
-        Power <E|E> of the decomposed field.
+        Power ``<E|E>`` of the decomposed field.
     reconstruction_error : number
-        Relative rms error ||E - sum_j c_j u_j||/||E|| on the grid.
+        Relative rms error ``||E - sum_j c_j u_j||/||E||`` on the grid.
     """
 
     def __init__(self, family, coefficients, basis, wavelength, power, reconstruction_error):
@@ -323,7 +323,7 @@ class ModeDecomposition:
 
     @property
     def power_fractions(self):
-        """Fractions |c_j|**2/P of the power in each mode (dict)."""
+        """Fractions ``|c_j|**2/P`` of the power in each mode (dict)."""
 
         return {key: abs(c)**2/self.power for key, c in self.coefficients.items()}
 
@@ -560,7 +560,7 @@ def decompose_hg(field, x, y, w0=None, wavelength=1.0, z=0.0, max_order=10, x0=N
 
 def decompose_lg(field, x, y, w0=None, wavelength=1.0, z=0.0, max_order=10, x0=None, y0=None,
                  method="projection", fit_kwargs=None):
-    """Decompose a field into Laguerre-Gaussian modes LG_pl, 2p + |l| <=
+    """Decompose a field into Laguerre-Gaussian modes LG_pl, 2p + ``|l|`` <=
     max_order. Parameters as in decompose_hg(); the coefficients are keyed by
     (p, l).
     """
@@ -736,7 +736,7 @@ def marcuse_mode_field_radius(V, core_radius):
 # coupling:
 def coupling_efficiency(field, mode, x, y):
     """Power coupling efficiency of a field into a mode (or any other field),
-    eta = |<mode|field>|**2/(<mode|mode>*<field|field>).
+    eta = ``|<mode|field>|**2/(<mode|mode>*<field|field>)``.
     """
 
     return (abs(scalar_product(mode, field, x, y))**2

@@ -16,13 +16,15 @@
   layer model, Hopkins/TCC (SOCS) imaging for speed, resist models beyond
   threshold and blur (development, PEB), OPC helpers
 * More tests for `wpm` and `TIE`
-* Documentation for propagators
+* Docstrings: NumPy-style Parameters/Returns sections for raytrace, abcd,
+  modes, litho, TIE, interfaces and bases; numpydoc validation in CI
+* Documentation: user guide pages per topic, bibliography, doctests, weekly
+  re-execution of the notebooks
 * Incoherence in thin films (spatial and temporal incoherence)
 * Basis class factory for numbering scheme plus callable
 
 ## More challenging
 
-* Sphinx doc
 * Ince-Gaussian beams
 * spectrum of plane wave propagation with analytical handling of linear phase
   and offset (cmp. Wyrowski)
@@ -100,3 +102,6 @@
   Matsushima's spectrum rotation, scalar and vectorial, tilted source to
   parallel target, beam evaluation (ISO 11146 widths) on inclined planes
   (notebook 19)
+* Sphinx documentation (`docs/`, Furo theme, notebooks via myst-nb, API
+  reference, built on every PR with warnings as errors, published to GitHub
+  Pages)

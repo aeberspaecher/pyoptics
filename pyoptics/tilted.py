@@ -5,7 +5,7 @@
 
 The field u(x, y) is given in the source plane z = 0. The target plane passes
 through the point r0 (usually (0, 0, z0)) and is spanned by the columns of a
-rotation matrix R: its local axes x^, y^ and its normal n^ are
+rotation matrix R: its local axes x^, y^ and its normal n^ are ::
 
     x^ = R[:, 0],  y^ = R[:, 1],  n^ = R[:, 2]
 
@@ -28,7 +28,7 @@ Two methods evaluate it:
 - "rotation" (Matsushima, Schimmel and Wyrowski, JOSA A 20, 1755 (2003)):
   the target spectrum is sampled on a uniform k^ grid, each k^ is mapped
   back to k = R k^, the (zero padded) source spectrum is interpolated there
-  and multiplied by the Jacobian |d(k_x, k_y)/d(k^_x, k^_y)| = k_z/k^_z,
+  and multiplied by the Jacobian ``|d(k_x, k_y)/d(k^_x, k^_y)|`` = k_z/k^_z,
   followed by one inverse FFT. Fast (O(N² log N)); the accuracy is set by
   the interpolation (cubic by default) and improves with padding. The
   result is periodic in the output window: the field must decay inside it,
@@ -41,7 +41,7 @@ Carrier. A beam travelling along z arrives on a plane tilted by theta with
 the transverse wavenumber k^_x = -k*sin(theta): its phase ramps by one
 wavelength per lambda/sin(theta). With remove_carrier=True (default) this
 mean tilt (the power weighted mean of k^_x, k^_y over the spectrum) is
-removed and returned as k_carrier, the field on the plane being
+removed and returned as k_carrier, the field on the plane being ::
 
     u_true(x^, y^) = u_t(x^, y^)*exp(i*(k_carrier[0]*x^ + k_carrier[1]*y^)).
 
@@ -62,7 +62,7 @@ Further notes:
 - The target plane may also lie behind the source plane (all points z < 0):
   the forward travelling waves are then propagated backwards. This is the
   way back from a tilted plane, see reverse.
-- |u_t|² integrated over the tilted plane is not conserved (a tilted
+- ``|u_t|²`` integrated over the tilted plane is not conserved (a tilted
   detector catches the beam on a larger area); the power flux through the
   plane, power_flux(), is.
 
@@ -522,11 +522,11 @@ def rotate_angular_spectrum(A, kx, ky, k, R, kx_out=None, ky_out=None, kind="cub
     A(k_x, k_y) are the amplitudes of the plane waves exp(i*k.r) (k_z > 0)
     of a field, sampled on the uniform grid kx, ky. The same field, written in
     the frame whose axes are the columns of R (same origin), has the angular
-    spectrum
+    spectrum ::
 
         Â(k^_x, k^_y) = A(k_x, k_y)*k_z/k^_z,  k = R k^,
 
-    k_z/k^_z being the Jacobian |d(k_x, k_y)/d(k^_x, k^_y)|. A is
+    k_z/k^_z being the Jacobian ``|d(k_x, k_y)/d(k^_x, k^_y)|``. A is
     interpolated at k = R k^ ("linear" or "cubic", outside of the grid it is
     zero). Waves with k^_z <= 0 or k_z <= 0 are set to zero.
 
@@ -570,9 +570,9 @@ def rotate_angular_spectrum(A, kx, ky, k, R, kx_out=None, ky_out=None, kind="cub
 def power_flux(field, x, y, wavelength, n=1.0, k_carrier=(0.0, 0.0)):
     """Power flux through a plane, computed from the angular spectrum.
 
-    P = sum over the propagating plane waves of |A|² k_z/k (in the units of
-    the integral of |u|²; for a paraxial field P equals the integral of |u|²
-    over the plane). Unlike the integral of |u|², P is the same on every
+    P = sum over the propagating plane waves of ``|A|²`` k_z/k (in the units of
+    the integral of ``|u|²``; for a paraxial field P equals the integral of ``|u|²``
+    over the plane). Unlike the integral of ``|u|²``, P is the same on every
     plane the field crosses, tilted or not.
 
     Parameters
@@ -608,7 +608,7 @@ def tilted_beam_widths(field, x, y, z0, wavelength, n=1.0, iterate=True, window=
     detector).
 
     The field is propagated with tilted_plane() and beam_quality.beam_widths()
-    is evaluated with the intensity |u_t|² in the plane's own coordinates.
+    is evaluated with the intensity ``|u_t|²`` in the plane's own coordinates.
     For a collimated beam on a plane tilted by theta about y, d_x grows as
     d/cos(theta).
 
