@@ -23,6 +23,13 @@ fft.czt()):
 - fraunhofer_scaled(): Fraunhofer integral on any window
 - far_field(): far field amplitude in chosen directions
 
+Propagation onto tilted planes (implemented in pyoptics.tilted, re-exported
+here):
+
+- tilted_plane(): scalar field on a plane with a rotated normal, or from a
+  tilted plane to a parallel one
+- vectorial_tilted_plane(): the same for vector fields, in the plane's axes
+
 Vectorial propagation (fields of shape (Ny, Nx, 2) or (Ny, Nx, 3) with the
 components [E_x, E_y(, E_z)]):
 
@@ -1154,3 +1161,7 @@ def suggest_lateral_sampling(L, n, wl):
     # if given, lower bound for relevant frequencies (from all propagating frequencies to all relevant frequencies)
 
     return N
+
+
+# propagation onto tilted planes, see pyoptics.tilted:
+from .tilted import tilted_plane, vectorial_tilted_plane  # noqa: E402
