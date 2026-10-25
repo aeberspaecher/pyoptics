@@ -119,8 +119,9 @@ Status of the modules:
   representations of the literature (Pauli-Zernike, polar decomposition,
   retardance and diattenuation in orientation Zernike polynomials) with
   fits, used by `Projector(jones_pupil=...)` in Abbe and Hopkins imaging,
-  and a polarization ray trace of coated or uncoated lenses
-  (`litho.lens.lens_jones_pupil`)
+  and a polarization ray trace of coated or uncoated lenses with optional
+  CaF2 elements and their intrinsic birefringence
+  (`litho.lens.lens_jones_pupil`, `litho.lens.CubicCrystal`)
 - `polarization`: TE/TM bases, Stokes to Jones decomposition, DOP and IPS
 - `imaging`: scalar imaging, tested: coherent imaging through a circular
   pupil, PSF with pupil masks (obscuration, apodization) and phases (also
