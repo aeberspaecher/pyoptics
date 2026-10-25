@@ -6,7 +6,7 @@
 Two problems are covered:
 
 1. Support-based phase retrieval (coherent diffractive imaging): an object g
-   of limited extent (its support) is to be found from the magnitude |FT(g)|
+   of limited extent (its support) is to be found from the magnitude ``|FT(g)|``
    of its far field alone. ER() implements Fienup's error reduction, HIO()
    the hybrid input-output algorithm, both with support and optionally
    positivity constraints and a shrink-wrap support update (ShrinkWrap,
@@ -442,7 +442,7 @@ def defocus_to_waves(dz, NA, k):
     downstream, in the direction of propagation) multiplies the pupil by
     exp(i*k_z*dz); paraxially k_z = k - k*NA**2*P**2/2 with the normalized
     pupil radius P. Up to piston this is the Fringe Zernike
-    Z4 = 2*P**2 - 1 with the coefficient
+    Z4 = 2*P**2 - 1 with the coefficient ::
 
         c_4 = -k*dz*NA**2/(8*pi)  (waves).
 
@@ -452,7 +452,7 @@ def defocus_to_waves(dz, NA, k):
         Defocus distance.
     NA : number
         Numerical aperture as used in imaging (the pupil edge is at
-        |k_perp| = k*NA).
+        ``|k_perp|`` = k*NA).
     k : number
         Wavenumber in the image space.
 
@@ -517,7 +517,7 @@ def diversity_psfs(x, y, NA, k, defocus_waves=None, pupil_mask=None, phase=None,
     Returns
     -------
     psfs : array
-        Intensity PSFs |inv_FT(P*D_m)|**2 with the diversity factors D_m,
+        Intensity PSFs ``|inv_FT(P*D_m)|**2`` with the diversity factors D_m,
         shape (M, Ny, Nx), each normalized to a total of 1.
     """
 

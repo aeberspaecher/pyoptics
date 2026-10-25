@@ -7,7 +7,7 @@ transfer function (OTF), modulation transfer function (MTF) and Strehl ratio.
 All functions here describe a scalar imaging system in the paraxial picture.
 The pupil is sampled on the frequency grid that belongs to the image plane
 grid x, y (utils.freq_grid() with normal_order=True). The pupil edge lies at
-|k_perp| = k*NA. Normalized pupil coordinates are (P_x, P_y) = (k_x, k_y)/(k*NA),
+``|k_perp|`` = k*NA. Normalized pupil coordinates are (P_x, P_y) = (k_x, k_y)/(k*NA),
 so that the pupil is the unit disk P_x**2 + P_y**2 <= 1; Fringe Zernikes with
 R_norm = 1 evaluated on P_x, P_y thus describe the usual pupil aberrations.
 
@@ -17,7 +17,7 @@ complex. Phases (in radians, i.e. 2*pi*W for a wavefront error W in waves)
 may be given in the same two ways. With the convention exp(i(k.r - omega*t)),
 a positive phase corresponds to a wavefront that runs ahead.
 
-Sampling: the PSF is band limited to |k_perp| <= k*NA, the intensity PSF and
+Sampling: the PSF is band limited to ``|k_perp|`` <= k*NA, the intensity PSF and
 hence the OTF to 2*k*NA. The grid spacing should thus fulfil
 dx <= wavelength/(4*NA) to sample the OTF without aliasing. The pupil is
 sampled with spacing 2*pi/L (L: size of the image plane window), i.e. with
@@ -175,8 +175,8 @@ def get_psf(x, y, NA, k, pupil_mask=None, phase=None, normalization="peak",
     normalization : {"peak", "energy", None}, optional
         "peak" (default): scale such that the aberration-free PSF of the same
         pupil mask has the amplitude 1 at its center, so that
-        |psf[Ny//2, Nx//2]|**2 is the Strehl ratio. "energy": scale such that
-        sum(|psf|**2)*dx*dy = 1 on the grid x, y (with x_out, y_out the
+        ``|psf[Ny//2, Nx//2]|**2`` is the Strehl ratio. "energy": scale such that
+        ``sum(|psf|**2)*dx*dy`` = 1 on the grid x, y (with x_out, y_out the
         same scale factor is used, so the PSF energy on the full plane is
         1). None: plain inverse DFT of the pupil.
     x_out, y_out : arrays, optional
@@ -191,7 +191,7 @@ def get_psf(x, y, NA, k, pupil_mask=None, phase=None, normalization="peak",
     -------
     psf : array
         Complex amplitude PSF, shape (Ny, Nx) or (len(y_out), len(x_out)).
-        The intensity PSF is |psf|**2.
+        The intensity PSF is ``|psf|**2``.
     """
 
     _check_sampling(x, y, NA, k, 1)
@@ -251,7 +251,7 @@ def get_otf(x, y, NA, k, pupil_mask=None, phase=None):
 
 
 def get_mtf(x, y, NA, k, pupil_mask=None, phase=None):
-    """Modulation transfer function |OTF|; see get_otf() for parameters and
+    """Modulation transfer function ``|OTF|``; see get_otf() for parameters and
     frequency grid.
     """
 
@@ -261,7 +261,7 @@ def get_mtf(x, y, NA, k, pupil_mask=None, phase=None):
 def rms_phase(x, y, NA, k, pupil_mask=None, phase=None):
     """Root mean square of the pupil phase with the piston removed.
 
-    The mean and the variance are weighted with the pupil amplitude |P|.
+    The mean and the variance are weighted with the pupil amplitude ``|P|``.
 
     Parameters
     ----------
@@ -292,7 +292,7 @@ def strehl_ratio(x, y, NA, k, pupil_mask=None, phase=None):
 
     Computed as the intensity at the Gaussian image point (the grid center)
     relative to the aberration-free system with the same pupil mask,
-    |sum(P)|**2/sum(|P|)**2. This is Born & Wolf's definition; with tilt in
+    ``|sum(P)|**2/sum(|P|)**2``. This is Born & Wolf's definition; with tilt in
     the phase the PSF maximum moves away from the center and can be larger.
 
     Parameters

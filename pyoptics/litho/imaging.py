@@ -275,7 +275,7 @@ class LithoSimulation(object):
         return ill.weights[:, None]*w, jones
 
     def _intensity(self, coeffs, f_x, f_y, x, y, foci, depth):
-        """|E_x|**2, |E_y|**2, |E_z|**2 summed over the source, shape
+        """``|E_x|**2``, ``|E_y|**2``, ``|E_z|**2`` summed over the source, shape
         (len(foci), 3, len(y), len(x))."""
 
         P = self.projector
@@ -425,7 +425,7 @@ class LithoSimulation(object):
         depth : number, optional
             Depth below the resist top (wafer stack only).
         return_components : bool, optional
-            Also return |E_x|**2, |E_y|**2, |E_z|**2.
+            Also return ``|E_x|**2``, ``|E_y|**2``, ``|E_z|**2``.
 
         Returns
         -------
@@ -522,7 +522,7 @@ class LithoSimulation(object):
         return (cds[1] - cds[0])/delta
 
     def nils(self, threshold=None, dose=1.0, focus=0.0, depth=0.0, N=801, direction=None):
-        """NILS of the first feature: cd*|d ln(I)/du| at its nominal edges
+        """NILS of the first feature: ``cd*|d ln(I)/du|`` at its nominal edges
         (threshold=None) or at the printed edges for the threshold."""
 
         u, center, cd, direction = self.cut_coordinates(N, 1.0, direction)

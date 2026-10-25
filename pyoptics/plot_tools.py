@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
+"""Plot helpers: intensities, complex fields (amplitude and phase) and image
+stacks through focus. Importing this module sets matplotlib's font size and
+family.
+"""
 
 import matplotlib as mpl
 mpl.rcParams["font.size"] = 16

@@ -9,7 +9,7 @@ Conventions
 Fields vary as exp(i(k.r - omega*t)) (see the README). The test beam carries
 the phase phi = k*W of its wavefront error (or optical path difference) W,
 so a wavefront that runs ahead has phi > 0. Superposing it with a reference
-beam E_ref gives the two-beam interferogram
+beam E_ref gives the two-beam interferogram ::
 
     I = |E_test + E_ref*exp(i*delta)|**2
       = I_0*(1 + gamma*cos(phi - delta)),
@@ -42,12 +42,14 @@ light (a = 0) get gamma = 0. Unwrap the phase with pyoptics.unwrap.
 Contents
 --------
 Simulation:
+
 - interferogram(): interferogram (or stack) from a phase map
 - interfere(): interferogram (or stack) from two complex fields
 - zernike_phase(): phase map from Fringe Zernike coefficients in waves
 - phase_shifts(): nominal or miscalibrated phase shifts
 
 Phase-shifting algorithms:
+
 - psi_n_step(): least squares for N frames with arbitrary known shifts
 - psi_4_step(): four-bucket algorithm (shifts 0, pi/2, pi, 3*pi/2)
 - psi_carre(): Carré, four frames with an unknown but constant step
@@ -57,6 +59,7 @@ Phase-shifting algorithms:
   miscalibration
 
 Single-frame analysis:
+
 - fourier_fringe_analysis(): Takeda's Fourier-transform method for
   interferograms with a carrier
 - find_carrier(): locate the carrier sideband in the spectrum
@@ -155,7 +158,7 @@ def phase_shifts(N, step=None, start=None, linear_error=0.0,
 
     The nominal shifts are delta_j = start + j*step, j = 0, ..., N - 1. A
     phase shifter with the relative linear calibration error epsilon_1 and a
-    quadratic nonlinearity epsilon_2 produces
+    quadratic nonlinearity epsilon_2 produces ::
 
         delta_j' = delta_j*(1 + epsilon_1) + epsilon_2*delta_j**2/pi,
 
@@ -252,7 +255,7 @@ def interferogram(phase, x=None, y=None, visibility=1.0, carrier=(0.0, 0.0),
 
 
 def interfere(E_test, E_ref, shift=0.0):
-    """Interferogram |E_test + E_ref*exp(i*shift)|**2 of two fields.
+    """Interferogram ``|E_test + E_ref*exp(i*shift)|**2`` of two fields.
 
     The algorithms of this module recover arg(E_test*conj(E_ref)) from it.
 
@@ -334,7 +337,9 @@ def psi_n_step(frames, shifts=None, return_bias=False):
 
 
 def psi_4_step(frames):
-    """Four-bucket algorithm for the shifts 0, pi/2, pi and 3*pi/2:
+    """Four-bucket algorithm for the shifts 0, pi/2, pi and 3*pi/2.
+
+    The phase is ::
 
         phi = atan2(I_2 - I_4, I_1 - I_3).
 
@@ -360,7 +365,7 @@ def psi_carre(frames, return_step=False):
     """Carré's algorithm: four frames with the shifts -3*alpha/2,
     -alpha/2, alpha/2, 3*alpha/2 and an unknown step alpha.
 
-    With D_1 = I_1 - I_4 and D_2 = I_2 - I_3,
+    With D_1 = I_1 - I_4 and D_2 = I_2 - I_3, ::
 
         tan(alpha/2)**2 = (3*D_2 - D_1)/(D_1 + D_2),
         tan(phi) = sgn(-D_2)*sqrt(|(3*D_2 - D_1)*(D_1 + D_2)|)
@@ -416,7 +421,7 @@ def psi_carre(frames, return_step=False):
 
 def psi_hariharan(frames, return_step=False):
     """Hariharan's five-frame algorithm (Hariharan, Oreb, Eiju 1987) for the
-    shifts -2*alpha, -alpha, 0, alpha, 2*alpha with alpha = pi/2:
+    shifts -2*alpha, -alpha, 0, alpha, 2*alpha with alpha = pi/2::
 
         phi = atan2(2*(I_4 - I_2), 2*I_3 - I_1 - I_5).
 
@@ -573,7 +578,7 @@ def find_carrier(I, x, y, exclude=None, mask=None):
 
     Searches the spectral peak in the half plane k_x > 0 (or k_x = 0,
     k_y > 0) outside a disk around k = 0 and returns the centroid of the
-    power spectrum |S|**2 in a disk of radius |k|/2 around the current
+    power spectrum ``|S|**2`` in a disk of radius ``|k|/2`` around the current
     estimate k, starting at the peak and iterated until it settles.
     For a test phase without net tilt (e.g. defocus or astigmatism, which
     spread the sideband symmetrically), the centroid is the carrier; a tilt
@@ -644,8 +649,8 @@ def fourier_fringe_analysis(I, x, y, carrier=None, window="tophat",
     filtered interferogram (same window around k = 0).
 
     The method needs the sideband to be separated from the zero order and
-    the -1 order: the local fringe frequency |grad phi| must stay below the
-    window radius (by default |k_c|/2). A warning is issued if the window
+    the -1 order: the local fringe frequency ``|grad phi|`` must stay below the
+    window radius (by default ``|k_c|/2)``. A warning is issued if the window
     holds less than 90 % of the power in the half plane of the carrier, or
     if it reaches beyond the Nyquist frequency.
 
@@ -667,7 +672,7 @@ def fourier_fringe_analysis(I, x, y, carrier=None, window="tophat",
         which biases the modulation low; the bias is filtered with the same
         window around k = 0 (for a window array, the global mean is used).
     radius : float, optional
-        Window radius in rad per length unit. Defaults to |k_c|/2.
+        Window radius in rad per length unit. Defaults to ``|k_c|/2``.
     mask : array of bool, optional
         Region with fringes (e.g. the pupil). Outside, I is replaced by its
         mean inside before the transform, which reduces ringing at the edge,

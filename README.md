@@ -4,13 +4,16 @@ pyoptics
 About
 -----
 
+<!-- docs:about-start -->
 pyoptics is a collection of tools for wave optical simulation. It contains
 classes for imaging simulations and wave propagation. pyoptics has a modular
 structure that easily allows reuse of individual blocks in new contexts.
+<!-- docs:about-end -->
 
 Status
 ------
 
+<!-- docs:status-start -->
 pyoptics is version 0.1, a research and teaching toolbox rather than a
 polished library. It runs on Python 3.9 to 3.13. The API may still change
 between versions, and there is no release on PyPI; install it from source as
@@ -186,10 +189,12 @@ Status of the modules:
   the functions in `polarization._polarization` are empty
 
 See `WIP.md` for planned work.
+<!-- docs:status-end -->
 
 Installation
 ------------
 
+<!-- docs:install-start -->
 pyoptics is a Python package with one Cython extension (`wpm`). It is built
 with setuptools via `pyproject.toml`. Cython and NumPy are downloaded
 automatically while building, but you need a C compiler on your machine.
@@ -292,6 +297,7 @@ When you are finished, leave the venv with `deactivate`.
 
 On Linux and Windows the `wpm` extension is compiled with OpenMP so it can
 use several CPU cores. On macOS it is built without OpenMP.
+<!-- docs:install-end -->
 
 Example notebooks
 -----------------
@@ -309,6 +315,7 @@ holography, ray tracing to OPD maps and phase retrieval. See
 Conventions
 -----------
 
+<!-- docs:conventions-start -->
 All of pyoptics uses the time dependence exp(-iωt), which is implicit and
 never written out, and positive spatial phases for propagation, i.e. fields
 vary as exp(i(**k**·**r** − ωt)). In particular:
@@ -344,13 +351,23 @@ vary as exp(i(**k**·**r** − ωt)). In particular:
 - Wave plates delay the slow (y) component by exp(+iδ). The Jones vector
   [1, i]/√2 rotates from x to y in time and has the Stokes parameter
   S₃ = 2 Im(E_x* E_y) = +1.
+<!-- docs:conventions-end -->
 
 Documentation
 -------------
 
-There is no separate manual yet. The best starting points are the example
-notebooks in `notebooks/`, the conventions above and the docstrings of the
-individual functions and modules.
+The documentation is built with Sphinx from `docs/` and published at
+<https://aeberspaecher.github.io/pyoptics/>: installation, conventions, the
+example notebooks with their figures and an API reference generated from the
+docstrings. Docstrings follow the NumPy style. To build it locally:
+
+```bash
+pip install -e ".[docs]"
+sphinx-build -b html docs docs/_build/html
+```
+
+The sections About, Status, Installation and Conventions of this README are
+included in the documentation; edit them here.
 
 License
 -------

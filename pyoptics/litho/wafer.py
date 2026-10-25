@@ -5,7 +5,7 @@
 resist.
 
 The image-forming plane waves come from the immersion medium (refractive
-index n of the projector) and hit a stack
+index n of the projector) and hit a stack ::
 
     immersion medium | layers above (top coat) | resist | layers below
     (BARC, ...) | substrate (e.g. silicon)
@@ -14,7 +14,7 @@ whose layers are parallel to the x-y plane. Each plane wave is decomposed
 into its TE (s) and TM (p) parts with respect to its own plane of
 incidence. With the coefficients of pyoptics.thin_films (ratios of
 tangential electric fields), the field in the resist at the depth z below
-the resist top is the sum of the downward and the upward (reflected) wave,
+the resist top is the sum of the downward and the upward (reflected) wave, ::
 
     E_tan(z) = A*(exp(i*k_z*z) + r_b*exp(i*k_z*(2*d - z))),
     A = t_top/(1 - r_top*r_b*exp(2*i*k_z*d)),

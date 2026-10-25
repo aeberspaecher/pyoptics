@@ -21,10 +21,12 @@ fftw = ["pyfftw"]
 nufft = ["finufft"]  # tilted: faster exact propagation onto planes tilted about a general axis
 tie = ["sympy"]
 notebooks = ["matplotlib", "jupyterlab", "ipywidgets"]
+docs = ["sphinx>=7", "furo", "numpydoc", "myst-nb", "sphinx-copybutton", "matplotlib"]  # matplotlib: plot modules
 test = ["pytest", "matplotlib", "sympy"]  # matplotlib: plot_tools, masks.mask_from_polygon; sympy: TIE.smoothed_deriv
 
 [project.urls]
 Homepage = "https://github.com/aeberspaecher/pyoptics"
+Documentation = "https://aeberspaecher.github.io/pyoptics/"
 
 [tool.setuptools.packages.find]
 include = ["pyoptics*"]

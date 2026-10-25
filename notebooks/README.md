@@ -40,6 +40,7 @@ All notebooks use the pyoptics convention $\exp(i(\mathbf{k}\cdot\mathbf{r} - \o
 
 ## Running
 
+<!-- docs:running-start -->
 You need an installation of pyoptics as described in the main README, plus
 matplotlib, Jupyter and (for notebook 10) ipywidgets, all contained in the
 `notebooks` extra:
@@ -65,3 +66,4 @@ To re-execute all notebooks and store their outputs:
 ```bash
 jupyter nbconvert --to notebook --execute --inplace notebooks/*.ipynb
 ```
+<!-- docs:running-end -->

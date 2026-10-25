@@ -4,6 +4,7 @@
 """Analytical beam definitions.
 
 Includes
+
 - Gaussian beams
 - plane waves
 
@@ -116,7 +117,7 @@ def gauss_laguerre(p, l, x, y, z, w_0, z_r, wl):
     -------
     field : array
         Field proportional to
-        exp(i*(k*z + k*r**2/(2*R(z)) + l*phi - (2p + |l| + 1)*arctan(z/z_r))).
+        exp(i*(k*z + k*r**2/(2*R(z)) + l*phi - (2p + ``|l|`` + 1)*arctan(z/z_r))).
         For l > 0, the helical phase exp(+i*l*phi) carries the orbital angular
         momentum +l*hbar per photon along +z (exp(-i*omega*t) convention).
     """

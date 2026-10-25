@@ -61,7 +61,7 @@ rayleigh_sommerfeld_I_TF() for large propagation distances.
 Convention: fields vary as exp(i(k.r - omega*t)), the time dependence
 exp(-i*omega*t) being implicit. Propagation by z > 0 thus multiplies a plane
 wave by exp(+i*k_z*z), the Green's function is exp(+i*k*r)/r and evanescent
-waves decay as exp(-|k_z|*z). FT() (kernel exp(-i*k_x*x)) yields the
+waves decay as ``exp(-|k_z|*z)``. FT() (kernel exp(-i*k_x*x)) yields the
 amplitudes of the plane waves exp(+i*(k_x*x + k_y*y)), inv_FT() sums them up.
 Negative z propagates backwards. In rayleigh_sommerfeld_I_TF(), absorbing
 media can be described by a complex n = n' + i*kappa with kappa > 0.
@@ -512,7 +512,7 @@ def shifted_angular_spectrum(field, x_prime, y_prime, z, wavelength, x_out, y_ou
     """Angular spectrum propagation onto a shifted (and rescaled) window.
 
     Evaluates the exact solution of the Helmholtz equation (as
-    rayleigh_sommerfeld_I_TF())
+    rayleigh_sommerfeld_I_TF()) ::
 
         U(x, y, z) = 1/(Nx*Ny) sum_mn A[m, n]*exp(i*(k_x*x + k_y*y + k_z*z))
 
@@ -569,8 +569,8 @@ def shifted_angular_spectrum(field, x_prime, y_prime, z, wavelength, x_out, y_ou
     x_out, y_out : arrays
         The output coordinates as given.
 
-    Sources
-    -------
+    References
+    ----------
     K. Matsushima, "Shifted angular spectrum method for off-axis numerical
     propagation," Opt. Express 18, 18453-18463 (2010)
     K. Matsushima and T. Shimobaba, "Band-limited angular spectrum method for
@@ -670,7 +670,7 @@ def _fresnel_single_transform(field, x_prime, y_prime, z, wavelength, x_out, y_o
 def fresnel_scaled(field, x_prime, y_prime, z, wavelength, x_out, y_out, n=1.0):
     """Fresnel diffraction integral on a free output window.
 
-    Evaluates the single transform form of the Fresnel integral
+    Evaluates the single transform form of the Fresnel integral ::
 
         U(x, y) = exp(i*k*z)/(i*wavelength*z)*exp(i*k*(x**2 + y**2)/(2*z))
                   * sum U'(x', y')*exp(i*k*(x'**2 + y'**2)/(2*z))
@@ -683,9 +683,9 @@ def fresnel_scaled(field, x_prime, y_prime, z, wavelength, x_out, y_out, n=1.0):
 
     The sum is exact for the sampled input, so the result does not suffer
     from wrap-around. It is accurate as long as the input chirp
-    exp(i*k*r'**2/(2z)) times the field is sampled well; a warning is issued
+    ``exp(i*k*r'**2/(2z))`` times the field is sampled well; a warning is issued
     if the chirp alone is undersampled at the edge of the input window
-    (|z| < 2*max|x'|*dx/wavelength) or if the output window exceeds the
+    (``|z| < 2*max|x'|*dx/wavelength``) or if the output window exceeds the
     period wavelength*z/dx of the result (it then contains replicas). For
     short distances use shifted_angular_spectrum().
 
@@ -711,8 +711,8 @@ def fresnel_scaled(field, x_prime, y_prime, z, wavelength, x_out, y_out, n=1.0):
     x_out, y_out : arrays
         The output coordinates as given.
 
-    Note
-    ----
+    Notes
+    -----
     With x_out, y_out the output grid of fresnel_rescaling(), the results of
     both agree.
     """
@@ -740,7 +740,7 @@ def far_field(field, x_prime, y_prime, wavelength, sigma_x, sigma_y, n=1.0):
 
     For r -> infinity in the direction of the unit vector s = (sigma_x,
     sigma_y, sigma_z), the Rayleigh-Sommerfeld (first kind) field of the
-    input plane becomes
+    input plane becomes ::
 
         U(r*s) = f(s)*exp(i*k*r)/r,
         f(s) = k*sigma_z/(2*pi*i) * sum U'(x', y')*exp(-i*k*(sigma_x*x' + sigma_y*y'))*dx'*dy'
@@ -769,7 +769,7 @@ def far_field(field, x_prime, y_prime, wavelength, sigma_x, sigma_y, n=1.0):
     Returns
     -------
     f : array
-        Far field amplitude of shape (len(sigma_y), len(sigma_x)); |f|**2 is
+        Far field amplitude of shape (len(sigma_y), len(sigma_x)); ``|f|**2`` is
         the radiant intensity (power per solid angle up to the medium's
         impedance factor).
     sigma_x, sigma_y : arrays
@@ -817,10 +817,10 @@ def longitudinal_component(E_x, E_y, x, y, wavelength, n=1.0):
     of the angular spectrum k.E = 0, hence E_z(k) = -(k_x*E_x(k) + k_y*E_y(k))/k_z.
     Evanescent waves (imaginary k_z) are included.
 
-    The factor 1/k_z diverges for grazing waves (|k_perp| -> k). The
+    The factor 1/k_z diverges for grazing waves (``|k_perp|`` -> k). The
     singularity is integrable, but a frequency sample that happens to lie
-    very close to the circle |k_perp| = k would get an arbitrarily large
-    weight. |k_z| is therefore bounded from below by sqrt(k*dk) (dk: the
+    very close to the circle ``|k_perp|`` = k would get an arbitrarily large
+    weight. ``|k_z|`` is therefore bounded from below by sqrt(k*dk) (dk: the
     smaller frequency spacing of the grid), which is the order of magnitude
     of the mean of 1/k_z over one frequency cell at the circle. Only samples
     within about dk/2 of the circle are affected.
@@ -887,8 +887,8 @@ def vectorial_rayleigh_sommerfeld_TF(field, x_prime, y_prime, z, wavelength, n=1
     x, y : arrays
         Coordinates in final plane (the same as given).
 
-    Note
-    ----
+    Notes
+    -----
     Use propagate_padded() to suppress the wrap-around of cyclic convolutions;
     it accepts vector fields.
     """
@@ -956,7 +956,7 @@ def aplanatic_rotation(sigma_x, sigma_y):
     direction s = (sigma_x, sigma_y, sigma_z), sigma_z = sqrt(1 - sigma_x**2 -
     sigma_y**2). Its field is rotated about the axis z x s, i.e. the s
     component (perpendicular to the meridional plane) is kept and the p
-    component is tilted along with the ray (Mansuripur's "psi" factors):
+    component is tilted along with the ray (Mansuripur's "psi" factors)::
 
         E = R @ [p_x, p_y],
         R = [[1 - sigma_x**2/(1 + sigma_z), -sigma_x*sigma_y/(1 + sigma_z)],
@@ -1001,7 +1001,7 @@ def vectorial_mansuripur(field, x_prime, y_prime, z, wavelength, n=1.0):
     turned into a plane wave whose polarization is aplanatic_rotation() of
     [T_x, T_y], weighted by 1/sqrt(sigma_z). The weight conserves energy: the
     power flowing through every plane z = const equals the power of the
-    input field (sum of |E_x|**2 + |E_y|**2 on the grid). The plane waves are
+    input field (sum of ``|E_x|**2`` + ``|E_y|**2`` on the grid). The plane waves are
     then propagated exactly to z.
 
     For a field whose spectrum is a pupil function, e.g. field =
@@ -1037,8 +1037,8 @@ def vectorial_mansuripur(field, x_prime, y_prime, z, wavelength, n=1.0):
     x, y : arrays
         Coordinates (the same as given).
 
-    Sources
-    -------
+    References
+    ----------
     M. Mansuripur, "Certain computational aspects of vector diffraction problems,"
     J. Opt. Soc. Am. A 6, 786-805 (1989), erratum J. Opt. Soc. Am. A 10, 382 (1993)
     B. Richards and E. Wolf, "Electromagnetic diffraction in optical systems II,"
@@ -1101,15 +1101,15 @@ def fresnel_number(outer_aperture_diameter, z, wavelength, wavefront_curvature=N
         wavefront.
     inner_aperture_diameter_factor : number, optional
         Factor defining the annulus' inner diameter as
-        inner_aperture_diameter_factor * outer_aperture_diameter. Defaults to
+        inner_aperture_diameter_factor*outer_aperture_diameter. Defaults to
         0, i.e. a circular aperture.
 
     Returns
     -------
     F : number
         Fresnel number, i.e. number of half-wave zones of the aperture as seen
-        from the on-axis point at distance z: F = a**2*(1 - eps**2)/wavelength
-        * |1/z - c| with a the outer radius, eps the inner diameter factor and
+        from the on-axis point at distance z: ``F = a**2*(1 - eps**2)/wavelength*|1/z - c|``
+        with a the outer radius, eps the inner diameter factor and
         c the wavefront curvature.
     """
 

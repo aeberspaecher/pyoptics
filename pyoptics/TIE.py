@@ -4,7 +4,7 @@
 """Routines for TIE
 
 Convention: fields vary as exp(i(kz - omega*t)) and are written as
-sqrt(I)*exp(i*phase). The transport of intensity equation then reads
+sqrt(I)*exp(i*phase). The transport of intensity equation then reads ::
 
     k dI/dz = -div(I grad(phase)),
 

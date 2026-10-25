@@ -6,7 +6,7 @@
 Convention: fields vary as exp(i(k.r - omega*t)). A field is a superposition
 of plane waves exp(+i*(k_x*x + k_y*y)); the forward transform FT() has the
 kernel exp(-i*(k_x*x + k_y*y)) and yields their amplitudes, the inverse
-transform inv_FT() sums them up again:
+transform inv_FT() sums them up again::
 
     FT(f)[m, n] = sum_jl f[j, l]*exp(-i*(k_x[n]*x[l] + k_y[m]*y[j])),
     inv_FT(F)[j, l] = 1/(Nx*Ny) sum_mn F[m, n]*exp(+i*(k_x[n]*x[l] + k_y[m]*y[j])).
@@ -21,7 +21,7 @@ to the constant phase factor exp(+i*k*x[N//2]), which inv_FT() removes again.)
 FT() and inv_FT() are unnormalized like numpy.fft.fft2() and ifft2(); multiply
 FT() by dx*dy to approximate the continuous Fourier integral. FT_unitary()
 and inv_FT_unitary() are scaled by 1/sqrt(Nx*Ny) and sqrt(Nx*Ny) such that
-FT_unitary() conserves the sum of |f|**2.
+FT_unitary() conserves the sum of ``|f|**2``.
 
 rFT() and inv_rFT() are the versions for real input. Their spectra only hold
 the non-negative k_x (the columns N//2, N//2 + 1, ... of the FT() spectrum,
@@ -114,7 +114,7 @@ def _next_fast_len(n):
 def czt(x, M=None, w=None, a=1.0, axis=-1):
     """Chirp-z transform (Bluestein's algorithm).
 
-    Computes
+    Computes ::
 
         X[m] = sum_{n=0}^{N-1} x[n]*a**(-n)*w**(n*m),   m = 0, ..., M-1,
 
@@ -143,17 +143,17 @@ def czt(x, M=None, w=None, a=1.0, axis=-1):
     X : array
         Complex array with M points along axis.
 
-    Note
-    ----
+    Notes
+    -----
     Bluestein's identity n*m = (n**2 + m**2 - (m - n)**2)/2 turns the sum into
     a convolution with the chirp w**(-n**2/2), evaluated cyclically by FFT.
     The chirps are computed as exp(log(w)*n**2/2) from a single logarithm,
     which keeps the product of the three chirps equal to w**(n*m) for any
-    branch of the logarithm. For |w| != 1 the chirps grow or decay
+    branch of the logarithm. For ``|w|`` != 1 the chirps grow or decay
     exponentially; this is accurate only for moderate N and M.
 
-    Sources
-    -------
+    References
+    ----------
     L. Bluestein, "A linear filtering approach to the computation of discrete
     Fourier transform," IEEE Trans. Audio Electroacoust. 18, 451-455 (1970)
     L. Rabiner, R. Schafer and C. Rader, "The chirp z-transform algorithm,"
@@ -225,7 +225,7 @@ def _zoom_dft(f, x, k_out, sign, axis):
 def zoom_FT(f, x, y, kx_out, ky_out):
     """FT() evaluated on an arbitrary equidistant frequency grid.
 
-    Computes
+    Computes ::
 
         F[m, n] = sum_jl f[j, l]*exp(-i*(kx_out[n]*x[l] + ky_out[m]*y[j]))
 
@@ -260,7 +260,7 @@ def zoom_FT(f, x, y, kx_out, ky_out):
 def zoom_inv_FT(F, kx, ky, x_out, y_out):
     """inv_FT() evaluated on an arbitrary equidistant grid of positions.
 
-    Computes the plane wave sum
+    Computes the plane wave sum ::
 
         f[j, l] = 1/(Nx*Ny) sum_mn F[m, n]*exp(+i*(kx[n]*x_out[l] + ky[m]*y_out[j]))
 

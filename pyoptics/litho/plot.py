@@ -78,7 +78,7 @@ def plot_mask(layout, ax=None, periods=2, N=400, t_absorber=0.0, cmap="gray", ti
 def plot_pupil_fill(sim, ax=None, max_points=2000, title=None):
     """Positions of all diffraction orders that pass the pupil for all
     source points (normalized pupil coordinates), colored by order, marker
-    area ~ |c|**2*source weight."""
+    area ~ ``|c|**2*source`` weight."""
 
     ax = _ax(ax)
     P = sim.projector

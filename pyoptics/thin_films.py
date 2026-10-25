@@ -209,7 +209,7 @@ def stack_transfer_functions(x, y, n, k, t, embedding_n, embedding_k, substrate_
     x-y plane, light incident from the embedding medium towards +z) under the
     angle given by sin(theta_0) = sqrt(k_x**2 + k_y**2)/(k_0*n_0) and is
     reflected and transmitted with r(theta_0) and t(theta_0) of
-    r_t_coeffs(). Thus
+    r_t_coeffs(). Thus ::
 
         E_reflected = inv_FT(r*FT(E_incident)),
         E_transmitted = inv_FT(t*FT(E_incident)),
@@ -299,8 +299,8 @@ def R_T_A_coeffs(angle, n, k, t, embedding_n, embedding_k, substrate_n,
         Use N_phases phase offsets for incoherent layers in averaging. Only
         used if at least one incoherent layer is present.
 
-    Note
-    ----
+    Notes
+    -----
     A = 0 can only be expected for losless media under the condition that the
     embeddig medium is equal to the substrate.
     """
