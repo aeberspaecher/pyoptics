@@ -329,7 +329,8 @@ def lens_jones_pupil(system, field=(0.0, 0.0), N=32, NA=None, coating=None, bire
         Thin film layers on every glass-air surface, from the air side (e.g.
         quarter_wave_coating()), thickness in the units of the system; or a
         function coating(i, n_glass) of the surface index returning such a
-        list (or None). None: uncoated.
+        list (or None). None: the coatings of the surfaces themselves
+        (Surface(coating=...), uncoated without).
     birefringent : dict {i: medium}, optional
         Birefringent media behind the surfaces i (index into
         system.surfaces), e.g. {38: CubicCrystal(-3.4e-7, "111")}, any
@@ -363,7 +364,7 @@ def lens_jones_pupil(system, field=(0.0, 0.0), N=32, NA=None, coating=None, bire
     n = system.n
     coatings = {}
     for i, s in enumerate(system.surfaces):
-        if isinstance(s, CoordinateBreak) or n[i] == n[i + 1]:
+        if coating is None or isinstance(s, CoordinateBreak) or n[i] == n[i + 1]:
             continue
         layers = coating(i, max(n[i], n[i + 1])) if callable(coating) else coating
         stack = Coating(layers or [])

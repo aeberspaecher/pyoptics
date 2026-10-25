@@ -13,6 +13,7 @@ import pytest
 from pyoptics.litho import (Illumination, LithoSimulation, MaskLayout, Projector, ThinMask, hopkins,
                             lens)
 from pyoptics.litho import jones_pupil as jp
+from pyoptics.coatings import Coating
 from pyoptics.materials import transverse_basis
 from pyoptics.raytrace import caldwell_krf_lens
 
@@ -171,6 +172,14 @@ def test_coated_lens(caldwell):
     assert d_abs.max() < 0.01 and np.abs(parts["retardance"][:2]).max() > 1e-3
     same = lens.lens_jones_pupil(caldwell, N=25, coating=lambda i, n: coat)
     assert np.allclose(same.J, r.J)
+    # the same coating attached to the surfaces of the system:
+    coated = caldwell.copy()
+    n = coated.n
+    for i, s in enumerate(coated.surfaces):
+        if n[i] != n[i + 1]:
+            stack = Coating(coat)
+            s.coating = stack if n[i] < n[i + 1] else stack.reversed()
+    assert np.allclose(lens.lens_jones_pupil(coated, N=25).J, r.J)
 
 
 def test_off_axis_field(caldwell):
