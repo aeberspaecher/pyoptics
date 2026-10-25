@@ -40,7 +40,7 @@ Rays are refracted with the real part of a reference index
 (`Material.n_geometric()`, n_o for uniaxial media); the anisotropic and
 absorbing part of the index only acts on the polarization along the ray
 (`Material.propagation()`). This is the usual model for weak anisotropy
-(|n_e - n_o| << 1): the splitting of the ordinary and extraordinary rays
+(``|n_e - n_o| << 1``): the splitting of the ordinary and extraordinary rays
 and their walk-off are neglected, their phase difference is not. Index
 data are evaluated at wavelengths in nm; a value can be a number, a function
 n(wavelength_nm) or a pair (n_d, V_d) for `abbe_dispersion()`.
