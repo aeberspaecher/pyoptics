@@ -83,3 +83,6 @@
   paraxial pupils and Seidel sums checked against `abcd`, OPD maps, Zernike
   fits, PSF/MTF/Strehl via `imaging`, spot diagrams and ray fans
   (notebook 24)
+* tilts and decentres in `raytrace` (decentred/tilted surfaces, coordinate
+  breaks, fold mirrors, tilted image planes), telecentric objects, the
+  Caldwell KrF lithography lens as an example (notebook 24)

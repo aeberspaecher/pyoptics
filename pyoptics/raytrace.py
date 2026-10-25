@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
-"""Sequential ray tracing through rotationally symmetric optical systems.
+"""Sequential ray tracing through optical systems.
 
 A `System` is a sequence of `Surface` objects (spheres, conics and even
-aspheres, refracting or reflecting) and optional `IdealLens` surfaces. Rays
+aspheres, refracting or reflecting), optional `IdealLens` surfaces and
+`CoordinateBreak` elements. Surfaces can be decentred and tilted. Rays
 are traced exactly (exact intersections, vector law of refraction and
 reflection); paraxial marginal and chief rays, the pupils and the Seidel
 sums come from a paraxial y-nu trace, whose system matrix agrees with
@@ -34,6 +35,8 @@ Sign conventions
 - Field: for an object at infinity, the field is the angle in radians of the
   incoming rays with the z axis (rays point upwards, +y, for field > 0).
   For a finite object, it is the object height y.
+  Fields can also be given as pairs (x, y): angles whose tangents are the
+  direction slopes dx/dz and dy/dz, or object points (x, y).
 - Pupil coordinates (P_x, P_y) are normalized coordinates in the paraxial
   entrance pupil (unit disk). With ray aiming (default), a ray with pupil
   coordinates (P_x, P_y) hits the stop at (P_x, P_y) times its semi
@@ -57,13 +60,33 @@ applies over dz. A positive lens with undercorrected spherical aberration
 transverse ray aberration is eps = (R/n') dW/dY (R: radius of the reference
 sphere, Y: height in the exit pupil).
 
+Tilts and decentres
+-------------------
+Every surface has a local frame in which it is the centred surface
+described above. A surface's `decenter=(dx, dy)` and `tilt=(a_x, a_y, a_z)`
+move it relative to the current axis frame: first the decentre, then the
+rotations about the local x, y and z axes in this order (the local-to-axis
+rotation is R_x(a_x) R_y(a_y) R_z(a_z), counterclockwise about the
+respective axis, so a_x > 0 turns +z towards -y). Like Zemax's "decenter and return",
+this only moves the surface itself; the axis for the following surfaces is
+unchanged. A `CoordinateBreak` instead changes the axis frame for all
+following surfaces (fold mirrors, tilted sub-assemblies). The image plane
+can be decentred and tilted with `image_decenter` and `image_tilt` of
+`System`.
+
+First order properties (`paraxial()`, `seidel()`, the pupils used for ray
+aiming and for the reference sphere) are those of the nominal system with
+all tilts and decentres set to zero; a fold mirror is then an unfolded plane
+mirror. Real rays always see the actual geometry. Spot diagrams, ray fans,
+OPDs and PSFs are evaluated in the local frame of the image plane.
+
 Units: all lengths (radii, thicknesses, wavelength) share one unit, set by
 `units` of `System` ("mm" by default). It is only used to convert the
 wavelength to nm for the dispersion of materials.
 
-Limitations: rotationally symmetric, centred systems only (no tilts and
-decentres), monochromatic traces (build systems at several wavelengths for
-colour), uniform pupil amplitude in the PSF.
+Limitations: monochromatic traces (build systems at several wavelengths for
+colour), uniform pupil amplitude in the PSF, surfaces of revolution only (no
+toroids or freeforms), paraxial data only for the nominal centred system.
 """
 
 import copy
@@ -87,6 +110,38 @@ def _norm(v):
 
 def _dot(a, b):
     return np.sum(a*b, axis=-1)
+
+
+def rotation(a_x=0.0, a_y=0.0, a_z=0.0):
+    """Rotation matrix R_x(a_x) @ R_y(a_y) @ R_z(a_z) (angles in radians,
+    counterclockwise about the respective axis)."""
+
+    cx, sx = np.cos(a_x), np.sin(a_x)
+    cy, sy = np.cos(a_y), np.sin(a_y)
+    cz, sz = np.cos(a_z), np.sin(a_z)
+    R_x = np.array([[1, 0, 0], [0, cx, -sx], [0, sx, cx]])
+    R_y = np.array([[cy, 0, sy], [0, 1, 0], [-sy, 0, cy]])
+    R_z = np.array([[cz, -sz, 0], [sz, cz, 0], [0, 0, 1]])
+
+    return R_x @ R_y @ R_z
+
+
+def _frame(origin, R, decenter=(0.0, 0.0), tilt=(0.0, 0.0, 0.0)):
+    """Frame (origin, R) moved by a decentre in its x-y plane and then tilted."""
+
+    origin = origin + R @ np.array([decenter[0], decenter[1], 0.0])
+
+    return origin, R @ rotation(*tilt)
+
+
+def _field_xy(field):
+    """(x, y) components of a scalar (y) or pair field."""
+
+    f = np.atleast_1d(np.asarray(field, dtype=float))
+    if f.size == 1:
+        return 0.0, float(f[0])
+
+    return float(f[0]), float(f[1])
 
 
 # surfaces:
@@ -116,11 +171,19 @@ class Surface:
         On the stop surface it defines the aperture of the system.
     mirror : bool, optional
         Reflecting surface.
+    decenter : (dx, dy), optional
+        Decentre of the surface in the axis frame.
+    tilt : (a_x, a_y, a_z), optional
+        Tilt angles (radians) of the surface after the decentre, see the
+        module docstring. Neither changes the axis of the following
+        surfaces; the thickness is measured along the (untilted) axis from
+        the undisplaced vertex.
     label : str, optional
     """
 
     def __init__(self, R=np.inf, thickness=0.0, n_after=None, material=None, conic=0.0,
-                 aspheric=(), semi_diameter=None, mirror=False, label=None):
+                 aspheric=(), semi_diameter=None, mirror=False, decenter=(0.0, 0.0),
+                 tilt=(0.0, 0.0, 0.0), label=None):
         if mirror and (n_after is not None or material is not None):
             raise ValueError("A mirror does not change the medium.")
         self.R = R
@@ -131,7 +194,13 @@ class Surface:
         self.aspheric = tuple(aspheric)
         self.semi_diameter = semi_diameter
         self.mirror = mirror
+        self.decenter = tuple(decenter)
+        self.tilt = tuple(tilt) + (0.0,)*(3 - len(tilt))
         self.label = label
+
+    @property
+    def displaced(self):
+        return any(self.decenter) or any(self.tilt)
 
     def __repr__(self):
         kind = "Mirror" if self.mirror else "Surface"
@@ -273,8 +342,10 @@ class IdealLens(Surface):
     medium does not change; f is the focal length in that medium.
     """
 
-    def __init__(self, f, thickness=0.0, semi_diameter=None, label=None):
-        super().__init__(np.inf, thickness, semi_diameter=semi_diameter, label=label)
+    def __init__(self, f, thickness=0.0, semi_diameter=None, decenter=(0.0, 0.0),
+                 tilt=(0.0, 0.0, 0.0), label=None):
+        super().__init__(np.inf, thickness, semi_diameter=semi_diameter, decenter=decenter,
+                         tilt=tilt, label=label)
         self.f = f
 
     def __repr__(self):
@@ -296,6 +367,32 @@ class IdealLens(Surface):
 
     def abcd_matrix(self, n1, n2, sigma):
         return abcd.thin_lens(self.f/n1)
+
+
+class CoordinateBreak(Surface):
+    """Change of the axis frame for all following surfaces.
+
+    The new frame is the current one moved by decenter = (dx, dy) and then
+    rotated by tilt = (a_x, a_y, a_z) (see the module docstring); thickness
+    is measured along the new z axis. A coordinate break does not interact
+    with the rays. For a fold mirror tilted by a about x, put
+    CoordinateBreak(tilt=(a, 0, 0)), the plane mirror, CoordinateBreak(tilt=(a,
+    0, 0), thickness=-d): behind the mirror, light travels in -z of the new
+    frame. For a = pi/4, the beam is folded from +z to +y.
+    """
+
+    def __init__(self, decenter=(0.0, 0.0), tilt=(0.0, 0.0, 0.0), thickness=0.0, label=None):
+        super().__init__(np.inf, thickness, decenter=decenter, tilt=tilt, label=label)
+
+    def __repr__(self):
+        return "CoordinateBreak(decenter={}, tilt={}, thickness={})".format(
+            self.decenter, self.tilt, self.thickness)
+
+    def paraxial_power(self, n1, n2):
+        return 0.0
+
+    def abcd_matrix(self, n1, n2, sigma):
+        return np.eye(2)
 
 
 # results:
@@ -380,7 +477,7 @@ tangential fan ey(P_y = p, P_x = 0) and sagittal fan ex(P_x = p, P_y = 0)."""
 
 
 class System:
-    """Sequential, rotationally symmetric optical system.
+    """Sequential optical system.
 
     Parameters
     ----------
@@ -395,10 +492,10 @@ class System:
     object_distance : number, optional
         Distance of the object in front of the first vertex, np.inf
         (default) for an object at infinity.
-    field_angle : number, optional
+    field_angle : number or pair, optional
         Maximum field angle in radians (object at infinity); used as the
         default field of the methods.
-    object_height : number, optional
+    object_height : number or pair, optional
         Maximum object height (finite object).
     n_object : number, optional
         Refractive index of the object space.
@@ -410,6 +507,9 @@ class System:
     ray_aiming : bool, optional
         Aim the rays at the real stop (default) instead of the paraxial
         entrance pupil.
+    image_decenter, image_tilt : optional
+        Decentre (dx, dy) and tilt (a_x, a_y, a_z) of the image plane
+        relative to the final axis frame.
 
     The surfaces are copied, later changes to the Surface objects passed in
     do not affect the system.
@@ -417,7 +517,7 @@ class System:
 
     def __init__(self, surfaces, stop_index, wavelength, object_distance=np.inf, field_angle=0.0,
                  object_height=0.0, n_object=1.0, units="mm", entrance_pupil_radius=None,
-                 ray_aiming=True):
+                 ray_aiming=True, image_decenter=(0.0, 0.0), image_tilt=(0.0, 0.0, 0.0)):
         self.surfaces = [copy.copy(s) for s in surfaces]
         self.stop_index = stop_index % len(self.surfaces)
         self.wavelength = wavelength
@@ -426,6 +526,8 @@ class System:
         self.n_object = n_object
         self.units = units
         self.ray_aiming = ray_aiming
+        self.image_decenter = tuple(image_decenter)
+        self.image_tilt = tuple(image_tilt) + (0.0,)*(3 - len(image_tilt))
         if entrance_pupil_radius is not None:
             A = self._ep_matrix()[0]
             self.surfaces[self.stop_index].semi_diameter = abs(entrance_pupil_radius*A)
@@ -482,6 +584,47 @@ class System:
     @property
     def infinite_object(self):
         return np.isinf(self.object_distance)
+
+    def frames(self):
+        """Local frames (origin, R) of the surfaces and of the image plane.
+
+        A point q in the local frame of surface i lies at origin + R @ q in
+        global coordinates.
+
+        Returns
+        -------
+        surface_frames : list of (origin, R)
+        image_frame : (origin, R)
+        """
+
+        o, R = np.zeros(3), np.eye(3)
+        frames = []
+        for s in self.surfaces:
+            if isinstance(s, CoordinateBreak):
+                o, R = _frame(o, R, s.decenter, s.tilt)
+                frames.append((o, R))
+            else:
+                frames.append(_frame(o, R, s.decenter, s.tilt))
+            o = o + R @ np.array([0.0, 0.0, s.thickness])
+
+        return frames, _frame(o, R, self.image_decenter, self.image_tilt)
+
+    @property
+    def tilted(self):
+        """True if any surface or the image plane is decentred or tilted."""
+
+        return (any(s.displaced for s in self.surfaces) or any(self.image_decenter)
+                or any(self.image_tilt))
+
+    def to_image_frame(self, points, directions=None):
+        """Points (and directions) in the local frame of the image plane."""
+
+        o, R = self.frames()[1]
+        local = (np.asarray(points) - o) @ R
+        if directions is None:
+            return local
+
+        return local, np.asarray(directions) @ R
 
     def copy(self):
         return copy.deepcopy(self)
@@ -579,10 +722,11 @@ class System:
     def _pupils(self):
         a_s = self.surfaces[self.stop_index].semi_diameter
         A, B = self._ep_matrix()
-        if A == 0:
-            raise NotImplementedError("Object space telecentric systems are not supported.")
-        ep_z = B/A
-        ep_r = abs(a_s/A)
+        if A == 0:  # object space telecentric
+            ep_z, ep_r = np.inf, np.inf
+        else:
+            ep_z = B/A
+            ep_r = abs(a_s/A)
         # exit pupil: image of the stop through the surfaces behind it
         z_last = self.vertex_z[-1]
         ys, us = self._paraxial_trace(0.0, 1.0, self.stop_index)
@@ -595,20 +739,33 @@ class System:
 
         return ep_z, ep_r, xp_z, xp_r
 
-    def _paraxial_rays(self, field=None):
-        """Paraxial marginal and chief rays: start (y, u) at z = 0."""
+    def _object_slopes(self):
+        """Finite object: object space slopes of the paraxial marginal ray
+        (to the rim of the stop) and of the chief ray per unit object height."""
 
-        field = self.max_field if field is None else field
-        ep_z, ep_r = self._pupils()[:2]
+        a_s = self.surfaces[self.stop_index].semi_diameter
+        A, B = self._ep_matrix()
+        D = A*self.object_distance + B
+
+        return a_s/D, -A/D
+
+    def _paraxial_rays(self, field=None):
+        """Paraxial marginal and chief rays: start (y, u) at z = 0. Paraxial
+        data use the y component of the field."""
+
+        field = _field_xy(self.max_field if field is None else field)[1]
         if self.infinite_object:
+            ep_z, ep_r = self._pupils()[:2]
+            if not np.isfinite(ep_z):
+                raise NotImplementedError("Object at infinity and object space telecentric.")
             marginal = (ep_r, 0.0)
             u = np.tan(field)
             chief = (-u*ep_z, u)
         else:
             s = self.object_distance
-            u = ep_r/(ep_z + s)
-            marginal = (u*s, u)
-            u = -field/(ep_z + s)
+            u_m, u_c = self._object_slopes()
+            marginal = (u_m*s, u_m)
+            u = u_c*field
             chief = (field + u*s, u)
 
         return marginal, chief
@@ -706,28 +863,37 @@ class System:
         px, py = np.broadcast_arrays(np.atleast_1d(np.asarray(px, float)),
                                      np.atleast_1d(np.asarray(py, float)))
         px, py = px.ravel(), py.ravel()
-        ep_z, ep_r = self._pupils()[:2]
-        a, b = px*ep_r, py*ep_r
+        fx, fy = _field_xy(field)
+        if self.infinite_object:
+            ep_r = self._pupils()[1]
+            a, b = px*ep_r, py*ep_r
+        else:
+            u_m, u_c = self._object_slopes()
+            a, b = u_c*fx + px*u_m, u_c*fy + py*u_m
         if self.ray_aiming if aim is None else aim:
             a, b = self._aim(field, a, b, px, py)
 
         return self._launch(field, a, b)
 
     def _launch(self, field, a, b):
-        """Rays through the points (a, b) of the paraxial entrance pupil plane."""
+        """Rays through the points (a, b) of the paraxial entrance pupil plane
+        (object at infinity) or from the object point with the slopes
+        (a, b) = (dx/dz, dy/dz) (finite object)."""
 
-        ep_z = self._pupils()[0]
         n0 = self.n_object
-        E = np.stack([a, b, np.full(len(a), ep_z)], axis=-1)
+        fx, fy = _field_xy(field)
         if self.infinite_object:
-            d = np.tile([0.0, np.sin(field), np.cos(field)], (len(a), 1))
+            ep_z = self._pupils()[0]
+            E = np.stack([a, b, np.full(len(a), ep_z)], axis=-1)
+            d = np.array([np.tan(fx), np.tan(fy), 1.0])
+            d = np.tile(d/_norm(d), (len(a), 1))
             scale = max(np.sum(np.abs([s.thickness for s in self.surfaces])), 1.0)
             z0 = min(0.0, ep_z) - 0.1*scale
             P = E - ((ep_z - z0)/d[:, 2])[:, None]*d
             opl = n0*_dot(P - [0.0, 0.0, ep_z], d)
         else:
-            O = np.array([0.0, field, -self.object_distance])
-            d = E - O
+            O = np.array([fx, fy, -self.object_distance])
+            d = np.stack([a, b, np.ones(len(a))], axis=-1)
             d /= _norm(d)[:, None]
             P = np.tile(O, (len(a), 1))
             opl = np.zeros(len(a))
@@ -735,16 +901,20 @@ class System:
         return Rays(P, d, opl)
 
     def _stop_hits(self, field, a, b):
-        bundle = self.trace(self._launch(field, a, b), clip=False, last=self.stop_index)
+        """Ray hits on the stop in its local frame."""
 
-        return bundle.points[-1, :, 0], bundle.points[-1, :, 1]
+        bundle = self.trace(self._launch(field, a, b), clip=False, last=self.stop_index)
+        o, R = self.frames()[0][self.stop_index]
+        Q = (bundle.points[-1] - o) @ R
+
+        return Q[:, 0], Q[:, 1]
 
     def _aim(self, field, a, b, px, py):
         a_s = self.surfaces[self.stop_index].semi_diameter
-        A = self._ep_matrix()[0]
-        tx, ty = np.sign(A)*px*a_s, np.sign(A)*py*a_s
+        sign = np.sign(self._ep_matrix()[0]) if self.infinite_object else 1.0
+        tx, ty = sign*px*a_s, sign*py*a_s
         scale = max(a_s, 1e-12)
-        eps = 1e-6*scale
+        eps = 1e-6*scale if self.infinite_object else 1e-6*max(abs(self._object_slopes()[0]), 1e-12)
         for _ in range(30):
             hx, hy = self._stop_hits(field, a, b)
             rx, ry = hx - tx, hy - ty
@@ -787,20 +957,28 @@ class System:
         P = np.array(rays.points, dtype=float).reshape(-1, 3)
         d = np.array(rays.directions, dtype=float).reshape(-1, 3)
         opl = np.array(rays.opl, dtype=float).reshape(-1)
-        n, z_v = self.n, self.vertex_z
+        n = self.n
+        frames, (o_img, R_img) = self.frames()
         valid = np.ones(len(P), dtype=bool)
         points, directions, opls = [P], [d], [opl]
         n_surf = len(self.surfaces) if last is None else last + 1
         for i in range(n_surf):
             s = self.surfaces[i]
-            vertex = np.array([0.0, 0.0, z_v[i]])
-            t = s.intersect(P - vertex, d)
-            P = P + t[:, None]*d
+            if isinstance(s, CoordinateBreak):
+                points.append(P)
+                directions.append(d)
+                opls.append(opl)
+                continue
+            o, R = frames[i]
+            # local coordinates (row vectors: x @ R = R.T x):
+            P_l, d_l = (P - o) @ R, d @ R
+            t = s.intersect(P_l, d_l)
+            Q = P_l + t[:, None]*d_l
             opl = opl + n[i]*t
-            Q = P - vertex
             if clip and s.semi_diameter is not None:
                 valid &= np.hypot(Q[:, 0], Q[:, 1]) <= s.semi_diameter*(1 + 1e-9)
-            d, dopl = s.deflect(Q, d, n[i], n[i + 1])
+            d_l, dopl = s.deflect(Q, d_l, n[i], n[i + 1])
+            P, d = o + Q @ R.T, d_l @ R.T
             opl = opl + dopl
             valid &= np.isfinite(t) & np.all(np.isfinite(d), axis=-1)
             P, d, opl = self._lose(P, d, opl, valid)
@@ -808,8 +986,9 @@ class System:
             directions.append(d)
             opls.append(opl)
         if last is None:
+            normal = R_img[:, 2]
             with np.errstate(invalid="ignore", divide="ignore"):
-                t = (self.image_z - P[:, 2])/d[:, 2]
+                t = _dot(o_img - P, normal)/_dot(d, normal)
             P = P + t[:, None]*d
             opl = opl + n[-1]*t
             valid &= np.isfinite(t)
@@ -834,18 +1013,23 @@ class System:
 
         return self.trace(self.rays(field, px, py), clip=clip)
 
+    def _image_hits(self, bundle):
+        """Image plane points and directions in the local image frame."""
+
+        return self.to_image_frame(bundle.points[-1], bundle.directions[-1])
+
     # OPD:
     def _reference(self, chief):
-        """Centre, radius and side of the reference sphere."""
+        """Centre, radius and side of the reference sphere (image frame)."""
 
-        Ic = chief.points[-1, 0]
-        dc = chief.directions[-1, 0]
+        Ic, dc = (v[0] for v in self._image_hits(chief))
         xp_z = self._pupils()[2]
         size = max(np.sum(np.abs([s.thickness for s in self.surfaces])), 1.0)
         if np.isfinite(xp_z) and abs(xp_z) < 1e8*size:
-            Qc = Ic + (xp_z - Ic[2])/dc[2]*dc
+            # exit pupil plane, nominally xp_z - image_z from the image plane:
+            Qc = Ic + (xp_z - self.image_z - Ic[2])/dc[2]*dc
         else:
-            Qc = chief.points[-2, 0]
+            Qc = self.to_image_frame(chief.points[-2, 0])
         L = _dot(Ic - Qc, dc)
 
         return Ic, _norm(Ic - Qc), np.sign(L) if L != 0 else 1.0
@@ -855,7 +1039,7 @@ class System:
 
         Ic, R, side = self._reference(chief)
         n_img = self.n[-1]
-        I, d, opl = bundle.points[-1], bundle.directions[-1], bundle.opl[-1]
+        (I, d), opl = self._image_hits(bundle), bundle.opl[-1]
         w = I - Ic
         wd = _dot(w, d)
         with np.errstate(invalid="ignore"):
@@ -973,7 +1157,8 @@ class System:
         W = self._opd(bundle, chief)
         ok = bundle.valid
         n_img = self.n[-1]
-        q = n_img*(bundle.directions[-1, ok, :2] - chief.directions[-1, 0, :2])
+        d, d_c = self._image_hits(bundle)[1], self._image_hits(chief)[1]
+        q = n_img*(d[ok, :2] - d_c[0, :2])
         NA = np.max(_norm(q))
         q = q/NA
         phase_rays = 2*pi*W[ok]/self.wavelength
@@ -1015,7 +1200,7 @@ class System:
         _, PX, PY, inside = self._pupil_grid(N)
         bundle = self.trace_pupil(field, PX[inside], PY[inside])
         chief = self.trace_pupil(field, 0.0, 0.0)
-        I = bundle.points[-1, bundle.valid] - chief.points[-1, 0]
+        I = self._image_hits(bundle)[0][bundle.valid] - self._image_hits(chief)[0][0]
         x, y = I[:, 0], I[:, 1]
         centroid = (x.mean(), y.mean())
         rms = np.sqrt(np.mean((x - centroid[0])**2 + (y - centroid[1])**2))
@@ -1026,9 +1211,10 @@ class System:
         """Transverse ray aberrations of the tangential and sagittal fans."""
 
         p = np.linspace(-1.0, 1.0, N)
-        chief = self.trace_pupil(field, 0.0, 0.0).points[-1, 0]
-        tan = self.trace_pupil(field, 0.0*p, p).points[-1]
-        sag = self.trace_pupil(field, p, 0.0*p).points[-1]
+        hits = lambda px, py: self._image_hits(self.trace_pupil(field, px, py))[0]
+        chief = hits(0.0, 0.0)[0]
+        tan = hits(0.0*p, p)
+        sag = hits(p, 0.0*p)
 
         return RayFan(p, tan[:, 1] - chief[1], sag[:, 0] - chief[0])
 
@@ -1055,26 +1241,37 @@ class System:
             ax.plot(pts[:, :, 2], pts[:, :, 1], color=color, lw=lw)
             r_max = np.fmax(r_max, np.nanmax(np.abs(pts[1:-1, :, 1]), axis=1))
 
-        z_v, n = self.vertex_z, self.n
-        profiles = []
+        n = self.n
+        frames, (o_img, R_img) = self.frames()
+
+        def to_global(i, yy, zz):
+            o, R = frames[i]
+            q = np.stack([0*yy, yy, zz], axis=-1) @ R.T + o
+            return q[..., 2], q[..., 1]
+
+        heights = []
         for i, s in enumerate(self.surfaces):
             h = s.semi_diameter if s.semi_diameter is not None else 1.05*r_max[i]
+            heights.append(h)
+            if isinstance(s, CoordinateBreak):
+                continue
             yy = np.linspace(-h, h, 101)
-            zz = z_v[i] + s.sag(yy**2)
-            profiles.append((zz, yy))
-            ax.plot(zz, yy, color="k", lw=2.5 if s.mirror else 1.2)
+            ax.plot(*to_global(i, yy, s.sag(yy**2)), color="k", lw=2.5 if s.mirror else 1.2)
         # lens edges between surfaces in glass:
         for i in range(len(self.surfaces) - 1):
-            if n[i + 1] != 1.0 and not self.surfaces[i].mirror:
-                (z1, y1), (z2, y2) = profiles[i], profiles[i + 1]
-                h = max(y1[-1], y2[-1])
-                for k in (0, -1):
-                    sgn = 1 if k == -1 else -1
-                    zz1 = z_v[i] + self.surfaces[i].sag(h**2)
-                    zz2 = z_v[i + 1] + self.surfaces[i + 1].sag(h**2)
-                    ax.plot([z1[k], zz1, zz2, z2[k]], [y1[k], sgn*h, sgn*h, y2[k]], color="k",
+            s1, s2 = self.surfaces[i], self.surfaces[i + 1]
+            if n[i + 1] != 1.0 and not s1.mirror and not isinstance(s2, CoordinateBreak):
+                # rims joined by a flat bevel on the smaller surface:
+                h1, h2 = heights[i], heights[i + 1]
+                for sgn in (-1, 1):
+                    z1, y1 = to_global(i, np.array([sgn*h1]), s1.sag(np.array([h1**2])))
+                    z2, y2 = to_global(i + 1, np.array([sgn*h2]), s2.sag(np.array([h2**2])))
+                    corner = (z2, y1) if h1 > h2 else (z1, y2)
+                    ax.plot([z1[0], corner[0][0], z2[0]], [y1[0], corner[1][0], y2[0]], color="k",
                             lw=1.2)
-        ax.axvline(self.image_z, color="0.5", lw=1, ls="--")
+        h_img = 1.1*np.nanmax(np.abs(r_max)) if np.any(np.isfinite(r_max)) else 1.0
+        corners = np.array([[0, -h_img, 0], [0, h_img, 0]]) @ R_img.T + o_img
+        ax.plot(corners[:, 2], corners[:, 1], color="0.5", lw=1, ls="--")
         ax.axhline(0, color="0.6", lw=0.6, ls="-.")
         ax.set_xlabel("z")
         ax.set_ylabel("y")
@@ -1128,3 +1325,113 @@ class System:
             ax.axhline(0, color="0.6", lw=0.6)
 
         return axes
+
+
+# example designs:
+def fused_silica(wavelength_nm):
+    """Refractive index of fused silica (Malitson's Sellmeier formula, valid
+    from 0.21 to 3.7 um)."""
+
+    l2 = (np.asarray(wavelength_nm, dtype=float)*1e-3)**2
+
+    return np.sqrt(1 + 0.6961663*l2/(l2 - 0.0684043**2) + 0.4079426*l2/(l2 - 0.1162414**2)
+                   + 0.8974794*l2/(l2 - 9.896161**2))
+
+
+# Caldwell's lens: surface, radius, thickness to the next surface, medium
+# behind ("S": fused silica, "A": air), semi diameter, all in mm.
+_CALDWELL_KRF = """
+ 1  -617.8800 30.375 S  61.30
+ 2  -207.0830  0.934 A  64.20
+ 3   201.9739 68.636 S  64.75
+ 4  -416.6217  0.865 A  59.60
+ 5   460.0439  7.061 S  55.25
+ 6   179.6999 15.608 A  55.25
+ 7  -373.0162  6.952 S  54.90
+ 8   249.4960 30.983 A  54.35
+ 9 -2591.2000 11.541 S  55.90
+10   229.2357 33.165 A  56.85
+11   -82.3025 11.524 S  57.45
+12   569.8191  9.159 A  74.85
+13  5523.6000 36.703 S  79.45
+14  -156.8200  0.889 A  85.05
+15   610.3354 41.168 S 100.20
+16  -221.8862  0.883 A 101.90
+17   528.5938 26.903 S 104.20
+18  -570.2004  0.883 A 104.05
+19   423.5775 21.883 S 101.00
+20 -1396.3000  0.883 A 100.00
+21   203.9075 22.715 S  91.85
+22   835.4548 67.972 A  89.70
+23  -735.8990  8.386 S  57.50
+24   104.6386 23.616 A  50.55
+25  -184.6683 11.034 S  49.95
+26   288.7053 58.171 A  46.10
+27   -74.5663 11.343 S  51.85
+28  2319.0000 11.371 A  63.05
+29  -283.4504 22.211 S  64.75
+30  -142.5176  1.323 A  69.90
+31 -5670.5000 39.484 S  81.85
+32  -146.6908  0.883 A  86.45
+33   654.7531 37.168 S  94.75
+34  -347.7071  0.883 A  96.35
+35   254.9142 31.600 S  96.45
+36  2133.2000  0.883 A  94.50
+37   164.8042 27.885 S  89.95
+38   349.3775  0.884 A  86.00
+39   108.9816 73.045 S  77.70
+40    75.6698 54.069 A  46.50
+41    46.2841 16.956 S  25.70
+42    99.3161 13.168 A  19.85
+"""
+
+
+def caldwell_krf_lens(wavelength=248.3e-6, aperture_margin=1.02, refocus=True):
+    """All fused silica KrF lithography projection lens by J. B. Caldwell.
+
+    J. Brian Caldwell, "All-fused-silica 248-nm lithographic projection
+    lens", Optics & Photonics News 9(11), 40-41 (1998). Reduction 4x
+    (magnification -0.25), image side NA 0.56, image field diameter 23.4 mm
+    (object height up to 46.8 mm), 1 m from object to image, telecentric on
+    both sides. The prescription is that of the paper as reproduced in the
+    COMSOL application "Microlithography Lens" (lens data in mm).
+
+    The aperture stop is not marked in the published table; it is placed at
+    surface 30 (index 29), whose clear aperture limits the axial beam to the
+    design NA 0.56 and which makes the chief rays telecentric to a few mrad.
+    The other semi diameters of the table clip the rim of the full field
+    beam by about 1%; they are enlarged by aperture_margin.
+
+    Parameters
+    ----------
+    wavelength : number, optional
+        Vacuum wavelength in mm (default: KrF, 248.3 nm). The index of fused
+        silica follows Malitson's formula, n = 1.5084 at 248.3 nm.
+    aperture_margin : number, optional
+        Factor for the semi diameters of all surfaces but the stop.
+    refocus : bool, optional
+        Put the image plane into the paraxial image at this wavelength
+        (default). The lens has a large axial colour (about 0.25 um per pm),
+        so the image distance of the table (13.168 mm, for n = 1.5084)
+        changes by micrometres with the wavelength.
+
+    Returns
+    -------
+    System
+        Lengths in mm, object 107.954 mm in front of the first surface,
+        maximum field object_height = 46.8 mm.
+    """
+
+    stop = 29
+    surfaces = []
+    for i, line in enumerate(_CALDWELL_KRF.strip().splitlines()):
+        _, R, t, medium, sd = line.split()
+        surfaces.append(Surface(float(R), float(t),
+                                material=fused_silica if medium == "S" else None,
+                                n_after=None if medium == "S" else 1.0,
+                                semi_diameter=float(sd)*(1 if i == stop else aperture_margin),
+                                label=str(i + 1)))
+
+    system = System(surfaces, stop, wavelength, object_distance=107.954, object_height=46.8)
+
+    return system.at_paraxial_focus() if refocus else system

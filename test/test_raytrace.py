@@ -329,3 +329,142 @@ def test_dispersion_from_material():
     efl_C = system.with_wavelength(656.2725e-6).paraxial().efl
     # thin lens: longitudinal colour f/V
     assert efl_C - efl_F == pytest.approx(system.paraxial().efl/64.17, rel=0.02)
+
+
+# tilts and decentres:
+def doublet_surfaces(first_thickness=10.0):
+    return [rt.Surface(np.inf, first_thickness, semi_diameter=3.0),
+            rt.Surface(40.0, 3.0, n_after=1.7), rt.Surface(np.inf, 55.0, n_after=1.0)]
+
+
+def test_tilting_the_whole_system_equals_a_field_angle():
+    theta = np.radians(3.0)
+    system = rt.System(doublet_surfaces(), 0, WL).at_paraxial_focus()
+    tilted = rt.System([rt.CoordinateBreak(tilt=(theta, 0, 0))] + system.surfaces, 1, WL)
+    assert tilted.tilted and not system.tilted
+    W0 = system.opd(theta, 21).W
+    W1 = tilted.opd(0.0, 21).W
+    assert np.nanmax(np.abs(W0)) > 0.1
+    assert np.allclose(W0, W1, atol=1e-6, equal_nan=True)
+    # a decentre of everything by dy is invisible for collimated light:
+    shifted = rt.System([rt.CoordinateBreak(decenter=(0, 2.0))] + system.surfaces, 1, WL)
+    assert np.allclose(system.opd(theta, 21).W, shifted.opd(theta, 21).W, atol=1e-6,
+                       equal_nan=True)
+    assert np.allclose(shifted.trace_pupil(theta).points[-1, 0, 1],
+                       system.trace_pupil(theta).points[-1, 0, 1] + 2.0)
+
+
+def test_x_field_is_a_rotated_y_field():
+    a = np.radians(3.0)
+    system = rt.System(doublet_surfaces(), 0, WL).at_paraxial_focus()
+    W_y = system.opd(a, 21).W
+    W_x = system.opd((a, 0.0), 21).W
+    assert np.allclose(W_x, W_y.T, atol=1e-8, equal_nan=True)
+    assert system.trace_pupil((a, 0.0)).points[-1, 0, 0] == \
+        pytest.approx(system.trace_pupil(a).points[-1, 0, 1])
+
+
+def test_fold_mirror_does_not_change_the_image():
+    theta = np.radians(2.0)
+    system = rt.System(doublet_surfaces(), 0, WL).at_paraxial_focus()
+    d_img = system.surfaces[-1].thickness
+    # fold the beam by 90 deg with a 45 deg mirror 20 mm behind the lens:
+    folded = system.copy().surfaces
+    folded[-1].thickness = 20.0
+    folded += [rt.CoordinateBreak(tilt=(np.pi/4, 0, 0)), rt.Surface(np.inf, 0.0, mirror=True),
+               rt.CoordinateBreak(tilt=(np.pi/4, 0, 0), thickness=-(d_img - 20.0))]
+    folded = rt.System(folded, 0, WL)
+    assert folded.paraxial().efl == pytest.approx(system.paraxial().efl)
+    assert -folded.paraxial().image_distance + 20.0 == pytest.approx(d_img)
+    assert np.allclose(folded.opd(theta, 21).W, system.opd(theta, 21).W, atol=1e-6,
+                       equal_nan=True)
+    # a_x > 0 turns +z towards -y, so the mirror sends the beam to +y and the
+    # final local z axis points to -y (light travels in local -z):
+    origin, R = folded.frames()[1]
+    assert origin[1] == pytest.approx(d_img - 20.0)
+    assert np.allclose(R[:, 2], [0, -1, 0], atol=1e-12)
+    spot = folded.spot_diagram(0.0)
+    assert spot.rms == pytest.approx(system.spot_diagram(0.0).rms)
+
+
+def test_decentred_ideal_lens_moves_the_focus():
+    dy = 1.5
+    system = rt.System([rt.Surface(np.inf, 1.0, semi_diameter=4.0),
+                        rt.IdealLens(50.0, 50.0, decenter=(0.0, dy))], 0, WL)
+    bundle = system.trace_pupil(0.0, *np.random.default_rng(1).uniform(-0.7, 0.7, (2, 20)))
+    assert np.allclose(bundle.points[-1, :, 1], dy, atol=1e-12)
+    assert system.spot_diagram(0.0).rms < 1e-12
+
+
+def test_tilted_plate_shifts_rays_laterally():
+    # a plane parallel plate of thickness d tilted by theta displaces a ray by
+    # d sin(theta) (1 - cos(theta)/sqrt(n**2 - sin(theta)**2))
+    n, d, theta = 1.5, 10.0, np.radians(30.0)
+    surfaces = [rt.Surface(np.inf, 5.0, semi_diameter=2.0),
+                rt.Surface(np.inf, d/np.cos(theta), n_after=n, tilt=(theta, 0, 0)),
+                rt.Surface(np.inf, 30.0, n_after=1.0, tilt=(theta, 0, 0))]
+    # thickness along the axis: the second face is d/cos(theta) further in z
+    system = rt.System(surfaces, 0, WL)
+    ray = system.trace_pupil(0.0, 0.0, 0.0)
+    shift = d*np.sin(theta)*(1 - np.cos(theta)/np.sqrt(n**2 - np.sin(theta)**2))
+    assert np.allclose(ray.directions[-1, 0], [0, 0, 1])
+    assert abs(ray.points[-1, 0, 1]) == pytest.approx(shift, rel=1e-10)
+
+
+def test_tilted_image_plane():
+    # a perfect lens at field theta images onto a plane through the focus
+    # tilted by beta about x (normal (0, -sin(beta), cos(beta))): the chief
+    # ray y = z tan(theta) meets the plane z = f + y tan(beta) at
+    # y = f tan(theta)/(1 - tan(beta) tan(theta))
+    f, beta, theta = 100.0, np.radians(10.0), np.radians(5.0)
+    system = rt.System([rt.IdealLens(f, f, semi_diameter=10.0)], 0, WL,
+                       image_tilt=(beta, 0, 0))
+    chief = system.trace_pupil(theta)
+    y = f*np.tan(theta)/(1 - np.tan(beta)*np.tan(theta))
+    assert chief.points[-1, 0, 1] == pytest.approx(y)
+    assert chief.points[-1, 0, 2] == pytest.approx(f + y*np.tan(beta))
+    assert abs(system.to_image_frame(chief.points[-1])[0, 2]) < 1e-12
+    # on axis, the focus lies in the plane; off axis the tilted plane defocuses
+    assert system.spot_diagram(0.0).rms < 1e-12
+    assert system.spot_diagram(theta).rms > 1e-3
+
+
+def test_object_space_telecentric_system():
+    # 4f relay with the stop in the common focal plane: chief rays are parallel
+    # to the axis in object space, the entrance pupil lies at infinity
+    f1, f2 = 100.0, 50.0
+    system = rt.System([rt.IdealLens(f1, f1), rt.Surface(np.inf, f2, semi_diameter=5.0),
+                        rt.IdealLens(f2, f2)], 1, WL, object_distance=f1, object_height=3.0)
+    assert np.isinf(system.paraxial().ep_z)
+    assert system.paraxial().magnification == pytest.approx(-f2/f1)
+    chief = system.trace_pupil(3.0)
+    assert np.allclose(chief.directions[0, 0], [0, 0, 1])
+    assert chief.points[-1, 0, 1] == pytest.approx(-1.5)
+    assert system.spot_diagram(3.0).rms < 1e-12
+    # the rim rays fill the stop:
+    rim = system.trace_pupil(3.0, [1.0, 0.0], [0.0, -1.0])
+    assert np.allclose(np.hypot(rim.points[2, :, 0], rim.points[2, :, 1]), 5.0)
+
+
+def test_fused_silica_index():
+    # Malitson: n = 1.4585 at the d line, about 1.5084 at KrF
+    assert rt.fused_silica(587.6) == pytest.approx(1.4585, abs=1e-4)
+    assert rt.fused_silica(248.3) == pytest.approx(1.5084, abs=1e-4)
+
+
+def test_caldwell_lithography_lens():
+    lens = rt.caldwell_krf_lens()
+    p = lens.paraxial()
+    length = 107.954 + sum(s.thickness for s in lens.surfaces)
+    assert length == pytest.approx(1000.0, abs=0.05)
+    assert p.magnification == pytest.approx(-0.25, abs=1e-4)
+    assert lens.pupil(0.0, 33).NA == pytest.approx(0.56, abs=2e-3)
+    for h in (0.0, 23.4, 46.8):
+        chief = lens.trace_pupil(h)
+        # telecentric on both sides and the image at -h/4:
+        assert abs(chief.directions[0, 0, 1]) < 5e-3
+        assert abs(chief.directions[-1, 0, 1]) < 5e-3
+        assert chief.points[-1, 0, 1] == pytest.approx(-h/4, abs=2e-3)
+        # nearly diffraction limited (Marechal: 0.07 waves RMS)
+        assert lens.rms_opd(h, 33) < 0.1
+    assert lens.rms_opd(0.0, 33) < 0.05
