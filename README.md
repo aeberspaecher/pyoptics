@@ -134,7 +134,8 @@ Status of the modules:
   pupil relative to the reference sphere on the chief ray, Fringe Zernike
   fits, RMS OPD and Strehl ratio; PSF and MTF via `imaging`; spot diagrams,
   ray fans and layout plots; example: Caldwell's all fused silica KrF
-  lithography projection lens (NA 0.56, 4x)
+  lithography projection lens (NA 0.56, 4x) with decentre and axial shift
+  sensitivities of its elements (`with_axial_shift()`)
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
 - `TIE`: basic transport of intensity solver, partly tested
