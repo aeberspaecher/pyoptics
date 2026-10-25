@@ -121,7 +121,8 @@ Status of the modules:
   fits, used by `Projector(jones_pupil=...)` in Abbe and Hopkins imaging,
   and a polarization ray trace of coated or uncoated lenses with optional
   CaF2 elements and their intrinsic birefringence
-  (`litho.lens.lens_jones_pupil`, `litho.lens.CubicCrystal`);
+  (`litho.lens.lens_jones_pupil` on top of `raytrace.System.trace_polarization`,
+  `materials.CubicCrystal`);
   `litho.source_opt`: source optimization of a pixelated source with
   symmetry, pupil fill and common dose constraints, maximizing the worst
   NILS over clips and foci by linear programming on the Abbe responses;
@@ -182,7 +183,15 @@ Status of the modules:
   fits, RMS OPD and Strehl ratio; PSF and MTF via `imaging`; spot diagrams,
   ray fans and layout plots; example: Caldwell's all fused silica KrF
   lithography projection lens (NA 0.56, 4x) with decentre and axial shift
-  sensitivities of its elements (`with_axial_shift()`)
+  sensitivities of its elements (`with_axial_shift()`); polarization ray
+  trace with energy (`System.trace_polarization()`, Chipman's 3x3 matrices):
+  Fresnel refraction and reflection through thin film coatings on any
+  surface (`coatings.Coating`, `coatings.Layer`) with layer thickness
+  variations across the surface (radial, xy or Zernike polynomials),
+  coated metal mirrors, absorbing (`materials.Isotropic`, n + ik) and
+  birefringent or dichroic media (`materials.Uniaxial`,
+  `materials.CubicCrystal`); power along every ray, transmittance, output
+  fields and Jones matrices
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
 - `modes`: mode analysis and fibres, tested: decomposition of any field into

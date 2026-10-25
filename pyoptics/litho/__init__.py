@@ -49,7 +49,7 @@ exchangeable:
   retardance and diattenuation in orientation Zernike polynomials), with
   the polar decomposition; `lens.lens_jones_pupil` traces it through a
   coated or uncoated lens, optionally with CaF2 elements
-  (`lens.CubicCrystal`),
+  (`materials.CubicCrystal`), on top of `raytrace.System.trace_polarization`,
 - `source_opt`: source optimization of a pixelated (freeform) source for
   a set of clips by linear programming on the Abbe responses,
 - `opc`: optical proximity correction of Manhattan polygons: bias tables

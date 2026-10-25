@@ -69,6 +69,7 @@ Interfaces, thin films and polarization
 
    pyoptics.interfaces
    pyoptics.thin_films
+   pyoptics.coatings
    pyoptics.materials
    pyoptics.polarization
    pyoptics.polarization.jones

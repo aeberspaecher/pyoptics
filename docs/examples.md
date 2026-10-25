@@ -47,6 +47,7 @@ notebooks/26_mode_analysis
 - {doc}`notebooks/09_bases`
 - {doc}`notebooks/12_psf_mtf_strehl`
 - {doc}`notebooks/24_ray_tracing`
+- {doc}`notebooks/34_polarization_raytrace`
 
 ```{toctree}
 :hidden:
@@ -56,6 +57,7 @@ notebooks/05_imaging_zernikes
 notebooks/09_bases
 notebooks/12_psf_mtf_strehl
 notebooks/24_ray_tracing
+notebooks/34_polarization_raytrace
 ```
 
 ## Interfaces, thin films and polarization

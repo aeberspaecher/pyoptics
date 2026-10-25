@@ -47,7 +47,8 @@ Polarization
 lens_jones_pupil() traces the polarization through the lens: Fresnel
 transmission of every surface, optional thin film coatings
 (quarter_wave_coating()) and birefringent elements such as CaF2 with its
-intrinsic birefringence (CubicCrystal). The result is fitted with
+intrinsic birefringence (materials.CubicCrystal), with
+raytrace.System.trace_polarization(). The result is fitted with
 pyoptics.litho.jones_pupil and handed to Projector(jones_pupil=...).
 
 Caldwell's lens is a dry KrF design (NA 0.56). It is the ray traced model
@@ -65,7 +66,7 @@ import numpy as np
 
 from . import metrics
 from ..bases import fringe_zernike
-from ..geometry import R_z
+from ..materials import CubicCrystal  # noqa: F401 (moved to pyoptics.materials)
 from .imaging import Projector
 from .jones_pupil import decompose
 
@@ -295,114 +296,6 @@ def quarter_wave_coating(n_glass, wavelength, n_coating=None):
     return [(n_c, wavelength/(4*n_c))]
 
 
-def _ray_basis(k, normal):
-    """Unit s vectors k x normal (any perpendicular vector at normal
-    incidence) and the p vectors k x s, for rows of k."""
-
-    s = np.cross(k, normal)
-    small = np.linalg.norm(s, axis=-1) < 1e-12
-    s[small] = np.cross(k[small], [1.0, 0.0, 0.0])
-    s = s/np.linalg.norm(s, axis=-1)[:, None]
-
-    return s, np.cross(k, s)
-
-
-def _interface(k1, k2, normal, n1, n2, layers, wavelength):
-    """Polarization ray tracing matrices (Chipman's P, shape (N, 3, 3)) of the
-    refraction of the rays k1 -> k2 at a surface with the unit normals,
-    for the transmitted amplitude: ``|P E|**2`` is the transmitted power fraction
-    (Fresnel transmission times n2*cos_t/(n1*cos_i))."""
-
-    from ..thin_films import _r_t
-
-    cos_i = np.abs(np.sum(k1*normal, axis=-1))
-    cos_t = np.abs(np.sum(k2*normal, axis=-1))
-    sin_i = np.sqrt(np.clip(1 - cos_i**2, 0, None))
-    if n1 < n2:  # layers on the side of the lower index
-        n_stack, t_stack = [n1] + [n for n, _ in layers] + [n2], [t for _, t in layers]
-    else:
-        n_stack, t_stack = [n1] + [n for n, _ in layers[::-1]] + [n2], [t for _, t in layers[::-1]]
-    n_stack = np.array(n_stack, dtype=complex)
-    t_s = _r_t(sin_i, n_stack, t_stack, "TE", wavelength)[1]
-    t_p = _r_t(sin_i, n_stack, t_stack, "TM", wavelength)[1]*cos_i/cos_t  # tangential -> full field
-    power = np.sqrt(n2*cos_t/(n1*cos_i))
-    s, p1 = _ray_basis(k1, normal)
-    p2 = np.cross(k2, s)
-
-    return power[:, None, None]*(t_s[:, None, None]*s[:, :, None]*s[:, None, :]
-                                 + t_p[:, None, None]*p2[:, :, None]*p1[:, None, :])
-
-
-class CubicCrystal(object):
-    """Intrinsic (spatial dispersion induced) birefringence of a cubic
-    crystal such as CaF2, for lens_jones_pupil(birefringent=...).
-
-    Cubic crystals are isotropic to lowest order, but at short wavelengths
-    the finite wave vector makes them weakly birefringent (Burnett, Levine
-    and Shirley, Phys. Rev. B 64, 241102 (2001)). The lowest order term
-    allowed by cubic symmetry changes the index for a ray along the unit
-    vector k (crystal axes) by ::
-
-        dn = -2*delta_n*(B^T diag(k_x**2, k_y**2, k_z**2) B - trace/2)
-
-    on its transverse polarization basis B. It vanishes along the <100> and
-    <111> axes and is largest along the <110> axes, where delta_n =
-    n([001] polarization) - n([1-10] polarization). Burnett et al. measured
-    abs(delta_n) = 3.4e-7 (3.4 nm/cm) at 193 nm and 11.2e-7 at 157 nm for
-    CaF2, which made it hard to use at 157 nm. The pattern over the pupil
-    has the symmetry of the axis along the lens axis (threefold for [111],
-    fourfold for [100]), so clocking elements against each other (e.g. two
-    [111] elements by 60 degrees) cancels the non rotationally symmetric
-    part.
-
-    Parameters
-    ----------
-    delta_n : number
-        Birefringence along <110> (see above), e.g. -3.4e-7.
-    axis : {"111", "100", "110"}, optional
-        Crystal axis along the lens axis (z).
-    clocking : number, optional
-        Rotation of the crystal about the lens axis, radians.
-    """
-
-    _AXES = {"100": np.eye(3),
-             "111": np.array([[1, -1, 0]/np.sqrt(2), [1, 1, -2]/np.sqrt(6), [1, 1, 1]/np.sqrt(3)]),
-             "110": np.array([[0, 0, 1.0], [1, -1, 0]/np.sqrt(2), [1, 1, 0]/np.sqrt(2)])}
-
-    def __init__(self, delta_n, axis="111", clocking=0.0):
-        if axis not in self._AXES:
-            raise ValueError("axis must be one of {}".format(sorted(self._AXES)))
-        self.delta_n, self.axis, self.clocking = delta_n, axis, clocking
-        # _AXES rows: the lens x, y, z axes in crystal coordinates (unclocked)
-        self.to_crystal = self._AXES[axis].T @ R_z(-clocking)
-
-    def __repr__(self):
-        return "CubicCrystal(delta_n={}, axis={!r}, clocking={})".format(self.delta_n, self.axis,
-                                                                       self.clocking)
-
-    def index_change(self, k, basis):
-        """Change of the refractive index (N, 2, 2) on the transverse basis
-        (N, 3, 2) of the rays with unit directions k (N, 3), lens frame."""
-
-        k_c = k @ self.to_crystal.T
-        B_c = np.einsum("ij,njk->nik", self.to_crystal, basis)
-        N = np.einsum("nik,ni,nil->nkl", B_c, k_c**2, B_c)
-        N = N - np.trace(N, axis1=1, axis2=2)[:, None, None]/2*np.eye(2)
-
-        return -2*self.delta_n*N
-
-    def propagation(self, k, length, wavelength):
-        """Polarization ray tracing matrices (N, 3, 3) of a path of the
-        given lengths along the unit directions k (lens frame)."""
-
-        s, p = _ray_basis(k, np.tile([0.0, 0.0, 1.0], (len(k), 1)))
-        B = np.stack([s, p], axis=-1)
-        w, V = np.linalg.eigh(self.index_change(k, B))
-        U = np.einsum("nij,nj,nkj->nik", V, np.exp(2j*np.pi/wavelength*length[:, None]*w), V)
-
-        return np.einsum("nij,njk,nlk->nil", B, U, B) + k[:, :, None]*k[:, None, :]
-
-
 def lens_jones_pupil(system, field=(0.0, 0.0), N=32, NA=None, coating=None, birefringent=None,
                      normalize=True):
     """Polarization ray trace of a lens: its Jones pupil at an image field
@@ -436,13 +329,13 @@ def lens_jones_pupil(system, field=(0.0, 0.0), N=32, NA=None, coating=None, bire
         Thin film layers on every glass-air surface, from the air side (e.g.
         quarter_wave_coating()), thickness in the units of the system; or a
         function coating(i, n_glass) of the surface index returning such a
-        list (or None). None: uncoated.
+        list (or None). None: the coatings of the surfaces themselves
+        (Surface(coating=...), uncoated without).
     birefringent : dict {i: medium}, optional
         Birefringent media behind the surfaces i (index into
-        system.surfaces), e.g. {38: CubicCrystal(-3.4e-7, "111")}. A medium
-        has a method propagation(k, length, wavelength) returning the
-        polarization ray tracing matrices of the paths (see CubicCrystal);
-        its refractive index is still that of the system.
+        system.surfaces), e.g. {38: CubicCrystal(-3.4e-7, "111")}, any
+        materials.Material; the refractive index is still that of the
+        system.
     normalize : bool, optional
         Divide by the square root of the transmission of the chief ray and
         by its scalar phase (see jones_pupil.decompose()), so that the Jones
@@ -455,11 +348,11 @@ def lens_jones_pupil(system, field=(0.0, 0.0), N=32, NA=None, coating=None, bire
         PhysicalJonesPupil.fit() to use it in Projector(jones_pupil=...).
     """
 
-    from ..propagators import aplanatic_rotation
+    from ..coatings import Coating
     from ..raytrace import CoordinateBreak
 
     if any(s.mirror for s in system.surfaces):
-        raise NotImplementedError("polarization ray tracing of mirrors")
+        raise NotImplementedError("polarization ray tracing of mirrors (use System.trace_polarization)")
     if NA is None:
         NA = lens_NA(system, N)
     m = system.paraxial().magnification
@@ -467,32 +360,23 @@ def lens_jones_pupil(system, field=(0.0, 0.0), N=32, NA=None, coating=None, bire
     _, PX, PY, inside = system._pupil_grid(N)
     px = np.concatenate([[0.0], PX[inside]])
     py = np.concatenate([[0.0], PY[inside]])
-    bundle = system.trace_pupil(obj, px, py)
-    ok = bundle.valid
-    n = bundle.n
-    frames = system.frames()[0]
-    P = np.tile(np.eye(3, dtype=complex), (len(px), 1, 1))
+    # the layers sit on the side of the lower index (air):
+    n = system.n
+    coatings = {}
     for i, s in enumerate(system.surfaces):
-        if isinstance(s, CoordinateBreak) or n[i] == n[i + 1]:
+        if coating is None or isinstance(s, CoordinateBreak) or n[i] == n[i + 1]:
             continue
-        o, R = frames[i]
-        k1, k2 = bundle.directions[i][ok], bundle.directions[i + 1][ok]
-        normal = s.normal((bundle.points[i + 1][ok] - o) @ R) @ R.T
         layers = coating(i, max(n[i], n[i + 1])) if callable(coating) else coating
-        P_i = np.tile(np.eye(3, dtype=complex), (len(px), 1, 1))
-        P_i[ok] = _interface(k1, k2, normal, n[i], n[i + 1], layers or [], system.wavelength)
-        P = P_i @ P
-        if birefringent and i in birefringent:
-            length = np.linalg.norm(bundle.points[i + 2][ok] - bundle.points[i + 1][ok], axis=-1)
-            P_i[ok] = birefringent[i].propagation(k2, length, system.wavelength)
-            P = P_i @ P
-    d_in, d_out = bundle.directions[0], system._image_hits(bundle)[1]
-    B_in, B_out = aplanatic_rotation(d_in[:, 0], d_in[:, 1]), aplanatic_rotation(d_out[:, 0], d_out[:, 1])
-    J = np.einsum("jip,pjk,klp->pil", B_out, P, B_in)
+        stack = Coating(layers or [])
+        coatings[i] = stack if n[i] < n[i + 1] else stack.reversed()
+    traced = system.trace_pupil_polarization(obj, px, py, coatings=coatings, media=birefringent)
+    ok = traced.valid.copy()
+    J = traced.jones()
     transmission = float(np.sum(np.abs(J[0])**2)/2)
     if normalize:
         chief = decompose(J[0])
         J = J/(np.sqrt(chief["transmission"])*np.exp(1j*chief["phase"]))
+    d_out = system._image_hits(traced.bundle)[1]
     q = n[-1]*(d_out[:, :2] - d_out[0, :2])/NA
     ok[0] = False
 

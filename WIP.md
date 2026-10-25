@@ -30,6 +30,11 @@
 
 ## DONE
 
+* Polarization ray trace with energy in `raytrace` (`System.trace_polarization`):
+  coatings with thickness profiles on any surface (`coatings`), coated
+  mirrors, absorbing, uniaxial (retardance, dichroism) and cubic crystal
+  media (`materials`); `litho.lens.lens_jones_pupil` built on it
+
 * Lithography: lens aberrations from the ray tracer across the scanner
   slit, Zernike sensitivities (`litho.lens`, notebook 27)
 * Lithography: Hopkins TCC and SOCS imaging (`litho.hopkins`, notebook 28)
