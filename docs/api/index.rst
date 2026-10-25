@@ -53,6 +53,7 @@ Lithography
    pyoptics.litho.imaging
    pyoptics.litho.metrics
    pyoptics.litho.lens
+   pyoptics.litho.hopkins
    pyoptics.litho.plot
 
 Interfaces, thin films and polarization

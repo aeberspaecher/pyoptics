@@ -80,6 +80,7 @@ notebooks/14_stack_transfer_functions
 - {doc}`notebooks/16_vectorial_imaging_lithography`
 - {doc}`notebooks/17_lithography_toolbox`
 - {doc}`notebooks/27_litho_lens_aberrations`
+- {doc}`notebooks/28_hopkins_socs`
 
 ```{toctree}
 :hidden:
@@ -88,6 +89,7 @@ notebooks/14_stack_transfer_functions
 notebooks/16_vectorial_imaging_lithography
 notebooks/17_lithography_toolbox
 notebooks/27_litho_lens_aberrations
+notebooks/28_hopkins_socs
 ```
 
 ## Measurement, phase retrieval and beam shaping
