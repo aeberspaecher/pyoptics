@@ -7,12 +7,12 @@ coherent systems (SOCS) decomposition.
 Abbe's method (LithoSimulation) sums the image over the source points, so
 every new mask costs a full source integration. Hopkins' method moves the
 source integration in front: if the mask diffracts the same way for all
-source points (the Hopkins approximation), the image is
+source points (the Hopkins approximation), the image is::
 
     I(r) = sum_{o, o'} a_o a_o'^* TCC[o, o'] exp(i*(f_o - f_o').r)
 
 with the mask spectrum a_o (the diffraction orders o = (m, n) of one period)
-and the transmission cross coefficients
+and the transmission cross coefficients::
 
     TCC[o, o'] = sum_{source points s, polarization states, field components}
                  w_s H_o(s) H_o'(s)^*,
@@ -33,14 +33,15 @@ the Jones matrices (j: pupil component, k: incident component) is a
 "channel" c, and the TCC is indexed by (o, c).
 
 The TCC is Hermitian and positive semidefinite, so its eigenvectors phi_k
-and eigenvalues lambda_k >= 0 give the SOCS decomposition
+and eigenvalues lambda_k >= 0 give the SOCS decomposition::
 
     I(r) = sum_k lambda_k |sum_o a_o phi_k[o] exp(i*f_o.r)|^2,
 
 a sum of coherent images through the kernels phi_k. Few kernels usually
-carry almost all of the energy (the sum of the eigenvalues), so truncating
-the sum makes imaging very fast: the basis of fast OPC and source mask
-optimization.
+carry almost all of the energy (the sum of the eigenvalues). Truncated
+SOCS is the basis of imaging large layouts by FFT convolutions with the
+kernels, and its sum of coherent images has simple gradients with respect
+to the mask (inverse lithography, source mask optimization).
 
 Approximations against Abbe's method: the mask Jones matrices are those at
 normal incidence (s = 0). For a ThinMask, whose transmissions do not depend
