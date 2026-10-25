@@ -41,6 +41,25 @@ from ..propagators import aplanatic_rotation
 from . import metrics
 
 
+def _synthesize(M, W_x, W_y):
+    """Intensity sum_{o, o'} M[..., o, o'] exp(i*(f_o - f_o').r) on the grid
+    of W_x = exp(i*x*f_x), W_y = exp(i*y*f_y) from mutual intensities M of
+    shape (..., n_y*n_x, n_y*n_x) of the orders (n, m) (n along y); returns
+    shape (..., len(y), len(x))."""
+
+    n_x, n_y = W_x.shape[1], W_y.shape[1]
+    n_o = n_x*n_y
+    lead = M.shape[:-2]
+    # M[(n, m), (n', m')] -> M[(n, n'), (m, m')], then U_y @ M @ U_x.T
+    M = M.reshape(lead + (n_y, n_x, n_y, n_x)).swapaxes(-3, -2).reshape(lead + (n_y**2, n_x**2))
+    U_x = (W_x[:, :, None]*W_x.conj()[:, None, :]).reshape(len(W_x), n_x**2)
+    U_y = (W_y[:, :, None]*W_y.conj()[:, None, :]).reshape(len(W_y), n_y**2)
+    if len(W_y)*n_o**2 + len(W_y)*n_x**2*len(W_x) <= n_o**2*len(W_x) + len(W_y)*n_y**2*len(W_x):
+        return ((U_y @ M) @ U_x.T).real
+
+    return (U_y @ (M @ U_x.T)).real
+
+
 class Projector(object):
     """Projection lens.
 
@@ -278,9 +297,6 @@ class LithoSimulation(object):
         """``|E_x|**2``, ``|E_y|**2``, ``|E_z|**2`` summed over the source, shape
         (len(foci), 3, len(y), len(x))."""
 
-        P = self.projector
-        k0, kNA = P.k0, P.k0*P.NA
-        k = k0*P.n
         x, y = np.atleast_1d(np.asarray(x, dtype=float)), np.atleast_1d(np.asarray(y, dtype=float))
         foci = np.atleast_1d(np.asarray(foci, dtype=float))
         W_x, W_y = np.exp(1j*np.outer(x, f_x)), np.exp(1j*np.outer(y, f_y))
@@ -317,9 +333,7 @@ class LithoSimulation(object):
         for start in range(0, len(s_x_all), batch):
             sl = slice(start, start + batch)
             s_x, s_y = s_x_all[sl], s_y_all[sl]
-            K_x, K_y = np.broadcast_arrays(f_x[None, None, :] + kNA*s_x[:, None, None],
-                                           f_y[None, :, None] + kNA*s_y[:, None, None])
-            passed = K_x**2 + K_y**2 <= kNA**2*(1 + 1E-12)  # (points, n_y, n_x)
+            passed, pupil, G = self._transfer(s_x, s_y, f_x, f_y, foci, depth)
             if not np.any(passed):
                 continue
 
@@ -329,27 +343,6 @@ class LithoSimulation(object):
             J = np.stack([J[r] for r in regions], axis=1)  # (points, regions, 2, 2)
             V = np.einsum("prij,psj->psri", J, jones[sl])
             E_pupil = np.einsum("psri,rnm->psinm", V, C)  # (points, states, 2, n_y, n_x)
-
-            Sigma_x, Sigma_y = np.where(passed, K_x/k, 0.0), np.where(passed, K_y/k, 0.0)
-            cos_theta = np.sqrt(np.clip(1 - Sigma_x**2 - Sigma_y**2, 1E-12, None))
-            P_x, P_y = K_x/kNA, K_y/kNA
-            amplitude = passed*P.pupil_amplitude(P_x, P_y)
-            phase = P.pupil_phase(P_x, P_y)
-            pupil = amplitude*np.exp(1j*(phase + k*cos_theta*foci[:, None, None, None]))
-
-            # G maps pupil Jones vectors to the fields in image space (or in
-            # the resist), shape (3, 2, points, n_y, n_x):
-            if P.vectorial:
-                G = aplanatic_rotation(Sigma_x, Sigma_y)
-                if P.obliquity:
-                    G = G/np.sqrt(cos_theta)
-            else:
-                G = np.zeros((3, 2) + passed.shape)
-                G[0, 0], G[1, 1] = 1.0, 1.0
-            if self.wafer is not None:
-                K_x_in, K_y_in = np.where(passed, K_x, 0.0), np.where(passed, K_y, 0.0)
-                G = np.where(passed, self.wafer.transmit(G.astype(complex), K_x_in, K_y_in, k0,
-                                                         P.n, depth, P.vectorial), 0.0)
 
             H = np.einsum("ijpnm,psjnm->psinm", G, E_pupil)  # (points, states, 3, n_y, n_x)
             F = pupil[:, :, None, None]*H[None]  # (foci, points, states, 3, n_y, n_x)
@@ -373,17 +366,51 @@ class LithoSimulation(object):
                                   axes=([2, 3], [0, 1])).transpose(1, 2, 0, 3)
 
         if mutual:
-            # M[(n, m), (n', m')] -> M[(n, n'), (m, m')], then U_y @ M @ U_x.T
-            M = M.reshape(len(foci), 3, n_y, n_x, n_y, n_x).transpose(0, 1, 2, 4, 3, 5)
-            M = M.reshape(len(foci), 3, n_y**2, n_x**2)
-            U_x = (W_x[:, :, None]*W_x.conj()[:, None, :]).reshape(len(x), n_x**2)
-            U_y = (W_y[:, :, None]*W_y.conj()[:, None, :]).reshape(len(y), n_y**2)
-            if len(y)*n_o**2 + len(y)*n_x**2*len(x) <= n_o**2*len(x) + len(y)*n_y**2*len(x):
-                I_xyz = ((U_y @ M) @ U_x.T).real
-            else:
-                I_xyz = (U_y @ (M @ U_x.T)).real
+            I_xyz = _synthesize(M, W_x, W_y)
 
         return I_xyz
+
+    def _transfer(self, s_x, s_y, f_x, f_y, foci, depth):
+        """Pupil and polarization transfer of the orders (spatial angular
+        frequencies f_x, f_y) for the source points s_x, s_y.
+
+        Returns
+        -------
+        passed : bool array (points, n_y, n_x)
+            Orders inside the pupil.
+        pupil : array (foci, points, n_y, n_x)
+            Apodization, aberrations and defocus (0 outside the pupil).
+        G : array (3, 2, points, n_y, n_x)
+            Maps pupil Jones vectors to the fields in image space (or in the
+            resist).
+        """
+
+        P = self.projector
+        k0, kNA = P.k0, P.k0*P.NA
+        k = k0*P.n
+        K_x, K_y = np.broadcast_arrays(f_x[None, None, :] + kNA*s_x[:, None, None],
+                                       f_y[None, :, None] + kNA*s_y[:, None, None])
+        passed = K_x**2 + K_y**2 <= kNA**2*(1 + 1E-12)  # (points, n_y, n_x)
+        Sigma_x, Sigma_y = np.where(passed, K_x/k, 0.0), np.where(passed, K_y/k, 0.0)
+        cos_theta = np.sqrt(np.clip(1 - Sigma_x**2 - Sigma_y**2, 1E-12, None))
+        P_x, P_y = K_x/kNA, K_y/kNA
+        amplitude = passed*P.pupil_amplitude(P_x, P_y)
+        phase = P.pupil_phase(P_x, P_y)
+        pupil = amplitude*np.exp(1j*(phase + k*cos_theta*np.asarray(foci)[:, None, None, None]))
+
+        if P.vectorial:
+            G = aplanatic_rotation(Sigma_x, Sigma_y)
+            if P.obliquity:
+                G = G/np.sqrt(cos_theta)
+        else:
+            G = np.zeros((3, 2) + passed.shape)
+            G[0, 0], G[1, 1] = 1.0, 1.0
+        if self.wafer is not None:
+            K_x_in, K_y_in = np.where(passed, K_x, 0.0), np.where(passed, K_y, 0.0)
+            G = np.where(passed, self.wafer.transmit(G.astype(complex), K_x_in, K_y_in, k0,
+                                                     P.n, depth, P.vectorial), 0.0)
+
+        return passed, pupil, G
 
     def _open_frames(self, foci, depth):
         clear = {"clear": np.ones((1, 1), dtype=complex)}

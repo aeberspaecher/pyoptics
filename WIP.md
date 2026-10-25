@@ -12,8 +12,7 @@
 ## Medium
 
 * Finish the stub `interpolator.TrigInterpolator`
-* Lithography (DUV, see the roadmap in the project files): Hopkins/TCC
-  (SOCS) imaging for speed, resist models beyond threshold and blur (Dill
+* Lithography (DUV, see the roadmap in the project files): resist models beyond threshold and blur (Dill
   exposure, PEB, Mack development) with swing curves, rigorous mask
   diffraction (RCWA) to calibrate the boundary layer model, Jones pupil,
   source optimization, OPC helpers
@@ -35,6 +34,7 @@
 
 * Lithography: lens aberrations from the ray tracer across the scanner
   slit, Zernike sensitivities (`litho.lens`, notebook 27)
+* Lithography: Hopkins TCC and SOCS imaging (`litho.hopkins`, notebook 28)
 
 * FFT module
 * fitting bases to scattered data

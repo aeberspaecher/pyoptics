@@ -103,7 +103,9 @@ Status of the modules:
   distortion, telecentricity, placement of a small feature), computes CD,
   placement and best focus across a scanner slit with scan averaging and
   the linear scanner correction, and Zernike sensitivities with a quick
-  aberration budget
+  aberration budget; `litho.hopkins` computes transmission cross
+  coefficients (TCC) and their SOCS decomposition, equal to Abbe's method
+  for thin masks and fast for many masks with the same optics
 - `polarization`: TE/TM bases, Stokes to Jones decomposition, DOP and IPS
 - `imaging`: scalar imaging, tested: coherent imaging through a circular
   pupil, PSF with pupil masks (obscuration, apodization) and phases (also
