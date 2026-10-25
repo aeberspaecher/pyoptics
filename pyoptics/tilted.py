@@ -282,12 +282,14 @@ def _exact(spectra, kx, ky, k, r0, R, x_out, y_out, remove_carrier):
     return results, c
 
 
-def _rotate(F, kx, ky, k, R, kx_hat, ky_hat, kind="linear", jacobian=True):
+def _rotate(F, kx, ky, k, R, kx_hat, ky_hat, kind="cubic", jacobian=True):
     """Interpolate the spectrum F(kx, ky) at k = R k^ for the uniform k^ grid
     and apply the Jacobian. Returns the rotated spectrum (as a density), the
     source wave vectors at the samples and the validity mask.
     """
 
+    if kind not in ("linear", "cubic"):
+        raise ValueError('kind must be "linear" or "cubic", not {!r}'.format(kind))
     order = {"linear": 1, "cubic": 3}[kind]
     KXh, KYh = np.meshgrid(kx_hat, ky_hat)
     KZh2 = k**2 - KXh**2 - KYh**2
