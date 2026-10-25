@@ -16,7 +16,7 @@ polished library. It runs on Python 3.9 to 3.13. The API may still change
 between versions, and there is no release on PyPI; install it from source as
 described below.
 
-The core is tested: a suite of about 500 pytest tests checks the numerics
+The core is tested: a suite of about 600 pytest tests checks the numerics
 against analytical results (Fresnel and Fraunhofer diffraction, Gaussian beam
 propagation, Mahajan's on-axis intensity, Airy pattern and OTF, Fresnel
 equations, thin film stacks, Goos-Hänchen shift, beam widths and M² of
@@ -31,7 +31,9 @@ fringe analysis of known Zernike phases, holograms of known objects
 reconstructed, refocused and autofocused, exact ray traces against Snell's
 law, perfect conics, Seidel sums and the Airy pattern, tilted plates and
 fold mirrors, Fienup's HIO and phase diversity recovering known objects and
-Zernike pupil phases) and runs in GitHub
+Zernike pupil phases, HG/LG mode decompositions and M² from the mode content
+against ISO caustic fits, LP fibre modes against cutoffs and the Marcuse
+mode field radius, fibre coupling against the Gaussian formulas) and runs in GitHub
 Actions on Python 3.9, 3.11 and 3.13 for every push and pull request. A
 consistent phase convention is used throughout (see Conventions).
 
@@ -139,6 +141,15 @@ Status of the modules:
   sensitivities of its elements (`with_axial_shift()`)
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
+- `modes`: mode analysis and fibres, tested: decomposition of any field into
+  Hermite-Gaussian or Laguerre-Gaussian modes (given or fitted waist,
+  curvature and centre; power fractions, reconstruction error, propagation
+  of the expansion), M² from the mode content (exact second moments of
+  coherent superpositions); LP modes of weakly guiding step-index fibres
+  (characteristic equation, cutoffs, b(V), n_eff, mode fields, Marcuse's
+  Gaussian approximation); coupling efficiency of any field into any mode
+  (generalizes `abcd.coupling_efficiency()`), sweeps over offset, tilt and
+  defocus, power per fibre mode
 - `TIE`: basic transport of intensity solver, partly tested
 - `ifta`: basic Gerchberg-Saxton and variants for beam shaping, tested
   (convergence of GS, HIO-HOO and over-compensation on a reachable target,
