@@ -178,3 +178,33 @@ def test_off_axis_field(caldwell):
     # the chief ray crosses the surfaces obliquely in the y-z plane: y (p)
     # is transmitted better, a diattenuation along y (OZ +1 < 0)
     assert fit.diattenuation[1] < -0.01
+
+
+def test_cubic_crystal_birefringence():
+    def delta_index(crystal, k):
+        k = np.atleast_2d(k)/np.linalg.norm(k)
+        s, p = lens._ray_basis(k, np.array([[0.0, 0.0, 1.0]]))
+        return np.ptp(np.linalg.eigvalsh(crystal.index_change(k, np.stack([s, p], axis=-1))))
+
+    c100, c111 = lens.CubicCrystal(-3.4e-7, "100"), lens.CubicCrystal(-3.4e-7, "111")
+    assert delta_index(c100, [0, 0, 1]) < 1e-20 and delta_index(c111, [0, 0, 1]) < 1e-20
+    assert np.isclose(delta_index(c100, [1, 1, 0]), 3.4e-7)
+    assert np.isclose(delta_index(lens.CubicCrystal(-3.4e-7, "110"), [0, 0, 1]), 3.4e-7)
+    with pytest.raises(ValueError):
+        lens.CubicCrystal(1e-7, "123")
+
+
+def test_crystal_elements_in_the_lens(caldwell):
+    def pupil(axis, clocking):
+        return lens.lens_jones_pupil(caldwell, N=15, birefringent={38: lens.CubicCrystal(-3e-7, axis,
+                                                                                        clocking)})
+
+    r = pupil("111", 0.0)
+    g = jp.decompose(r.J)["retardance"]
+    assert 0.02 < np.abs(g[0] + 1j*g[1]).max() < 0.2
+    # threefold (fourfold) symmetry: clocking by 120 (90) degrees changes nothing
+    assert np.allclose(pupil("111", 2*np.pi/3).J, r.J, atol=1e-10)
+    assert np.allclose(pupil("100", np.pi/2).J, pupil("100", 0.0).J, atol=1e-10)
+    assert not np.allclose(pupil("111", np.pi/3).J, r.J, atol=1e-4)
+    fit, _ = jp.PhysicalJonesPupil.fit(r.P_x, r.P_y, r.J, n_terms=16)
+    assert abs(fit.retardance[3]) > 0.05 and abs(fit.retardance[3]) > 3*abs(fit.retardance.get(2, 0))

@@ -13,8 +13,8 @@
 
 * Finish the stub `interpolator.TrigInterpolator`
 * Lithography (DUV, see the roadmap in the project files): source
-  optimization, OPC helpers, RCWA for 2D masks, stress and intrinsic
-  birefringence in the polarization ray trace
+  optimization, OPC helpers, RCWA for 2D masks, ray traced stress
+  birefringence
 * More tests for `wpm` and `TIE`
 * Docstrings: NumPy-style Parameters/Returns sections for raytrace, abcd,
   modes, litho, TIE, interfaces and bases; numpydoc validation in CI
@@ -40,8 +40,9 @@
 * Lithography: rigorous mask diffraction with 1D RCWA and boundary layer
   calibration (`litho.rcwa`, notebook 30)
 * Lithography: Jones pupils (Pauli-Zernike, orientation Zernikes, polar
-  decomposition) and the polarization ray trace of a lens
-  (`litho.jones_pupil`, `litho.lens`, notebook 31)
+  decomposition) and the polarization ray trace of a lens with coatings
+  and CaF2 intrinsic birefringence (`litho.jones_pupil`, `litho.lens`,
+  notebook 31)
 
 * FFT module
 * fitting bases to scattered data

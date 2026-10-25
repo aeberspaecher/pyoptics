@@ -47,7 +47,8 @@ exchangeable:
   representations of the literature (Jones-Zernike, Pauli-Zernike,
   retardance and diattenuation in orientation Zernike polynomials), with
   the polar decomposition; `lens.lens_jones_pupil` traces it through a
-  coated or uncoated lens,
+  coated or uncoated lens, optionally with CaF2 elements
+  (`lens.CubicCrystal`),
 - `plot`: source, mask, pupil fill, images, Bossung plots, process windows.
 
 All lengths are image-side (wafer scale) values; mask dimensions are given
