@@ -32,6 +32,20 @@ the standing waves in the resist.
 In the scalar model of the projector, the TE coefficients are used for both
 field components and there is no E_z.
 
+Swing curves: for a plane wave with the transverse wave number
+k_perp = k_0*na (na = n_medium*sin(theta) in the immersion medium, so na
+runs up to the NA of the projector), WaferStack.reflectance() gives the
+reflectance of the whole stack, substrate_reflectance() the reflectance
+``|r_b|**2`` of the layers below as seen from the resist (it drives the
+standing waves and the swing) and absorbed() the fraction of the incident
+power absorbed in the resist, ::
+
+    A = k_0*Im(n_r**2)*int_0^d |E(z)|**2 dz/(n_medium*cos(theta))
+
+for a unit incident field, integrated analytically. swing_curve() evaluates
+them through resist thickness, optimize_barc() scans the thickness of a
+bottom anti-reflective coating for the lowest substrate reflectance.
+
 Convention: fields vary as exp(i(k.r - omega*t)), absorbing media have
 n + i*k with k > 0.
 """
@@ -71,6 +85,18 @@ class WaferStack(object):
         self.below, self.above = list(below), list(above)
         self.substrate = substrate
         self.name = name or "wafer stack"
+
+    def with_(self, thickness=None, **kwargs):
+        """Copy with some parts exchanged, e.g. stack.with_(thickness=300.0)
+        for another resist thickness or stack.with_(below=[...])."""
+
+        p = dict(resist=self.resist, below=self.below, substrate=self.substrate, above=self.above,
+                 name=self.name)
+        p.update(kwargs)
+        if thickness is not None:
+            p["resist"] = tuple(p["resist"][:2]) + (thickness,)
+
+        return WaferStack(**p)
 
     @property
     def resist_n(self):
@@ -137,3 +163,172 @@ class WaferStack(object):
         E_z = -k_perp/k_z*a_TM*(d_TM - u_TM)
 
         return np.array([-s*TE + c*TM, c*TE + s*TM, E_z])
+
+    # plane wave quantities for swing curves:
+
+    def _media(self, n_medium):
+        n = np.concatenate([[n_medium], _complex_n(self.above), [self.resist_n], _complex_n(self.below),
+                            [self.substrate[0] + 1j*self.substrate[1]]])
+        t = np.concatenate([_thicknesses(self.above), [self.thickness], _thicknesses(self.below)])
+
+        return n, t
+
+    def reflectance(self, na, wavelength, n_medium=1.0, pol="unpolarized"):
+        """Reflectance of the stack for plane waves from the medium with the
+        transverse wave numbers k_0*na; pol "TE", "TM" or "unpolarized"
+        (the mean)."""
+
+        if pol == "unpolarized":
+            return np.mean([self.reflectance(na, wavelength, n_medium, p) for p in ("TE", "TM")], axis=0)
+        n, t = self._media(n_medium)
+        r = _r_t(np.asarray(na, dtype=float)/n_medium, n, t, pol, wavelength)[0]
+
+        return np.abs(r)**2
+
+    def substrate_reflectance(self, na, wavelength, n_medium=1.0, pol="unpolarized"):
+        """Reflectance ``|r_b|**2`` of the layers below the resist (BARC,
+        substrate) seen from the resist, for plane waves with the transverse
+        wave numbers k_0*na."""
+
+        if pol == "unpolarized":
+            return np.mean([self.substrate_reflectance(na, wavelength, n_medium, p)
+                            for p in ("TE", "TM")], axis=0)
+        k0 = 2*np.pi/wavelength
+
+        return np.abs(self.coefficients(k0*np.asarray(na, dtype=float), k0, n_medium, pol)[2])**2
+
+    def absorbed(self, na, wavelength, n_medium=1.0, pol="unpolarized"):
+        """Fraction of the incident power absorbed in the resist, for plane
+        waves from the medium with the transverse wave numbers k_0*na."""
+
+        if pol == "unpolarized":
+            return np.mean([self.absorbed(na, wavelength, n_medium, p) for p in ("TE", "TM")], axis=0)
+        k0 = 2*np.pi/wavelength
+        k_perp = k0*np.asarray(na, dtype=float)
+        cos_m = np.sqrt(1 - (np.asarray(na, dtype=float)/n_medium)**2)
+        d = self.thickness
+        t_top, r_top, r_b, k_z = self.coefficients(k_perp, k0, n_medium, pol)
+        # tangential field a*exp(i*k_z*z) + b*exp(-i*k_z*z) for a unit incident field
+        # (its tangential part is cos(theta) for TM):
+        a = t_top/(1 - r_top*r_b*np.exp(2j*k_z*d))*(cos_m if pol == "TM" else 1.0)
+        b = a*r_b*np.exp(2j*k_z*d)
+        beta, kappa = k_z.real, k_z.imag
+
+        def integral(c):  # int_0^d exp(c*z) dz
+            c = np.asarray(c, dtype=complex)
+            small = np.abs(c*d) < 1e-8
+            c_safe = np.where(small, 1.0, c)
+            return np.where(small, d*(1 + c*d/2), np.expm1(c_safe*d)/c_safe)
+
+        down_up = np.abs(a)**2*integral(-2*kappa).real + np.abs(b)**2*integral(2*kappa).real
+        cross = 2*(a*b.conj()*integral(2j*beta)).real
+        E2 = down_up + cross
+        if pol == "TM":  # E_z = -k_perp/k_z*(a*exp(i*k_z*z) - b*exp(-i*k_z*z))
+            E2 = E2 + np.abs(k_perp/k_z)**2*(down_up - cross)
+
+        return k0*(self.resist_n**2).imag*E2/(n_medium*cos_m)
+
+
+def _average(values, weights):
+    values = np.asarray(values)
+    if weights is None:
+        return values.mean(axis=-1)
+    w = np.asarray(weights, dtype=float)
+
+    return (values*w).sum(axis=-1)/w.sum()
+
+
+class SwingCurve(object):
+    """Result of swing_curve(): thickness, reflectance (of the whole
+    stack), absorbed (fraction of the incident power absorbed in the resist)
+    and substrate_reflectance (seen from the resist), averaged over the
+    given angles; swing() gives the swing ratio (max - min)/mean of a
+    curve."""
+
+    def __init__(self, thickness, reflectance, absorbed, substrate_reflectance):
+        self.thickness = thickness
+        self.reflectance, self.absorbed = reflectance, absorbed
+        self.substrate_reflectance = substrate_reflectance
+
+    @staticmethod
+    def swing(values):
+        values = np.asarray(values)
+
+        return (values.max() - values.min())/values.mean()
+
+
+def swing_curve(wafer, thicknesses, wavelength, n_medium=1.0, na=0.0, weights=None,
+                pol="unpolarized"):
+    """Reflectance and absorbed power of a wafer stack through resist
+    thickness.
+
+    Parameters
+    ----------
+    wafer : WaferStack
+    thicknesses : array
+        Resist thicknesses.
+    wavelength : number
+    n_medium : number, optional
+        Refractive index of the medium above the stack (immersion liquid).
+    na : number or array, optional
+        Transverse wave numbers k_perp/k_0 of the plane waves (0: normal
+        incidence); the results are averaged over them with the weights.
+    weights : array, optional
+    pol : "TE", "TM" or "unpolarized", optional
+
+    Returns
+    -------
+    SwingCurve
+    """
+
+    na = np.atleast_1d(np.asarray(na, dtype=float))
+    R, A, R_b = [], [], []
+    for d in thicknesses:
+        w = wafer.with_(thickness=d)
+        R.append(w.reflectance(na, wavelength, n_medium, pol))
+        A.append(w.absorbed(na, wavelength, n_medium, pol))
+        R_b.append(w.substrate_reflectance(na, wavelength, n_medium, pol))
+
+    return SwingCurve(np.asarray(thicknesses, dtype=float), _average(R, weights), _average(A, weights),
+                      _average(R_b, weights))
+
+
+def optimize_barc(wafer, barc, thicknesses, wavelength, n_medium=1.0, na=0.0, weights=None,
+                  pol="unpolarized"):
+    """Thickness of a bottom anti-reflective coating with the lowest
+    substrate reflectance seen from the resist, averaged over the plane
+    waves k_0*na with the weights.
+
+    Parameters
+    ----------
+    wafer : WaferStack
+        The BARC goes directly below the resist, above the layers already
+        in wafer.below.
+    barc : tuple (n, k)
+    thicknesses : array
+        BARC thicknesses to scan.
+    wavelength, n_medium, na, weights, pol :
+        See swing_curve().
+
+    Returns
+    -------
+    best : number
+        Thickness with the lowest reflectance (scanned value, refined by a
+        parabola through its neighbours).
+    reflectance : array
+        Averaged substrate reflectance for all thicknesses.
+    """
+
+    na = np.atleast_1d(np.asarray(na, dtype=float))
+    R = np.array([_average(wafer.with_(below=[(barc[0], barc[1], t)] + list(wafer.below))
+                           .substrate_reflectance(na, wavelength, n_medium, pol), weights)
+                  for t in thicknesses])
+    i = int(np.argmin(R))
+    best = float(thicknesses[i])
+    if 0 < i < len(R) - 1:
+        t3, R3 = np.asarray(thicknesses[i - 1:i + 2], dtype=float), R[i - 1:i + 2]
+        c = np.polyfit(t3, R3, 2)
+        if c[0] > 0:
+            best = float(np.clip(-c[1]/(2*c[0]), t3[0], t3[2]))
+
+    return best, R
