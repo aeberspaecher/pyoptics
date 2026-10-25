@@ -98,7 +98,12 @@ Status of the modules:
   (contrast, ILS/NILS, threshold CD, dose to size, MEEF, focus-exposure
   matrix, Bossung curves, process window, exposure latitude vs. depth of
   focus, Gaussian resist blur) and plots (source, mask, pupil fill, images,
-  Bossung curves, process windows)
+  Bossung curves, process windows); `litho.lens` hands a ray traced lens
+  (`raytrace`) to the projector (Fringe Zernikes on the projector's pupil,
+  distortion, telecentricity, placement of a small feature), computes CD,
+  placement and best focus across a scanner slit with scan averaging and
+  the linear scanner correction, and Zernike sensitivities with a quick
+  aberration budget
 - `polarization`: TE/TM bases, Stokes to Jones decomposition, DOP and IPS
 - `imaging`: scalar imaging, tested: coherent imaging through a circular
   pupil, PSF with pupil masks (obscuration, apodization) and phases (also

@@ -12,9 +12,11 @@
 ## Medium
 
 * Finish the stub `interpolator.TrigInterpolator`
-* Lithography: rigorous mask diffraction (RCWA) to calibrate the boundary
-  layer model, Hopkins/TCC (SOCS) imaging for speed, resist models beyond
-  threshold and blur (development, PEB), OPC helpers
+* Lithography (DUV, see the roadmap in the project files): Hopkins/TCC
+  (SOCS) imaging for speed, resist models beyond threshold and blur (Dill
+  exposure, PEB, Mack development) with swing curves, rigorous mask
+  diffraction (RCWA) to calibrate the boundary layer model, Jones pupil,
+  source optimization, OPC helpers
 * More tests for `wpm` and `TIE`
 * Docstrings: NumPy-style Parameters/Returns sections for raytrace, abcd,
   modes, litho, TIE, interfaces and bases; numpydoc validation in CI
@@ -30,6 +32,9 @@
   and offset (cmp. Wyrowski)
 
 ## DONE
+
+* Lithography: lens aberrations from the ray tracer across the scanner
+  slit, Zernike sensitivities (`litho.lens`, notebook 27)
 
 * FFT module
 * fitting bases to scattered data
