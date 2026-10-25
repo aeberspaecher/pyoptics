@@ -7,7 +7,6 @@
 * rotation angle in apertures
 
 * astigmatic beams
-* beam evaluation on inclined planes
 * Fresnel numbers for general annular apertures
 
 ## Medium
@@ -97,3 +96,7 @@
 * mode analysis and fibres (`modes`): HG/LG decomposition with fitted basis,
   M² from the mode content, LP modes of step-index fibres, Marcuse mode
   field radius, coupling efficiency and misalignment sweeps (notebook 26)
+* propagation onto tilted planes (`tilted`): exact non-uniform sum and
+  Matsushima's spectrum rotation, scalar and vectorial, tilted source to
+  parallel target, beam evaluation (ISO 11146 widths) on inclined planes
+  (notebook 19)

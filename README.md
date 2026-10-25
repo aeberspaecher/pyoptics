@@ -16,7 +16,7 @@ polished library. It runs on Python 3.9 to 3.13. The API may still change
 between versions, and there is no release on PyPI; install it from source as
 described below.
 
-The core is tested: a suite of about 600 pytest tests checks the numerics
+The core is tested: a suite of about 630 pytest tests checks the numerics
 against analytical results (Fresnel and Fraunhofer diffraction, Gaussian beam
 propagation, Mahajan's on-axis intensity, Airy pattern and OTF, Fresnel
 equations, thin film stacks, Goos-Hänchen shift, beam widths and M² of
@@ -25,7 +25,9 @@ Richards-Wolf integrals for high NA foci, two-beam interference of TE and
 TM waves, in air and in a resist, standing waves in a resist on silicon,
 threshold CDs and process windows of analytic images, apodized two-beam
 images, ABCD matrices against lens and resonator formulas and the Collins
-integral against Gaussian beams, phase unwrapping of wrapped Zernike
+integral against Gaussian beams, fields on tilted planes against plane
+waves and Gaussian beams at the plane's 3D points, power flux through
+tilted planes, phase unwrapping of wrapped Zernike
 wavefronts, vortices and noisy wavefronts, phase-shifting and Fourier
 fringe analysis of known Zernike phases, holograms of known objects
 reconstructed, refocused and autofocused, exact ray traces against Snell's
@@ -46,6 +48,14 @@ Status of the modules:
   propagation onto free output windows: shifted angular spectrum method with
   Matsushima's band limit, scaled Fresnel and Fraunhofer integrals, far field
   in chosen directions)
+- `tilted`: propagation onto tilted planes, tested: scalar and vectorial
+  fields from z = 0 onto a plane with any rotated normal and back (tilted
+  source to parallel target), sampled in the plane's own coordinates; exact
+  non-uniform plane wave sum (separable for tilts about x or y, finufft or a
+  direct sum otherwise) and Matsushima's spectrum rotation with the
+  Jacobian; carrier removal, power flux and ISO 11146 beam widths on
+  inclined planes (detectors); `tilted_plane()` and
+  `vectorial_tilted_plane()` are also available from `propagators`
 - `fft`, `utils`, `masks`, `geometry`, `analytical`: mature and tested
   (`fft.czt()`: Bluestein's chirp-z transform; `fft.zoom_FT()` and
   `zoom_inv_FT()` evaluate `FT()` and `inv_FT()` on any equidistant grid)
@@ -248,6 +258,8 @@ example `".[plot,fftw,test]"`:
 
 - `plot`: matplotlib, for the plotting tools
 - `fftw`: pyFFTW, for faster FFTs
+- `nufft`: finufft, for faster exact propagation onto tilted planes
+  (`tilted`, rotations about a general axis)
 - `tie`: sympy and matplotlib, for the TIE module
 - `notebooks`: matplotlib, JupyterLab and ipywidgets, for running the example
   notebooks (including the interactive one)
@@ -290,7 +302,7 @@ free space propagation, Gaussian beams, interfaces and thin films,
 polarization, imaging and aberrations, TIE, IFTA, WPM, basis functions, an
 interactive layer stack designer, image processing (scaling, camera noise,
 centering), beam quality, lithography and ABCD matrices (rays, Gaussian
-beams, resonators), phase unwrapping, interferometry, digital
+beams, resonators), propagation onto tilted planes, phase unwrapping, interferometry, digital
 holography, ray tracing to OPD maps and phase retrieval. See
 `notebooks/README.md` for an overview.
 
