@@ -97,7 +97,8 @@
 * ABCD matrices (`abcd`): rays, cardinal points, Gaussian beams via q,
   resonators, Collins integral (notebook 18)
 * 2D phase unwrapping (`unwrap`): least squares (DCT and weighted PCG),
-  quality guided, residues (notebook 21)
+  quality guided, residues (notebook 21); reference guided (TIE) and
+  two-wavelength unwrapping (notebook 37)
 * interferometry (`interferometry`): phase-shifting algorithms (N-step,
   4-step, Carré, Hariharan), Takeda's Fourier-transform method,
   interferogram simulation, shifter miscalibration sensitivity (notebook 22)
