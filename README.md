@@ -312,10 +312,9 @@ reinstalling. Only after editing `wpm.pyx` do you have to run the install
 command again to recompile it.
 
 The part in brackets selects optional extras, which you can combine, for
-example `".[plot,fftw,test]"`:
+example `".[plot,test]"`:
 
 - `plot`: matplotlib, for the plotting tools
-- `fftw`: pyFFTW, for faster FFTs
 - `nufft`: finufft, for faster exact propagation onto tilted planes
   (`tilted`, rotations about a general axis)
 - `tie`: sympy and matplotlib, for the TIE module

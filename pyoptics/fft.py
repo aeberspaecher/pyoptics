@@ -33,25 +33,44 @@ with FFTs, in O((N + M)*log(N + M)) operations. zoom_FT() and zoom_inv_FT()
 use it to evaluate FT() and inv_FT() on any equidistant grid of output
 frequencies or positions, e.g. a fine grid over a small part of a spectrum.
 
-If installed, pyFFTW is used (via transparent_pyfftw or pyfftw's NumPy
-interface); its transforms use the same sign convention as numpy.fft.
+The FFTs are scipy.fft's (same sign convention and normalization as
+numpy.fft), run with the number of threads in the module variable workers
+(default -1: all CPU cores). On multi-core machines they are 2 to 4 times
+faster than numpy.fft for grids of 512**2 and more. Set
+pyoptics.fft.workers = 1 for single threaded transforms, e.g. when running
+several simulations in parallel processes.
 """
 
 import numpy as np
+import scipy.fft as _scipy_fft
 from numpy.fft import fftfreq, fftshift, ifftshift
 
-try:
-    from transparent_pyfftw.numpy_fft import fft, ifft, fft2, ifft2, rfft2, irfft2
-    from transparent_pyfftw import save_wisdom
-except ImportError:
-    try:  # the 'fftw' extra installs pyfftw itself
-        from pyfftw.interfaces.numpy_fft import fft, ifft, fft2, ifft2, rfft2, irfft2
-    except ImportError:  # no FFTW at all: use NumPy's FFTs
-        from numpy.fft import fft, ifft, fft2, ifft2, rfft2, irfft2
 
-    def save_wisdom():
-        """No-op: there is no FFTW wisdom to save without transparent_pyfftw."""
-        pass
+workers = -1  # threads per transform for scipy.fft; -1 uses all CPU cores
+
+
+def fft(x, n=None, axis=-1, norm=None):
+    return _scipy_fft.fft(x, n, axis, norm, workers=workers)
+
+
+def ifft(x, n=None, axis=-1, norm=None):
+    return _scipy_fft.ifft(x, n, axis, norm, workers=workers)
+
+
+def fft2(x, s=None, axes=(-2, -1), norm=None):
+    return _scipy_fft.fft2(x, s, axes, norm, workers=workers)
+
+
+def ifft2(x, s=None, axes=(-2, -1), norm=None):
+    return _scipy_fft.ifft2(x, s, axes, norm, workers=workers)
+
+
+def rfft2(x, s=None, axes=(-2, -1), norm=None):
+    return _scipy_fft.rfft2(x, s, axes, norm, workers=workers)
+
+
+def irfft2(x, s=None, axes=(-2, -1), norm=None):
+    return _scipy_fft.irfft2(x, s, axes, norm, workers=workers)
 
 
 FT = lambda x: fftshift(fft2(ifftshift(x)))

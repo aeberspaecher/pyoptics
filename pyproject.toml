@@ -12,12 +12,11 @@ license = { text = "BSD-3-Clause" }
 authors = [{ name = "Alexander Eberspächer" }]
 dependencies = [
     "numpy",
-    "scipy>=0.14",
+    "scipy>=1.4",  # scipy.fft (workers argument)
 ]
 
 [project.optional-dependencies]
 plot = ["matplotlib"]
-fftw = ["pyfftw"]
 nufft = ["finufft"]  # tilted: faster exact propagation onto planes tilted about a general axis
 tie = ["sympy"]
 notebooks = ["matplotlib", "jupyterlab", "ipywidgets"]

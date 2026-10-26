@@ -52,7 +52,7 @@ from numpy import pi
 from scipy.ndimage import gaussian_filter
 from scipy.optimize import least_squares
 
-from .fft import FT, inv_FT
+from .fft import FT, inv_FT, fft2, ifft2
 from .propagators import rayleigh_sommerfeld_I_TF
 from .utils import freq_grid, get_dx, k_z
 from .bases import fringe_zernike
@@ -431,7 +431,7 @@ def align(obj, reference, allow_twin=True):
     best = None
     candidates = (obj, twin(obj)) if allow_twin else (obj,)
     for g in candidates:
-        xcorr = np.fft.ifft2(np.fft.fft2(reference)*np.conj(np.fft.fft2(g)))
+        xcorr = ifft2(fft2(reference)*np.conj(fft2(g)))
         shift = np.unravel_index(np.argmax(np.abs(xcorr)), xcorr.shape)
         g_shifted = np.roll(g, shift, axis=(0, 1))
         overlap = np.vdot(g_shifted, reference)
