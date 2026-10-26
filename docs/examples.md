@@ -112,6 +112,7 @@ notebooks/33_litho_opc
 - {doc}`notebooks/21_phase_unwrapping`
 - {doc}`notebooks/22_interferometry`
 - {doc}`notebooks/35_radius_interferometer`
+- {doc}`notebooks/36_shack_hartmann_vs_phase_diversity`
 - {doc}`notebooks/23_holography`
 - {doc}`notebooks/37_holographic_microscopy`
 - {doc}`notebooks/25_phase_retrieval`
@@ -126,6 +127,7 @@ notebooks/11_image_processing
 notebooks/21_phase_unwrapping
 notebooks/22_interferometry
 notebooks/35_radius_interferometer
+notebooks/36_shack_hartmann_vs_phase_diversity
 notebooks/23_holography
 notebooks/37_holographic_microscopy
 notebooks/25_phase_retrieval

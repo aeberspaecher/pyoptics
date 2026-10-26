@@ -85,6 +85,7 @@ Measurement and phase retrieval
    pyoptics.holography
    pyoptics.unwrap
    pyoptics.phase_retrieval
+   pyoptics.shack_hartmann
    pyoptics.TIE
    pyoptics.ifta
    pyoptics.processing
