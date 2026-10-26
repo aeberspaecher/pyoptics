@@ -997,6 +997,27 @@ class System:
 
         return "\n".join(lines)
 
+    def _state_key(self):
+        """Hashable snapshot of the system and its surfaces (objects such
+        as materials by identity), to cache results that depend on them."""
+
+        def freeze(v):
+            if isinstance(v, (tuple, list)):
+                return tuple(freeze(x) for x in v)
+            if isinstance(v, np.ndarray):
+                return (v.shape, v.tobytes())
+            if v is None or isinstance(v, (bool, int, float, complex, str, np.number)):
+                return v
+            return ("id", id(v))
+
+        def state(obj):
+            return (type(obj),) + tuple((k, freeze(v)) for k, v in sorted(vars(obj).items())
+                                        if not k.startswith("_"))
+
+        return state(self)[:1] + tuple((k, freeze(v)) for k, v in sorted(vars(self).items())
+                                       if not k.startswith("_") and k != "surfaces") \
+            + tuple(state(s) for s in self.surfaces)
+
     @property
     def wavelength_nm(self):
         return self.wavelength*NM_PER_UNIT[self.units]
@@ -1005,6 +1026,8 @@ class System:
     def n(self):
         """Indices in object space and behind each surface, shape (S + 1,)."""
 
+        if self.__dict__.get("_constants"):
+            return self._constants[1]
         n = [self.n_object]
         for s in self.surfaces:
             n.append(s.index(self.wavelength_nm, n[-1]))
@@ -1061,6 +1084,8 @@ class System:
         image_frame : (origin, R)
         """
 
+        if self.__dict__.get("_constants"):  # fixed while rays are aimed
+            return self._constants[0]
         o, R = np.zeros(3), np.eye(3)
         frames = []
         for s in self.surfaces:
@@ -1405,7 +1430,7 @@ class System:
         n0 = self.n_object
         fx, fy = _field_xy(field)
         if self.infinite_object:
-            ep_z = self._pupils()[0]
+            ep_z = self._constants[2] if self.__dict__.get("_constants") else self._pupils()[0]
             E = np.stack([a, b, np.full(len(a), ep_z)], axis=-1)
             d = np.array([np.tan(fx), np.tan(fy), 1.0])
             d = np.tile(d/_norm(d), (len(a), 1))
@@ -1438,45 +1463,78 @@ class System:
         lenses, sends the paraxial guess outside the aspheres or the spheres
         of the lens, or Newton's method converges to a ray that passes the
         stop on a folded path far outside the clear apertures) are aimed by
-        continuation: in steps from the chief ray
+        continuation: in steps from the nearest aimed ray (or the chief ray)
         to the target, each step starting from the previous solution, with
-        the steps halved where Newton's method still fails."""
+        the steps halved where Newton's method still fails. The rays are
+        aimed outwards in rings, each from the rays aimed before.
 
+        The surface frames and indices are computed once for all traces."""
+
+        self._constants = None
+        self._constants = self.frames(), self.n, self._pupils()[0]
+        try:
+            return self._aim_rays(field, a, b, px, py)
+        finally:
+            self._constants = None
+
+    def _aim_rays(self, field, a, b, px, py):
         a_s = self.surfaces[self.stop_index].semi_diameter
         sign = np.sign(self._ep_matrix()[0]) if self.infinite_object else 1.0
         tx, ty = sign*px*a_s, sign*py*a_s
         a, b, done = self._newton_aim(field, a, b, tx, ty, iterations=6)
         if np.all(done):
             return a, b
-        lost = ~done
-        if self.infinite_object:
-            a_c, b_c = np.zeros(1), np.zeros(1)
-        else:
-            u_c = self._object_slopes()[1]
-            a_c, b_c = (np.array([u_c*f]) for f in _field_xy(field))
-        a_c, b_c, _ = self._newton_aim(field, a_c, b_c, np.zeros(1), np.zeros(1))
-        n_lost = np.count_nonzero(lost)
-        a_l, b_l = np.full(n_lost, a_c[0]), np.full(n_lost, b_c[0])
+        a, b = a.copy(), b.copy()
+        # aimed rays: their targets and launch parameters
+        known_t = np.stack([tx[done], ty[done]], axis=-1)
+        known_ab = np.stack([a[done], b[done]], axis=-1)
+        if not np.any(done):
+            if self.infinite_object:
+                a_c, b_c = np.zeros(1), np.zeros(1)
+            else:
+                u_c = self._object_slopes()[1]
+                a_c, b_c = (np.array([u_c*f]) for f in _field_xy(field))
+            a_c, b_c, _ = self._newton_aim(field, a_c, b_c, np.zeros(1), np.zeros(1))
+            known_t, known_ab = np.zeros((1, 2)), np.stack([a_c, b_c], axis=-1)
+        lost = np.flatnonzero(~done)
         # small steps keep the rays on the physical branch (large ones can
         # converge to rays that pass the stop on folded paths outside the
         # clear apertures):
-        steps = 8
-        for k in range(steps):
-            a_l, b_l = self._continue_aim(field, a_l, b_l, tx[lost], ty[lost], k/steps,
-                                          (k + 1)/steps)
-        a, b = a.copy(), b.copy()
-        ok = np.isfinite(a_l + b_l)
-        a[lost] = np.where(ok, a_l, a[lost])
-        b[lost] = np.where(ok, b_l, b[lost])
+        h = a_s/8
+        while len(lost):
+            # nearest aimed ray of each lost one
+            t_lost = np.stack([tx[lost], ty[lost]], axis=-1)
+            nearest = np.empty(len(lost), dtype=int)
+            dist = np.empty(len(lost))
+            for start in range(0, len(lost), 256):
+                sl = slice(start, start + 256)
+                d2 = np.sum((t_lost[sl, None, :] - known_t[None, :, :])**2, axis=-1)
+                nearest[sl] = np.argmin(d2, axis=1)
+                dist[sl] = np.sqrt(d2[np.arange(len(d2)), nearest[sl]])
+            # this ring: the lost rays within one step of the aimed region
+            ring = dist <= dist.min() + h
+            steps = max(1, int(np.ceil((dist.min() + h)/h - 1e-9)))
+            i, k = lost[ring], nearest[ring]
+            t0 = known_t[k]
+            a_r, b_r = known_ab[k, 0], known_ab[k, 1]
+            for j in range(steps):
+                a_r, b_r = self._continue_aim(field, a_r, b_r, t0[:, 0], t0[:, 1], tx[i], ty[i],
+                                              j/steps, (j + 1)/steps)
+            ok = np.isfinite(a_r + b_r)
+            a[i[ok]], b[i[ok]] = a_r[ok], b_r[ok]
+            known_t = np.concatenate([known_t, np.stack([tx[i[ok]], ty[i[ok]]], axis=-1)])
+            known_ab = np.concatenate([known_ab, np.stack([a_r[ok], b_r[ok]], axis=-1)])
+            lost = lost[~ring]
 
         return a, b
 
-    def _continue_aim(self, field, a, b, tx, ty, s0, s1, depth=0):
-        """Aim from the solutions (a, b) for the stop hits s0*(tx, ty) to
-        those for s1*(tx, ty), bisecting the step for the rays that fail
-        (NaN where they still fail after 6 bisections)."""
+    def _continue_aim(self, field, a, b, tx0, ty0, tx1, ty1, s0, s1, depth=0):
+        """Aim from the solutions (a, b) for the stop hits t0 + s0*(t1 - t0)
+        to those for t0 + s1*(t1 - t0), bisecting the step for the rays that
+        fail (NaN where they still fail after 6 bisections)."""
 
-        a_n, b_n, done = self._newton_aim(field, a, b, s1*tx, s1*ty, iterations=5)
+        a_n, b_n, done = self._newton_aim(field, a, b, tx0 + s1*(tx1 - tx0), ty0 + s1*(ty1 - ty0),
+                                          iterations=5)
         if np.all(done):
             return a_n, b_n
         a_n, b_n = a_n.copy(), b_n.copy()
@@ -1485,9 +1543,10 @@ class System:
             a_n[bad], b_n[bad] = np.nan, np.nan
             return a_n, b_n
         s_m = (s0 + s1)/2
-        a_m, b_m = self._continue_aim(field, a[bad], b[bad], tx[bad], ty[bad], s0, s_m, depth + 1)
+        sub = (tx0[bad], ty0[bad], tx1[bad], ty1[bad])
+        a_m, b_m = self._continue_aim(field, a[bad], b[bad], *sub, s0, s_m, depth + 1)
         ok = np.isfinite(a_m + b_m)
-        a_m[ok], b_m[ok] = self._continue_aim(field, a_m[ok], b_m[ok], tx[bad][ok], ty[bad][ok],
+        a_m[ok], b_m[ok] = self._continue_aim(field, a_m[ok], b_m[ok], *(v[ok] for v in sub),
                                               s_m, s1, depth + 1)
         a_n[bad], b_n[bad] = a_m, b_m
 
@@ -1495,34 +1554,53 @@ class System:
 
     def _newton_aim(self, field, a, b, tx, ty, iterations=30):
         """Newton's method for the stop hits (tx, ty); also returns which
-        rays converged."""
+        rays converged. Rays that converged (or failed) drop out of the
+        iteration; the finite difference rays are traced together with the
+        rays themselves."""
 
         a_s = self.surfaces[self.stop_index].semi_diameter
         scale = max(a_s, 1e-12)
         eps = 1e-6*scale if self.infinite_object else 1e-6*max(abs(self._object_slopes()[0]), 1e-12)
         a, b = np.array(a, dtype=float), np.array(b, dtype=float)
-        for _ in range(iterations):
-            hx, hy = self._stop_hits(field, a, b)
-            rx, ry = hx - tx, hy - ty
-            bad = ~np.isfinite(rx + ry)
-            if np.all(bad | (np.hypot(rx, ry) < 1e-13*scale)):
+        tx, ty = np.broadcast_to(tx, a.shape), np.broadcast_to(ty, a.shape)
+        hit = np.zeros(len(a), dtype=bool)  # residual known to be below the tolerance
+        active = np.arange(len(a))
+        for it in range(iterations + 1):
+            n = len(active)
+            if n == 0:
                 break
-            h1x, h1y = self._stop_hits(field, a + eps, b)
-            h2x, h2y = self._stop_hits(field, a, b + eps)
+            a_i, b_i = a[active], b[active]
+            last = it == iterations
+            if last:  # only the residual
+                hx, hy = self._stop_hits(field, a_i, b_i)
+            else:
+                h_x, h_y = self._stop_hits(field, np.concatenate([a_i, a_i + eps, a_i]),
+                                           np.concatenate([b_i, b_i, b_i + eps]))
+                hx, hy = h_x[:n], h_y[:n]
+            rx, ry = hx - tx[active], hy - ty[active]
+            res = np.hypot(rx, ry)
+            hit[active] = res < 1e-9*scale
+            # converged, or no finite residual: done iterating
+            stop = ~np.isfinite(rx + ry) | (res < 1e-13*scale)
+            if last:
+                break
+            h1x, h1y, h2x, h2y = h_x[n:2*n], h_y[n:2*n], h_x[2*n:], h_y[2*n:]
             J00, J10 = (h1x - hx)/eps, (h1y - hy)/eps
             J01, J11 = (h2x - hx)/eps, (h2y - hy)/eps
             with np.errstate(invalid="ignore", divide="ignore"):
                 det = J00*J11 - J01*J10
                 da = (J11*rx - J01*ry)/det
                 db = (-J10*rx + J00*ry)/det
-            ok = np.isfinite(da + db)
-            a = np.where(ok, a - da, a)
-            b = np.where(ok, b - db, b)
-        hx, hy = self._stop_hits(field, a, b)
-        done = np.hypot(hx - tx, hy - ty) < 1e-9*scale
+            ok = np.isfinite(da + db) & ~stop
+            a[active[ok]] -= da[ok]
+            b[active[ok]] -= db[ok]
+            # rays that took no step keep their residual
+            active = active[ok]
+        done = hit
         # a solution far outside the clear apertures passes the stop on a
         # folded path (a wrong branch of the aspheres or spheres):
-        done &= self._inside_apertures(field, a, b, 1.05)
+        if np.any(done):
+            done[done] = self._inside_apertures(field, a[done], b[done], 1.05)
 
         return a, b, done
 
