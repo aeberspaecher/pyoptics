@@ -88,10 +88,10 @@ notebook (longest: 01 and 08), with these exceptions:
 - about 3 minutes: 25 (phase retrieval, many HIO runs)
 - about 2 minutes: 23 (holography, many refocusing runs on 1024² padded
   grids), 27 (lens aberrations, ray traces over the slit and Zernike
-  sensitivities), 34 (polarization ray trace), 36 (Shack-Hartmann vs. phase
-  diversity)
+  sensitivities), 34 (polarization ray trace)
 - about 1.5 minutes: 16 (vectorial imaging lithography), 26 (mode analysis,
-  basis fits and large LG expansions)
+  basis fits and large LG expansions), 36 (Shack-Hartmann vs. phase
+  diversity)
 
 Notebooks 28 (Hopkins/SOCS), 29 (resist), 30 (rigorous mask), 31 (Jones
 pupils), 35 (radius interferometer), 37 (holographic microscopy) and 38
