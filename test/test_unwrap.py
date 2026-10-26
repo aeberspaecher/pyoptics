@@ -11,8 +11,9 @@ import pytest
 from pyoptics.bases import FringeZernikes
 from pyoptics.masks import circular_mask
 from pyoptics.processing import CameraNoiser
-from pyoptics.unwrap import (residues, reliability, unwrap, unwrap_1d,
-                             unwrap_ls, unwrap_quality_guided, wrap)
+from pyoptics.unwrap import (residues, reliability, synthetic_wavelength, unwrap,
+                             unwrap_1d, unwrap_ls, unwrap_quality_guided,
+                             unwrap_two_wavelength, unwrap_with_reference, wrap)
 from pyoptics.utils import grid2d
 
 
@@ -188,3 +189,78 @@ def test_noisy_wavefront(grid, func, use_weights):
     noise = 1/(np.sqrt(200.0)*amp)
     assert np.sqrt(np.mean(d**2)) < 2*np.sqrt(np.mean(noise**2))
     assert np.max(np.abs(d)) < np.pi
+
+
+def test_unwrap_with_reference(grid):
+    x, y, X, Y = grid
+    phi = gaussian_bump(X, Y)
+    rng = np.random.default_rng(0)
+    # any reference within ±π (here up to ±0.9π off) gives the exact phase
+    reference = phi + 0.9*np.pi*(2*rng.random(phi.shape) - 1)
+    u = unwrap_with_reference(wrap(phi), reference)
+    assert np.allclose(u, phi, atol=1E-10)
+    assert np.allclose(unwrap(wrap(phi), method="reference", reference=reference), phi,
+                       atol=1E-10)
+    # a reference off by more than π picks the neighbouring multiple of 2π
+    u = unwrap_with_reference(wrap(phi), phi + 1.1*np.pi)
+    assert np.allclose(u, phi + 2*np.pi, atol=1E-10)
+    mask = X**2 + Y**2 < 0.5
+    u = unwrap_with_reference(wrap(phi), reference, mask=mask)
+    assert np.all(np.isnan(u[~mask])) and np.allclose(u[mask], phi[mask], atol=1E-10)
+    # works on 1D data, too (no path, so no dimension restriction)
+    assert np.allclose(unwrap(wrap(phi[0]), method="reference", reference=phi[0]), phi[0])
+
+
+def test_unwrap_with_reference_across_a_step(grid):
+    # a step of 7 wraps cannot be unwrapped by path following, but is no
+    # problem for a reference that knows it to ±π
+    x, y, X, Y = grid
+    phi = 3*X + np.where(X > 0.2, 7*2*np.pi + 1.0, 0.0)
+    assert not np.allclose(unwrap_quality_guided(wrap(phi)) - phi, (unwrap_quality_guided(wrap(phi)) - phi)[0, 0])
+    u = unwrap_with_reference(wrap(phi), phi + 2.5)
+    assert np.allclose(u, phi, atol=1E-10)
+
+
+def test_synthetic_wavelength():
+    assert np.isclose(synthetic_wavelength(0.633, 0.532), 0.633*0.532/0.101)
+    assert synthetic_wavelength(0.532, 0.633) == synthetic_wavelength(0.633, 0.532)
+
+
+@pytest.mark.parametrize("wl1, wl2", [(0.633, 0.785), (0.785, 0.633), (0.633, 0.532)])
+def test_two_wavelength_opd(grid, wl1, wl2):
+    x, y, X, Y = grid
+    Lambda = synthetic_wavelength(wl1, wl2)
+    # a step of several waves plus a bump, within ±Λ/2
+    opd = 0.4*Lambda*np.where(X > 0.1, 1.0, -0.4)*np.exp(-Y**2) + 0.05*np.exp(-X**2/0.1)
+    assert np.max(np.abs(opd)) < Lambda/2 and np.ptp(opd) > 2*max(wl1, wl2)
+    psi1, psi2 = wrap(2*np.pi*opd/wl1), wrap(2*np.pi*opd/wl2)
+    coarse = unwrap_two_wavelength(psi1, psi2, wl1, wl2, refine=False)
+    assert np.allclose(coarse, opd, atol=1E-10)
+    assert np.allclose(unwrap_two_wavelength(psi1, psi2, wl1, wl2), opd, atol=1E-10)
+
+    # phase noise: the coarse OPD has Λ/λ times the noise, the refined one
+    # only that of the single wavelengths (averaged)
+    rng = np.random.default_rng(1)
+    sigma = 0.02
+    n1, n2 = sigma*rng.standard_normal(opd.shape), sigma*rng.standard_normal(opd.shape)
+    coarse = unwrap_two_wavelength(psi1 + n1, psi2 + n2, wl1, wl2, refine=False)
+    fine = unwrap_two_wavelength(psi1 + n1, psi2 + n2, wl1, wl2)
+    noise_single = sigma*max(wl1, wl2)/(2*np.pi)
+    assert np.std(coarse - opd) > 3*noise_single
+    assert np.std(fine - opd) < noise_single
+
+    mask = X > 0
+    o = unwrap_two_wavelength(psi1, psi2, wl1, wl2, mask=mask)
+    assert np.all(np.isnan(o[~mask]))
+
+
+def test_two_wavelength_range_and_errors(grid):
+    x, y, X, Y = grid
+    wl1, wl2 = 0.633, 0.785
+    Lambda = synthetic_wavelength(wl1, wl2)
+    opd = np.full(X.shape, 0.6*Lambda)  # beyond Λ/2: aliased by one Λ
+    o = unwrap_two_wavelength(wrap(2*np.pi*opd/wl1), wrap(2*np.pi*opd/wl2), wl1, wl2,
+                              refine=False)
+    assert np.allclose(o, opd - Lambda)
+    with pytest.raises(ValueError):
+        unwrap_two_wavelength(opd, opd, wl1, wl1)
