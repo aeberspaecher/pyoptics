@@ -139,13 +139,32 @@ class Layer(object):
     @classmethod
     def quarter_wave(cls, material, wavelength, wavelength_nm=None, profile=None, label=None,
                      angle=0.0, n_incident=1.0):
-        """Layer of optical thickness wavelength/4 (wavelength in system
-        units, the material evaluated at wavelength_nm).
+        """Layer of optical thickness wavelength/4.
 
-        With an angle of incidence (radians, in the medium n_incident in
-        front of the stack), the layer is a quarter wave for the tilted
-        wave, n t cos(theta_layer) = wavelength/4, as for a mirror designed
-        for 45 degrees.
+        With an angle of incidence (in the medium n_incident in front of the
+        stack), the layer is a quarter wave for the tilted wave,
+        n t cos(theta_layer) = wavelength/4, as for a mirror designed for 45
+        degrees.
+
+        Parameters
+        ----------
+        material : number, callable, (n_d, V_d) or materials.Material
+            See `Layer`.
+        wavelength : number
+            Design wavelength in system units.
+        wavelength_nm : number, optional
+            Wavelength in nm at which the material is evaluated.
+        profile : callable, optional
+            Relative thickness profile, see `Layer`.
+        label : str, optional
+        angle : number, optional
+            Design angle of incidence in radians.
+        n_incident : number, optional
+            Refractive index in front of the stack.
+
+        Returns
+        -------
+        Layer
         """
 
         n = complex_index(material, wavelength_nm).real
@@ -157,7 +176,18 @@ class Layer(object):
         return complex_index(self.material, wavelength_nm)
 
     def thickness_at(self, x=None, y=None):
-        """Thicknesses at the local surface points (x, y)."""
+        """Thicknesses at local surface points.
+
+        Parameters
+        ----------
+        x, y : arrays, optional
+            Local surface coordinates. Without them (or without a profile), the
+            nominal thickness is returned.
+
+        Returns
+        -------
+        t : number or array
+        """
 
         if self.profile is None or x is None:
             return self.thickness
@@ -231,11 +261,24 @@ class Coating(object):
         return r_s, r_p, t_s, t_p
 
     def power(self, angle, n1, n2=None, wavelength=None, wavelength_nm=None, x=None, y=None):
-        """Reflectance and transmittance of the stack (e.g. to check a
-        design over the angle of incidence).
+        """Reflectance and transmittance of the stack.
 
-        Parameters as for amplitudes(), but with the angles of incidence (in
-        radians) in the medium n1 (real).
+        Use it e.g. to check a design over the angle of incidence.
+
+        Parameters
+        ----------
+        angle : number or array
+            Angles of incidence in radians in the medium n1 (real).
+        n1 : number
+            Refractive index in front of the stack.
+        n2 : number, optional
+            Refractive index behind the stack; None: the substrate.
+        wavelength : number
+            Vacuum wavelength in the unit of the layer thicknesses.
+        wavelength_nm : number, optional
+            Wavelength for the dispersion of the materials.
+        x, y : arrays, optional
+            Local surface coordinates for the thickness profiles.
 
         Returns
         -------

@@ -109,7 +109,21 @@ class BasisSet(object):
         raise NotImplementedError("Do not call this function in base class.")
 
     def eval_single_scattered(self, x, y, i):
-        """Return i-th basis function at scattered (x, y) points.
+        """Return the i-th basis function at scattered points.
+
+        Implemented by the subclasses; used for fits to scattered data.
+
+        Parameters
+        ----------
+        x, y : arrays
+            Coordinates of the points.
+        i : int
+            Index of the basis function.
+
+        Returns
+        -------
+        val : array
+            Basis function at (x, y), same shape as x.
         """
 
         # used in fitting routine for scattered data
@@ -144,7 +158,22 @@ class BasisSet(object):
         raise NotImplementedError("Do not call this function in base class.")
 
     def coeffs_from_field(self, field, indices, method="LSTSQ"):
-        """Expand a given field in the basis set.
+        """Expand a sampled field in the basis set.
+
+        Parameters
+        ----------
+        field : 2d array
+            Field on the grid x, y of the basis.
+        indices : iterable of int
+            Indices of the basis functions to use.
+        method : {"LSTSQ", "DI"}, optional
+            "LSTSQ" (default): least squares fit; "DI": overlap integrals (direct
+            integration) with the masked field, divided by the norms.
+
+        Returns
+        -------
+        coeffs : array
+            Expansion coefficients in the order of indices.
         """
 
         if method == "LSTSQ":
@@ -314,6 +343,21 @@ class PresampledBasisSet(BasisSet):
 
 
 def fringe_zernike_norm(j, R_norm=1.0):
+    """Norm of the j-th Fringe Zernike polynomial on a disk.
+
+    Parameters
+    ----------
+    j : int
+        Fringe index.
+    R_norm : number, optional
+        Radius of the disk.
+
+    Returns
+    -------
+    norm : number
+        Integral of Z_j**2 over the disk, R_norm**2*pi*(1 + delta_m0)/(2*(n + 1)).
+    """
+
     n, m = fringe_to_n_m(j)  # radial and azimuthal index
 
     norm = R_norm**2*np.pi*(1.+kronecker_delta(m, 0))/(2.*(n + 1.))
@@ -430,8 +474,20 @@ def fringe_zernike(j, x, y):
 
 
 def fringe_zernike_sum(coeffs, x, y):
-    """sum_j c_j Z_j at the points (x, y) of the unit disk for the
-    coefficients {j: c_j} (real or complex); zeros for no coefficients."""
+    """Sum of Fringe Zernikes on the unit disk.
+
+    Parameters
+    ----------
+    coeffs : dict
+        {j: c_j}, real or complex coefficients. None or {} gives zeros.
+    x, y : arrays
+        Coordinates in units of the disk radius.
+
+    Returns
+    -------
+    val : array
+        sum_j c_j Z_j(x, y), shape of the broadcast x and y.
+    """
 
     out = np.zeros(np.broadcast(x, y).shape)
     for j, c in (coeffs or {}).items():
@@ -482,8 +538,21 @@ class FringeZernikes(BasisSet):
         return R*Y*self.mask
 
     def eval_single_scattered(self, x, y, j):
-        """Return the j-th Fringe Zernike at scattered points (x, y) (no
-        mask is applied)."""
+        """Return the j-th Fringe Zernike at scattered points (no mask is applied).
+
+        Parameters
+        ----------
+        x, y : arrays
+            Coordinates of the points.
+        j : int
+            Fringe index.
+
+        Returns
+        -------
+        val : array
+            Z_j in the shifted and rotated coordinates of the basis, normalized to
+            R_norm.
+        """
 
         u, v = local_coordinates(x, y, self.x0, self.y0, self.angle)
 
@@ -607,7 +676,20 @@ class TensorProductBasis(BasisSet, metaclass=ABCMeta):
 
     @abstractmethod
     def eval_1d(self, t, n):
-        """Evaluate the n-th 1D polynomial at t (scaled coordinates)."""
+        """Evaluate the n-th 1D polynomial (implemented by the subclasses).
+
+        Parameters
+        ----------
+        t : array
+            Scaled coordinates in [-1, 1].
+        n : int
+            Degree.
+
+        Returns
+        -------
+        val : array
+            P_n(t).
+        """
 
     def eval_single(self, index):
         n, m = self.single_index_to_n_m(index)
@@ -620,8 +702,19 @@ class TensorProductBasis(BasisSet, metaclass=ABCMeta):
         return self.mask*xy_poly
 
     def eval_single_scattered(self, x, y, i):
-        """Return i-th basis function at scattered (x, y) points (no mask is
-        applied).
+        """Return the i-th basis function at scattered points (no mask is applied).
+
+        Parameters
+        ----------
+        x, y : arrays
+            Coordinates of the points.
+        i : int
+            Single index of the basis function (see `single_index_to_n_m()`).
+
+        Returns
+        -------
+        val : array
+            P_n(u/a)*P_m(v/b) in the shifted and rotated coordinates u, v.
         """
 
         n, m = self.single_index_to_n_m(i)
@@ -651,6 +744,21 @@ class LegendrePolynomials(TensorProductBasis):
         self._has_norm = True
 
     def eval_1d(self, t, n):
+        """Evaluate the Legendre polynomial of degree n.
+
+        Parameters
+        ----------
+        t : array
+            Scaled coordinates in [-1, 1].
+        n : int
+            Degree.
+
+        Returns
+        -------
+        val : array
+            P_n(t).
+        """
+
         c = np.zeros(n+1)
         c[n] = 1.0
 
@@ -687,6 +795,21 @@ class ChebyshevPolynomials(TensorProductBasis):
     """
 
     def eval_1d(self, t, n):
+        """Evaluate the Chebyshev polynomial (first kind) of degree n.
+
+        Parameters
+        ----------
+        t : array
+            Scaled coordinates in [-1, 1].
+        n : int
+            Degree.
+
+        Returns
+        -------
+        val : array
+            T_n(t).
+        """
+
         c = np.zeros(n+1)
         c[n] = 1.0
 
@@ -853,6 +976,23 @@ class NumericallyOrthogonalized(PresampledBasisSet):
         # generate interpolator (if not yet present)
         # use interpolator to interpolate to scattered x, y
 
+        """Evaluation at scattered points (not implemented yet).
+
+        Parameters
+        ----------
+        x, y : arrays
+            Coordinates of the points.
+        i : int
+            Index of the basis function.
+        interpolation : str, optional
+            Interpolation method.
+
+        Raises
+        ------
+        NotImplementedError
+            Always.
+        """
+
         raise NotImplementedError()
 
 
@@ -900,7 +1040,19 @@ class RescaledBasis(BasisSet):
         return rescaling_factor
 
     def get_rescaling_factor_from_sampled_func(self, index, sampled_func):
-        """Get rescaling factor for given index and sampled base function.
+        """Rescaling factor for a sampled basis function.
+
+        Parameters
+        ----------
+        index : int
+            Index of the basis function.
+        sampled_func : array
+            The basis function sampled on the new aperture.
+
+        Returns
+        -------
+        factor : number
+            scale_val_func(index)/scale_func(sampled_func).
         """
 
         old_scale = self.scale_func(sampled_func)

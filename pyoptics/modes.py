@@ -108,9 +108,26 @@ curvature in the plane (R = inf at the waist).
 
 
 def waist_from_plane(w, R, wavelength):
-    """Waist radius w0 and distance z from the waist of a Gaussian beam with
-    radius w and wavefront radius R in a plane (from 1/q = 1/R -
-    i*wavelength/(pi*w**2), q = z + i*z_R).
+    """Waist of a Gaussian beam from its radius and wavefront radius in a plane.
+
+    Uses 1/q = 1/R - i*wavelength/(pi*w**2), q = z + i*z_R.
+
+    Parameters
+    ----------
+    w : number
+        Beam radius (1/e**2 intensity) in the plane.
+    R : number
+        Wavefront radius of curvature in the plane (np.inf: flat, R > 0:
+        diverging).
+    wavelength : number
+        Wavelength in the medium.
+
+    Returns
+    -------
+    w0 : number
+        Waist radius.
+    z : number
+        Distance of the plane from the waist (z > 0: behind the waist).
     """
 
     inv_q = (0.0 if np.isinf(R) else 1.0/R) - 1j*wavelength/(pi*w**2)
@@ -121,7 +138,24 @@ def waist_from_plane(w, R, wavelength):
 
 
 def plane_from_waist(w0, z, wavelength):
-    """Beam radius w and wavefront radius R a distance z from a waist w0."""
+    """Beam radius and wavefront radius a distance z from a waist.
+
+    Parameters
+    ----------
+    w0 : number
+        Waist radius.
+    z : number
+        Distance from the waist.
+    wavelength : number
+        Wavelength in the medium.
+
+    Returns
+    -------
+    w : number
+        Beam radius (1/e**2 intensity).
+    R : number
+        Wavefront radius of curvature, np.inf at the waist.
+    """
 
     z_R = pi*w0**2/wavelength
     w = w0*np.sqrt(1 + (z/z_R)**2)
@@ -137,8 +171,27 @@ def _basis_parameters(w0, z, x0, y0, wavelength):
 
 
 def hg_mode(l, m, x, y, w0, wavelength, z=0.0, x0=0.0, y0=0.0):
-    """Hermite-Gaussian mode HG_lm of beams.gauss_hermite() centred on (x0,
-    y0), a distance z behind its waist w0.
+    """Hermite-Gaussian mode HG_lm of `beams.gauss_hermite`.
+
+    Parameters
+    ----------
+    l, m : int
+        Mode indices in x and y.
+    x, y : arrays
+        Linear or meshed coordinates.
+    w0 : number
+        Waist radius.
+    wavelength : number
+        Wavelength in the medium.
+    z : number, optional
+        Distance from the waist.
+    x0, y0 : numbers, optional
+        Centre of the mode.
+
+    Returns
+    -------
+    field : 2d array
+        Mode field (including the Gouy phase).
     """
 
     X, Y = ensure_meshgrid(x, y)
@@ -148,9 +201,29 @@ def hg_mode(l, m, x, y, w0, wavelength, z=0.0, x0=0.0, y0=0.0):
 
 
 def lg_mode(p, l, x, y, w0, wavelength, z=0.0, x0=0.0, y0=0.0):
-    """Laguerre-Gaussian mode LG_pl of beams.gauss_laguerre() centred on (x0,
-    y0), a distance z behind its waist w0. l > 0 has the helical phase
-    exp(+i*l*phi).
+    """Laguerre-Gaussian mode LG_pl of `beams.gauss_laguerre`.
+
+    l > 0 has the helical phase exp(+i*l*phi).
+
+    Parameters
+    ----------
+    p, l : int
+        Radial and azimuthal index.
+    x, y : arrays
+        Linear or meshed coordinates.
+    w0 : number
+        Waist radius.
+    wavelength : number
+        Wavelength in the medium.
+    z : number, optional
+        Distance from the waist.
+    x0, y0 : numbers, optional
+        Centre of the mode.
+
+    Returns
+    -------
+    field : 2d array
+        Mode field (including the Gouy phase).
     """
 
     X, Y = ensure_meshgrid(x, y)
@@ -347,7 +420,20 @@ class ModeDecomposition:
         return fractions
 
     def mode(self, key, x, y):
-        """The normalized basis mode `key` sampled on x, y."""
+        """The normalized basis mode of a given key.
+
+        Parameters
+        ----------
+        key : tuple of int
+            (l, m) for HG or (p, l) for LG modes.
+        x, y : arrays
+            Linear or meshed coordinates.
+
+        Returns
+        -------
+        field : 2d array
+            Mode, normalized to unit power on the grid.
+        """
 
         mode_func = _FAMILIES[self.family][0]
         b = self.basis
@@ -355,7 +441,20 @@ class ModeDecomposition:
         return _normalized(mode_func(*key, x, y, b.w0, self.wavelength, b.z, b.x0, b.y0), x, y)
 
     def reconstruct(self, x, y, keys=None):
-        """Sum of the modes (all or the given keys) with their coefficients."""
+        """Sum of the modes with their coefficients.
+
+        Parameters
+        ----------
+        x, y : arrays
+            Linear or meshed coordinates.
+        keys : iterable of tuples, optional
+            Modes to include. Defaults to all modes of the decomposition.
+
+        Returns
+        -------
+        field : 2d array
+            Reconstructed field.
+        """
 
         keys = self.coefficients.keys() if keys is None else keys
         if self.family == "hg":
@@ -382,7 +481,18 @@ class ModeDecomposition:
 
     def to_hg(self, x, y):
         """HG decomposition of the same (truncated) field in the same basis.
+
         HG and LG modes up to the same order span the same space.
+
+        Parameters
+        ----------
+        x, y : arrays
+            Grid on which the LG expansion is reconstructed and decomposed again.
+
+        Returns
+        -------
+        ModeDecomposition
+            The decomposition itself if it already uses HG modes.
         """
 
         if self.family == "hg":
@@ -392,9 +502,25 @@ class ModeDecomposition:
                             self.basis.z, self.max_order, self.basis.x0, self.basis.y0)
 
     def M2(self, x=None, y=None):
-        """Beam propagation ratios (M²_x, M²_y) from the mode content (second
-        moments of the truncated expansion, see the module docstring). An LG
-        decomposition is converted with to_hg(), which needs x and y.
+        """Beam propagation ratios from the mode content.
+
+        Second moments of the truncated expansion, see the module docstring. An
+        LG decomposition is converted with `to_hg()`, which needs x and y.
+
+        Parameters
+        ----------
+        x, y : arrays, optional
+            Grid for the conversion of an LG decomposition.
+
+        Returns
+        -------
+        M2_x, M2_y : numbers
+            M² along x and y.
+
+        Raises
+        ------
+        ValueError
+            For an LG decomposition without x and y.
         """
 
         if self.family == "lg":
@@ -560,9 +686,33 @@ def decompose_hg(field, x, y, w0=None, wavelength=1.0, z=0.0, max_order=10, x0=N
 
 def decompose_lg(field, x, y, w0=None, wavelength=1.0, z=0.0, max_order=10, x0=None, y0=None,
                  method="projection", fit_kwargs=None):
-    """Decompose a field into Laguerre-Gaussian modes LG_pl, 2p + ``|l|`` <=
-    max_order. Parameters as in decompose_hg(); the coefficients are keyed by
-    (p, l).
+    """Decompose a field into Laguerre-Gaussian modes LG_pl, 2p + ``|l|`` <= max_order.
+
+    The coefficients are keyed by (p, l).
+
+    Parameters
+    ----------
+    field : array
+    x, y : arrays
+        Linear or meshed coordinates.
+    w0 : number, optional
+        Waist radius of the basis. If omitted, the basis is fitted with
+        `fit_basis()`.
+    wavelength : number
+        Wavelength in the medium.
+    z : number, optional
+        Distance of the plane from the waist of the basis.
+    max_order : int, optional
+    x0, y0 : numbers, optional
+        Centre of the basis.
+    method : {"projection", "lstsq"}, optional
+        See `decompose_hg()`.
+    fit_kwargs : dict, optional
+        Keyword arguments for `fit_basis()`.
+
+    Returns
+    -------
+    decomposition : ModeDecomposition
     """
 
     return _decompose("lg", field, x, y, w0, wavelength, z, max_order, x0, y0, method, fit_kwargs)
@@ -570,20 +720,57 @@ def decompose_lg(field, x, y, w0=None, wavelength=1.0, z=0.0, max_order=10, x0=N
 
 # step-index fibres:
 def numerical_aperture(n_core, n_clad):
-    """NA = sqrt(n_core**2 - n_clad**2) of a step-index fibre."""
+    """Numerical aperture of a step-index fibre.
+
+    Parameters
+    ----------
+    n_core, n_clad : numbers
+        Refractive indices of core and cladding.
+
+    Returns
+    -------
+    NA : number
+        sqrt(n_core**2 - n_clad**2).
+    """
 
     return np.sqrt(n_core**2 - n_clad**2)
 
 
 def v_number(core_radius, n_core, n_clad, wavelength):
-    """V = 2*pi*a/wavelength*NA (vacuum wavelength)."""
+    """V number of a step-index fibre.
+
+    Parameters
+    ----------
+    core_radius : number
+        Core radius a.
+    n_core, n_clad : numbers
+        Refractive indices of core and cladding.
+    wavelength : number
+        Vacuum wavelength.
+
+    Returns
+    -------
+    V : number
+        2*pi*a/wavelength*NA.
+    """
 
     return 2*pi*core_radius/wavelength*numerical_aperture(n_core, n_clad)
 
 
 def lp_cutoff(l, m):
-    """Cutoff V number of the LP_lm mode (m >= 1): the m-th zero of J_{l-1},
-    counting U = 0 as the first zero for l = 0.
+    """Cutoff V number of the LP_lm mode.
+
+    Parameters
+    ----------
+    l : int
+        Azimuthal index.
+    m : int
+        Radial index, m >= 1.
+
+    Returns
+    -------
+    V_c : number
+        The m-th zero of J_{l-1}, counting U = 0 as the first zero for l = 0.
     """
 
     if l == 0:
@@ -607,7 +794,20 @@ class LPMode(namedtuple("LPMode", ["l", "m", "U", "W", "V", "b", "n_eff"])):
         return 2 if self.l == 0 else 4
 
     def radial(self, r, core_radius):
-        """Radial profile, 1 at the core-cladding interface r = a."""
+        """Radial profile of the mode.
+
+        Parameters
+        ----------
+        r : number or array
+            Distance from the fibre axis.
+        core_radius : number
+            Core radius a.
+
+        Returns
+        -------
+        profile : array
+            J_l in the core, K_l in the cladding, 1 at the core-cladding interface.
+        """
 
         rho = np.abs(np.asarray(r, dtype=float))/core_radius
         with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
@@ -615,7 +815,23 @@ class LPMode(namedtuple("LPMode", ["l", "m", "U", "W", "V", "b", "n_eff"])):
         return np.where(rho <= 1, jv(self.l, self.U*rho)/jv(self.l, self.U), np.nan_to_num(outside))
 
     def field(self, x, y, core_radius, orientation="cos", x0=0.0, y0=0.0):
-        """Mode field, normalized to unit power on the grid (see lp_mode_field())."""
+        """Mode field on a grid, normalized to unit power.
+
+        Parameters
+        ----------
+        x, y : arrays
+            Linear or meshed coordinates.
+        core_radius : number
+            Core radius.
+        orientation : {"cos", "sin", "+", "-"}, optional
+            Azimuthal dependence, see `lp_mode_field()`.
+        x0, y0 : numbers, optional
+            Position of the fibre axis.
+
+        Returns
+        -------
+        field : 2d array
+        """
 
         return lp_mode_field(self, x, y, core_radius, orientation, x0, y0)
 
@@ -687,7 +903,27 @@ def lp_modes(V=None, core_radius=None, n_core=None, n_clad=None, wavelength=None
 
 
 def lp_mode(l, m, V=None, **kwargs):
-    """The single mode LP_lm (raises ValueError if it is not guided)."""
+    """The single guided mode LP_lm.
+
+    Parameters
+    ----------
+    l, m : int
+        Mode indices.
+    V : number, optional
+        V number.
+    **kwargs
+        Further arguments of `lp_modes()`, e.g. the fibre parameters instead of
+        V.
+
+    Returns
+    -------
+    LPMode
+
+    Raises
+    ------
+    ValueError
+        If LP_lm is not guided.
+    """
 
     for mode in lp_modes(V, l_max=l, **kwargs):
         if mode.l == l and mode.m == m:
@@ -725,9 +961,23 @@ def lp_mode_field(mode, x, y, core_radius, orientation="cos", x0=0.0, y0=0.0):
 
 
 def marcuse_mode_field_radius(V, core_radius):
-    """Mode field radius w of LP01 after Marcuse, w/a = 0.65 + 1.619/V**1.5 +
-    2.879/V**6 (1/e**2 intensity radius of the best matching Gaussian, better
-    than 1 % for 1.2 < V < 2.4). The mode field diameter is 2*w.
+    """Mode field radius of LP01 after Marcuse.
+
+    w/a = 0.65 + 1.619/V**1.5 + 2.879/V**6, the 1/e**2 intensity radius of the
+    best matching Gaussian, better than 1 % for 1.2 < V < 2.4. The mode field
+    diameter is 2*w.
+
+    Parameters
+    ----------
+    V : number or array
+        V number.
+    core_radius : number
+        Core radius a.
+
+    Returns
+    -------
+    w : number or array
+        Mode field radius.
     """
 
     return core_radius*(0.65 + 1.619/V**1.5 + 2.879/V**6)
@@ -735,8 +985,23 @@ def marcuse_mode_field_radius(V, core_radius):
 
 # coupling:
 def coupling_efficiency(field, mode, x, y):
-    """Power coupling efficiency of a field into a mode (or any other field),
+    """Power coupling efficiency of a field into a mode (or any other field).
+
     eta = ``|<mode|field>|**2/(<mode|mode>*<field|field>)``.
+
+    Parameters
+    ----------
+    field : 2d array
+        Incident field.
+    mode : 2d array
+        Mode field on the same grid (need not be normalized).
+    x, y : arrays
+        Coordinates.
+
+    Returns
+    -------
+    eta : number
+        Efficiency between 0 and 1.
     """
 
     return (abs(scalar_product(mode, field, x, y))**2
@@ -744,8 +1009,21 @@ def coupling_efficiency(field, mode, x, y):
 
 
 def mode_power_fractions(field, modes, x, y):
-    """Fractions of the power of a field coupled into each of a set of
-    (orthogonal) modes, e.g. the fields of all LP modes of a fibre.
+    """Fractions of the power of a field coupled into each of a set of modes.
+
+    Parameters
+    ----------
+    field : 2d array
+        Incident field.
+    modes : sequence of 2d arrays
+        (Orthogonal) mode fields, e.g. the fields of all LP modes of a fibre.
+    x, y : arrays
+        Coordinates.
+
+    Returns
+    -------
+    fractions : 1d array
+        Coupling efficiency into each mode.
     """
 
     P = _power(field, x, y)
@@ -755,8 +1033,28 @@ def mode_power_fractions(field, modes, x, y):
 
 
 def coupling_vs_offset(field, mode, x, y, offsets, axis="x"):
-    """Coupling efficiency with the field shifted laterally by each offset
-    along x or y (Fourier shift; keep the field away from the grid edges).
+    """Coupling efficiency with the field shifted laterally.
+
+    The field is shifted with a Fourier shift; keep it away from the grid
+    edges.
+
+    Parameters
+    ----------
+    field : 2d array
+        Incident field.
+    mode : 2d array
+        Mode field on the same grid.
+    x, y : arrays
+        Coordinates.
+    offsets : sequence of numbers
+        Lateral shifts of the field.
+    axis : {"x", "y"}, optional
+        Direction of the shift.
+
+    Returns
+    -------
+    eta : 1d array
+        Coupling efficiency for each offset.
     """
 
     K_X, K_Y = freq_grid(x, y, wavenumbers=True, normal_order=True)
@@ -768,8 +1066,31 @@ def coupling_vs_offset(field, mode, x, y, offsets, axis="x"):
 
 
 def coupling_vs_tilt(field, mode, x, y, wavelength, angles, axis="x", n=1.0):
-    """Coupling efficiency with the field tilted by each angle (radians, in
-    the medium of index n) in the xz or yz plane: E*exp(i*k*sin(theta)*x).
+    """Coupling efficiency with the field tilted.
+
+    The field is multiplied by exp(i*k*sin(theta)*x) (or y).
+
+    Parameters
+    ----------
+    field : 2d array
+        Incident field.
+    mode : 2d array
+        Mode field on the same grid.
+    x, y : arrays
+        Coordinates.
+    wavelength : number
+        Vacuum wavelength.
+    angles : sequence of numbers
+        Tilt angles in radians in the medium, in the xz or yz plane.
+    axis : {"x", "y"}, optional
+        Plane of the tilt.
+    n : number, optional
+        Refractive index of the medium.
+
+    Returns
+    -------
+    eta : 1d array
+        Coupling efficiency for each angle.
     """
 
     X, Y = ensure_meshgrid(x, y)
@@ -792,13 +1113,35 @@ def _propagating_angular_spectrum(field, x, y, z, wavelength, n=1.0):
 
 
 def coupling_vs_defocus(field, mode, x, y, wavelength, distances, n=1.0, propagator=None):
-    """Coupling efficiency with the field propagated by each distance (the
-    mode stays in the plane of the field, so positive distances mean the
-    fibre end is behind the plane of the field).
+    """Coupling efficiency with the field propagated along z.
 
-    The default propagator is the angular spectrum method without the
-    evanescent waves (positive and negative distances); pass e.g.
-    propagators.fresnel_TF to compare with paraxial (ABCD) results.
+    The mode stays in the plane of the field, so positive distances mean the
+    fibre end is behind the plane of the field.
+
+    Parameters
+    ----------
+    field : 2d array
+        Incident field.
+    mode : 2d array
+        Mode field on the same grid.
+    x, y : arrays
+        Coordinates.
+    wavelength : number
+        Vacuum wavelength.
+    distances : sequence of numbers
+        Propagation distances (positive or negative).
+    n : number, optional
+        Refractive index of the medium.
+    propagator : callable, optional
+        propagator(field, x, y, z, wavelength, n) returning the propagated
+        field first. The default is the angular spectrum method without the
+        evanescent waves; pass e.g. `propagators.fresnel_TF` to compare with
+        paraxial (ABCD) results.
+
+    Returns
+    -------
+    eta : 1d array
+        Coupling efficiency for each distance.
     """
 
     propagator = _propagating_angular_spectrum if propagator is None else propagator

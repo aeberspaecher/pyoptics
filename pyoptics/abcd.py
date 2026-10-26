@@ -89,7 +89,17 @@ from .utils import ensure_meshgrid, freq_grid, get_dx, wavenumber
 def free_space(d, n=1.0):
     """Propagation over a distance d in a homogeneous medium of index n.
 
-    Returns [[1, d/n], [0, 1]] (reduced distance d/n).
+    Parameters
+    ----------
+    d : number
+        Geometrical distance.
+    n : number, optional
+        Refractive index of the medium.
+
+    Returns
+    -------
+    M : array
+        [[1, d/n], [0, 1]] (reduced distance d/n).
     """
 
     return np.array([[1.0, d/n], [0.0, 1.0]])
@@ -98,7 +108,15 @@ def free_space(d, n=1.0):
 def thin_lens(f):
     """Thin lens of focal length f (f > 0 converging, in air).
 
-    Returns [[1, 0], [-1/f, 1]]. f = np.inf is the identity.
+    Parameters
+    ----------
+    f : number
+        Focal length. np.inf gives the identity.
+
+    Returns
+    -------
+    M : array
+        [[1, 0], [-1/f, 1]].
     """
 
     return np.array([[1.0, 0.0], [-1.0/f, 1.0]])
@@ -163,6 +181,15 @@ def grin(d, n0, g):
     Rays oscillate with the period 2*pi/g (pitch). For g -> 0 this becomes
     `free_space(d, n0)`.
 
+    Parameters
+    ----------
+    d : number
+        Length of the section.
+    n0 : number
+        Refractive index on the axis.
+    g : number
+        Gradient constant (1/length). g = 0 is a homogeneous medium.
+
     Returns
     -------
     M : array
@@ -180,7 +207,15 @@ def grin(d, n0, g):
 def compose(*matrices):
     """System matrix of elements given in the order the light passes them.
 
-    compose(M1, M2, M3) = M3 @ M2 @ M1.
+    Parameters
+    ----------
+    *matrices : arrays
+        2x2 matrices, first element first.
+
+    Returns
+    -------
+    M : array
+        compose(M1, M2, M3) = M3 @ M2 @ M1; the identity for no arguments.
     """
 
     M = np.eye(2)
@@ -191,11 +226,27 @@ def compose(*matrices):
 
 
 def thick_lens(R1, R2, d, n_lens, n=1.0):
-    """Thick lens with radii R1, R2, centre thickness d and index n_lens in
-    a medium of index n (on both sides).
+    """Thick lens in a medium of index n (on both sides).
 
-    For a biconvex lens R1 > 0 and R2 < 0. The matrix maps the vertex of the
-    first surface onto the vertex of the second surface.
+    The matrix maps the vertex of the first surface onto the vertex of the
+    second surface.
+
+    Parameters
+    ----------
+    R1, R2 : numbers
+        Radii of curvature of the first and second surface. For a biconvex lens
+        R1 > 0 and R2 < 0; np.inf for a flat surface.
+    d : number
+        Centre thickness.
+    n_lens : number
+        Refractive index of the lens.
+    n : number, optional
+        Refractive index of the surrounding medium.
+
+    Returns
+    -------
+    M : array
+        The 2x2 matrix of refraction, glass and refraction.
     """
 
     return compose(refraction(R1, n, n_lens), free_space(d, n_lens), refraction(R2, n_lens, n))
@@ -203,23 +254,69 @@ def thick_lens(R1, R2, d, n_lens, n=1.0):
 
 # Gaussian beams:
 def q_from_waist(w0, z, wavelength, n=1.0):
-    """Complex beam parameter q = z + i*z_R at distance z behind a waist of
-    radius w0 (z < 0: in front of the waist), z_R = pi*n*w0**2/wavelength.
+    """Complex beam parameter at distance z behind a waist.
+
+    Parameters
+    ----------
+    w0 : number or array
+        Waist radius (1/e**2 intensity).
+    z : number or array
+        Distance from the waist; z < 0 lies in front of the waist.
+    wavelength : number
+        Vacuum wavelength.
+    n : number, optional
+        Refractive index.
+
+    Returns
+    -------
+    q : complex or array
+        q = z + i*z_R with the Rayleigh length z_R = pi*n*w0**2/wavelength.
     """
 
     return z + 1j*pi*n*w0**2/wavelength
 
 
 def q_from_w_R(w, R, wavelength, n=1.0):
-    """Complex beam parameter from beam radius w and wavefront radius R
-    (R = np.inf for a flat wavefront, R > 0 for a diverging beam).
+    """Complex beam parameter from beam radius and wavefront radius.
+
+    Parameters
+    ----------
+    w : number or array
+        Beam radius (1/e**2 intensity).
+    R : number or array
+        Wavefront radius of curvature: np.inf for a flat wavefront, R > 0 for a
+        diverging beam.
+    wavelength : number
+        Vacuum wavelength.
+    n : number, optional
+        Refractive index.
+
+    Returns
+    -------
+    q : complex or array
+        1/q = 1/R - i*wavelength/(pi*n*w**2).
     """
 
     return 1.0/(1.0/R - 1j*wavelength/(pi*n*np.asarray(w)**2))
 
 
 def beam_radius(q, wavelength, n=1.0):
-    """1/e**2 intensity radius w = sqrt(-wavelength/(pi*n*Im(1/q)))."""
+    """Beam radius of a Gaussian beam with parameter q.
+
+    Parameters
+    ----------
+    q : complex or array
+        Complex beam parameter.
+    wavelength : number
+        Vacuum wavelength.
+    n : number, optional
+        Refractive index.
+
+    Returns
+    -------
+    w : number or array
+        1/e**2 intensity radius w = sqrt(-wavelength/(pi*n*Im(1/q))).
+    """
 
     return np.sqrt(-wavelength/(pi*n*np.imag(1.0/np.asarray(q))))
 
@@ -243,9 +340,19 @@ def rayleigh_length(q):
 def waist(q, wavelength, n=1.0):
     """Waist radius w0 and the waist position relative to the plane of q.
 
+    Parameters
+    ----------
+    q : complex or array
+        Complex beam parameter.
+    wavelength : number
+        Vacuum wavelength.
+    n : number, optional
+        Refractive index.
+
     Returns
     -------
     w0 : number
+        Waist radius.
     z_waist : number
         Position of the waist relative to the current plane, -Re(q): positive
         if the beam is converging towards a waist that lies ahead (in +z).
@@ -257,7 +364,24 @@ def waist(q, wavelength, n=1.0):
 
 
 def transform_q(M, q, n_in=1.0, n_out=1.0):
-    """ABCD law: q_out/n_out = (A*q/n_in + B)/(C*q/n_in + D)."""
+    """Transform a beam parameter with the ABCD law.
+
+    q_out/n_out = (A*q/n_in + B)/(C*q/n_in + D).
+
+    Parameters
+    ----------
+    M : array
+        2x2 matrix of the system.
+    q : complex or array
+        Beam parameter in the input plane.
+    n_in, n_out : numbers, optional
+        Refractive indices in the input and output planes.
+
+    Returns
+    -------
+    q_out : complex or array
+        Beam parameter in the output plane.
+    """
 
     (A, B), (C, D) = M
     q_r = np.asarray(q)/n_in
@@ -277,6 +401,20 @@ def gouy_phase(M, q, n_in=1.0):
     For free space behind a waist, psi = arctan(z/z_R), consistent with
     `pyoptics.beams`. To follow psi beyond +-pi, sample the system densely
     and unwrap, as `OpticalSystem.trace_beam()` does.
+
+    Parameters
+    ----------
+    M : array
+        2x2 matrix of the system.
+    q : complex or array
+        Beam parameter in the input plane.
+    n_in : number, optional
+        Refractive index in the input plane.
+
+    Returns
+    -------
+    psi : number or array
+        Gouy phase in radians.
     """
 
     (A, B), _ = M
@@ -320,14 +458,29 @@ def gaussian_field(x, y, q, wavelength, n=1.0, q_y=None, x0=0.0, y0=0.0):
 
 
 def coupling_efficiency(q1, q2, wavelength, n=1.0):
-    """Power coupling efficiency of two coaxial fundamental Gaussian beams
-    (rotationally symmetric) given in the same plane.
+    """Power coupling efficiency of two coaxial fundamental Gaussian beams.
 
-    eta = ``|<E1|E2>|**2`` = 4/((w1/w2 + w2/w1)**2
-                            + (pi*n*w1*w2/wavelength)**2*(1/R1 - 1/R2)**2).
+    Both beams are rotationally symmetric and given in the same plane ::
+
+        eta = |<E1|E2>|**2 = 4/((w1/w2 + w2/w1)**2
+                                + (pi*n*w1*w2/wavelength)**2*(1/R1 - 1/R2)**2).
 
     This is the mode matching efficiency into a fibre or a resonator mode.
     In one transverse dimension the efficiency is sqrt(eta).
+
+    Parameters
+    ----------
+    q1, q2 : complex or arrays
+        Beam parameters of the two beams.
+    wavelength : number
+        Vacuum wavelength.
+    n : number, optional
+        Refractive index.
+
+    Returns
+    -------
+    eta : number or array
+        Coupling efficiency between 0 and 1.
     """
 
     w1, w2 = beam_radius(q1, wavelength, n), beam_radius(q2, wavelength, n)
@@ -391,8 +544,20 @@ def round_trip_gouy_phase(M):
 
 
 def g_parameters(L, R1, R2):
-    """Resonator g parameters g_i = 1 - L/R_i of a two mirror resonator of
-    length L. Stable for 0 < g1*g2 < 1.
+    """Resonator g parameters of a two mirror resonator.
+
+    Parameters
+    ----------
+    L : number
+        Resonator length.
+    R1, R2 : numbers
+        Radii of curvature of the mirrors, R > 0 for concave mirrors; np.inf for
+        a plane mirror.
+
+    Returns
+    -------
+    g1, g2 : numbers
+        g_i = 1 - L/R_i. The resonator is stable for 0 < g1*g2 < 1.
     """
 
     return 1.0 - L/R1, 1.0 - L/R2
@@ -414,9 +579,26 @@ ffl, bfl : front and back focal lengths, i.e. distances of F in front of the
 
 
 def cardinal_points(M, length=0.0, n_in=1.0, n_out=1.0):
-    """Cardinal points of a system with matrix M from the input plane (z = 0)
-    to the output plane (z = length). Raises ValueError for an afocal system
-    (C = 0).
+    """Cardinal points of a system.
+
+    Parameters
+    ----------
+    M : array
+        2x2 matrix from the input plane (z = 0) to the output plane.
+    length : number, optional
+        z position of the output plane.
+    n_in, n_out : numbers, optional
+        Refractive indices in front of and behind the system.
+
+    Returns
+    -------
+    CardinalPoints
+        Focal lengths and positions of the focal, principal and nodal points.
+
+    Raises
+    ------
+    ValueError
+        For an afocal system (C = 0).
     """
 
     (A, B), (C, D) = M
@@ -433,6 +615,15 @@ def cardinal_points(M, length=0.0, n_in=1.0, n_out=1.0):
 
 def image(M, s, n_in=1.0, n_out=1.0):
     """Image of an object at distance s in front of the input plane.
+
+    Parameters
+    ----------
+    M : array
+        2x2 matrix of the system.
+    s : number
+        Object distance in front of the input plane (s > 0: real object).
+    n_in, n_out : numbers, optional
+        Refractive indices in front of and behind the system.
 
     Returns
     -------
@@ -517,37 +708,116 @@ class OpticalSystem:
 
     # builders:
     def free_space(self, d, n=None, label=None):
-        """Homogeneous medium of length d and index n (default: current
-        medium). A change of n implies a flat interface."""
+        """Append a homogeneous medium.
+
+        A change of the refractive index implies a flat interface.
+
+        Parameters
+        ----------
+        d : number
+            Length.
+        n : number, optional
+            Refractive index. Defaults to the current medium.
+        label : str, optional
+            Label for `draw()`.
+
+        Returns
+        -------
+        OpticalSystem
+            The system itself (for chaining).
+        """
 
         n = self.n_out if n is None else n
 
         return self._add("free", d, n, lambda s: free_space(s, n), label)
 
     def thin_lens(self, f, label=None):
-        """Thin lens of focal length f."""
+        """Append a thin lens.
+
+        Parameters
+        ----------
+        f : number
+            Focal length, f > 0 for a converging lens.
+        label : str, optional
+            Label for `draw()`.
+
+        Returns
+        -------
+        OpticalSystem
+            The system itself (for chaining).
+        """
 
         M = thin_lens(f)
 
         return self._add("lens", 0.0, self.n_out, lambda s: M, label, f=f)
 
     def refraction(self, R, n2, label=None):
-        """Spherical (R) or flat (R = np.inf) interface into index n2."""
+        """Append a spherical or flat interface.
+
+        Parameters
+        ----------
+        R : number
+            Radius of curvature (see `refraction()`); np.inf for a flat interface.
+        n2 : number
+            Refractive index behind the interface.
+        label : str, optional
+            Label for `draw()`.
+
+        Returns
+        -------
+        OpticalSystem
+            The system itself (for chaining).
+        """
 
         M = refraction(R, self.n_out, n2)
 
         return self._add("interface", 0.0, n2, lambda s: M, label, R=R)
 
     def mirror(self, R, theta=0.0, plane="tangential", label=None):
-        """Spherical mirror (unfolded), R > 0 concave."""
+        """Append a spherical mirror (unfolded).
+
+        Parameters
+        ----------
+        R : number
+            Radius of curvature, R > 0 for a concave mirror.
+        theta : number, optional
+            Angle of incidence in radians.
+        plane : {"tangential", "sagittal"}, optional
+            Plane for oblique incidence, see `mirror()`.
+        label : str, optional
+            Label for `draw()`.
+
+        Returns
+        -------
+        OpticalSystem
+            The system itself (for chaining).
+        """
 
         M = mirror(R, theta, plane, self.n_out)
 
         return self._add("mirror", 0.0, self.n_out, lambda s: M, label, R=R, theta=theta)
 
     def thick_lens(self, R1, R2, d, n_lens, label=None):
-        """Thick lens (two refracting surfaces and the glass in between),
-        surrounded by the current medium."""
+        """Append a thick lens surrounded by the current medium.
+
+        The lens is added as two refracting surfaces and the glass in between.
+
+        Parameters
+        ----------
+        R1, R2 : numbers
+            Radii of curvature of the two surfaces, see `thick_lens()`.
+        d : number
+            Centre thickness.
+        n_lens : number
+            Refractive index of the lens.
+        label : str, optional
+            Label for `draw()`.
+
+        Returns
+        -------
+        OpticalSystem
+            The system itself (for chaining).
+        """
 
         n = self.n_out
         self.refraction(R1, n_lens, label=label)
@@ -557,13 +827,49 @@ class OpticalSystem:
         return self
 
     def grin(self, d, n0, g, label=None):
-        """Graded index section n(r) = n0*(1 - g**2*r**2/2) of length d."""
+        """Append a graded index section n(r) = n0*(1 - g**2*r**2/2).
+
+        Parameters
+        ----------
+        d : number
+            Length of the section.
+        n0 : number
+            Refractive index on the axis.
+        g : number
+            Gradient constant (1/length).
+        label : str, optional
+            Label for `draw()`.
+
+        Returns
+        -------
+        OpticalSystem
+            The system itself (for chaining).
+        """
 
         return self._add("grin", d, n0, lambda s: grin(s, n0, g), label, g=g)
 
     def element(self, M, length=0.0, n=None, label=None):
-        """Any element with the (full) matrix M. Inside an element of
-        nonzero length, rays and beams are only available at its ends."""
+        """Append any element given by its matrix.
+
+        Inside an element of nonzero length, rays and beams are only available
+        at its ends.
+
+        Parameters
+        ----------
+        M : array
+            Full 2x2 matrix of the element.
+        length : number, optional
+            Axial length of the element.
+        n : number, optional
+            Refractive index behind the element. Defaults to the current medium.
+        label : str, optional
+            Label for `draw()`.
+
+        Returns
+        -------
+        OpticalSystem
+            The system itself (for chaining).
+        """
 
         M = np.asarray(M, dtype=float)
         n = self.n_out if n is None else n
@@ -647,7 +953,16 @@ class OpticalSystem:
         return y, theta
 
     def trace_beam(self, q, wavelength, z):
-        """Trace a Gaussian beam with parameter q in the plane z = 0.
+        """Trace a Gaussian beam through the system.
+
+        Parameters
+        ----------
+        q : complex
+            Beam parameter in the plane z = 0.
+        wavelength : number
+            Vacuum wavelength.
+        z : array
+            Positions at which to evaluate the beam.
 
         Returns
         -------
@@ -683,8 +998,20 @@ class OpticalSystem:
 
         Lenses are drawn as double arrows (pointing outwards for converging,
         inwards for diverging lenses), mirrors as thick lines, interfaces as
-        arcs and media with n != 1 as shaded areas. height is the half height
-        of the symbols in data units.
+        arcs and media with n != 1 as shaded areas.
+
+        Parameters
+        ----------
+        ax : matplotlib axis, optional
+            Axis to draw into. Defaults to the current axis.
+        height : number, optional
+            Half height of the symbols in data units.
+        color : color, optional
+            Color of the symbols.
+
+        Returns
+        -------
+        ax : matplotlib axis
         """
 
         import matplotlib.pyplot as plt

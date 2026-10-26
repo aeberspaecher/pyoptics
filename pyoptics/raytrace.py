@@ -150,8 +150,17 @@ def _dot(a, b):
 
 
 def rotation(a_x=0.0, a_y=0.0, a_z=0.0):
-    """Rotation matrix R_x(a_x) @ R_y(a_y) @ R_z(a_z) (angles in radians,
-    counterclockwise about the respective axis)."""
+    """Rotation matrix R_x(a_x) @ R_y(a_y) @ R_z(a_z).
+
+    Parameters
+    ----------
+    a_x, a_y, a_z : numbers, optional
+        Angles in radians, counterclockwise about the respective axis.
+
+    Returns
+    -------
+    R : 3x3 array
+    """
 
     return R_x(a_x) @ R_y(a_y) @ R_z(a_z)
 
@@ -256,7 +265,23 @@ class Surface:
         return 0.0 if np.isinf(self.R) else 1.0/self.R
 
     def index(self, wavelength_nm, n_before):
-        """Refractive index behind the surface."""
+        """Refractive index behind the surface.
+
+        From the material (a `materials.Material`, a callable n(wavelength_nm) or
+        a pair (n_d, V_d) for `materials.abbe_dispersion`), else from n_after,
+        else the index in front of the surface is kept.
+
+        Parameters
+        ----------
+        wavelength_nm : number
+            Vacuum wavelength in nm.
+        n_before : number
+            Refractive index in front of the surface.
+
+        Returns
+        -------
+        n : number
+        """
 
         if self.material is not None:
             if isinstance(self.material, Material):
@@ -293,8 +318,20 @@ class Surface:
         return s
 
     def intersect(self, P, d):
-        """Distance t along the unit directions d from the points P (both
-        (N, 3), P relative to the vertex) to the surface; NaN for misses."""
+        """Distance along the rays from their points to the surface.
+
+        Parameters
+        ----------
+        P : (N, 3) array
+            Start points relative to the vertex, in the local frame of the surface.
+        d : (N, 3) array
+            Unit directions.
+
+        Returns
+        -------
+        t : (N,) array
+            Distances to the intersections; NaN for rays that miss the surface.
+        """
 
         c, K = self.c, self.conic
         x, y, z = P.T
@@ -341,6 +378,15 @@ class Surface:
     def deflect(self, Q, d, n1, n2):
         """Refract (or reflect) the directions d at the points Q.
 
+        Parameters
+        ----------
+        Q : (N, 3) array
+            Intersection points in the local frame of the surface.
+        d : (N, 3) array
+            Unit directions of the incident rays.
+        n1, n2 : numbers
+            Refractive indices in front of and behind the surface.
+
         Returns
         -------
         d2 : array
@@ -365,12 +411,36 @@ class Surface:
         return d2, np.zeros(len(d))
 
     def paraxial_power(self, n1, n2):
-        """Power for the signed indices n1, n2: n2*u2 = n1*u1 - y*power."""
+        """Paraxial power of the surface.
+
+        Parameters
+        ----------
+        n1, n2 : numbers
+            Signed refractive indices in front of and behind the surface (negative
+            behind a mirror).
+
+        Returns
+        -------
+        power : number
+            c*(n2 - n1), with n2*u2 = n1*u1 - y*power.
+        """
 
         return self.c*(n2 - n1)
 
     def abcd_matrix(self, n1, n2, sigma):
-        """Unfolded ABCD matrix for light travelling in sigma*z (sigma = +-1)."""
+        """Unfolded ABCD matrix of the surface (see `pyoptics.abcd`).
+
+        Parameters
+        ----------
+        n1, n2 : numbers
+            Refractive indices in front of and behind the surface.
+        sigma : {1, -1}
+            Direction of the light along z.
+
+        Returns
+        -------
+        M : 2x2 array
+        """
 
         if self.mirror:
             return abcd.mirror(-sigma*self.R, n=n1)
@@ -399,6 +469,25 @@ class IdealLens(Surface):
             self.f, self.thickness, self.semi_diameter)
 
     def deflect(self, Q, d, n1, n2):
+        """Deflect the rays towards the focal point of their bundle.
+
+        Parameters
+        ----------
+        Q : (N, 3) array
+            Intersection points in the plane of the lens.
+        d : (N, 3) array
+            Unit directions of the incident rays.
+        n1, n2 : numbers
+            Refractive indices (equal for an ideal lens).
+
+        Returns
+        -------
+        d2 : array
+            New unit directions.
+        dopl : array
+            Optical path correction that makes the lens free of aberrations.
+        """
+
         f = self.f
         Qf = f*d/np.abs(d[:, 2:3])  # focal point of the bundle with direction d
         v = Qf - Q
@@ -409,9 +498,35 @@ class IdealLens(Surface):
         return d2, dopl
 
     def paraxial_power(self, n1, n2):
+        """Paraxial power ``|n1|/f`` of the lens.
+
+        Parameters
+        ----------
+        n1, n2 : numbers
+            Signed refractive indices in front of and behind the lens.
+
+        Returns
+        -------
+        power : number
+        """
+
         return abs(n1)/self.f
 
     def abcd_matrix(self, n1, n2, sigma):
+        """ABCD matrix of a thin lens with the focal length f/n1.
+
+        Parameters
+        ----------
+        n1, n2 : numbers
+            Refractive indices in front of and behind the lens.
+        sigma : {1, -1}
+            Direction of the light along z (unused).
+
+        Returns
+        -------
+        M : 2x2 array
+        """
+
         return abcd.thin_lens(self.f/n1)
 
 
@@ -435,9 +550,36 @@ class CoordinateBreak(Surface):
             self.decenter, self.tilt, self.thickness)
 
     def paraxial_power(self, n1, n2):
+        """Paraxial power, zero for a coordinate break.
+
+        Parameters
+        ----------
+        n1, n2 : numbers
+            Refractive indices (unused).
+
+        Returns
+        -------
+        power : float
+            0.
+        """
+
         return 0.0
 
     def abcd_matrix(self, n1, n2, sigma):
+        """ABCD matrix of a coordinate break, the identity.
+
+        Parameters
+        ----------
+        n1, n2 : numbers
+            Refractive indices (unused).
+        sigma : {1, -1}
+            Direction of the light along z (unused).
+
+        Returns
+        -------
+        M : 2x2 array
+        """
+
         return np.eye(2)
 
 
@@ -857,7 +999,22 @@ class System:
                 or any(self.image_tilt))
 
     def to_image_frame(self, points, directions=None):
-        """Points (and directions) in the local frame of the image plane."""
+        """Transform points (and directions) to the local frame of the image plane.
+
+        Parameters
+        ----------
+        points : (..., 3) array
+            Points in global coordinates.
+        directions : (..., 3) array, optional
+            Directions in global coordinates.
+
+        Returns
+        -------
+        local : array
+            Points in the image plane frame.
+        local_directions : array
+            Directions in the image plane frame (only if directions is given).
+        """
 
         o, R = self.frames()[1]
         local = (np.asarray(points) - o) @ R
@@ -887,12 +1044,24 @@ class System:
         return other
 
     def with_axial_shift(self, first, last, dz):
-        """Copy with the surfaces first...last (inclusive, e.g. the two
-        surfaces of a lens) moved by dz along the axis; all other surfaces,
-        the object and the image plane stay in place.
+        """Copy with a group of surfaces moved along the axis.
 
-        The gap in front of `first` (or the object distance for first = 0)
-        grows by dz and the gap behind `last` shrinks by dz.
+        All other surfaces, the object and the image plane stay in place: the
+        gap in front of `first` (or the object distance for first = 0) grows by dz
+        and the gap behind `last` shrinks by dz.
+
+        Parameters
+        ----------
+        first, last : int
+            Indices of the first and last surface of the group (inclusive, e.g.
+            the two surfaces of a lens).
+        dz : number
+            Axial shift.
+
+        Returns
+        -------
+        System
+            The modified copy.
         """
 
         other = self.copy()
@@ -1112,11 +1281,22 @@ class System:
 
     # real rays:
     def rays(self, field=None, px=0.0, py=0.0, aim=None):
-        """Rays from the object point at field through the pupil points
-        (px, py) (normalized entrance pupil coordinates, arrays or numbers).
+        """Rays from an object point through points of the entrance pupil.
 
+        Parameters
+        ----------
+        field : number or pair, optional
+            Field angle in radians (object at infinity) or object height; a number
+            is a y field, a pair (x, y). Default: the maximum field.
+        px, py : numbers or arrays, optional
+            Normalized entrance pupil coordinates (broadcast against each other).
         aim : bool, optional
             Ray aiming at the real stop (default: self.ray_aiming).
+
+        Returns
+        -------
+        Rays
+            Start points, directions and optical paths for `trace()`.
         """
 
         field = self.max_field if field is None else field
@@ -1355,7 +1535,21 @@ class System:
         return P, d, opl
 
     def trace_pupil(self, field=None, px=0.0, py=0.0, clip=True):
-        """Trace rays through the pupil points (px, py) at field."""
+        """Trace rays through the pupil points (px, py) at field.
+
+        Parameters
+        ----------
+        field : number or pair, optional
+            See `rays()`.
+        px, py : numbers or arrays, optional
+            Normalized entrance pupil coordinates.
+        clip : bool, optional
+            Vignette rays outside the semi diameters.
+
+        Returns
+        -------
+        RayBundle
+        """
 
         return self.trace(self.rays(field, px, py), clip=clip)
 
@@ -1433,7 +1627,23 @@ class System:
 
     def trace_pupil_polarization(self, field=None, px=0.0, py=0.0, clip=True, coatings=None,
                                  media=None):
-        """trace_polarization() of the rays through the pupil points (px, py)."""
+        """`trace_polarization()` of the rays through the pupil points (px, py).
+
+        Parameters
+        ----------
+        field : number or pair, optional
+            See `rays()`.
+        px, py : numbers or arrays, optional
+            Normalized entrance pupil coordinates.
+        clip : bool, optional
+            Vignette rays outside the semi diameters.
+        coatings, media : dicts, optional
+            See `trace_polarization()`.
+
+        Returns
+        -------
+        PolarizedBundle
+        """
 
         return self.trace_polarization(self.rays(field, px, py), clip, coatings, media)
 
@@ -1508,8 +1718,19 @@ class System:
         return OPDMap(p, p, W)
 
     def zernike(self, field=None, n_terms=16, N=64):
-        """Least squares fit of Fringe Zernikes Z_1...Z_n_terms (on the unit
-        disk of pupil coordinates) to the OPD map.
+        """Fringe Zernike fit to the OPD map.
+
+        Least squares fit of Z_1...Z_n_terms on the unit disk of pupil
+        coordinates.
+
+        Parameters
+        ----------
+        field : number or pair, optional
+            See `rays()`.
+        n_terms : int, optional
+            Number of Fringe Zernikes.
+        N : int, optional
+            Samples across the pupil, see `opd()`.
 
         Returns
         -------
@@ -1537,8 +1758,22 @@ class System:
         return W
 
     def rms_opd(self, field=None, N=64, remove_tilt=True):
-        """RMS OPD in waves with piston (and by default tilt) removed, with
-        uniform weighting of the (vignetted) pupil."""
+        """RMS OPD over the (vignetted) pupil with uniform weighting.
+
+        Parameters
+        ----------
+        field : number or pair, optional
+            See `rays()`.
+        N : int, optional
+            Samples across the pupil.
+        remove_tilt : bool, optional
+            Remove the best fitting tilt (piston is always removed).
+
+        Returns
+        -------
+        rms : number
+            RMS OPD in waves.
+        """
 
         W = self._valid_opd(field, N, remove_tilt)
 
@@ -1551,6 +1786,18 @@ class System:
         the reference point is moved close to the diffraction focus. Without,
         it is the intensity at the chief ray image point, which is the centre
         of `psf()`.
+
+        Parameters
+        ----------
+        field : number or pair, optional
+            See `rays()`.
+        N : int, optional
+            Samples across the pupil.
+        remove_tilt : bool, optional
+
+        Returns
+        -------
+        strehl : number
         """
 
         W = self._valid_opd(field, N, remove_tilt)
@@ -1566,6 +1813,18 @@ class System:
         taken relative to the chief ray. The OPD of the traced rays is
         interpolated there; vignetted and unsampled regions are masked. NA is
         the largest ``n'|d - d_chief|`` of all rays.
+
+        Parameters
+        ----------
+        field : number or pair, optional
+            See `rays()`.
+        N : int, optional
+            Samples across the pupil.
+
+        Returns
+        -------
+        Pupil
+            NA, vacuum wavenumber, phase and mask for `imaging.get_psf()`.
         """
 
         from scipy.interpolate import griddata
@@ -1597,11 +1856,27 @@ class System:
         return Pupil(NA, 2*pi/self.wavelength, phase, mask)
 
     def psf(self, x, y, field=None, N=64, normalization="peak"):
-        """Amplitude PSF on the image plane grid x, y centred on the chief
-        ray, from `imaging.get_psf()` with the traced pupil.
+        """Amplitude PSF on an image plane grid, centred on the chief ray.
 
-        With normalization="peak", ``|psf|**2`` is relative to the peak of the
+        Computed with `imaging.get_psf()` from the traced pupil. With
+        normalization="peak", ``|psf|**2`` is relative to the peak of the
         aberration-free PSF of the same pupil (Strehl ratio at the centre).
+
+        Parameters
+        ----------
+        x, y : arrays
+            Image plane coordinates relative to the chief ray.
+        field : number or pair, optional
+            See `rays()`.
+        N : int, optional
+            Samples across the pupil.
+        normalization : str, optional
+            See `imaging.get_psf()`.
+
+        Returns
+        -------
+        psf : 2d array
+            Complex amplitude PSF.
         """
 
         pup = self.pupil(field, N)
@@ -1609,7 +1884,21 @@ class System:
         return imaging.get_psf(x, y, pup.NA, pup.k, pup.mask, pup.phase, normalization)
 
     def mtf(self, x, y, field=None, N=64):
-        """MTF from `imaging.get_mtf()` on the frequency grid of x, y."""
+        """MTF from `imaging.get_mtf()` with the traced pupil.
+
+        Parameters
+        ----------
+        x, y : arrays
+            Image plane grid; the MTF is given on its frequency grid.
+        field : number or pair, optional
+            See `rays()`.
+        N : int, optional
+            Samples across the pupil.
+
+        Returns
+        -------
+        mtf : 2d array
+        """
 
         pup = self.pupil(field, N)
 
@@ -1744,8 +2033,23 @@ class System:
         return RayMap(np.asarray(x), np.asarray(y), V[..., 0], V[..., 1:4], directions, mask)
 
     def spot_diagram(self, field=None, N=31):
-        """Image plane intersections of a square grid of N x N pupil rays
-        (inside the unit disk) relative to the chief ray."""
+        """Spot diagram relative to the chief ray.
+
+        Image plane intersections of a square grid of N x N pupil rays inside the
+        unit disk.
+
+        Parameters
+        ----------
+        field : number or pair, optional
+            See `rays()`.
+        N : int, optional
+            Rays across the pupil.
+
+        Returns
+        -------
+        SpotDiagram
+            Intersections, RMS spot radius and centroid.
+        """
 
         _, PX, PY, inside = self._pupil_grid(N)
         bundle = self.trace_pupil(field, PX[inside], PY[inside])
@@ -1758,7 +2062,20 @@ class System:
         return SpotDiagram(x, y, rms, centroid)
 
     def ray_fan(self, field=None, N=51):
-        """Transverse ray aberrations of the tangential and sagittal fans."""
+        """Transverse ray aberrations of the tangential and sagittal fans.
+
+        Parameters
+        ----------
+        field : number or pair, optional
+            See `rays()`.
+        N : int, optional
+            Rays per fan.
+
+        Returns
+        -------
+        RayFan
+            Pupil coordinates and the aberrations relative to the chief ray.
+        """
 
         p = np.linspace(-1.0, 1.0, N)
         hits = lambda px, py: self._image_hits(self.trace_pupil(field, px, py))[0]
@@ -1772,8 +2089,22 @@ class System:
     def draw(self, ax=None, fields=None, n_rays=7, colors=None, lw=0.8):
         """Draw the meridional section of the system with ray fans.
 
+        Parameters
+        ----------
+        ax : matplotlib axis, optional
+            Defaults to the current axis.
         fields : sequence, optional
             Fields to trace (default: 0 and the maximum field).
+        n_rays : int, optional
+            Rays per field across the pupil.
+        colors : sequence of colors, optional
+            One color per field.
+        lw : number, optional
+            Line width of the rays.
+
+        Returns
+        -------
+        ax : matplotlib axis
         """
 
         import matplotlib.pyplot as plt
@@ -1830,7 +2161,23 @@ class System:
         return ax
 
     def plot_spot_diagram(self, fields=None, N=31, axes=None, scale=None):
-        """Spot diagrams for several fields side by side."""
+        """Spot diagrams for several fields side by side.
+
+        Parameters
+        ----------
+        fields : sequence, optional
+            Fields (default: 0 and the maximum field).
+        N : int, optional
+            Rays across the pupil.
+        axes : sequence of matplotlib axes, optional
+            One axis per field; created if omitted.
+        scale : number, optional
+            Half width of the plotted region; default: 1.1 times the largest spot.
+
+        Returns
+        -------
+        axes : sequence of matplotlib axes
+        """
 
         import matplotlib.pyplot as plt
 
@@ -1852,7 +2199,21 @@ class System:
         return axes
 
     def plot_ray_fan(self, fields=None, N=51, axes=None):
-        """Tangential and sagittal ray fans for several fields."""
+        """Tangential and sagittal ray fans for several fields.
+
+        Parameters
+        ----------
+        fields : sequence, optional
+            Fields (default: 0 and the maximum field).
+        N : int, optional
+            Rays per fan.
+        axes : pair of matplotlib axes, optional
+            Axes for the tangential and sagittal fan; created if omitted.
+
+        Returns
+        -------
+        axes : pair of matplotlib axes
+        """
 
         import matplotlib.pyplot as plt
 
