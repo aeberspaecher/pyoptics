@@ -57,6 +57,11 @@ exchangeable:
 - `opc`: optical proximity correction of Manhattan polygons: bias tables
   through pitch, SRAF rules, fragments and edge placement errors,
   model-based OPC,
+- `illuminator`: a ray traced KrF illuminator (`KrFIlluminator`) for the
+  Caldwell lens: zoom-axicon (US 5,675,401), glass rod and REMA objective
+  (US 5,982,558); conventional and annular settings, the pupil fill at any
+  field point as an `Illumination`, field uniformity and the telecentricity
+  against the projection lens,
 - `plot`: source, mask, pupil fill, images, Bossung plots, process windows.
 
 All lengths are image-side (wafer scale) values; mask dimensions are given
@@ -79,4 +84,5 @@ from . import rcwa
 from . import jones_pupil
 from . import source_opt
 from . import opc
+from . import illuminator
 from .rcwa import RigorousMask

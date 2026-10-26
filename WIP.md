@@ -156,3 +156,9 @@
 * Sphinx documentation (`docs/`, Furo theme, notebooks via myst-nb, API
   reference, built on every PR with warnings as errors, published to GitHub
   Pages)
+* KrF illuminator for the Caldwell lens (`litho.illuminator`): REMA
+  objective of US 5,982,558 (misprinted air space 19 reconstructed from the
+  ray angle table), zoom-axicon of US 5,675,401 re-glassed for 248 nm,
+  `raytrace.Axicon` cones, invented source, diffuser, coupling lens and
+  glass rod; sigma, annular settings, pupil fill per field point,
+  uniformity and telecentricity against the lens (notebook 42)
