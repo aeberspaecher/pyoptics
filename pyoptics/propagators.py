@@ -7,6 +7,7 @@ The following propagators are available:
 
 - rayleigh_sommerfeld_I_IR()
 - rayleigh_sommerfeld_I_TF()
+- rayleigh_sommerfeld_I_TF_planes(): the same to many distances at once
 - fresnel_TF()
 - fresnel_IR()
 - fresnel_rescaling()
@@ -71,11 +72,14 @@ n = n' + i*kappa with kappa > 0.
 
 # TODO: can from_spectrum switches be implemented? this might save Fourier transforms.
 
+import os
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from math import pi, ceil
 
 import numpy as np
 
+from . import fft as _fft
 from .fft import (fft2, ifft2, fftfreq, fftshift, ifftshift, FT, inv_FT, FT_unitary,
                   inv_FT_unitary, zoom_FT, zoom_inv_FT)
 from .utils import (freq_grid, frequencies, wavenumber, k_z, TWOPI, simpson_weights,
@@ -210,9 +214,32 @@ def rayleigh_sommerfeld_I_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
 
     IR = z/(1j*wl_medium)*np.exp(1j*k*r)/r**2
 
-    field_propagated = inv_FT(FT(field)*FT(IR)*dx_prime*dy_prime)
+    field_propagated = _convolve_fft_order(field, fft2(ifftshift(IR))*dx_prime*dy_prime)
 
     return field_propagated, x_prime, y_prime
+
+
+def _convolve_fft_order(field, TF):
+    """inv_FT(FT(field)*ifftshift(TF)) for a transfer function TF given in FFT
+    order (zero frequency first): the shifts of the spectrum cancel, only
+    those of the field remain."""
+
+    shifted = (-2, -1)
+
+    return fftshift(ifft2(fft2(ifftshift(field, axes=shifted))*TF), axes=shifted)
+
+
+def _exp_i(phase):
+    """exp(1j*phase); for real phases as cos + 1j*sin, about twice as fast as
+    the complex exponential."""
+
+    if np.iscomplexobj(phase):
+        return np.exp(1j*phase)
+    out = np.empty(np.shape(phase), dtype=complex)
+    np.cos(phase, out=out.real)
+    np.sin(phase, out=out.imag)
+
+    return out
 
 
 def _transfer_function(k, K_X, K_Y, z):
@@ -227,9 +254,9 @@ def _transfer_function(k, K_X, K_Y, z):
     KZ = k_z(k, K_X, K_Y)
     if z < 0:
         drop = K_X**2 + K_Y**2 > np.real(k)**2
-        TF = np.where(drop, 0.0, np.exp(1j*np.where(drop, 0.0, KZ)*z))
+        TF = np.where(drop, 0.0, _exp_i(np.where(drop, 0.0, KZ)*z))
     else:
-        TF = np.exp(1j*KZ*z)
+        TF = _exp_i(KZ*z)
 
     return KZ, TF
 
@@ -263,21 +290,102 @@ def rayleigh_sommerfeld_I_TF(field, x_prime, y_prime, z, wavelength, n=1.0, band
     """
 
     k = wavenumber(wavelength, n)
-    K_X, K_Y = freq_grid(x_prime, y_prime, wavenumbers=True, normal_order=True)
+    # transfer function in FFT order (saves shifting the spectrum)
+    K_X, K_Y = freq_grid(x_prime, y_prime, wavenumbers=True, normal_order=False)
     KZ, TF = _transfer_function(k, K_X, K_Y, z)
 
     if band_limit:
-        wl_medium = wavelength/n
-        x, y = _linear_coords(x_prime, y_prime)
-        # frequency spacing 1/(window size) in x and y:
-        du, dv = 1/(len(x)*get_dx(x)), 1/(len(y)*get_dx(y))
-        u_limit = 1/(wl_medium*np.sqrt((2*du*z)**2 + 1))
-        v_limit = 1/(wl_medium*np.sqrt((2*dv*z)**2 + 1))
-        TF[(np.abs(K_X/TWOPI) > u_limit) | (np.abs(K_Y/TWOPI) > v_limit)] = 0.0
+        TF[_band_limit_mask(K_X, K_Y, x_prime, y_prime, z, wavelength, n)] = 0.0
 
-    field_propagated = inv_FT(FT(field)*TF)
+    field_propagated = _convolve_fft_order(field, TF)
 
     return field_propagated, x_prime, y_prime
+
+
+def _band_limit_mask(K_X, K_Y, x_prime, y_prime, z, wavelength, n):
+    """Frequencies at which the angular spectrum transfer function for z is
+    undersampled (Matsushima and Shimobaba)."""
+
+    wl_medium = wavelength/n
+    x, y = _linear_coords(x_prime, y_prime)
+    # frequency spacing 1/(window size) in x and y:
+    du, dv = 1/(len(x)*get_dx(x)), 1/(len(y)*get_dx(y))
+    u_limit = 1/(wl_medium*np.sqrt((2*du*z)**2 + 1))
+    v_limit = 1/(wl_medium*np.sqrt((2*dv*z)**2 + 1))
+
+    return (np.abs(K_X/TWOPI) > u_limit) | (np.abs(K_Y/TWOPI) > v_limit)
+
+
+def rayleigh_sommerfeld_I_TF_planes(field, x_prime, y_prime, zs, wavelength, n=1.0,
+                                    band_limit=False, max_bytes=256*2**20):
+    """rayleigh_sommerfeld_I_TF() of one field to many distances.
+
+    The spectrum of the field and k_z are computed once; the inverse
+    transforms of the planes run in batches (one multi-threaded FFT call per
+    batch). Use it for caustics, through-focus series and refocusing scans.
+
+    Parameters
+    ----------
+    field : array
+        Scalar field (Ny, Nx).
+    x_prime, y_prime : arrays
+        Linear or 2d arrays in the initial plane.
+    zs : 1d array
+        Propagation distances (negative ones propagate backwards, without
+        the evanescent waves, as in rayleigh_sommerfeld_I_TF()).
+    wavelength : number
+    n : number, optional
+    band_limit : boolean, optional
+        See rayleigh_sommerfeld_I_TF() (applied per distance).
+    max_bytes : int, optional
+        Memory for the planes of one batch.
+
+    Returns
+    -------
+    fields : array
+        Propagated fields, shape (len(zs), Ny, Nx).
+    x, y : arrays
+        Coordinates in the final planes (the same as given).
+    """
+
+    field = np.asarray(field)
+    zs = np.atleast_1d(np.asarray(zs, dtype=float))
+    k = wavenumber(wavelength, n)
+    K_X, K_Y = freq_grid(x_prime, y_prime, wavenumbers=True, normal_order=False)
+    KZ = k_z(k, K_X, K_Y)
+    evanescent = K_X**2 + K_Y**2 > np.real(k)**2
+    KZ_back = np.where(evanescent, 0.0, KZ)  # for z < 0, see _transfer_function()
+    spectrum = fft2(ifftshift(field))
+    out = np.empty(zs.shape + field.shape, dtype=complex)
+    batch = max(1, int(max_bytes//(16*field.size)))
+
+    real_kz = not np.iscomplexobj(KZ)
+    phases = np.empty((min(batch, len(zs)),) + field.shape) if real_kz else None
+
+    def plane(j, z, buf):  # spectrum times transfer function, in buf
+        # in place: large temporaries in several threads cost more than
+        # they save (page faults)
+        if real_kz:
+            np.multiply(KZ if z >= 0 else KZ_back, z, out=phases[j])
+            np.cos(phases[j], out=buf.real)
+            np.sin(phases[j], out=buf.imag)
+        else:
+            buf[...] = np.exp(1j*(KZ if z >= 0 else KZ_back)*z)
+        if z < 0:
+            buf[evanescent] = 0.0
+        if band_limit:
+            buf[_band_limit_mask(K_X, K_Y, x_prime, y_prime, z, wavelength, n)] = 0.0
+        buf *= spectrum
+
+    # the elementwise work (mostly cos and sin) runs in threads, one plane each
+    threads = _fft.workers if _fft.workers > 0 else (os.cpu_count() or 1)
+    with ThreadPoolExecutor(max_workers=threads) as pool:
+        for start in range(0, len(zs), batch):
+            block = out[start:start + batch]
+            list(pool.map(plane, range(len(block)), zs[start:start + batch], block))
+            block[...] = fftshift(ifft2(block), axes=(-2, -1))
+
+    return out, x_prime, y_prime
 
 
 def rayleigh_sommerfeld_I_DI(field, x_prime, y_prime, z, wavelength, n=1.0, use_simpson=True):
@@ -373,7 +481,7 @@ def fresnel_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
 
     IR = np.exp(1j*k*z)/(1j*wl_medium*z)*np.exp(1j*k/(2.0*z)*(X_prime**2 + Y_prime**2))
 
-    field_propagated = inv_FT(FT(field)*FT(IR)*dx_prime*dy_prime)
+    field_propagated = _convolve_fft_order(field, fft2(ifftshift(IR))*dx_prime*dy_prime)
 
     return field_propagated, x_prime, y_prime
 
@@ -401,13 +509,13 @@ def fresnel_TF(field, x_prime, y_prime, z, wavelength, n=1.0):
     """
 
     k = wavenumber(wavelength, n)
-    F_x, F_y = freq_grid(x_prime, y_prime, wavenumbers=False, normal_order=True)
+    F_x, F_y = freq_grid(x_prime, y_prime, wavenumbers=False, normal_order=False)
 
     wl_medium = wavelength/n
 
-    TF = np.exp(1j*k*z)*np.exp(-1j*pi*wl_medium*z*(F_x**2 + F_y**2))
+    TF = np.exp(1j*k*z)*_exp_i(-pi*wl_medium*z*(F_x**2 + F_y**2))
 
-    field_propagated = inv_FT(FT(field)*TF)
+    field_propagated = _convolve_fft_order(field, TF)
 
     return field_propagated, x_prime, y_prime
 
