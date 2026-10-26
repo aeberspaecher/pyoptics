@@ -6,6 +6,21 @@ Wherever an analytic solution exists, the numerics are compared with it. The
 notebooks are stored with their outputs, so the figures can be seen without
 running anything (e.g. directly on GitHub).
 
+## Overview by topic
+
+The table below is ordered by number; by topic, the notebooks group as follows.
+
+- **Wave optics, propagation and diffraction:** [01](01_propagation.ipynb) scalar propagation, [08](08_WPM.ipynb) wave propagation method, [15](15_vectorial_diffraction.ipynb) vectorial diffraction and high NA focusing, [19](19_tilted_planes.ipynb) tilted planes, [20](20_chirp_z_transform.ipynb) chirp-z transform and zoomed spectra
+- **Beams, modes and paraxial optics:** [02](02_gaussian_beams.ipynb) Gaussian beams, [13](13_beam_quality.ipynb) beam quality (ISO 11146, M²), [18](18_abcd_matrices.ipynb) ABCD matrices and resonators, [26](26_mode_analysis.ipynb) mode analysis and fibre modes
+- **Thin films, coatings and polarization:** [03](03_interfaces_thin_films.ipynb) interfaces and thin films, [04](04_polarization.ipynb) Jones and Mueller calculus, [10](10_layer_stacks.ipynb) interactive layer stacks, [14](14_stack_transfer_functions.ipynb) stack transfer functions and the Goos-Hänchen shift, [38](38_coated_laser_mirror.ipynb) coated laser mirror
+- **Imaging, aberrations and detection:** [05](05_imaging_zernikes.ipynb) imaging and Zernikes, [09](09_bases.ipynb) polynomial bases and fits, [11](11_image_processing.ipynb) camera noise and image processing, [12](12_psf_mtf_strehl.ipynb) PSF, MTF and Strehl ratio
+- **Ray tracing:** [24](24_ray_tracing.ipynb) sequential ray tracing and a lithography lens, [34](34_polarization_raytrace.ipynb) polarization ray tracing with coatings
+- **Interferometry, holography and wavefront sensing:** [21](21_phase_unwrapping.ipynb) phase unwrapping, [22](22_interferometry.ipynb) phase-shifting and Fourier-transform interferometry, [23](23_holography.ipynb) digital holography, [35](35_radius_interferometer.ipynb) radius of curvature interferometer, [36](36_shack_hartmann_vs_phase_diversity.ipynb) Shack-Hartmann vs. phase diversity, [37](37_holographic_microscopy.ipynb) holographic microscopy
+- **Phase retrieval and beam shaping:** [06](06_TIE.ipynb) transport of intensity equation, [07](07_IFTA.ipynb) IFTA beam shaping, [25](25_phase_retrieval.ipynb) phase retrieval and phase diversity
+- **Optical lithography:** [16](16_vectorial_imaging_lithography.ipynb) vectorial imaging, [17](17_lithography_toolbox.ipynb) lithography toolbox, [27](27_litho_lens_aberrations.ipynb) lens aberrations over the slit, [28](28_hopkins_socs.ipynb) Hopkins and SOCS, [29](29_litho_resist_swing.ipynb) resist and swing curves, [30](30_litho_rigorous_mask.ipynb) rigorous mask (RCWA), [31](31_litho_jones_pupil.ipynb) Jones pupils, [32](32_litho_source_optimization.ipynb) source optimization, [33](33_litho_opc.ipynb) OPC
+
+## All notebooks
+
 | Notebook | Modules | Contents |
 |---|---|---|
 | [01_propagation](01_propagation.ipynb) | `propagators`, `analytical`, `masks` | Fresnel number and diffraction at a square (with Fresnel integrals), Talbot carpet, limits of the Fresnel approximation, evanescent waves, wrap-around and padding, transfer function vs. impulse response, band-limited propagation, Airy disk, on-axis intensity (Mahajan), Poisson spot |
@@ -66,18 +81,22 @@ The widgets of notebook 10 only work with a running kernel; static viewers
 such as GitHub show the static figures stored below each interactive cell.
 
 Run times on an ordinary laptop range from a few seconds to about a minute per
-notebook (longest: 01 and 08), except for the lithography notebooks 16 (about
-1.5 minutes) and 17 (about 5 minutes), which compute many focus-exposure
-matrices and through-pitch series, and the holography notebook 23 (about 2
-minutes, many refocusing runs on 1024² padded grids), the phase retrieval
-notebook 25 (about 3 minutes, many HIO runs) and the mode analysis notebook
-26 (about 1.5 minutes, basis fits and large LG expansions) and the lens
-aberration notebook 27 (about 2 minutes, ray traces over the slit and
-Zernike sensitivities); notebook 28 (Hopkins/SOCS) takes about 20 seconds, notebook 29 (resist
-model and swing curves) about 30 seconds, notebook 30 (rigorous mask)
-about 20 seconds, notebook 31 (Jones pupils) about 30 seconds, notebook 32 (source
-optimization) about 10 seconds, notebook 33 (OPC) about 10 seconds, notebook 35 (radius
-interferometer) about 30 seconds, notebook 37 (holographic microscopy) about 30 seconds, notebook 38 (coated laser mirror) about 25 seconds.
+notebook (longest: 01 and 08), with these exceptions:
+
+- about 5 minutes: 17 (lithography toolbox, many focus-exposure matrices and
+  through-pitch series)
+- about 3 minutes: 25 (phase retrieval, many HIO runs)
+- about 2 minutes: 23 (holography, many refocusing runs on 1024² padded
+  grids), 27 (lens aberrations, ray traces over the slit and Zernike
+  sensitivities), 34 (polarization ray trace), 36 (Shack-Hartmann vs. phase
+  diversity)
+- about 1.5 minutes: 16 (vectorial imaging lithography), 26 (mode analysis,
+  basis fits and large LG expansions)
+
+Notebooks 28 (Hopkins/SOCS), 29 (resist), 30 (rigorous mask), 31 (Jones
+pupils), 35 (radius interferometer), 37 (holographic microscopy) and 38
+(coated laser mirror) take 20 to 30 seconds, 32 (source optimization) and 33
+(OPC) about 10 seconds.
 
 To re-execute all notebooks and store their outputs:
 
