@@ -66,6 +66,7 @@ notebooks/34_polarization_raytrace
 - {doc}`notebooks/04_polarization`
 - {doc}`notebooks/10_layer_stacks`
 - {doc}`notebooks/14_stack_transfer_functions`
+- {doc}`notebooks/38_coated_laser_mirror`
 
 ```{toctree}
 :hidden:
@@ -75,6 +76,7 @@ notebooks/03_interfaces_thin_films
 notebooks/04_polarization
 notebooks/10_layer_stacks
 notebooks/14_stack_transfer_functions
+notebooks/38_coated_laser_mirror
 ```
 
 ## Lithography
