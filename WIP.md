@@ -77,6 +77,9 @@
   coated lens across the slit, the real pupil and its apodization in the
   projector, pattern shift through focus (`litho.lens.lens_telecentricity`,
   `lens_apodization`, notebook 41)
+* Lens design: Delano (y-ybar) diagrams (`delano`), a least squares lens
+  optimizer (`lens_optimization`), first order layout and correction of a
+  20 element KrF lens with 5 aspheres (`raytrace.delano_krf_lens`, notebook 43)
 
 * FFT module
 * fitting bases to scattered data

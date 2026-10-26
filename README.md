@@ -202,6 +202,19 @@ Status of the modules:
   fields and Jones matrices; vectorial focus of the traced rays
   (`System.vectorial_focus()`, Debye-Wolf integral with the coatings and the
   OPD)
+- `delano`: Delano's y-ybar diagram, tested: the diagram of any centred
+  `raytrace.System` (powers, spacings, magnification, NA, pupils and
+  cardinal points agree with the paraxial trace and `abcd`), thin lens
+  systems from a drawn polygon, thick singlets with the same first order
+  properties (principal planes, `thicken()`), `refine()` for hand drawn
+  layouts (Petzval sum, spaces, beam heights, power signs)
+- `lens_optimization`: damped least squares lens optimization, tested
+  (singlet bending for minimum spherical aberration, aspheres, solves):
+  curvatures, thicknesses, object distance and even aspheric terms as
+  variables, solves for total length and object side NA, operands for
+  transverse ray errors, distortion and telecentricity (also of the real
+  chief ray through the stop centre), paraxial targets and clearances (centre and edge thicknesses at the rim of the full beam),
+  stages of growing aperture and field
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
 - `modes`: mode analysis and fibres, tested: decomposition of any field into
