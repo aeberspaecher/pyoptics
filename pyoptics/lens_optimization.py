@@ -314,7 +314,7 @@ def clearances(min_air=1.0, min_center=None, min_edge=3.0, margin=1.05, toleranc
     """Penalties for lenses that are too thin and air spaces that close.
 
     Thicknesses are checked on the axis and at the rim of the beam, the
-    paraxial |y| + |ybar| (at the maximum field) times margin, the larger of
+    paraxial ``|y| + |ybar|`` (at the maximum field) times margin, the larger of
     the two surfaces of each space. During the stages of
     `LensOptimizer.run()` the rim is that of the full aperture and field.
 
@@ -415,7 +415,7 @@ class LensOptimizer:
         Surface whose thickness is solved for the length (default: the last
         one, the image distance).
     object_na : number, optional
-        Keep the object space NA n*|u| of the paraxial marginal ray (finite
+        Keep the object space NA ``n*|u|`` of the paraxial marginal ray (finite
         objects) by setting the semi diameter of the stop.
     aspheres : sequence of int, optional
         Surfaces whose aspheric coefficients vary (even aspheres, see

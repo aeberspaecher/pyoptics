@@ -229,14 +229,14 @@ class DelanoDiagram:
 
     @property
     def NA(self):
-        """Numerical apertures |omega| of the first and the last space."""
+        """Numerical apertures ``|omega|`` of the first and the last space."""
 
         w = self.slopes[:, 1]
 
         return abs(w[0]), abs(w[-1])
 
     def heights(self):
-        """Paraxial beam radius |y| + |ybar| at every point (the clear
+        """Paraxial beam radius ``|y| + |ybar|`` at every point (the clear
         semi diameter that the full field needs)."""
 
         return np.abs(self.y) + np.abs(self.ybar)
@@ -448,7 +448,7 @@ class DelanoDiagram:
         units : str, optional
             Length unit of the system.
         margin : number, optional
-            Semi diameters of the lenses are margin*(|y| + |ybar|); None
+            Semi diameters of the lenses are ``margin*(|y| + |ybar|)``; None
             (default): unlimited, only the stop limits the aperture.
         stop : int, optional
             Index of the y axis crossing to use as the stop if there are
@@ -530,12 +530,12 @@ def refine(diagram, n_lens, min_space=0.0, spaces=None, max_height=None, signs=N
 
     - petzval*(Petzval sum)*length (thin lenses of index n_lens),
     - spaces shorter than min_space and the deviation from target `spaces`,
-    - beam heights |y| + |ybar| above max_height,
+    - beam heights ``|y| + |ybar|`` above max_height,
     - powers whose sign differs from `signs` (default: those of the sketch),
-    - deviation*(marginal ray deviation y*phi of each lens)/(mean |y*phi|),
+    - deviation*(marginal ray deviation y*phi of each lens)/(mean ``|y*phi|``),
       which spreads the bending of the beam over the lenses,
     - anchor*(distance of the points from the sketch) in units of the
-      largest |ybar| and |y| of the sketch.
+      largest ``|ybar|`` and ``|y|`` of the sketch.
 
     Parameters
     ----------
@@ -548,7 +548,7 @@ def refine(diagram, n_lens, min_space=0.0, spaces=None, max_height=None, signs=N
     spaces : dict, optional
         {space index: target length} (e.g. the working distance, -1).
     max_height : number, optional
-        Largest beam height |y| + |ybar| (clear semi diameter).
+        Largest beam height ``|y| + |ybar|`` (clear semi diameter).
     signs : sequence of +-1, optional
         Signs of the lens powers.
     anchor, deviation, petzval : numbers, optional
@@ -607,7 +607,7 @@ def thick_lens_curvatures(phi, n, t, shape):
     Coddington shape factor X = (c1 + c2)/(c1 - c2).
 
     X = 0: equiconvex (equiconcave), X = +-1: plano-convex (concave) with the
-    plane side second (X = 1) or first (X = -1), |X| > 1: menisci (X > 1:
+    plane side second (X = 1) or first (X = -1), ``|X| > 1``: menisci (X > 1:
     both centres of curvature in +z for a positive lens).
 
     Parameters
@@ -699,7 +699,7 @@ def thicken(diagram, wavelength, material, thickness, shape, units="mm", margin=
     units : str, optional
         Length unit.
     margin : number, optional
-        Semi diameters of the lenses are margin*(|y| + |ybar|) of the paraxial
+        Semi diameters of the lenses are ``margin*(|y| + |ybar|)`` of the paraxial
         rays at each surface; None (default): unlimited, only the stop limits
         the aperture.
     stop : int, optional
@@ -771,7 +771,7 @@ def thicken(diagram, wavelength, material, thickness, shape, units="mm", margin=
 
 def _set_apertures(system, u, margin):
     """Stop semi diameter for the object space marginal ray slope u, the
-    others margin*(|y| + |ybar|) of the paraxial rays (unlimited if margin is
+    others ``margin*(|y| + |ybar|)`` of the paraxial rays (unlimited if margin is
     None)."""
 
     ys, _ = system._paraxial_trace(u*system.object_distance, u)
