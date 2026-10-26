@@ -51,6 +51,16 @@ intrinsic birefringence (materials.CubicCrystal), with
 raytrace.System.trace_polarization(). The result is fitted with
 pyoptics.litho.jones_pupil and handed to Projector(jones_pupil=...).
 
+Telecentricity
+--------------
+lens_telecentricity() compares the geometric telecentricity (the chief ray)
+with the energetic one: the centroid of the image side ray slopes weighted
+with the etendue of the rays, the illumination fill and the transmission
+from the polarization ray trace (coatings, absorption). lens_apodization()
+hands the real pupil (off axis not centred on the chief ray) and its
+transmission to Projector(apodization=...), so that the simulation shows
+the resulting pattern shift through focus.
+
 Two ray traced projection lenses come with pyoptics.raytrace: Caldwell's
 dry KrF design (caldwell_krf_lens(), NA 0.56, 4x) and a Zeiss water
 immersion ArF design from a patent (zeiss_arfi_lens(), NA 1.35, 8x, 11
@@ -319,6 +329,29 @@ def quarter_wave_coating(n_glass, wavelength, n_coating=None):
     return [(n_c, wavelength/(4*n_c))]
 
 
+def _surface_coatings(system, coating):
+    """Coatings {i: Coating} of the glass-gas surfaces for
+    System.trace_polarization() from the coating argument of
+    lens_jones_pupil()."""
+
+    from ..coatings import Coating
+    from ..raytrace import CoordinateBreak
+
+    if any(s.mirror for s in system.surfaces):
+        raise NotImplementedError("polarization ray tracing of mirrors (use System.trace_polarization)")
+    # the layers sit on the side of the lower index (air):
+    n = system.n
+    coatings = {}
+    for i, s in enumerate(system.surfaces):
+        if coating is None or isinstance(s, CoordinateBreak) or n[i] == n[i + 1]:
+            continue
+        layers = coating(i, max(n[i], n[i + 1])) if callable(coating) else coating
+        stack = Coating(layers or [])
+        coatings[i] = stack if n[i] < n[i + 1] else stack.reversed()
+
+    return coatings
+
+
 def lens_jones_pupil(system, field=(0.0, 0.0), N=32, NA=None, coating=None, birefringent=None,
                      normalize=True):
     """Polarization ray trace of a lens: its Jones pupil at an image field
@@ -371,11 +404,6 @@ def lens_jones_pupil(system, field=(0.0, 0.0), N=32, NA=None, coating=None, bire
         PhysicalJonesPupil.fit() to use it in Projector(jones_pupil=...).
     """
 
-    from ..coatings import Coating
-    from ..raytrace import CoordinateBreak
-
-    if any(s.mirror for s in system.surfaces):
-        raise NotImplementedError("polarization ray tracing of mirrors (use System.trace_polarization)")
     if NA is None:
         NA = lens_NA(system, N)
     m = system.paraxial().magnification
@@ -383,16 +411,9 @@ def lens_jones_pupil(system, field=(0.0, 0.0), N=32, NA=None, coating=None, bire
     _, PX, PY, inside = system._pupil_grid(N)
     px = np.concatenate([[0.0], PX[inside]])
     py = np.concatenate([[0.0], PY[inside]])
-    # the layers sit on the side of the lower index (air):
+    traced = system.trace_pupil_polarization(obj, px, py, coatings=_surface_coatings(system, coating),
+                                             media=birefringent)
     n = system.n
-    coatings = {}
-    for i, s in enumerate(system.surfaces):
-        if coating is None or isinstance(s, CoordinateBreak) or n[i] == n[i + 1]:
-            continue
-        layers = coating(i, max(n[i], n[i + 1])) if callable(coating) else coating
-        stack = Coating(layers or [])
-        coatings[i] = stack if n[i] < n[i + 1] else stack.reversed()
-    traced = system.trace_pupil_polarization(obj, px, py, coatings=coatings, media=birefringent)
     ok = traced.valid.copy()
     J = traced.jones()
     transmission = float(np.sum(np.abs(J[0])**2)/2)
@@ -404,6 +425,209 @@ def lens_jones_pupil(system, field=(0.0, 0.0), N=32, NA=None, coating=None, bire
     ok[0] = False
 
     return LensJonesPupil(q[ok, 0], q[ok, 1], J[ok], transmission, tuple(float(f) for f in field), NA)
+
+
+LensTelecentricity = namedtuple("LensTelecentricity", ["field", "chief", "geometric", "energetic",
+                                                       "transmission", "P_x", "P_y", "T", "weight",
+                                                       "slope"])
+LensTelecentricity.__doc__ = """Image side telecentricity of a lens at one field point.
+
+All directions are slopes (dx/dz, dy/dz) in the image space: a feature
+imaged into a plane defocused by z moves sideways by z times the slope.
+
+Attributes
+----------
+field : (x, y) image field point (units of the system)
+chief : slope of the chief ray (through the centre of the stop), the
+    geometric telecentricity of the lens design
+geometric : centroid of the slopes of the illuminated cone weighted with
+    the etendue of the rays (no losses): the chief ray plus the asymmetry
+    of the cone (pupil aberrations, vignetting)
+energetic : centroid weighted with the transmitted power (Fresnel losses,
+    coatings, absorption), the direction of the energy that arrives at the
+    image point
+transmission : mean transmission of the illuminated cone
+P_x, P_y : (N,) arrays, pupil coordinates of the rays relative to the
+    chief ray (as in lens_jones_pupil())
+T : (N,) array, power transmission of the rays
+weight : (N,) array, etendue times the illumination fill of the rays
+    (sums to one)
+slope : (N, 2) array, image space slopes of the rays
+"""
+
+
+def lens_telecentricity(system, field=(0.0, 0.0), N=48, fill=None, coating=None, birefringent=None,
+                        E_in=None, NA=None, delta=1e-4):
+    """Geometric and energetic image side telecentricity of a lens.
+
+    The geometric telecentricity is the direction of the chief ray. The
+    energetic telecentricity is the centroid of the directions of the light
+    that arrives at the image point: the rays from the object point, each
+    weighted with its etendue (the object side solid angle of its tube,
+    from the Jacobian of the object side direction sines over the pupil
+    grid), with the illumination fill and with its power transmission from
+    the polarization ray trace (Fresnel losses, coatings, absorption in
+    absorbing media). An apodization that is not symmetric about the chief
+    ray, as off axis, where the rays meet the surfaces asymmetrically,
+    moves the centroid away from the chief ray. The centroid of the
+    slopes is what moves the image through focus: the intensity centroid of
+    a field moves along z with the power weighted mean of k_xy/k_z of its
+    plane waves.
+
+    Parameters
+    ----------
+    system : pyoptics.raytrace.System
+        Finite conjugate projection lens without mirrors.
+    field : pair, optional
+        Image field point (units of the system).
+    N : int, optional
+        Rays across the pupil.
+    fill : number or callable, optional
+        Illumination of the object side cone, on the pupil coordinates
+        (u_x, u_y) = n (d - d_chief)_xy/NA_object of the object space ray
+        directions d (NA_object = NA*|magnification|): a number sigma fills
+        the disk ``|u| <= sigma`` uniformly, a function fill(u_x, u_y) gives the
+        relative radiance (the edge of the disk is smoothed over one step
+        of the pupil grid). None (default): the whole cone that the stop
+        passes, as for the light diffracted by a small feature or for
+        incoherent illumination.
+    coating, birefringent : optional
+        As for lens_jones_pupil(); an absorbing glass enters as
+        birefringent={i: materials.Isotropic(n, k)} for the media behind
+        the surfaces i.
+    E_in : Jones vector (2,), optional
+        Polarization in object space (on the aplanatic basis); None:
+        unpolarized.
+    NA : number, optional
+        Normalization of the pupil coordinates; default lens_NA(system).
+    delta : number, optional
+        Step of the pupil coordinates for the Jacobian.
+
+    Returns
+    -------
+    LensTelecentricity
+    """
+
+    if NA is None:
+        NA = lens_NA(system, N)
+    m = system.paraxial().magnification
+    obj = np.asarray(field, dtype=float)/m
+    _, PX, PY, inside = system._pupil_grid(N)
+    px = np.concatenate([[0.0], PX[inside]])
+    py = np.concatenate([[0.0], PY[inside]])
+    rays = system.rays(obj, px, py)
+    traced = system.trace_polarization(rays, coatings=_surface_coatings(system, coating),
+                                       media=birefringent)
+    ok = traced.valid & np.isfinite(traced.transmittance(E_in))
+    if not ok[0]:
+        raise ValueError("the chief ray at field {} is vignetted".format(tuple(field)))
+    # etendue of the ray tubes: Jacobian of the object side direction sines
+    d0 = rays.directions[:, :2]
+    sx, sy = -np.sign(px + 1e-15)*delta, -np.sign(py + 1e-15)*delta
+    d_x = system.rays(obj, px + sx, py).directions[:, :2]
+    d_y = system.rays(obj, px, py + sy).directions[:, :2]
+    jacobian = np.abs(((d_x[:, 0] - d0[:, 0])*(d_y[:, 1] - d0[:, 1])
+                       - (d_y[:, 0] - d0[:, 0])*(d_x[:, 1] - d0[:, 1]))/(sx*sy))
+    u = system.n_object*(d0 - d0[0])/(NA*abs(m))
+    if fill is None:
+        f = np.ones(len(u))
+    elif callable(fill):
+        f = np.asarray(fill(u[:, 0], u[:, 1]), dtype=float)
+    else:
+        # edge smoothed over one grid step, which takes out most of the
+        # sampling noise of a hard edge on the grid
+        h = 2.0/(N - 1)
+        f = np.clip((fill - np.hypot(u[:, 0], u[:, 1]))/h + 0.5, 0.0, 1.0)
+    d = system._image_hits(traced.bundle)[1]
+    slope = d[:, :2]/d[:, 2:3]
+    T = traced.transmittance(E_in)
+    w = np.where(ok, jacobian*f, 0.0)
+    w[0] = 0.0
+    if not np.any(w > 0):
+        raise ValueError("no illuminated rays reach the image (fill too small for N?)")
+    w = w/np.sum(w)
+    wT = w*np.where(ok, T, 0.0)
+    geometric = np.sum(w[ok, None]*slope[ok], axis=0)
+    energetic = np.sum(wT[ok, None]*slope[ok], axis=0)/np.sum(wT)
+    q = system.n[-1]*(d[:, :2] - d[0, :2])/NA
+    use = ok.copy()
+    use[0] = False
+
+    return LensTelecentricity(tuple(float(v) for v in field), tuple(float(v) for v in slope[0]),
+                              tuple(float(v) for v in geometric), tuple(float(v) for v in energetic),
+                              float(np.sum(wT)), q[use, 0], q[use, 1], T[use], w[use], slope[use])
+
+
+def lens_apodization(system, field=(0.0, 0.0), N=48, coating=None, birefringent=None, E_in=None,
+                     NA=None, transmission=True, n_rim=180):
+    """Scalar pupil of a ray traced lens for Projector(apodization=...):
+    the real pupil and its power transmission at an image field point.
+
+    The pupil of Projector is a disk about the chief ray. Off axis the
+    image of the stop need not be centred on the chief ray (pupil coma of
+    the lens): the cone that the stop passes is shifted against it, and the
+    light near its rim is clipped asymmetrically. The returned amplitude is
+    zero outside the real pupil (the convex hull of the traced rays and of
+    rim rays through the edge of the stop) and inside it the square root of
+    the power transmission of the rays relative to that of the chief ray
+    (Fresnel losses, coatings, absorption), interpolated linearly. Give the
+    Projector an NA somewhat larger than the lens's (and use the same NA
+    here and in lens_aberrations()) so that its disk contains the shifted
+    pupil; sigma of the illumination is relative to the NA of the Projector.
+
+    Parameters
+    ----------
+    system : pyoptics.raytrace.System
+        Finite conjugate projection lens without mirrors.
+    field : pair, optional
+        Image field point (units of the system).
+    N : int, optional
+        Rays across the pupil.
+    coating, birefringent, E_in
+        As for lens_telecentricity().
+    NA : number, optional
+        Normalization of the pupil coordinates (that of the Projector);
+        default lens_NA(system).
+    transmission : bool, optional
+        Include the transmission; False gives the real pupil only (1 inside).
+    n_rim : int, optional
+        Rays through the edge of the stop.
+
+    Returns
+    -------
+    apodization : callable
+        apodization(P_x, P_y), the amplitude transmission on the pupil
+        coordinates of the Projector. Do not combine it with a normalized
+        Jones pupil of the same lens, which contains the transmission too.
+    """
+
+    from scipy.interpolate import LinearNDInterpolator
+
+    if NA is None:
+        NA = lens_NA(system, N)
+    m = system.paraxial().magnification
+    obj = np.asarray(field, dtype=float)/m
+    _, PX, PY, inside = system._pupil_grid(N)
+    phi = np.linspace(0.0, 2*np.pi, n_rim, endpoint=False)
+    px = np.concatenate([[0.0], PX[inside], np.cos(phi)])
+    py = np.concatenate([[0.0], PY[inside], np.sin(phi)])
+    traced = system.trace_pupil_polarization(obj, px, py, coatings=_surface_coatings(system, coating),
+                                             media=birefringent)
+    T = traced.transmittance(E_in)
+    ok = traced.valid & np.isfinite(T)
+    if not ok[0]:
+        raise ValueError("the chief ray at field {} is vignetted".format(tuple(field)))
+    d = system._image_hits(traced.bundle)[1]
+    q = system.n[-1]*(d[:, :2] - d[0, :2])/NA
+    A = np.sqrt(T/T[0]) if transmission else np.ones(len(T))
+    interpolator = LinearNDInterpolator(q[ok], A[ok], fill_value=0.0)
+
+    def apodization(P_x, P_y):
+        P_x, P_y = np.broadcast_arrays(np.asarray(P_x, dtype=float), np.asarray(P_y, dtype=float))
+
+        return interpolator(P_x.ravel(), P_y.ravel()).reshape(P_x.shape)
+
+    return apodization
 
 
 # feature response:

@@ -73,6 +73,10 @@
   notebook 39)
 * Lithography: OPC of Manhattan polygons (bias tables, SRAFs, model-based
   OPC with fragments and EPE; `litho.opc`, notebook 40)
+* Lithography: geometric (chief ray) and energetic telecentricity of a
+  coated lens across the slit, the real pupil and its apodization in the
+  projector, pattern shift through focus (`litho.lens.lens_telecentricity`,
+  `lens_apodization`, notebook 41)
 
 * FFT module
 * fitting bases to scattered data
