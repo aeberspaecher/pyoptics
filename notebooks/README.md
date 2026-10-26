@@ -89,17 +89,21 @@ notebook (longest: 01 and 05), with these exceptions:
   through-pitch series)
 - about 3 minutes: 21 (rays to waves, angular spectrum propagation to many
   planes), 28 (phase retrieval, many HIO runs)
-- about 2 minutes: 20 (polarization ray trace), 26 (holography, many
-  refocusing runs on 1024² padded grids), 33 (lens aberrations, ray traces
-  over the slit and Zernike sensitivities)
+- about 2 minutes: 20 (polarization ray trace), 33 (lens aberrations, ray
+  traces over the slit and Zernike sensitivities)
 - about 1.5 minutes: 09 (mode analysis, basis fits and large LG expansions),
-  25 (Shack-Hartmann vs. phase diversity), 31 (vectorial imaging
-  lithography), 37 (mask models, RCWA over a grid of pitches and duty cycles)
+  25 (Shack-Hartmann vs. phase diversity), 26 (holography, many refocusing
+  runs on 1024² padded grids), 31 (vectorial imaging lithography), 37 (mask
+  models, RCWA over a grid of pitches and duty cycles)
 
 Notebooks 14 (coated laser mirror), 24 (radius interferometer), 27
 (holographic microscopy), 34 (Hopkins/SOCS), 35 (resist), 36 (rigorous mask)
 and 38 (Jones pupils) take 20 to 30 seconds, 39 (source optimization) and 40
 (OPC) about 10 seconds.
+
+The FFTs (pyoptics.fft) use all CPU cores; FFT-heavy notebooks such as 04
+(chirp-z transform) and 26 (holography) run about 30 to 45 % faster than with
+single threaded FFTs. Set `pyoptics.fft.workers = 1` to use a single core.
 
 To re-execute all notebooks and store their outputs:
 
