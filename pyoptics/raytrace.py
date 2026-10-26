@@ -110,6 +110,8 @@ matrices into the power along the trace, the transmittance and Jones
 matrices on the aplanatic bases of the object and image space ray
 directions. The optical path (and with it the OPD) stays the scalar one; P
 holds only the polarization dependent part of the phase.
+`System.vectorial_focus()` sums the traced rays, with their output fields
+and OPDs, as plane waves into the vectorial focus (Debye-Wolf integral).
 
 Units: all lengths (radii, thicknesses, wavelength) share one unit, set by
 `units` of `System` ("mm" by default). It is only used to convert the
@@ -130,8 +132,10 @@ from numpy import pi
 from . import abcd
 from . import imaging
 from .bases import fringe_zernike
+from .fft import inv_FT
 from .geometry import R_x, R_y, R_z
 from .materials import Material, abbe_dispersion, complex_index, transverse_basis
+from .utils import freq_grid
 
 
 NM_PER_UNIT = {"nm": 1.0, "um": 1e3, "mm": 1e6, "cm": 1e7, "m": 1e9}
@@ -1591,6 +1595,85 @@ class System:
         pup = self.pupil(field, N)
 
         return imaging.get_mtf(x, y, pup.NA, pup.k, pup.mask, pup.phase)
+
+    def vectorial_focus(self, x, y, z=0.0, field=None, E_in=(1.0, 0.0), N=64, coatings=None,
+                        media=None, normalization="peak"):
+        """Vectorial focus (Debye-Wolf integral) of the polarization traced
+        rays.
+
+        Every image space ray is a plane wave in the direction d of the ray
+        with the field of trace_polarization() (coatings, media, the
+        transmittance of the surfaces) and the phase 2*pi*OPD/wavelength. The
+        fields and OPDs are interpolated on the plane wave grid of the window
+        x, y, weighted by 1/sqrt(``|d_z|``) as in
+        propagators.vectorial_mansuripur() (uniform amplitude over the pupil,
+        as in psf(), and energy conservation for an aplanatic system) and
+        summed by an FFT. The field stays the same when the light travels in
+        -z of the image frame (behind an odd number of mirrors); the plane
+        waves then have k_z < 0.
+
+        Parameters
+        ----------
+        x, y : arrays
+            Linear coordinates (centred, as pyoptics.fft expects) in the
+            image plane relative to the chief ray image point. The window
+            sets the sampling of the pupil: its radius spans
+            ``n'*NA*L/wavelength`` samples for a window of width L.
+        z : number, optional
+            Distance from the image plane along the z axis of the image frame.
+        field : number or pair, optional
+            Default: maximum field.
+        E_in : Jones vector (2,), optional
+            Input polarization on PolarizedBundle.basis_in (normalized here).
+        N : int, optional
+            Rays across the pupil.
+        coatings, media : dict, optional
+            See trace_polarization().
+        normalization : {"peak", None}, optional
+            "peak": relative to the peak amplitude of the scalar focus of the
+            same, lossless and aberration-free pupil, so that ``|E|**2`` at
+            the centre is the Strehl ratio times the transmittance (for
+            small NA). None: unnormalized.
+
+        Returns
+        -------
+        E : array
+            Field [E_x, E_y, E_z] of shape (Ny, Nx, 3) in the image frame.
+        """
+
+        from scipy.interpolate import LinearNDInterpolator
+
+        _, PX, PY, inside = self._pupil_grid(N)
+        # grid points plus a ring of rays on the rim:
+        phi = np.linspace(0, 2*pi, 4*N, endpoint=False)
+        px = np.concatenate([PX[inside], np.cos(phi)])
+        py = np.concatenate([PY[inside], np.sin(phi)])
+        traced = self.trace_pupil_polarization(field, px, py, coatings=coatings, media=media)
+        chief = self.trace_pupil(field, 0.0, 0.0)
+        ok = traced.valid
+        E_in = np.asarray(E_in, dtype=complex)
+        W = self._opd(traced.bundle, chief)[ok]
+        E = traced.field(E_in/np.linalg.norm(E_in))[ok]*np.exp(2j*pi*W/self.wavelength)[:, None]
+        d = self._image_hits(traced.bundle)[1][ok]
+        side = np.sign(np.mean(d[:, 2]))
+
+        k = 2*pi*self.n[-1]/self.wavelength
+        K_x, K_y = freq_grid(x, y, wavenumbers=True, normal_order=True)
+        S_x, S_y = K_x/k, K_y/k
+        E_s = LinearNDInterpolator(d[:, :2], E)(S_x, S_y)
+        pupil = np.isfinite(E_s[..., 0]) & (S_x**2 + S_y**2 < 1.0)
+        S_z = side*np.sqrt(np.where(pupil, 1.0 - S_x**2 - S_y**2, 1.0))
+        s = np.stack([S_x, S_y, S_z], axis=-1)
+        E_s = np.where(pupil[..., None], E_s, 0.0)
+        E_s = E_s - np.sum(E_s*s, axis=-1)[..., None]*s  # transverse to the plane waves
+        weight = np.where(pupil, 1/np.sqrt(np.abs(S_z)), 0.0)
+        E_f = np.stack([inv_FT(weight*np.exp(1j*k*z*S_z)*E_s[..., j]) for j in range(3)], axis=-1)
+        if normalization == "peak":
+            E_f = E_f/np.abs(inv_FT(weight)).max()
+        elif normalization is not None:
+            raise ValueError("normalization must be 'peak' or None")
+
+        return E_f
 
     # geometrical aberrations:
     def ray_map(self, x, y, field=None, N=128, surface=None, clip=True):

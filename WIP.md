@@ -30,6 +30,10 @@
 
 ## DONE
 
+* Coated laser mirror (notebook 38): quarter wave layers at oblique incidence
+  (`coatings.Layer.quarter_wave(angle=...)`), vectorial focus of polarization
+  traced rays (`raytrace.System.vectorial_focus`)
+
 * Radius of curvature measurement with a Fizeau interferometer (notebook 35):
   double pass systems (`raytrace.double_pass`), optical path on a detector
   grid (`System.ray_map`), displaced test spheres

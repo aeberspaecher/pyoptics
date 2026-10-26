@@ -137,14 +137,21 @@ class Layer(object):
         return "Layer({!r}, {}, profile={!r})".format(self.material, self.thickness, self.profile)
 
     @classmethod
-    def quarter_wave(cls, material, wavelength, wavelength_nm=None, profile=None, label=None):
-        """Layer of optical thickness wavelength/4 at normal incidence
-        (wavelength in system units, the material evaluated at
-        wavelength_nm)."""
+    def quarter_wave(cls, material, wavelength, wavelength_nm=None, profile=None, label=None,
+                     angle=0.0, n_incident=1.0):
+        """Layer of optical thickness wavelength/4 (wavelength in system
+        units, the material evaluated at wavelength_nm).
+
+        With an angle of incidence (radians, in the medium n_incident in
+        front of the stack), the layer is a quarter wave for the tilted
+        wave, n t cos(theta_layer) = wavelength/4, as for a mirror designed
+        for 45 degrees.
+        """
 
         n = complex_index(material, wavelength_nm).real
+        cos_layer = np.sqrt(1 - (np.real(n_incident)*np.sin(angle)/n)**2)
 
-        return cls(material, wavelength/(4*n), profile, label)
+        return cls(material, wavelength/(4*n*cos_layer), profile, label)
 
     def index(self, wavelength_nm=None):
         return complex_index(self.material, wavelength_nm)

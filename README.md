@@ -193,7 +193,9 @@ Status of the modules:
   coated metal mirrors, absorbing (`materials.Isotropic`, n + ik) and
   birefringent or dichroic media (`materials.Uniaxial`,
   `materials.CubicCrystal`); power along every ray, transmittance, output
-  fields and Jones matrices
+  fields and Jones matrices; vectorial focus of the traced rays
+  (`System.vectorial_focus()`, Debye-Wolf integral with the coatings and the
+  OPD)
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
 - `modes`: mode analysis and fibres, tested: decomposition of any field into
