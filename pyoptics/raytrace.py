@@ -113,6 +113,14 @@ holds only the polarization dependent part of the phase.
 `System.vectorial_focus()` sums the traced rays, with their output fields
 and OPDs, as plane waves into the vectorial focus (Debye-Wolf integral).
 
+Speed: if numba is installed (``pip install pyoptics[fast]``), `System.trace()`
+uses a compiled kernel that traces each ray through all surfaces in one loop
+(Surface, IdealLens, Axicon and CoordinateBreak; other surface types use the
+NumPy code). It agrees with the NumPy trace to rounding and is several times
+faster, most for the small bundles of ray aiming. The first trace in a
+session compiles the kernel (once, the result is cached on disk). Set
+``raytrace.use_numba = False`` to trace with NumPy only.
+
 Units: all lengths (radii, thicknesses, wavelength) share one unit, set by
 `units` of `System` ("mm" by default). It is only used to convert the
 wavelength to nm for the dispersion of materials.
@@ -136,9 +144,15 @@ from .fft import inv_FT
 from .geometry import R_x, R_y, R_z
 from .materials import Material, abbe_dispersion, complex_index, transverse_basis
 from .utils import freq_grid
+from . import _raytrace_numba
 
 
 NM_PER_UNIT = {"nm": 1.0, "um": 1e3, "mm": 1e6, "cm": 1e7, "m": 1e9}
+
+
+# Trace with the compiled kernel of _raytrace_numba if numba is installed
+# (pip install pyoptics[fast]); False: always NumPy.
+use_numba = True
 
 
 def _norm(v):
@@ -350,6 +364,7 @@ class Surface:
         if self.aspheric:
             t_plane = -z/dz
             t = np.where(np.isfinite(t), t, t_plane)
+            prev = np.full(len(t), np.inf)
             for _ in range(50):
                 Q = P + t[:, None]*d
                 r2 = Q[:, 0]**2 + Q[:, 1]**2
@@ -358,8 +373,14 @@ class Surface:
                 with np.errstate(invalid="ignore", divide="ignore"):
                     step = G/dG
                 t = t - step
-                if np.all(~np.isfinite(step) | (np.abs(step) < 1e-15*(1 + np.abs(t)))):
+                tol = 1 + np.abs(t)
+                # converged, or the steps no longer shrink at the rounding level:
+                with np.errstate(invalid="ignore"):
+                    done = (~np.isfinite(step) | (np.abs(step) < 1e-15*tol)
+                            | ((np.abs(step) >= prev) & (np.abs(step) < 1e-12*tol)))
+                if np.all(done):
                     break
+                prev = np.abs(step)
         Q = P + t[:, None]*d
         # the solution must lie on the real part of the conic:
         r2 = Q[:, 0]**2 + Q[:, 1]**2
@@ -666,6 +687,9 @@ class CoordinateBreak(Surface):
 
 
 # polarization ray tracing matrices:
+_KERNEL_TYPES = (Surface, IdealLens, Axicon, CoordinateBreak)
+
+
 def _sp_basis(k1, k2, normal):
     """s = k1 x normal (normalized; any perpendicular vector at normal
     incidence) and the p vectors k1 x s, k2 x s of the rays k1 -> k2."""
@@ -1591,7 +1615,7 @@ class System:
                 det = J00*J11 - J01*J10
                 da = (J11*rx - J01*ry)/det
                 db = (-J10*rx + J00*ry)/det
-            ok = np.isfinite(da + db) & ~stop
+                ok = np.isfinite(da + db) & ~stop
             a[active[ok]] -= da[ok]
             b[active[ok]] -= db[ok]
             # rays that took no step keep their residual
@@ -1648,6 +1672,13 @@ class System:
         valid = np.ones(len(P), dtype=bool)
         points, directions, opls = [P], [d], [opl]
         n_surf = len(self.surfaces) if last is None else last + 1
+        kinds = [_raytrace_numba.surface_kind(s, _KERNEL_TYPES) for s in self.surfaces[:n_surf]]
+        if use_numba and _raytrace_numba.available and None not in kinds:
+            points, directions, opls, valid = _raytrace_numba.trace(
+                P, d, opl, frames[:n_surf], self.surfaces[:n_surf], kinds, n, clip)
+            P, d, opl = points[-1], directions[-1], opls[-1]
+            points, directions, opls = list(points), list(directions), list(opls)
+            n_surf = 0  # traced
         for i in range(n_surf):
             s = self.surfaces[i]
             if isinstance(s, CoordinateBreak):
@@ -2128,7 +2159,13 @@ class System:
         k = 2*pi*self.n[-1]/self.wavelength
         K_x, K_y = freq_grid(x, y, wavenumbers=True, normal_order=True)
         S_x, S_y = K_x/k, K_y/k
-        E_s = LinearNDInterpolator(d[:, :2], E)(S_x, S_y)
+        # query points pulled towards the centre of the ray directions by
+        # 1e-10: points on the edge of the convex hull of the rays (e.g. on
+        # the rim of a symmetric pupil) are then inside, independent of the
+        # rounding of the traced directions
+        c = np.mean(d[:, :2], axis=0)
+        E_s = LinearNDInterpolator(d[:, :2], E)(c[0] + (1 - 1e-10)*(S_x - c[0]),
+                                                  c[1] + (1 - 1e-10)*(S_y - c[1]))
         pupil = np.isfinite(E_s[..., 0]) & (S_x**2 + S_y**2 < 1.0)
         S_z = side*np.sqrt(np.where(pupil, 1.0 - S_x**2 - S_y**2, 1.0))
         s = np.stack([S_x, S_y, S_z], axis=-1)
