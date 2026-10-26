@@ -168,3 +168,90 @@ def test_expm_2x2():
     A = rng.normal(size=(5, 2, 2)) + 1j*rng.normal(size=(5, 2, 2))
     A = np.concatenate([A, [[[0, 1], [0, 0]], [[2j, 0], [0, 2j]]]])
     assert np.allclose(expm_2x2(A), [expm(a) for a in A])
+
+
+# quarter waves at oblique incidence and the vectorial focus:
+
+def test_quarter_wave_at_oblique_incidence():
+    n, angle = 2.1, np.pi/4
+    layer = Layer.quarter_wave(n, WL, angle=angle)
+    cos_layer = np.sqrt(1 - (np.sin(angle)/n)**2)
+    assert np.isclose(n*layer.thickness*cos_layer, WL/4)
+    assert np.isclose(Layer.quarter_wave(n, WL, angle=0.0).thickness, WL/(4*n))
+    # a quarter wave stack reflects s and p with real coefficients at its design angle:
+    H, L = Layer.quarter_wave(2.1, WL, angle=angle), Layer.quarter_wave(1.45, WL, angle=angle)
+    stack = Coating([H, L]*6 + [H], substrate=1.5)
+    r_s, r_p = stack.amplitudes(np.cos(angle), 1.0, None, WL)[:2]
+    assert abs(r_s.imag) < 1e-12 and abs(r_p.imag) < 1e-12
+    assert abs(r_s)**2 > 0.99 and abs(r_p)**2 > 0.9
+
+
+def _fold(f=10.0, NA=0.1, coating=None):
+    from pyoptics.raytrace import CoordinateBreak
+
+    D = 2*f*np.tan(np.arcsin(NA))
+    return System([IdealLens(f, thickness=f/2, semi_diameter=D/2),
+                   CoordinateBreak(tilt=(np.pi/4, 0, 0)),
+                   Surface(mirror=True, semi_diameter=5.0, coating=coating),
+                   CoordinateBreak(tilt=(np.pi/4, 0, 0), thickness=-f/2)], 0, WL)
+
+
+def test_vectorial_focus_is_richards_wolf():
+    from pyoptics.fft import inv_FT
+    from pyoptics.propagators import vectorial_mansuripur
+    from pyoptics.utils import freq_grid, grid1d
+
+    f, a = 10.0, 3.0
+    lens = System([IdealLens(f, thickness=f, semi_diameter=a)], 0, WL)
+    x = grid1d(-40*WL, 40*WL, 128)
+    k = 2*np.pi/WL
+    K_x, K_y = freq_grid(x, x, wavenumbers=True, normal_order=True)
+    pupil = (K_x**2 + K_y**2 < (k*a/np.hypot(a, f))**2).astype(float)
+    S_z = np.sqrt(np.clip(1 - (K_x**2 + K_y**2)/k**2, 1e-12, None))
+    norm = np.abs(inv_FT(pupil/np.sqrt(S_z))).max()
+    for z, E_in in ((0.0, (1, 0)), (3*WL, (0.6, 0.8j))):
+        E = lens.vectorial_focus(x, x, z, field=0.0, E_in=E_in, N=64)
+        field = np.stack([inv_FT(pupil*E_in[0]), inv_FT(pupil*E_in[1])], -1)
+        E_rw = vectorial_mansuripur(field, x, x, z, WL)[0]/norm
+        assert np.abs(E - E_rw).max() < 1e-4
+    with pytest.raises(ValueError):
+        lens.vectorial_focus(x, x, field=0.0, normalization="power")
+
+
+def test_vectorial_focus_behind_a_fold_mirror():
+    from pyoptics.utils import grid1d
+
+    x = grid1d(-30*WL, 30*WL, 128)
+    lens = System([IdealLens(10.0, thickness=10.0, semi_diameter=_fold().surfaces[0].semi_diameter)],
+                  0, WL)
+    E_lens = lens.vectorial_focus(x, x, field=0.0, E_in=(1, 0))
+    E_fold = _fold().vectorial_focus(x, x, field=0.0, E_in=(1, 0))  # perfect mirror
+    assert np.allclose(np.abs(E_fold[..., 0]), np.abs(E_lens[..., 0]), atol=1e-6)
+    assert np.isclose(np.sum(np.abs(E_fold)**2), np.sum(np.abs(E_lens)**2))
+    # a silver mirror reflects less, but leaves the shape:
+    silver = Coating([], substrate=0.1 + 7.0j)
+    E_ag = _fold(coating=silver).vectorial_focus(x, x, field=0.0, E_in=(1, 0))
+    R_s = silver.power(np.pi/4, 1.0, wavelength=WL)["R_s"]
+    assert np.isclose(np.sum(np.abs(E_ag)**2)/np.sum(np.abs(E_fold)**2), R_s, rtol=2e-3)
+
+
+def test_vectorial_focus_shows_the_goos_haenchen_shift():
+    from pyoptics.utils import grid1d
+
+    # p polarized light on a dielectric mirror: the focus moves by Artmann's
+    # D = -lambda/(2 pi) dphi/dtheta in the plane of incidence
+    angle, NA = np.pi/4, 0.03
+    H, L = Layer.quarter_wave(2.1, WL, angle=angle), Layer.quarter_wave(1.45, WL, angle=angle)
+    stack = Coating([H, L]*10 + [H], substrate=1.5)
+    h = 1e-5
+    r_1, r_2 = (stack.amplitudes(np.cos(angle + d), 1.0, None, WL)[1] for d in (-h, h))
+    D_p = -WL/(2*np.pi)*np.angle(r_2/r_1)/(2*h)
+    x = grid1d(-4*WL/NA, 4*WL/NA, 128)
+    X, Y = np.meshgrid(x, x)
+    airy = np.hypot(X, Y) < 0.61*WL/NA
+    y_c = []
+    for system in (_fold(NA=NA, coating=stack), _fold(NA=NA)):
+        I = np.sum(np.abs(system.vectorial_focus(x, x, field=0.0, E_in=(0, 1)))**2, -1)*airy
+        y_c.append(np.sum(I*Y)/np.sum(I))
+    assert abs(D_p) > 0.1*WL
+    assert np.isclose(y_c[0] - y_c[1], D_p, rtol=0.02)
