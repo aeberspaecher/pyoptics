@@ -63,8 +63,10 @@ exp(-i*omega*t) being implicit. Propagation by z > 0 thus multiplies a plane
 wave by exp(+i*k_z*z), the Green's function is exp(+i*k*r)/r and evanescent
 waves decay as ``exp(-|k_z|*z)``. FT() (kernel exp(-i*k_x*x)) yields the
 amplitudes of the plane waves exp(+i*(k_x*x + k_y*y)), inv_FT() sums them up.
-Negative z propagates backwards. In rayleigh_sommerfeld_I_TF(), absorbing
-media can be described by a complex n = n' + i*kappa with kappa > 0.
+Negative z propagates backwards; the angular spectrum propagators then drop
+evanescent waves, which backward propagation would amplify exponentially. In
+rayleigh_sommerfeld_I_TF(), absorbing media can be described by a complex
+n = n' + i*kappa with kappa > 0.
 """
 
 # TODO: can from_spectrum switches be implemented? this might save Fourier transforms.
@@ -213,6 +215,25 @@ def rayleigh_sommerfeld_I_IR(field, x_prime, y_prime, z, wavelength, n=1.0):
     return field_propagated, x_prime, y_prime
 
 
+def _transfer_function(k, K_X, K_Y, z):
+    """k_z and the angular spectrum transfer function exp(i*k_z*z).
+
+    For z < 0, evanescent waves (k_x**2 + k_y**2 > Re(k)**2) are dropped:
+    propagating them backwards amplifies them by exp(|Im(k_z)*z|), so that
+    roundoff noise in a field without evanescent content would swamp the
+    result.
+    """
+
+    KZ = k_z(k, K_X, K_Y)
+    if z < 0:
+        drop = K_X**2 + K_Y**2 > np.real(k)**2
+        TF = np.where(drop, 0.0, np.exp(1j*np.where(drop, 0.0, KZ)*z))
+    else:
+        TF = np.exp(1j*KZ*z)
+
+    return KZ, TF
+
+
 def rayleigh_sommerfeld_I_TF(field, x_prime, y_prime, z, wavelength, n=1.0, band_limit=False):
     """Compute the Rayleigh-Sommerfeld integral of first kind using FFTs. The
     convolution with Green's function is performed in k-space, with the Green's
@@ -225,6 +246,7 @@ def rayleigh_sommerfeld_I_TF(field, x_prime, y_prime, z, wavelength, n=1.0, band
        Linear or 2d arrays in the initial plane.
     z : number
         Propagation distance in the same units as x_prime, y_prime and wavelength.
+        For z < 0 (backwards), evanescent waves are dropped.
     wavelength : number
     n : number, optional
     band_limit : boolean, optional
@@ -242,9 +264,7 @@ def rayleigh_sommerfeld_I_TF(field, x_prime, y_prime, z, wavelength, n=1.0, band
 
     k = wavenumber(wavelength, n)
     K_X, K_Y = freq_grid(x_prime, y_prime, wavenumbers=True, normal_order=True)
-    KZ = k_z(k, K_X, K_Y)
-
-    TF = np.exp(1j*KZ*z)
+    KZ, TF = _transfer_function(k, K_X, K_Y, z)
 
     if band_limit:
         wl_medium = wavelength/n
@@ -597,8 +617,7 @@ def shifted_angular_spectrum(field, x_prime, y_prime, z, wavelength, x_out, y_ou
     A = FT(field_pad)*np.exp(-1j*(K_X*x_pad[len(x_pad)//2] + K_Y*y_pad[len(y_pad)//2]))
 
     k = wavenumber(wavelength, n)
-    KZ = k_z(k, K_X, K_Y)
-    TF = np.exp(1j*KZ*z)
+    KZ, TF = _transfer_function(k, K_X, K_Y, z)
 
     if band_limit:
         propagating = (np.real(KZ) > 0) & (np.abs(np.imag(KZ)) < 1E-12*np.abs(k))
