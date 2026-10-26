@@ -32,7 +32,9 @@ exchangeable:
   curves, exposure latitude vs. depth of focus, MEEF,
 - `lens`: aberrations of a ray traced lens (`pyoptics.raytrace`) as
   Zernikes, distortion and telecentricity per field point, CD, placement
-  and best focus across a scanner slit, Zernike sensitivities,
+  and best focus across a scanner slit, Zernike sensitivities; geometric
+  and energetic telecentricity and the real (apodized) pupil of a coated
+  lens,
 - `hopkins`: Hopkins imaging with transmission cross coefficients (`TCC`)
   and their SOCS decomposition, exact against Abbe for thin masks and fast
   for many masks with the same optics,

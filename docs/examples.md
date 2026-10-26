@@ -122,6 +122,7 @@ notebooks/30_IFTA
 - {doc}`notebooks/38_litho_jones_pupil`
 - {doc}`notebooks/39_litho_source_optimization`
 - {doc}`notebooks/40_litho_opc`
+- {doc}`notebooks/41_litho_telecentricity`
 
 ```{toctree}
 :hidden:
@@ -137,6 +138,7 @@ notebooks/37_litho_mask_models
 notebooks/38_litho_jones_pupil
 notebooks/39_litho_source_optimization
 notebooks/40_litho_opc
+notebooks/41_litho_telecentricity
 ```
 
 ## Running the notebooks
