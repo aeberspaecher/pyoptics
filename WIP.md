@@ -30,6 +30,11 @@
 
 ## DONE
 
+* Rays to waves at the focus of a lithography lens (notebook 39): traced
+  exit pupil plus angular spectrum through focus, ray caustics vs. wave
+  caustics, axial colour; the angular spectrum propagators drop evanescent
+  waves for z < 0
+
 * Coated laser mirror (notebook 38): quarter wave layers at oblique incidence
   (`coatings.Layer.quarter_wave(angle=...)`), vectorial focus of polarization
   traced rays (`raytrace.System.vectorial_focus`)
