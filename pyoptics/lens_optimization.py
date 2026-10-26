@@ -96,12 +96,59 @@ def _chief(system, field):
     """Image plane point and direction of the chief ray at field (reusing a
     cached trace of the field if there is one)."""
 
-    for key, (I, D) in system.__dict__.get("_operand_cache", {}).items():
+    for key, value in system.__dict__.get("_operand_cache", {}).items():
         if key[0] == float(field):
-            return I[0], D[0]
+            return value[0][0], value[1][0]
     I, D = _trace(system, [field], np.zeros(0), np.zeros(0))[0]
 
     return I[0], D[0]
+
+
+def _aimed_chief(system, fields):
+    """Object space directions, image plane points and directions of the
+    real chief rays at the (y) fields, aimed at the centre of the stop
+    (whatever the system's ray_aiming), cached for the operands of one
+    evaluation. Finite objects: Newton's method on the object space slope,
+    all fields in one trace per step."""
+
+    cache = system.__dict__.setdefault("_operand_cache", {})
+    key = ("aimed",) + tuple(float(f) for f in fields)
+    if key in cache:
+        return cache[key]
+    if system.infinite_object:
+        rays = [system.rays(f, 0.0, 0.0, aim=True) for f in fields]
+        d0 = np.concatenate([np.reshape(r.directions, (-1, 3)) for r in rays])
+        rays = Rays(np.concatenate([np.reshape(r.points, (-1, 3)) for r in rays]), d0,
+                    np.concatenate([np.reshape(r.opl, -1) for r in rays]))
+    else:
+        f = np.asarray(fields, float)
+        n = len(f)
+        O = np.stack([np.zeros(n), f, np.full(n, -system.object_distance)], axis=-1)
+
+        def launch(b):
+            d = np.stack([np.zeros(len(b)), b, np.ones(len(b))], axis=-1)
+
+            return Rays(np.tile(O, (len(b)//n, 1)), d/np.linalg.norm(d, axis=1)[:, None],
+                        np.zeros(len(b)))
+
+        o, R = system.frames()[0][system.stop_index]
+        b = system._object_slopes()[1]*f
+        eps = 1e-7
+        for _ in range(4):
+            bundle = system.trace(launch(np.concatenate([b, b + eps])), clip=False,
+                                  last=system.stop_index)
+            y = ((bundle.points[-1] - o) @ R)[:, 1]
+            with np.errstate(invalid="ignore", divide="ignore"):
+                step = y[:n]*eps/(y[n:] - y[:n])
+            b = b - np.where(np.isfinite(step), step, 0.0)
+            if np.all(np.abs(step) < 1e-12):
+                break
+        rays = launch(b)
+        d0 = rays.directions
+    I, D = system._image_hits(system.trace(rays, clip=False))
+    cache[key] = (d0, I, D)
+
+    return cache[key]
 
 
 def _fields(system, fields):
@@ -141,7 +188,7 @@ def ray_errors(fields=(0.0, 0.5, 0.75, 1.0), rings=(0.4, 0.7, 0.9, 1.0), spokes=
     return operand
 
 
-def distortion(magnification, fields=(0.5, 0.75, 1.0), tolerance=1e-5):
+def distortion(magnification, fields=(0.5, 0.75, 1.0), tolerance=1e-5, aim=False):
     """Chief ray image height minus magnification*object height (finite
     objects).
 
@@ -153,6 +200,10 @@ def distortion(magnification, fields=(0.5, 0.75, 1.0), tolerance=1e-5):
         Fields as fractions of the maximum object height.
     tolerance : number, optional
         Tolerance in the length unit (default 10 nm for mm).
+    aim : bool, optional
+        Use the real chief ray through the centre of the stop (ray aiming
+        for this ray only) instead of the system's chief ray (which, without
+        ray aiming, is aimed at the paraxial entrance pupil).
 
     Returns
     -------
@@ -160,17 +211,18 @@ def distortion(magnification, fields=(0.5, 0.75, 1.0), tolerance=1e-5):
     """
 
     def operand(system):
-        out = []
-        for f in _fields(system, fields):
-            Ic = _chief(system, f)[0]
-            out.append((Ic[1] - magnification*f)/tolerance)
+        f = _fields(system, fields)
+        if aim:
+            out = (_aimed_chief(system, f)[1][:, 1] - magnification*np.array(f))/tolerance
+        else:
+            out = [(_chief(system, fk)[0][1] - magnification*fk)/tolerance for fk in f]
 
         return np.nan_to_num(np.array(out), nan=FAILED)
 
     return operand
 
 
-def image_telecentricity(fields=(0.5, 0.75, 1.0), tolerance=1e-3):
+def image_telecentricity(fields=(0.5, 0.75, 1.0), tolerance=1e-3, aim=False):
     """Image space chief ray slopes dy/dz.
 
     Parameters
@@ -179,6 +231,12 @@ def image_telecentricity(fields=(0.5, 0.75, 1.0), tolerance=1e-3):
         Fields as fractions of the maximum field.
     tolerance : number, optional
         Tolerance in radians (default 1 mrad).
+    aim : bool, optional
+        Use the real chief ray through the centre of the stop (see
+        `distortion()`). Without ray aiming the system's chief ray is aimed
+        at the paraxial entrance pupil, and the pupil aberrations of a high
+        NA lens make its slopes differ from those of the real chief ray by
+        tens of mrad.
 
     Returns
     -------
@@ -186,24 +244,29 @@ def image_telecentricity(fields=(0.5, 0.75, 1.0), tolerance=1e-3):
     """
 
     def operand(system):
-        out = []
-        for f in _fields(system, fields):
-            d = _chief(system, f)[1]
-            out.append(d[1]/d[2]/tolerance)
+        f = _fields(system, fields)
+        D = _aimed_chief(system, f)[2] if aim else np.array([_chief(system, fk)[1] for fk in f])
+        out = D[:, 1]/D[:, 2]/tolerance
 
         return np.nan_to_num(np.array(out), nan=FAILED)
 
     return operand
 
 
-def object_telecentricity(tolerance=1e-4):
-    """Paraxial object space chief ray slope at the maximum field (finite
-    objects): zero for an entrance pupil at infinity.
+def object_telecentricity(tolerance=1e-4, aim=False, fields=(0.5, 0.75, 1.0)):
+    """Object space chief ray slope (finite objects): zero for an entrance
+    pupil at infinity.
 
     Parameters
     ----------
     tolerance : number, optional
         Tolerance in radians.
+    aim : bool, optional
+        False (default): the paraxial chief ray slope at the maximum field.
+        True: the slopes of the real chief rays through the centre of the
+        stop at `fields` (see `image_telecentricity()`).
+    fields : sequence, optional
+        Fields as fractions of the maximum field (with aim).
 
     Returns
     -------
@@ -211,6 +274,10 @@ def object_telecentricity(tolerance=1e-4):
     """
 
     def operand(system):
+        if aim:
+            d = _aimed_chief(system, _fields(system, fields))[0]
+
+            return np.nan_to_num(d[:, 1]/d[:, 2]/tolerance, nan=FAILED)
         u_c = system._object_slopes()[1]
 
         return np.array([u_c*system.max_field/tolerance])

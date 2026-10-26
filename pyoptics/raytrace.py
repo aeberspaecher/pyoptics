@@ -2573,60 +2573,83 @@ def zeiss_arfi_lens(wavelength=ARF_WAVELENGTH_NM*1e-6, aperture_margin=1.01, ref
     return system
 
 
-# 13 element KrF lens laid out in the y-ybar diagram (pyoptics.delano) and
-# corrected with pyoptics.lens_optimization (notebook 42): surface, radius,
-# thickness to the next surface, medium behind ("S": fused silica, "A": air),
-# paraxial beam radius |y| + |ybar| at full field (the stop: its semi
-# diameter), all in mm; surface 21 is the stop.
+# 20 element KrF lens with 5 aspheres, laid out in the y-ybar diagram
+# (pyoptics.delano) and corrected with pyoptics.lens_optimization (notebook
+# 42): surface, radius, thickness to the next surface, medium behind ("S":
+# fused silica, "A": air), paraxial beam radius |y| + |ybar| at full field
+# (the stop: its semi diameter), all in mm; surface 31 is the stop. Aspheric
+# coefficients (r**4, r**6, r**8) by surface number.
 _DELANO_KRF = """
- 1    -284.205966879    2.998817957 S   54.5529
- 2     355.305949774   88.930707203 A   54.7571
- 3    1232.330325615   22.533328088 S   70.8565
- 4    -180.506796748   26.885525593 A   73.1242
- 5     166.563241052  102.790579403 S   71.6685
- 6      78.249436507   59.252942273 A   53.0719
- 7     -75.397901167    2.996395519 S   57.3330
- 8     434.390030495   61.117999014 A   58.2438
- 9     738.800842322    3.002745990 S   90.4320
-10     644.442361095   28.917115444 A   91.3565
-11    -357.371289599   36.342622439 S  106.8704
-12    -178.918014513    0.997529351 A  123.4596
-13    6983.392875378   58.185312959 S  123.7965
-14    -217.998577326    0.993957708 A  136.4765
-15     792.661730638   38.016612515 S  136.4869
-16    -478.689419813   21.785935204 A  134.5438
-17     393.758799992    2.999169916 S  129.7512
-18     180.385292579   42.635912503 A  128.9807
-19     477.882620788   22.735622454 S  127.9576
-20  -19403.259325633    0.996345208 A  125.5441
-21               inf    0.995970725 A  125.3813
-22     205.729971387   33.697669977 S  125.3698
-23     520.282940787   86.985859826 A  118.1905
-24     199.547463164  150.439211633 S  100.2827
-25    -665.455979552    7.142307267 A   54.2689
-26      94.500587115   46.698284203 S   50.6776
-27     155.901087515   18.954648981 A   26.6704
+ 1    -145.293737748    9.999660750 S   59.5416
+ 2    -231.263135020    0.998709914 A   62.0590
+ 3     163.606163193   19.862085680 S   62.3020
+ 4     536.829871586    0.997849056 A   62.9567
+ 5     167.150542788   29.055376880 S   63.0658
+ 6    -410.180435975    0.999180290 A   61.4770
+ 7     310.145559260   19.185488153 S   61.3185
+ 8    -854.307063467   25.860270715 A   58.0219
+ 9    -173.602375139    9.998778726 S   50.4264
+10     108.181594831   32.727055277 A   49.4583
+11     -98.109256140    9.998708381 S   52.2853
+12     190.034554955   45.901981778 A   54.6538
+13    -272.119696590   25.913821399 S   77.7666
+14    -157.661026401    1.000588059 A   88.9130
+15     701.199067415   42.580717707 S   89.2753
+16    -222.514847317    0.999590858 A   97.6702
+17     283.673992620   42.099857254 S   97.7444
+18    -415.203533610    0.999357828 A   94.9271
+19     225.509658623   32.093343963 S   94.7101
+20    4592.691774192   29.282069289 A   85.5466
+21   -1145.302511182    9.999512010 S   73.2126
+22     445.227253917   13.332832867 A   70.6357
+23    -453.028610504    9.999056436 S   66.5284
+24     141.505581461   45.734959590 A   64.9812
+25     -99.175495035    9.999334338 S   64.9837
+26     473.249449397   15.592520275 A   67.1923
+27    -364.947743884   17.309077924 S   73.5127
+28     509.438168498    2.402786442 A   79.3393
+29     640.354160803   48.199514500 S   80.7495
+30    -190.580664527    0.998940172 A   97.4559
+31               inf   13.816226270 A   97.7185
+32    1476.179600408   75.864814120 S  104.0422
+33    -245.183900228    2.968449654 A  125.2601
+34     433.771808061   46.860268617 S  125.7414
+35    -552.527330590   17.363758662 A  126.2003
+36     216.505826577   74.889710321 S  124.4406
+37   -6360.313139331    0.999373261 A  104.9013
+38     139.746050230   57.016250242 S  104.4997
+39     762.668134118    9.983458536 A   74.9369
+40    -607.357932817  108.081479291 S   67.6276
+41    -412.968333712    8.034930082 A   19.2230
 """
 _DELANO_KRF_ASPHERES = {
+    4: (1.366506180e-10, 9.315486383e-14, -2.704880130e-17),
+    11: (-1.656162344e-09, 1.269104213e-12, 1.720898203e-16),
+    20: (1.458372814e-10, -1.582289009e-13, 8.231195446e-18),
+    29: (6.257934362e-11, 2.046876081e-13, -6.053607985e-18),
+    39: (1.295033694e-09, -9.681036151e-13, -1.166000468e-17),
 }
 
 
 def delano_krf_lens(wavelength=248.3e-6):
-    """13 element all fused silica KrF projection lens, NA 0.7, 4x, 1 m.
+    """20 element all fused silica KrF projection lens with 5 aspheres,
+    NA 0.7, 4x, 1 m.
 
     Designed in notebook 42 ("Delano diagrams"): first order layout in the
     y-ybar diagram (`delano.refine()`: two waists, Petzval sum zero,
     telecentric on both sides), thick singlets (`delano.thicken()`) and real
     ray correction (`lens_optimization.LensOptimizer`, aperture and field
-    opened in stages). Magnification -0.25, image side NA 0.7, image field
-    radius 13.6 mm (a 26 x 8 mm slit), object to image 1000 mm, image side
-    working distance about 19 mm. With only 13 spherical elements it is far
-    from diffraction limited (about 0.5 to 1.3 waves RMS over the field; real
-    KrF lenses of NA 0.7 have about 30 elements), and the correction traded
-    the object side telecentricity for image quality (chief ray slope about
-    170 mrad at the edge of the reticle field; image side 11 mrad): an
-    example of a first order layout and its correction, not a production
-    design.
+    opened in stages, r**4 to r**8 aspheres on 5 surfaces spread from the
+    reticle to the wafer, centre and edge thicknesses of at least 10 mm).
+    Magnification -0.25, image side NA 0.7, image field radius 13.6 mm (a
+    26 x 8 mm slit), object to image 1000 mm, image side working distance
+    8 mm. Corrected to about 0.1 to 0.25 waves RMS over the field (not quite
+    diffraction limited, the Marechal limit is 0.07 waves), distortion of the
+    real chief ray below 20 nm, telecentric to 1.5 mrad on the reticle side
+    and 0.3 mrad on the wafer side. Real KrF lenses of NA 0.7 have about 30
+    elements; and the last element, a 108 mm thick block in front of the
+    wafer, would not be built like this: an example of a first order layout
+    and its correction, not a production design.
 
     Parameters
     ----------
@@ -2641,7 +2664,7 @@ def delano_krf_lens(wavelength=248.3e-6):
         has a semi diameter.
     """
 
-    stop = 20
+    stop = 30
     surfaces = []
     for i, line in enumerate(_DELANO_KRF.strip().splitlines()):
         number, R, t, medium, sd = line.split()
@@ -2651,4 +2674,4 @@ def delano_krf_lens(wavelength=248.3e-6):
                                 aspheric=_DELANO_KRF_ASPHERES.get(int(number), ()),
                                 semi_diameter=float(sd) if i == stop else None, label=number))
 
-    return System(surfaces, stop, wavelength, object_distance=29.970870652, object_height=54.4)
+    return System(surfaces, stop, wavelength, object_distance=29.998254434, object_height=54.4)

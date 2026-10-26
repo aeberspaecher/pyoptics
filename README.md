@@ -206,8 +206,8 @@ Status of the modules:
   (singlet bending for minimum spherical aberration, aspheres, solves):
   curvatures, thicknesses, object distance and even aspheric terms as
   variables, solves for total length and object side NA, operands for
-  transverse ray errors, distortion, telecentricity, paraxial targets and
-  clearances (centre and edge thicknesses at the rim of the full beam),
+  transverse ray errors, distortion and telecentricity (also of the real
+  chief ray through the stop centre), paraxial targets and clearances (centre and edge thicknesses at the rim of the full beam),
   stages of growing aperture and field
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested

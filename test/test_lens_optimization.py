@@ -89,3 +89,27 @@ def test_aspheres_correct_spherical_aberration():
     assert len(opt.x) == 5
     assert asph.cost < 1e-3*bent.cost
     assert asph.system.rms_opd(N=32) < 0.01
+
+
+def test_real_chief_ray_operands():
+    # with aim=True the operands use the chief ray through the centre of the
+    # stop, as traced with ray aiming, also when the system does not aim
+    system = rt.caldwell_krf_lens()
+    system.ray_aiming = False
+    fields = (0.5, 1.0)
+    tol = 1e-3
+    tele_img = lo.image_telecentricity(fields, tol, aim=True)(system)
+    tele_obj = lo.object_telecentricity(tol, aim=True, fields=fields)(system)
+    dist = lo.distortion(-0.25, fields, 1e-5, aim=True)(system)
+    aimed = system.copy()
+    aimed.ray_aiming = True
+    h = system.max_field
+    for k, f in enumerate(fields):
+        rays = aimed.rays(f*h, 0.0, 0.0)
+        d = np.reshape(rays.directions, (-1, 3))[0]
+        I, D = aimed._image_hits(aimed.trace(rays, clip=False))
+        assert np.isclose(tele_obj[k], d[1]/d[2]/tol, atol=1e-6)
+        assert np.isclose(tele_img[k], D[0, 1]/D[0, 2]/tol, atol=1e-6)
+        assert np.isclose(dist[k], (I[0, 1] + 0.25*f*h)/1e-5, atol=1e-3)
+    # the paraxially aimed chief ray differs (pupil aberration)
+    assert not np.allclose(lo.image_telecentricity(fields, tol)(system), tele_img, atol=0.1)

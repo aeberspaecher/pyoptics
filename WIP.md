@@ -79,7 +79,7 @@
   `lens_apodization`, notebook 41)
 * Lens design: Delano (y-ybar) diagrams (`delano`), a least squares lens
   optimizer (`lens_optimization`), first order layout and correction of a
-  13 element KrF lens (`raytrace.delano_krf_lens`, notebook 42)
+  20 element KrF lens with 5 aspheres (`raytrace.delano_krf_lens`, notebook 42)
 
 * FFT module
 * fitting bases to scattered data

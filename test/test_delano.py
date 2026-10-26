@@ -164,15 +164,22 @@ def test_thicken_keeps_first_order_properties():
     assert np.isclose(back.H, d.H)
 
 
-def test_delano_krf_lens_meets_first_order_specification():
+def test_delano_krf_lens_meets_the_specification():
     system = rt.delano_krf_lens()
     p = system.paraxial()
     assert np.isclose(p.magnification, -0.25, atol=2e-4)
     assert np.isclose(p.na, 0.7, atol=1e-3)
     assert np.isclose(system.object_distance + system.image_z, 1000.0)
-    d = DelanoDiagram.from_system(system)
     glass = [i for i in range(len(system.surfaces)) if system.n[i + 1] > 1.2]
-    assert len(glass) == 13
-    # image side telecentric to about 10 mrad (object side it is not, see
-    # the docstring)
-    assert abs(d.slopes[-1, 0]) < 0.015
+    assert len(glass) == 20
+    assert min(system.surfaces[i].thickness for i in glass) > 9.99
+    assert sum(1 for s in system.surfaces if any(s.aspheric)) == 5
+    # telecentric on both sides: slopes of the real chief ray at the edge of
+    # the field, aimed at the centre of the stop
+    rays = system.rays(system.max_field, 0.0, 0.0)
+    d = np.reshape(rays.directions, (-1, 3))[0]
+    I, D = system._image_hits(system.trace(rays, clip=False))
+    assert abs(d[1]/d[2]) < 2e-3
+    assert abs(D[0, 1]/D[0, 2]) < 1e-3
+    assert abs(I[0, 1] + 0.25*system.max_field) < 5e-5
+    assert system.rms_opd(field=system.max_field, N=16) < 0.3
