@@ -149,7 +149,9 @@ Status of the modules:
   DCT Poisson solver (Ghiglia-Romero), weighted least squares with
   modulation or amplitude weights and masks (conjugate gradients
   preconditioned by the DCT solver), quality guided unwrapping by
-  reliability sorting (Herráez), residue maps, `wrap()` and a 1D helper
+  reliability sorting (Herráez), unwrapping with a reference estimate
+  (e.g. a TIE phase) and two-wavelength (synthetic wavelength) unwrapping,
+  residue maps, `wrap()` and a 1D helper
 - `interferometry`: fringe analysis, tested: simulated interferograms
   (Zernike test wavefronts, tilt carrier, visibility, camera noise via
   `processing.CameraNoiser`, miscalibrated phase shifters); phase-shifting
