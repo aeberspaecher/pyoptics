@@ -342,3 +342,18 @@ def test_uncentered_grid_is_rejected(propagator):
     x, y, X, Y = grid2d(0.0, 32.0, 0.0, 32.0, 64)  # x = 0 at index 0
     with pytest.raises(ValueError, match="index N//2"):
         propagator(np.ones_like(X), x, y, 100.0, WL)
+
+
+def test_backward_propagation_drops_evanescent_waves():
+    # an Airy focus (NA 0.5) on a grid with dx < wavelength/2: the corners of
+    # the spectrum are evanescent and hold only roundoff of the field
+    x, y, X, Y = _grid(40*WL, 128)
+    R = np.hypot(X, Y) + 1e-12
+    v = K*0.5*R
+    field = 2*j1(v)/v
+    back = rayleigh_sommerfeld_I_TF(field, x, y, -20*WL, WL)[0]
+    assert np.all(np.isfinite(back))
+    assert np.abs(back).max() < np.abs(field).max()
+    # forwards again: the propagating part of the focus is recovered
+    there = rayleigh_sommerfeld_I_TF(back, x, y, 20*WL, WL)[0]
+    assert np.allclose(there, field, atol=1e-2)
