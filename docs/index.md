@@ -17,7 +17,7 @@
 - {doc}`install`: build pyoptics from source into a virtual environment.
 - {doc}`conventions`: phase signs, FFT centering and sign rules used
   throughout. Read this before comparing results with a textbook.
-- {doc}`examples`: 26 notebooks with figures, one per topic, most of them
+- {doc}`examples`: 40 notebooks with figures, one per topic, most of them
   comparing the numerics with analytic results.
 - {doc}`api/index`: every module, class and function.
 
