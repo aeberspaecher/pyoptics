@@ -217,6 +217,12 @@ Status of the modules:
   paraxial (Z4) or exact (angular spectrum) defocus; near-field (Fresnel)
   coherent diffractive imaging with any pyoptics propagator in place of the
   Fourier transform
+- `shack_hartmann`: Shack-Hartmann wavefront sensor, tested: spot images
+  (Fraunhofer pattern of each lenslet on its camera window) from a pupil
+  phase, e.g. a ray-traced `raytrace.Pupil`, thresholded centroids with
+  optional reference image, intensity weighted model slopes, modal
+  reconstruction (least squares fit of Fringe Zernike gradients) and zonal
+  reconstruction (Southwell); sensitivity and dynamic range of the design
 - `wpm`: wave propagation method (Cython extension), basic; one test, more
   examples in the notebook
 - `processing`: image processors for single images and image stacks, tested:
