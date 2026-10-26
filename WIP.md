@@ -15,15 +15,12 @@
 * Lithography (DUV, see the roadmap in the project files): RCWA for 2D masks, ray traced stress
   birefringence
 * More tests for `TIE`
-* WPM: Fresnel transmission correction at index steps, absorbing boundaries
-* Docstrings: Parameters/Returns for single-argument functions, methods and
-  properties (see the report-only numpydoc check in the docs workflow); then
-  make the check blocking per module
 * WPM: Fresnel transmission correction at index steps, absorbing boundaries;
   symmetrized step (alternate the two operator orderings) against the power
   drift in narrow waveguides (notebook 08, section 11)
-* Docstrings: NumPy-style Parameters/Returns sections for raytrace, abcd,
-  modes, litho, TIE, interfaces and bases; numpydoc validation in CI
+* Docstrings: Parameters/Returns for single-argument functions, methods and
+  properties (see the report-only numpydoc check in the docs workflow); then
+  make the check blocking per module
 * Documentation: user guide pages per topic, bibliography, doctests, weekly
   re-execution of the notebooks
 * Incoherence in thin films (spatial and temporal incoherence)
@@ -40,6 +37,7 @@
 * Docstrings: NumPy-style Parameters/Returns sections for every public
   function with two or more arguments; report-only `numpydoc lint` in the docs
   workflow (configured in `pyproject.toml`)
+
 * Rays to waves at the focus of a lithography lens (notebook 39): traced
   exit pupil plus angular spectrum through focus, ray caustics vs. wave
   caustics, axial colour; the angular spectrum propagators drop evanescent
