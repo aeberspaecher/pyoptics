@@ -570,7 +570,7 @@ def unwrap_with_reference(phase_wrapped, reference, mask=None):
 
 
 def synthetic_wavelength(wavelength1, wavelength2):
-    """Synthetic (beat) wavelength λ1·λ2/|λ1 − λ2| of two wavelengths."""
+    """Synthetic (beat) wavelength ``λ1·λ2/|λ1 − λ2|`` of two wavelengths."""
 
     return wavelength1*wavelength2/abs(wavelength1 - wavelength2)
 
@@ -581,11 +581,11 @@ def unwrap_two_wavelength(phase1, phase2, wavelength1, wavelength2, mask=None,
 
     Both phases belong to the same optical path difference (OPD),
     ψ_j = wrap(2π·OPD/λ_j). Their difference is the phase at the synthetic
-    wavelength Λ = λ1·λ2/|λ1 − λ2| (synthetic_wavelength()), ::
+    wavelength ``Λ = λ1·λ2/|λ1 − λ2|`` (synthetic_wavelength()), ::
 
         OPD_Λ = Λ_s·wrap(ψ1 − ψ2)/2π,   Λ_s = λ1·λ2/(λ2 − λ1),
 
-    which is unambiguous for |OPD| < Λ/2, without any path following. Its
+    which is unambiguous for ``|OPD| < Λ/2``, without any path following. Its
     noise is that of the single phases times Λ/λ, so with refine=True the
     coarse OPD is only used as reference to unwrap each phase
     (unwrap_with_reference()), and the two results are averaged. That needs
