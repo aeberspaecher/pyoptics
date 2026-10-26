@@ -130,7 +130,11 @@ Status of the modules:
   (`MaskLayout.from_polygons`, exact unions of rectangles): bias tables
   through pitch, SRAF rules with a printability check, fragmentation, edge
   placement errors and model-based OPC with a regularized Jacobian update
-  (Abbe, Hopkins or SOCS imaging)
+  (Abbe, Hopkins or SOCS imaging); `litho.illuminator`: a ray traced KrF
+  illuminator for the Caldwell lens (zoom-axicon of US 5,675,401 adapted
+  to fused silica, diffuser, glass rod, REMA objective of US 5,982,558):
+  sigma 0.32 to 0.83 and annular settings, pupil fill per field point as
+  an `Illumination`, field uniformity, telecentricity against the lens
 - `polarization`: TE/TM bases, Stokes to Jones decomposition, DOP and IPS
 - `imaging`: scalar imaging, tested: coherent imaging through a circular
   pupil, PSF with pupil masks (obscuration, apodization) and phases (also
@@ -185,7 +189,9 @@ Status of the modules:
   fits, RMS OPD and Strehl ratio; PSF and MTF via `imaging`; spot diagrams,
   ray fans and layout plots; example: Caldwell's all fused silica KrF
   lithography projection lens (NA 0.56, 4x) with decentre and axial shift
-  sensitivities of its elements (`with_axial_shift()`); polarization ray
+  sensitivities of its elements (`with_axial_shift()`), a water immersion
+  ArF lens and a KrF REMA objective and zoom-axicon from patents; cones
+  (`Axicon`); polarization ray
   trace with energy (`System.trace_polarization()`, Chipman's 3x3 matrices):
   Fresnel refraction and reflection through thin film coatings on any
   surface (`coatings.Coating`, `coatings.Layer`) with layer thickness

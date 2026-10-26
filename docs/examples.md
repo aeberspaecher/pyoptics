@@ -123,7 +123,8 @@ notebooks/30_IFTA
 - {doc}`notebooks/39_litho_source_optimization`
 - {doc}`notebooks/40_litho_opc`
 - {doc}`notebooks/41_litho_telecentricity`
-- {doc}`notebooks/42_litho_delano_lens_design`
+- {doc}`notebooks/42_litho_illuminator`
+- {doc}`notebooks/43_litho_delano_lens_design`
 
 ```{toctree}
 :hidden:
@@ -140,7 +141,8 @@ notebooks/38_litho_jones_pupil
 notebooks/39_litho_source_optimization
 notebooks/40_litho_opc
 notebooks/41_litho_telecentricity
-notebooks/42_litho_delano_lens_design
+notebooks/42_litho_illuminator
+notebooks/43_litho_delano_lens_design
 ```
 
 ## Running the notebooks

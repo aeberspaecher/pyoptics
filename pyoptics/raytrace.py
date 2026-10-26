@@ -4,9 +4,9 @@
 """Sequential ray tracing through optical systems.
 
 A `System` is a sequence of `Surface` objects (spheres, conics and even
-aspheres, refracting or reflecting), optional `IdealLens` surfaces and
-`CoordinateBreak` elements. Surfaces can be decentred and tilted. Rays
-are traced exactly (exact intersections, vector law of refraction and
+aspheres, refracting or reflecting), optional `IdealLens` surfaces, cones
+(`Axicon`) and `CoordinateBreak` elements. Surfaces can be decentred and
+tilted. Rays are traced exactly (exact intersections, vector law of refraction and
 reflection); paraxial marginal and chief rays, the pupils and the Seidel
 sums come from a paraxial y-nu trace, whose system matrix agrees with
 `pyoptics.abcd`. The main result is the optical path difference (OPD) over
@@ -528,6 +528,88 @@ class IdealLens(Surface):
         """
 
         return abcd.thin_lens(self.f/n1)
+
+
+class Axicon(Surface):
+    """Conical refracting surface (axicon).
+
+    The sag is z(r) = slope*r: the surface is a cone around the axis whose
+    generatrix makes the angle ``arctan(1/|slope|)`` with the axis (the
+    "conical angle" of the patents). With slope > 0 the cone opens towards +z, e.g. a
+    concave exit face of a glass element or a convex entrance face. Two cones
+    of the same slope in contact act like a plane plate; pulled apart, they
+    shift rays radially by about gap*tan(deviation), which turns a disk into
+    a ring (annular illumination).
+
+    A cone has no paraxial power, the paraxial trace treats it as a plane.
+
+    Parameters
+    ----------
+    slope : number
+        dz/dr of the cone.
+    thickness, n_after, material, semi_diameter, decenter, tilt, coating, label
+        As for `Surface`.
+    """
+
+    def __init__(self, slope, thickness=0.0, n_after=None, material=None, semi_diameter=None,
+                 decenter=(0.0, 0.0), tilt=(0.0, 0.0, 0.0), coating=None, label=None):
+        super().__init__(np.inf, thickness, n_after=n_after, material=material,
+                         semi_diameter=semi_diameter, decenter=decenter, tilt=tilt,
+                         coating=coating, label=label)
+        self.slope = slope
+
+    def __repr__(self):
+        return "Axicon(slope={}, thickness={}, n_after={}, material={}, semi_diameter={})".format(
+            self.slope, self.thickness, self.n_after, self.material, self.semi_diameter)
+
+    def sag(self, r2):
+        """Sag z = slope*r at the squared radius r2."""
+
+        return self.slope*np.sqrt(r2)
+
+    def _slope_over_r(self, r2):
+        # the apex (r = 0) gets the normal of a point next to it
+        return self.slope/np.sqrt(np.maximum(r2, 1e-300))
+
+    def intersect(self, P, d):
+        """Distance along the rays from their points to the cone.
+
+        Parameters
+        ----------
+        P : (N, 3) array
+            Start points relative to the apex, in the local frame of the surface.
+        d : (N, 3) array
+            Unit directions.
+
+        Returns
+        -------
+        t : (N,) array
+            Distances to the intersections (the one next to the plane of the
+            apex); NaN for rays that miss the cone.
+        """
+
+        x, y, z = P.T
+        dx, dy, dz = d.T
+        k2 = self.slope**2
+        # (z + t dz)**2 = k**2 ((x + t dx)**2 + (y + t dy)**2), on the sheet z/k >= 0:
+        a = dz**2 - k2*(dx**2 + dy**2)
+        b = 2*(z*dz - k2*(x*dx + y*dy))
+        C = z**2 - k2*(x**2 + y**2)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            t_plane = -z/dz
+            sq = np.sqrt(b**2 - 4*a*C)
+            roots = np.stack([(-b - sq)/(2*a), (-b + sq)/(2*a)])
+            linear = np.abs(a) < 1e-14*(np.abs(b) + np.abs(C) + 1)
+            roots = np.where(linear, -C/b, roots)
+            on_sheet = (z + roots*dz)*np.sign(self.slope) >= -1e-12*(1 + np.abs(z))
+            roots = np.where(on_sheet & np.isfinite(roots), roots, np.nan)
+            dist = np.abs(roots - t_plane)
+            pick = np.argmin(np.where(np.isfinite(dist), dist, np.inf), axis=0)
+            t = np.take_along_axis(roots, pick[None], axis=0)[0]
+        if self.slope == 0:
+            t = t_plane
+
+        return t
 
 
 class CoordinateBreak(Surface):
@@ -2573,9 +2655,247 @@ def zeiss_arfi_lens(wavelength=ARF_WAVELENGTH_NM*1e-6, aperture_margin=1.01, ref
     return system
 
 
+# REMA (reticle masking) objective of a KrF illuminator: surface, radius,
+# thickness to the next surface, medium behind ("S": fused silica, "A":
+# air), in mm; numbered as in the patent (surface 1 is the object plane,
+# the masking blades at the exit of the glass rod; 14 is the diaphragm,
+# there is no surface 15). Thickness 19 is reconstructed, see
+# zeiss_krf_rema().
+_ZEISS_KRF_REMA = """
+ 2    -86.28  13.81 S
+ 3    -44.80  18.11 A
+ 4    -39.93  55.00 S
+ 5    -76.61   1.00 A
+ 6  -1047.19  43.85 S
+ 7   -153.10   2.00 A
+ 8    326.10  38.48 S
+ 9   -396.62  43.07 A
+10    164.06  45.00 S
+11    117.72  28.67 A
+12       inf   1.50 S
+13       inf   2.00 A
+14       inf  67.45 A
+16   -108.16  37.23 S
+17   -165.92   1.06 A
+18    494.18  55.65 S
+19   -345.37  91.56 A
+20    369.96  30.69 S
+21   -685.05   2.57 A
+22    183.76  12.67 S
+23    107.14 127.91 A
+24       inf 239.33 A
+25     87.96  27.87 S
+26    111.57  16.73 A
+27    744.34   8.60 S
+28     87.96  35.54 A
+29   -105.49  11.35 S
+30    -89.35   1.31 A
+31    403.64  14.72 S
+32   -313.72  94.55 A
+"""
+
+KRF_REMA_WAVELENGTH_NM = 248.38
+KRF_REMA_MAGNIFICATION = -4.457  # paraxial, with the reconstructed thickness 19
+
+
+def zeiss_krf_rema(wavelength=KRF_REMA_WAVELENGTH_NM*1e-6, na_object=0.6, object_height=10.5,
+                   thickness_19=91.56):
+    """REMA objective of a KrF illuminator (Carl Zeiss, US 5,982,558).
+
+    G. Fürter, J. Wangler, U. Dinger, G. Ittner, "REMA objective for
+    microlithographic projection exposure systems", US 5,982,558 (1999),
+    Table 1. The reticle masking (REMA) objective images the exit face of
+    the glass rod of the illuminator, where the masking blades sit, onto the
+    reticle: magnification -4.44, object side NA 0.6 (image side about
+    0.135), 1200 mm long, all fused silica, spherical. A pupil plane with a
+    plane plate (filters, diaphragms) lies in the diaphragm plane 14; the
+    deflection mirror of the patent at plane 24 is unfolded here. The image
+    side is telecentric (chief rays within a few mrad), matched to a
+    projection lens whose entrance pupil lies almost at infinity, e.g.
+    caldwell_krf_lens(): object side NA 0.56/4 = 0.14, so the REMA carries a
+    pupil fill up to sigma = 0.135/0.14, about 0.96.
+
+    The printed thickness behind surface 19 (36.53 mm) is a misprint: with
+    it, the sines of the angles of incidence that the patent lists for the
+    marginal, chief and coma rays at every surface agree only up to surface
+    19 and the paraxial image lies 19 mm behind the reticle plane. With
+    91.56 mm, 115 of the 116 listed sines agree to within the rounding of
+    the table (0.01; the remaining one differs in sign only), the length
+    from object to reticle is the 1200 mm of the text, the magnification is
+    -4.457 and the best focus (on axis) lies at the printed 94.55 mm behind
+    the last surface.
+
+    Parameters
+    ----------
+    wavelength : number, optional
+        Vacuum wavelength in mm (default: 248.38 nm, the design wavelength).
+    na_object : number, optional
+        Sine of the object side marginal ray (on axis) that the semi
+        diameter of the stop (diaphragm plane 14) passes; the patent's NA is
+        0.6.
+    object_height : number, optional
+        Maximum object (rod exit) height: 10.5 mm (default) is the corner of
+        a square of 14.8 mm, which the REMA images onto the 66 mm square
+        that Caldwell's lens (46.8 mm object field radius) takes.
+    thickness_19 : number, optional
+        Air space behind surface 19, see above.
+
+    Returns
+    -------
+    System
+        Lengths in mm, object (rod exit) 30.72 mm in front of surface 2,
+        reticle 94.55 mm behind surface 32. Surface labels are the surface
+        numbers of the patent; no clear apertures are given except the stop.
+    """
+
+    surfaces = []
+    for line in _ZEISS_KRF_REMA.strip().splitlines():
+        number, R, t, medium = line.split()
+        t = thickness_19 if number == "19" else float(t)
+        surfaces.append(Surface(float(R), t,
+                                material=fused_silica if medium == "S" else None,
+                                n_after=None if medium == "S" else 1.0, label=number))
+    stop = 12
+    surfaces[stop].semi_diameter = 1e3
+    system = System(surfaces, stop, wavelength, object_distance=30.72,
+                    object_height=object_height)
+    # stop semi diameter from the real axial marginal ray:
+    s = np.asarray(na_object, dtype=float)
+    rays = Rays(np.array([[0.0, 0.0, -30.72]]), np.array([[0.0, s, np.sqrt(1 - s**2)]]),
+                np.zeros(1))
+    h = system.trace(rays, clip=False).points[stop + 1, 0, 1]
+    system.surfaces[stop].semi_diameter = abs(h)
+
+    return system
+
+
+# Zoom-axicon objective of an illuminator (Carl Zeiss, US 5,675,401, Table
+# 2): surface, radius ("cone": axicon), thickness to the next surface,
+# medium behind ("Q": quartz, i.e. fused silica, "F": FK5, "A": air), in mm.
+# Zoom spaces: d210 = 0.2...130.5 and d212 = 130.6 - d210 (second element
+# 2121/2120), d232 = 143.1...0.2 and d240 = 166.2 - d232 (zoom lens
+# 2410/2420); "gap" is the axicon distance.
+_ZEISS_ZOOM_AXICON = """
+2110    -48.0   24.3 Q
+2111    -40.1    0.6 A
+2112    -94.4   14.6 F
+2113    -56.6   d210 A
+2121    -56.6   37.4 F
+2120   -101.5   d212 A
+2150    578.8   21.8 F
+2160   -254.8    2.1 A
+2170      inf    2.2 F
+2180      inf    2.1 A
+2210    154.0    8.0 F
+2220     cone    gap A
+2310     cone   46.0 F
+2320  -2512.0   d232 A
+2410  -2512.0    9.1 F
+2420    128.6   d240 A
+"""
+
+ZOOM_AXICON_CONE_ANGLE = np.radians(62.0)  # between the cone and the axis
+
+
+def _fk5(wavelength_nm):
+    return abbe_dispersion(wavelength_nm, 1.48749, 70.41)
+
+
+def zeiss_zoom_axicon(zoom=0.0, axicon_gap=0.0, wavelength=KRF_REMA_WAVELENGTH_NM*1e-6,
+                      original=False, source_radius=1.0):
+    """Zoom-axicon objective of a lithography illuminator (Carl Zeiss,
+    US 5,675,401), adapted to KrF.
+
+    J. Wangler, J. Liegel, "Illuminating arrangement including a zoom
+    objective incorporating two axicons", US 5,675,401 (1997), Table 2
+    (Figs. 5 and 6). The objective takes the light from a secondary source
+    (plane 130 of the patent, here the object plane, 35 mm in front of the
+    first surface) to the pupil intermediate plane 30 (the image plane of
+    the system) and sets the size and shape of the illuminated area there,
+    i.e. the pupil fill (sigma) of the illuminator:
+
+    - zoom: two elements move. 2121/2120 (zoom[0]) from next to 2113
+      (d210 = 0.2) to next to 2150, the zoom lens 2410/2420 (zoom[1]) from
+      143.1 mm behind the axicon (d232) to next to it. 0 is the small sigma
+      end, 1 the large one; the scale of the pupil grows about threefold
+      (sigma 0.3 ... 0.8 in the patent).
+    - axicon_gap: the convex axicon 2310/2320 moves away from the concave
+      one (cone angle 62°, which they meet at gap 0, where they act as a
+      plate). The light is shifted outwards into a ring, the dark centre
+      grows with the gap (annular illumination). The gap is taken from the
+      space d232 in front of the zoom lens, and from d240 once d232 has
+      reached 0.2 mm, so that plane 30 stays where it is.
+
+    The patent's design is for the i-line of a mercury lamp (quartz and
+    Schott FK5). For 248 nm the FK5 elements are made of fused silica too,
+    and the radii of every element are scaled by (n - 1)/(n_i - 1) so that
+    each element keeps its power (n: fused silica at 248.38 nm; n_i: its
+    glass at 365 nm, FK5 from its n_d and V_d). The cones are kept.
+
+    Parameters
+    ----------
+    zoom : number or pair, optional
+        Positions in [0, 1] of the two zoom elements; a number moves both.
+    axicon_gap : number, optional
+        Distance of the axicons in mm (0: in contact).
+    wavelength : number, optional
+        Vacuum wavelength in mm.
+    original : bool, optional
+        The patent's prescription with its glasses (for 365 nm) instead of
+        the KrF adaptation.
+    source_radius : number, optional
+        Radius of the secondary source (object height of the system).
+
+    Returns
+    -------
+    System
+        Lengths in mm; stop at the first surface (the aperture is set by
+        the source, not by the objective). Surface labels are the surface
+        numbers of the patent.
+    """
+
+    z1, z2 = (zoom, zoom) if np.ndim(zoom) == 0 else zoom
+    if not (0 <= z1 <= 1 and 0 <= z2 <= 1):
+        raise ValueError("zoom positions must lie in [0, 1]")
+    d232 = 143.1 - z2*142.9
+    from_d232 = min(axicon_gap, d232 - 0.2)
+    d240 = 166.2 - d232 - (axicon_gap - from_d232)
+    if axicon_gap < 0 or d240 < 0.2:
+        raise ValueError("axicon_gap out of range")
+    spaces = {"d210": 0.2 + z1*130.3, "d212": 130.4 - z1*130.3, "d232": d232 - from_d232,
+              "d240": d240, "gap": axicon_gap}
+    if original:
+        glass = {"Q": fused_silica, "F": _fk5}
+    else:
+        glass = {"Q": fused_silica, "F": fused_silica}
+    n_design = fused_silica(KRF_REMA_WAVELENGTH_NM)
+    slope = 1/np.tan(ZOOM_AXICON_CONE_ANGLE)
+    surfaces = []
+    medium_in = "A"
+    for line in _ZEISS_ZOOM_AXICON.strip().splitlines():
+        number, R, t, medium = line.split()
+        t = spaces[t] if t in spaces else float(t)
+        lens = medium if medium != "A" else medium_in  # glass of the element
+        material = glass[medium] if medium != "A" else None
+        n_after = None if medium != "A" else 1.0
+        if R == "cone":
+            surfaces.append(Axicon(slope, t, material=material, n_after=n_after, label=number))
+        else:
+            R = float(R)
+            if not original and lens != "A" and np.isfinite(R):
+                n_i = (fused_silica if lens == "Q" else _fk5)(365.0)
+                R = R*(n_design - 1)/(n_i - 1)
+            surfaces.append(Surface(R, t, material=material, n_after=n_after,
+                                    semi_diameter=60.0 if number == "2110" else None,
+                                    label=number))
+        medium_in = medium
+
+    return System(surfaces, 0, wavelength, object_distance=35.0, object_height=source_radius)
+
+
 # 20 element KrF lens with 5 aspheres, laid out in the y-ybar diagram
 # (pyoptics.delano) and corrected with pyoptics.lens_optimization (notebook
-# 42): surface, radius, thickness to the next surface, medium behind ("S":
+# 43): surface, radius, thickness to the next surface, medium behind ("S":
 # fused silica, "A": air), paraxial beam radius |y| + |ybar| at full field
 # (the stop: its semi diameter), all in mm; surface 31 is the stop. Aspheric
 # coefficients (r**4, r**6, r**8) by surface number.
@@ -2635,7 +2955,7 @@ def delano_krf_lens(wavelength=248.3e-6):
     """20 element all fused silica KrF projection lens with 5 aspheres,
     NA 0.7, 4x, 1 m.
 
-    Designed in notebook 42 ("Delano diagrams"): first order layout in the
+    Designed in notebook 43 ("Delano diagrams"): first order layout in the
     y-ybar diagram (`delano.refine()`: two waists, Petzval sum zero,
     telecentric on both sides), thick singlets (`delano.thicken()`) and real
     ray correction (`lens_optimization.LensOptimizer`, aperture and field

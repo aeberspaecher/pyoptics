@@ -79,7 +79,7 @@
   `lens_apodization`, notebook 41)
 * Lens design: Delano (y-ybar) diagrams (`delano`), a least squares lens
   optimizer (`lens_optimization`), first order layout and correction of a
-  20 element KrF lens with 5 aspheres (`raytrace.delano_krf_lens`, notebook 42)
+  20 element KrF lens with 5 aspheres (`raytrace.delano_krf_lens`, notebook 43)
 
 * FFT module
 * fitting bases to scattered data
@@ -159,3 +159,9 @@
 * Sphinx documentation (`docs/`, Furo theme, notebooks via myst-nb, API
   reference, built on every PR with warnings as errors, published to GitHub
   Pages)
+* KrF illuminator for the Caldwell lens (`litho.illuminator`): REMA
+  objective of US 5,982,558 (misprinted air space 19 reconstructed from the
+  ray angle table), zoom-axicon of US 5,675,401 re-glassed for 248 nm,
+  `raytrace.Axicon` cones, invented source, diffuser, coupling lens and
+  glass rod; sigma, annular settings, pupil fill per field point,
+  uniformity and telecentricity against the lens (notebook 42)
