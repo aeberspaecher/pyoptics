@@ -26,6 +26,18 @@ Two families of 2D algorithms are implemented:
   so errors are confined to unreliable regions. The result is congruent by
   construction.
 
+Independent information about the phase avoids path following altogether:
+
+- `unwrap_with_reference()`: snaps the wrapped phase to the nearest
+  congruent phase of a coarse but unwrapped estimate, e.g. a phase from the
+  transport of intensity equation (pyoptics.TIE), a model or a measurement
+  at a longer wavelength. Every pixel is unwrapped on its own, so residues
+  and disconnected regions do not matter; the estimate has to be correct to
+  better than ±π.
+- `unwrap_two_wavelength()`: two-wavelength (synthetic wavelength)
+  unwrapping of phases measured at two wavelengths, e.g. in dual-wavelength
+  holography or interferometry.
+
 `residues()` locates the phase singularities (vortices, noise points) that
 make unwrapping path dependent, `reliability()` computes Herráez's second
 difference quality map, and `unwrap_1d()` wraps numpy.unwrap.
@@ -46,6 +58,9 @@ References
 D. C. Ghiglia and L. A. Romero, "Robust two-dimensional weighted and
 unweighted phase unwrapping that uses fast transforms and iterative methods",
 J. Opt. Soc. Am. A 11, 107 (1994).
+
+J. Gass, A. Dakoff and M. K. Kim, "Phase imaging without 2π ambiguity by
+multiwavelength digital holography", Opt. Lett. 28, 1141 (2003).
 
 M. A. Herráez, D. R. Burton, M. J. Lalor and M. A. Gdeisat, "Fast
 two-dimensional phase-unwrapping algorithm based on sorting by reliability
@@ -514,6 +529,108 @@ def unwrap_quality_guided(phase_wrapped, quality=None, mask=None):
     return out
 
 
+def unwrap_with_reference(phase_wrapped, reference, mask=None):
+    """Unwrap a phase with an unwrapped estimate of it.
+
+    Each pixel gets the multiple of 2π that brings it closest to the
+    reference, ::
+
+        φ = ψ + 2π·round((reference − ψ)/2π).
+
+    The result is congruent with the data and exact wherever the reference
+    is within ±π of the true phase, independently of all other pixels: no
+    path is followed, so residues, noise and disconnected regions do not
+    spread errors. Typical references are a TIE phase (pyoptics.TIE), the
+    phase at a synthetic wavelength (unwrap_two_wavelength()), a model of
+    the sample, or a smoothed least squares solution.
+
+    Parameters
+    ----------
+    phase_wrapped : array
+        Wrapped phase ψ (any shape). NaNs are treated as masked pixels.
+    reference : array or number
+        Unwrapped estimate of the phase, with the same piston as the data
+        (e.g. both zero on the background).
+    mask : boolean array, optional
+        True for valid pixels.
+
+    Returns
+    -------
+    phase : array
+        Unwrapped phase, NaN outside the mask. Unlike the path following
+        methods, the piston is not changed: it is the reference's.
+    """
+
+    psi = np.asarray(phase_wrapped, dtype=float)
+    phi = psi + TWO_PI*np.rint((reference - psi)/TWO_PI)
+    if mask is not None:
+        phi = np.where(mask, phi, np.nan)
+
+    return phi
+
+
+def synthetic_wavelength(wavelength1, wavelength2):
+    """Synthetic (beat) wavelength ``λ1·λ2/|λ1 − λ2|`` of two wavelengths."""
+
+    return wavelength1*wavelength2/abs(wavelength1 - wavelength2)
+
+
+def unwrap_two_wavelength(phase1, phase2, wavelength1, wavelength2, mask=None,
+                          refine=True):
+    """Optical path difference from wrapped phases at two wavelengths.
+
+    Both phases belong to the same optical path difference (OPD),
+    ψ_j = wrap(2π·OPD/λ_j). Their difference is the phase at the synthetic
+    wavelength ``Λ = λ1·λ2/|λ1 − λ2|`` (synthetic_wavelength()), ::
+
+        OPD_Λ = Λ_s·wrap(ψ1 − ψ2)/2π,   Λ_s = λ1·λ2/(λ2 − λ1),
+
+    which is unambiguous for ``|OPD| < Λ/2``, without any path following. Its
+    noise is that of the single phases times Λ/λ, so with refine=True the
+    coarse OPD is only used as reference to unwrap each phase
+    (unwrap_with_reference()), and the two results are averaged. That needs
+    the coarse OPD to be within ±λ/2 of the truth (hierarchical unwrapping,
+    Gass et al. 2003).
+
+    Parameters
+    ----------
+    phase1, phase2 : arrays
+        Wrapped phases at wavelength1 and wavelength2, in radians, with a
+        common zero (e.g. both background compensated).
+    wavelength1, wavelength2 : numbers
+        The (vacuum) wavelengths, which must differ.
+    mask : boolean array, optional
+        True for valid pixels.
+    refine : bool, optional
+        If False, return the coarse synthetic wavelength OPD.
+
+    Returns
+    -------
+    opd : array
+        Optical path difference in the unit of the wavelengths, NaN outside
+        the mask. The phase at λ_j is 2π·opd/λ_j. Dispersion of the sample
+        (a different OPD at the two wavelengths) shows up as an error of
+        Λ/λ times the OPD difference in the coarse result.
+    """
+
+    if wavelength1 == wavelength2:
+        raise ValueError("The wavelengths must differ.")
+
+    psi1 = np.asarray(phase1, dtype=float)
+    psi2 = np.asarray(phase2, dtype=float)
+    Lambda_s = wavelength1*wavelength2/(wavelength2 - wavelength1)
+    opd = Lambda_s*wrap(psi1 - psi2)/TWO_PI
+
+    if refine:
+        opd1 = unwrap_with_reference(psi1, TWO_PI*opd/wavelength1)*wavelength1/TWO_PI
+        opd2 = unwrap_with_reference(psi2, TWO_PI*opd/wavelength2)*wavelength2/TWO_PI
+        opd = 0.5*(opd1 + opd2)
+    if mask is not None:
+        opd = np.where(mask, opd, np.nan)
+
+    return opd
+
+
 def unwrap(phase_wrapped, method="quality", **kwargs):
     """Unwrap a 1D or 2D phase.
 
@@ -522,8 +639,9 @@ def unwrap(phase_wrapped, method="quality", **kwargs):
     phase_wrapped : array
         Wrapped phase.
     method : str, optional
-        "quality" (unwrap_quality_guided(), default), "ls" (unwrap_ls()) or
-        "1d" (unwrap_1d(); the default for 1D input).
+        "quality" (unwrap_quality_guided(), default), "ls" (unwrap_ls()),
+        "reference" (unwrap_with_reference(), needs reference=...) or "1d"
+        (unwrap_1d(); the default for 1D input without a reference).
     kwargs :
         Passed on to the selected function.
 
@@ -533,9 +651,10 @@ def unwrap(phase_wrapped, method="quality", **kwargs):
         Unwrapped phase.
     """
 
-    if np.ndim(phase_wrapped) == 1:
+    if np.ndim(phase_wrapped) == 1 and method != "reference":
         method = "1d"
-    funcs = {"quality": unwrap_quality_guided, "ls": unwrap_ls, "1d": unwrap_1d}
+    funcs = {"quality": unwrap_quality_guided, "ls": unwrap_ls, "1d": unwrap_1d,
+             "reference": unwrap_with_reference}
     if method not in funcs:
         raise ValueError("Unknown method '%s'." % method)
 
