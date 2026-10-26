@@ -104,3 +104,30 @@ def test_polarization_with_coatings(arfi):
     # uncoated: radial diattenuator, p (radial) transmitted better at the rim
     rim = np.argmax(bare.P_y)
     assert abs(bare.J[rim, 1, 1]) > abs(bare.J[rim, 0, 0])
+
+
+def test_helium_gaps_drawn_as_gaps(arfi):
+    # helium is the background: draw() outlines the 21 lenses only, not the
+    # helium spaces between them; the trace does not change
+    matplotlib = pytest.importorskip("matplotlib")
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    filled = arfi.copy()
+    filled.background = None
+    assert arfi.background is not None
+    n = arfi.n
+    lenses = sum(not arfi._is_gap(n[i + 1]) for i in range(len(n) - 2))
+    gaps = sum(filled._is_gap(n[i + 1]) != arfi._is_gap(n[i + 1]) for i in range(len(n) - 2))
+    assert lenses == 21
+    assert gaps > 15
+    counts = []
+    for system in (arfi, filled):
+        fig, ax = plt.subplots()
+        system.draw(ax, fields=[0.0], n_rays=3)
+        counts.append(len(ax.lines))
+        plt.close(fig)
+    assert counts[1] - counts[0] == 2*gaps  # one rim line per side and gap
+    a = arfi.trace_pupil((0.0, 56.0), 0.0, np.linspace(-1, 1, 5)).points
+    b = filled.trace_pupil((0.0, 56.0), 0.0, np.linspace(-1, 1, 5)).points
+    assert np.array_equal(a, b)

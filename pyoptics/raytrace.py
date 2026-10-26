@@ -731,6 +731,12 @@ class System:
     image_decenter, image_tilt : optional
         Decentre (dx, dy) and tilt (a_x, a_y, a_z) of the image plane
         relative to the final axis frame.
+    background : number or callable, optional
+        Index (or function n(wavelength_nm)) of a gas that fills the air
+        spaces, e.g. the helium or nitrogen purge of lithography lenses.
+        Only used by draw(), which outlines spaces of index 1 or of the
+        background index as gaps rather than as lenses; the media of the
+        trace are those of the surfaces.
 
     The surfaces are copied, later changes to the Surface objects passed in
     do not affect the system.
@@ -738,7 +744,8 @@ class System:
 
     def __init__(self, surfaces, stop_index, wavelength, object_distance=np.inf, field_angle=0.0,
                  object_height=0.0, n_object=1.0, units="mm", entrance_pupil_radius=None,
-                 ray_aiming=True, image_decenter=(0.0, 0.0), image_tilt=(0.0, 0.0, 0.0)):
+                 ray_aiming=True, image_decenter=(0.0, 0.0), image_tilt=(0.0, 0.0, 0.0),
+                 background=None):
         self.surfaces = [copy.copy(s) for s in surfaces]
         self.stop_index = stop_index % len(self.surfaces)
         self.wavelength = wavelength
@@ -749,6 +756,7 @@ class System:
         self.ray_aiming = ray_aiming
         self.image_decenter = tuple(image_decenter)
         self.image_tilt = tuple(image_tilt) + (0.0,)*(3 - len(image_tilt))
+        self.background = background
         if entrance_pupil_radius is not None:
             A = self._ep_matrix()[0]
             self.surfaces[self.stop_index].semi_diameter = abs(entrance_pupil_radius*A)
@@ -778,6 +786,17 @@ class System:
             n.append(s.index(self.wavelength_nm, n[-1]))
 
         return np.array(n)
+
+    def _is_gap(self, n):
+        """Whether a medium of index n is air, vacuum or the background gas
+        (no lens), for draw()."""
+
+        gases = [1.0]
+        if self.background is not None:
+            bg = self.background
+            gases.append(float(bg(self.wavelength_nm)) if callable(bg) else float(bg))
+
+        return any(np.isclose(n, g, rtol=0.0, atol=1e-12) for g in gases)
 
     @property
     def sigma(self):
@@ -1788,10 +1807,10 @@ class System:
                 continue
             yy = np.linspace(-h, h, 101)
             ax.plot(*to_global(i, yy, s.sag(yy**2)), color="k", lw=2.5 if s.mirror else 1.2)
-        # lens edges between surfaces in glass:
+        # lens edges between surfaces in glass (not in air or the background gas):
         for i in range(len(self.surfaces) - 1):
             s1, s2 = self.surfaces[i], self.surfaces[i + 1]
-            if n[i + 1] != 1.0 and not s1.mirror and not isinstance(s2, CoordinateBreak):
+            if not self._is_gap(n[i + 1]) and not s1.mirror and not isinstance(s2, CoordinateBreak):
                 # rims joined by a flat bevel on the smaller surface:
                 h1, h2 = heights[i], heights[i + 1]
                 for sgn in (-1, 1):
@@ -2161,8 +2180,9 @@ def zeiss_arfi_lens(wavelength=ARF_WAVELENGTH_NM*1e-6, aperture_margin=1.01, ref
     -------
     System
         Lengths in mm, object 29.960 mm in front of the first (dummy)
-        surface, maximum field object_height = 56 mm. Surface labels are the
-        surface numbers of the patent.
+        surface, maximum field object_height = 56 mm, background helium (the
+        gaps are drawn as such). Surface labels are the surface numbers of
+        the patent.
     """
 
     stop = 37
@@ -2180,7 +2200,8 @@ def zeiss_arfi_lens(wavelength=ARF_WAVELENGTH_NM*1e-6, aperture_margin=1.01, ref
                                     semi_diameter=float(sd)*(1 if i == stop else aperture_margin),
                                     label=number))
 
-        return System(surfaces, stop, wl, object_distance=29.959527308, object_height=56.0)
+        return System(surfaces, stop, wl, object_distance=29.959527308, object_height=56.0,
+                      background=HELIUM_ARF)
 
     system = build(wavelength)
     if refocus and wavelength != ARF_WAVELENGTH_NM*1e-6:
