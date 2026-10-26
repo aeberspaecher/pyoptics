@@ -486,7 +486,7 @@ def lens_telecentricity(system, field=(0.0, 0.0), N=48, fill=None, coating=None,
         Illumination of the object side cone, on the pupil coordinates
         (u_x, u_y) = n (d - d_chief)_xy/NA_object of the object space ray
         directions d (NA_object = NA*|magnification|): a number sigma fills
-        the disk |u| <= sigma uniformly, a function fill(u_x, u_y) gives the
+        the disk ``|u| <= sigma`` uniformly, a function fill(u_x, u_y) gives the
         relative radiance (the edge of the disk is smoothed over one step
         of the pupil grid). None (default): the whole cone that the stop
         passes, as for the light diffracted by a small feature or for
