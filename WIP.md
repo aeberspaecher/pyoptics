@@ -15,7 +15,9 @@
 * Lithography (DUV, see the roadmap in the project files): RCWA for 2D masks, ray traced stress
   birefringence
 * More tests for `TIE`
-* WPM: Fresnel transmission correction at index steps, absorbing boundaries
+* WPM: Fresnel transmission correction at index steps, absorbing boundaries;
+  symmetrized step (alternate the two operator orderings) against the power
+  drift in narrow waveguides (notebook 08, section 11)
 * Docstrings: NumPy-style Parameters/Returns sections for raytrace, abcd,
   modes, litho, TIE, interfaces and bases; numpydoc validation in CI
 * Documentation: user guide pages per topic, bibliography, doctests, weekly
