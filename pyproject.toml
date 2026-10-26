@@ -33,3 +33,11 @@ include = ["pyoptics*"]
 
 [tool.setuptools.exclude-package-data]
 "*" = ["*.pyx", "*.c"]
+
+# Docstring checks (numpydoc lint, run by the docs workflow, report-only for now):
+# missing docstrings, undocumented or unknown parameters and missing Returns.
+# Section-name checks (GL06/GL07) are left out because module docstrings use
+# their own section titles. Private objects are excluded.
+[tool.numpydoc_validation]
+checks = ["GL08", "PR01", "PR02", "PR03", "PR10", "RT01"]
+exclude = ['\._']

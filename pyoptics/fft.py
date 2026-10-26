@@ -70,8 +70,20 @@ def rFT(x):
 
 
 def inv_rFT(X, shape=None):
-    """Inverse of rFT(). shape is the shape of the real array and needs to be
-    given for an odd number of x samples.
+    """Inverse of rFT().
+
+    Parameters
+    ----------
+    X : 2d array
+        Half spectrum as returned by rFT().
+    shape : tuple, optional
+        Shape of the real array; needs to be given for an odd number of x
+        samples.
+
+    Returns
+    -------
+    x : 2d array
+        Real array.
     """
 
     if shape is None:
@@ -85,6 +97,21 @@ def rFT_unitary(x):
 
 
 def inv_rFT_unitary(X, shape=None):
+    """Unitary inverse of rFT() (scaled by the square root of the array size).
+
+    Parameters
+    ----------
+    X : 2d array
+        Half spectrum.
+    shape : tuple, optional
+        Shape of the real array, see `inv_rFT()`.
+
+    Returns
+    -------
+    x : 2d array
+        Real array.
+    """
+
     x = inv_rFT(X, shape)
 
     return x*np.sqrt(np.prod(np.shape(x)))

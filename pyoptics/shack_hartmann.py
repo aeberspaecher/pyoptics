@@ -304,15 +304,19 @@ class ShackHartmann(object):
         return Slopes(sx, sy, valid, flux)
 
     def model_slopes(self, phase=None, amplitude=None):
-        """Slopes that an ideal sensor measures: the intensity weighted mean
-        phase gradient over each lenslet, converted to dW/dx and dW/dy.
+        """Slopes that an ideal sensor measures.
 
-        phase and amplitude are given as for field(). The gradient is taken
-        by central differences on the sample grid, so the phase must be
-        continuous (unwrapped). Samples whose difference stencil reaches a
-        dark sample are left out, so that a phase that is only defined on
-        the pupil (e.g. zero outside) does not produce spurious slopes at
-        the rim.
+        The intensity weighted mean phase gradient over each lenslet, converted to
+        dW/dx and dW/dy. The gradient is taken by central differences on the
+        sample grid, so the phase must be continuous (unwrapped). Samples whose
+        difference stencil reaches a dark sample are left out, so that a phase
+        that is only defined on the pupil (e.g. zero outside) does not produce
+        spurious slopes at the rim.
+
+        Parameters
+        ----------
+        phase, amplitude : callable, array or number, optional
+            As for `field()`.
 
         Returns
         -------

@@ -76,7 +76,21 @@ class Layer(object):
         self.segments = [(float(c), float(w), complex(n)) for c, w, n in segments]
 
     def coefficients(self, period, m, inverse=False):
-        """Fourier coefficients of eps (or 1/eps) for the orders m."""
+        """Fourier coefficients of the permittivity (or its inverse).
+
+        Parameters
+        ----------
+        period : number
+            Period of the grating.
+        m : int or array
+            Order indices.
+        inverse : bool, optional
+            Coefficients of 1/eps instead of eps.
+
+        Returns
+        -------
+        c : complex array
+        """
 
         f = (lambda n: 1/n**2) if inverse else (lambda n: n**2)
         c = f(self.background)*(np.asarray(m) == 0).astype(complex)
@@ -338,9 +352,34 @@ class RigorousMask(object):
                         exit_n=self.exit_n, normalize=self.normalize)
 
     def jones(self, s_x, s_y, NA, wavelength, magnification):
-        """Jones matrices (J_clear, J_absorber) of laterally infinite films
-        (clear: identity if normalized), for the open frame and as a film
-        approximation; the patterned mask is order_jones()."""
+        """Jones matrices of laterally infinite films.
+
+        For the open frame and as a film approximation: the clear area is the
+        identity (normalized mask), the absorber that of the film stack; the
+        patterned mask is `order_jones()`.
+
+        Parameters
+        ----------
+        s_x, s_y : numbers or arrays
+            Source point coordinates (sigma).
+        NA : number
+            Numerical aperture (image side).
+        wavelength : number
+            Vacuum wavelength.
+        magnification : number
+            Reduction ratio of the projector.
+
+        Returns
+        -------
+        J_clear, J_absorber : arrays
+            Shape np.shape(s_x) + (2, 2); the absorber is NaN if the layers are
+            not plain films.
+
+        Raises
+        ------
+        NotImplementedError
+            For normalize=False.
+        """
 
         eye = np.broadcast_to(np.eye(2, dtype=complex), np.shape(s_x) + (2, 2))
         J_abs = (self.film_mask().jones(s_x, s_y, NA, wavelength, magnification)[1]
@@ -363,9 +402,35 @@ class RigorousMask(object):
         return out
 
     def order_jones(self, layout, m, n, s_x, s_y, NA, wavelength, magnification):
-        """Jones matrices of the diffraction orders (m, n) of the layout for
-        the source points, shape (len(s_x), 2, 2, len(n), len(m)); the
-        results of the last calls are cached."""
+        """Jones matrices of the diffraction orders of a 1D layout.
+
+        The results of the last calls are cached.
+
+        Parameters
+        ----------
+        layout : MaskLayout
+            1D layout (lines along x or y).
+        m, n : int or arrays
+            Order indices in x and y.
+        s_x, s_y : numbers or arrays
+            Source point coordinates (sigma).
+        NA : number
+            Numerical aperture (image side).
+        wavelength : number
+            Vacuum wavelength.
+        magnification : number
+            Reduction ratio of the projector.
+
+        Returns
+        -------
+        J : array
+            Shape (len(s_x), 2, 2, len(n), len(m)).
+
+        Raises
+        ------
+        ValueError
+            For 2D layouts.
+        """
 
         if not layout.is_1d:
             raise ValueError("RigorousMask supports 1D layouts (lines along x or y) only")

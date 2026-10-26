@@ -570,7 +570,17 @@ def unwrap_with_reference(phase_wrapped, reference, mask=None):
 
 
 def synthetic_wavelength(wavelength1, wavelength2):
-    """Synthetic (beat) wavelength ``λ1·λ2/|λ1 − λ2|`` of two wavelengths."""
+    """Synthetic (beat) wavelength ``λ1·λ2/|λ1 − λ2|`` of two wavelengths.
+
+    Parameters
+    ----------
+    wavelength1, wavelength2 : numbers
+        The two wavelengths (different).
+
+    Returns
+    -------
+    wavelength_synthetic : number
+    """
 
     return wavelength1*wavelength2/abs(wavelength1 - wavelength2)
 

@@ -367,7 +367,20 @@ class Shifter(ImageProcessor):
         self.y = y
 
     def shift(self, img, delta_x, delta_y):
-        """Shift img by (delta_x, delta_y)."""
+        """Shift an image with the Fourier shift theorem (periodic shift).
+
+        Parameters
+        ----------
+        img : 2d array
+            Image on the grid of the processor.
+        delta_x, delta_y : numbers
+            Shifts in the units of x and y.
+
+        Returns
+        -------
+        shifted : 2d array
+            Real for a real input image.
+        """
 
         Img = fft2(img)
         # fft2() returns the spectrum in standard order:

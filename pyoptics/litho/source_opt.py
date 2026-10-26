@@ -100,7 +100,20 @@ class SourcePixels(object):
         return np.array([len(g) for g in self.groups])
 
     def group_illumination(self, g, polarization="unpolarized", dop=1.0):
-        """The pixels of group g with equal weights."""
+        """The pixels of one symmetry group with equal weights.
+
+        Parameters
+        ----------
+        g : int
+            Group index.
+        polarization : see `Illumination`, optional
+        dop : number, optional
+            Degree of polarization.
+
+        Returns
+        -------
+        Illumination
+        """
 
         idx = self.groups[g]
         return Illumination(self.s_x[idx], self.s_y[idx], polarization=polarization, dop=dop,
@@ -112,8 +125,23 @@ class SourcePixels(object):
         return np.asarray(W, dtype=float)[self.group_of]/self.sizes[self.group_of]
 
     def illumination(self, W, polarization="unpolarized", dop=1.0, threshold=1E-6, name="freeform"):
-        """Illumination with the group totals W; pixels below threshold times
-        the largest pixel weight are dropped."""
+        """Illumination with given group totals.
+
+        Parameters
+        ----------
+        W : array
+            Total weight of each group.
+        polarization : see `Illumination`, optional
+        dop : number, optional
+            Degree of polarization.
+        threshold : number, optional
+            Pixels below threshold times the largest pixel weight are dropped.
+        name : str, optional
+
+        Returns
+        -------
+        Illumination
+        """
 
         w = self.point_weights(W)
         keep = w > threshold*w.max()
@@ -121,8 +149,20 @@ class SourcePixels(object):
         return Illumination(self.s_x[keep], self.s_y[keep], w[keep], polarization, dop, name)
 
     def fill(self, W, threshold=0.01):
-        """Pupil fill: the fraction of the pupil area (sigma <= 1) that is
-        lit with more than threshold times the largest pixel weight."""
+        """Pupil fill of the source.
+
+        Parameters
+        ----------
+        W : array
+            Total weight of each group.
+        threshold : number, optional
+            Pixels count as lit above threshold times the largest pixel weight.
+
+        Returns
+        -------
+        fill : number
+            Fraction of the pupil area (sigma <= 1) that is lit.
+        """
 
         w = self.point_weights(W)
         n_disk = np.sum(np.hypot(*_grid(self.n_samples)) <= 1 + 1E-12)

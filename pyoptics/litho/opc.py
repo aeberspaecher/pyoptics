@@ -178,9 +178,27 @@ def insert_srafs(layout, width, distance, count=1, spacing=None, min_space=None)
 
 
 def sraf_margin(sim, threshold=0.3, dose=1.0, foci=(0.0,)):
-    """How far the assists (layout features after the first) are from
-    printing: the smallest relative distance of the image at their centers
-    from the threshold over the foci; positive: they do not print.
+    """How far the assist features are from printing.
+
+    The assists are the layout features after the first; the margin is the
+    smallest relative distance of the image at their centers from the
+    threshold over the foci.
+
+    Parameters
+    ----------
+    sim : LithoSimulation
+        Simulation whose layout contains the assists.
+    threshold : number, optional
+        Printing threshold.
+    dose : number, optional
+        Relative dose.
+    foci : sequence of numbers, optional
+        Foci to check.
+
+    Returns
+    -------
+    margin : float
+        Positive: the assists do not print; np.inf without assists.
     """
 
     L = sim.layout
@@ -321,8 +339,20 @@ class FragmentedLayout(object):
 
 
 def image_grid(layout, spacing=2.0):
-    """Grid of one period for images that edge_placement_errors()
-    interpolates: returns x, y (cell [-pitch/2, pitch/2), periodic)."""
+    """Grid of one period for images that `edge_placement_errors()` interpolates.
+
+    Parameters
+    ----------
+    layout : MaskLayout
+        Layout periodic in x and y.
+    spacing : number, optional
+        Largest grid spacing.
+
+    Returns
+    -------
+    x, y : 1d arrays
+        Cell [-pitch/2, pitch/2), periodic.
+    """
 
     def axis(P):
         n = int(np.ceil(P/spacing))
@@ -332,8 +362,22 @@ def image_grid(layout, spacing=2.0):
 
 
 def sample_image(I, x, y, points):
-    """Periodic cubic spline interpolation of an image I (len(y), len(x))
-    on the grid of image_grid() at points (..., 2)."""
+    """Periodic cubic spline interpolation of an image.
+
+    Parameters
+    ----------
+    I : 2d array
+        Image of shape (len(y), len(x)) on the grid of `image_grid()`.
+    x, y : 1d arrays
+        The grid.
+    points : array
+        Points of shape (..., 2) as (x, y).
+
+    Returns
+    -------
+    values : array
+        Shape points.shape[:-1].
+    """
 
     points = np.asarray(points, dtype=float)
     dx, dy = x[1] - x[0], y[1] - y[0]

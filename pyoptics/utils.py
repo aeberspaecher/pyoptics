@@ -61,6 +61,23 @@ def complex_average(z_vals):
 
 
 def ensure_meshgrid(x, y):
+    """Return meshed coordinates for linear or meshed input.
+
+    Parameters
+    ----------
+    x, y : arrays
+        Both 1d (meshed with np.meshgrid) or both 2d (returned as they are).
+
+    Returns
+    -------
+    XX, YY : 2d arrays
+
+    Raises
+    ------
+    ValueError
+        If x and y are neither both 1d nor both 2d.
+    """
+
     d_x, d_y = len(np.asarray(x).shape), len(np.asarray(y).shape)
 
     if (d_x == 1) and (d_y == 1):
@@ -199,8 +216,18 @@ def I(E, n=1.0):
 
 
 def wavenumber(wavelength, n=1.0):
-    """Return wavenumber from wavelength, optionally use refractive index
-    (default: vacuum, n=1).
+    """Wavenumber k = 2*pi*n/wavelength.
+
+    Parameters
+    ----------
+    wavelength : number or array
+        Vacuum wavelength.
+    n : number, optional
+        Refractive index (default: vacuum).
+
+    Returns
+    -------
+    k : number or array
     """
 
     return TWOPI*n/wavelength
@@ -558,6 +585,14 @@ def scalar_product_without_weights(field1, field2, x, y):
 def local_momentum(field, wavelength):
     # TODO: implement a sensible notion of local momentum / direction cosines
     # use FT and get angles from frequencies? use dispersion for z-component?
+    """Local momentum of a field (not implemented yet, returns None).
+
+    Parameters
+    ----------
+    field : array
+    wavelength : number
+    """
+
     pass
 
 
@@ -606,8 +641,19 @@ def simpson_weights(N):
 
 
 def weight_grid(func, Nx, Ny):
-    """Create a meshed weight grid from a funtion weights(N) that returns
-    a weight vector of length N.
+    """Meshed weight grid from 1D weights.
+
+    Parameters
+    ----------
+    func : callable
+        func(N) returns a weight vector of length N, e.g. `simpson_weights`.
+    Nx, Ny : int
+        Number of samples in x and y.
+
+    Returns
+    -------
+    w : 2d array
+        Shape (Ny, Nx), the outer product of the y and x weights.
     """
 
     wx = func(Nx)
@@ -654,7 +700,22 @@ def Ez(x, y, Ex, Ey, wl, n=1.0):
 
 
 def super_gaussian(x, y, x0, y0, sigma_x, sigma_y, N):
-    """Compute a super Gaussian.
+    """Super Gaussian exp(-``|x - x0|**N``/(2*sigma_x**N) - ``|y - y0|**N``/(2*sigma_y**N)).
+
+    Parameters
+    ----------
+    x, y : arrays
+        Linear or meshed coordinates.
+    x0, y0 : numbers
+        Centre.
+    sigma_x, sigma_y : numbers
+        Widths.
+    N : number
+        Order (N = 2: Gaussian).
+
+    Returns
+    -------
+    g : 2d array
     """
 
     XX, YY = ensure_meshgrid(x, y)

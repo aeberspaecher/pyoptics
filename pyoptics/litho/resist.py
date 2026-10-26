@@ -134,8 +134,29 @@ def intensity_in_resist(sim, focus=0.0, N_x=128, N_z=40, direction=None):
 
 
 def open_frame_in_resist(sim, focus=0.0, N_z=40):
-    """Intensity in the resist for a clear mask (the open frame), as a
-    LatentImage with a single column, e.g. for ResistModel.dose_to_clear()."""
+    """Intensity in the resist for a clear mask (the open frame).
+
+    Use it e.g. for `ResistModel.dose_to_clear()`.
+
+    Parameters
+    ----------
+    sim : LithoSimulation
+        Simulation with a WaferStack.
+    focus : number, optional
+        Position of the resist top relative to the focal plane.
+    N_z : int, optional
+        Number of cells across the resist thickness.
+
+    Returns
+    -------
+    LatentImage
+        A single column, normalized to the open frame without the stack.
+
+    Raises
+    ------
+    ValueError
+        If the simulation has no wafer stack.
+    """
 
     if sim.wafer is None:
         raise ValueError("open_frame_in_resist needs a LithoSimulation with a WaferStack")
@@ -176,7 +197,24 @@ def _neutralize(h, q, rate, dtau):
 
 
 def mack_rate(m, r_max=100.0, r_min=0.1, n=5.0, m_th=0.5):
-    """Development rate of the Mack model for the inhibitor concentration m."""
+    """Development rate of the Mack model.
+
+    Parameters
+    ----------
+    m : number or array
+        Relative inhibitor concentration in [0, 1].
+    r_max, r_min : numbers, optional
+        Largest and smallest rate (nm/s).
+    n : number, optional
+        Dissolution selectivity.
+    m_th : number, optional
+        Threshold inhibitor concentration.
+
+    Returns
+    -------
+    rate : number or array
+        Development rate in nm/s.
+    """
 
     a = (n + 1)/(n - 1)*(1 - m_th)**n
     u = (1 - np.asarray(m, dtype=float))**n
@@ -316,9 +354,27 @@ def _edges(x, T, rate, t, i_c, opening):
 
 
 def profile(latent, arrival, develop_time, rate=None):
-    """Resist profile of the feature from the arrival times of the
-    development front and the development rate (see Profile); without the
-    rate, the front is interpolated linearly in time between the samples."""
+    """Resist profile of the feature from the arrival times of the development front.
+
+    Without the rate, the front is interpolated linearly in time between the
+    samples.
+
+    Parameters
+    ----------
+    latent : LatentImage
+        Grid and feature of the simulation.
+    arrival : (N_z, N_x) array
+        Arrival times of the development front at the cell centers.
+    develop_time : number
+        Develop time (s).
+    rate : (N_z, N_x) array, optional
+        Development rate (nm/s).
+
+    Returns
+    -------
+    Profile
+        Edges per depth and the top loss.
+    """
 
     x, z = latent.x, latent.z
     if rate is None:
@@ -405,14 +461,41 @@ class ResistModel(object):
         return ResistModel(**p)
 
     def expose(self, I, dose):
-        """Acid after exposure."""
+        """Relative acid concentration after exposure, 1 - exp(-C*dose*I).
+
+        Parameters
+        ----------
+        I : array
+            Relative intensity in the resist.
+        dose : number
+            Dose in mJ/cm**2.
+
+        Returns
+        -------
+        acid : array
+        """
 
         return 1 - np.exp(-self.C*dose*np.asarray(I))
 
     def bake(self, acid, dx, dz):
-        """PEB: returns the acid and the inhibitor concentration m after the
-        bake, for the acid after exposure on a grid (N_z, N_x) with the
-        spacings dx (periodic) and dz (cell centers)."""
+        """Post exposure bake: acid diffusion, quenching and amplification.
+
+        Parameters
+        ----------
+        acid : (N_z, N_x) array
+            Acid after exposure.
+        dx : number
+            Grid spacing in x (periodic).
+        dz : number
+            Spacing of the cell centers in z.
+
+        Returns
+        -------
+        acid : (N_z, N_x) array
+            Acid after the bake.
+        m : (N_z, N_x) array
+            Relative inhibitor concentration.
+        """
 
         N_z, N_x = acid.shape
         kx2 = (2*np.pi*np.fft.rfftfreq(N_x, dx))**2
@@ -464,14 +547,32 @@ class ResistModel(object):
                             profile(latent, T, self.develop_time, rate))
 
     def dose_to_size(self, latent, cd_target, depth=0.5, doses=(1.0, 300.0), n_scan=40):
-        """Dose (mJ/cm**2) that prints cd_target at the relative depth (0:
-        top, 1: bottom) of the resist; nan if no dose in the range does.
+        """Dose that prints cd_target at a relative depth of the resist.
 
         A geometric scan of n_scan doses brackets the solution, which is
         then refined by root finding. Between doses where the feature
         appears or disappears at that depth the scan is repeated more
         finely, since the window of doses that resolve it can be narrow
-        (standing waves). The lowest dose found is returned."""
+        (standing waves). The lowest dose found is returned.
+
+        Parameters
+        ----------
+        latent : LatentImage
+            From intensity_in_resist().
+        cd_target : number
+            Target CD (nm).
+        depth : number, optional
+            Relative depth, 0: top, 1: bottom of the resist.
+        doses : (number, number), optional
+            Range of doses in mJ/cm**2.
+        n_scan : int, optional
+            Doses of the initial scan.
+
+        Returns
+        -------
+        dose : number
+            Dose in mJ/cm**2; nan if no dose in the range prints cd_target.
+        """
 
         z = depth*latent.thickness
 
@@ -495,10 +596,24 @@ class ResistModel(object):
         return search(doses[0], doses[1], n_scan, 0)
 
     def dose_to_clear(self, latent, doses=(0.1, 1000.0)):
-        """Dose (mJ/cm**2) at which the development front reaches the bottom
-        of the resist within the develop time everywhere: for the open
-        frame (open_frame_in_resist()) the classic E_0; nan if it does not
-        within the range of doses."""
+        """Dose to clear, E_0.
+
+        The dose (mJ/cm**2) at which the development front reaches the bottom of
+        the resist within the develop time everywhere; for the open frame
+        (`open_frame_in_resist()`) this is the classic E_0.
+
+        Parameters
+        ----------
+        latent : LatentImage
+            Intensity in the resist.
+        doses : (number, number), optional
+            Range of doses in mJ/cm**2.
+
+        Returns
+        -------
+        dose : number
+            nan if the resist does not clear within the range of doses.
+        """
 
         dz = latent.dz
 

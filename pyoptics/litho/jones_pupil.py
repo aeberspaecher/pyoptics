@@ -138,14 +138,44 @@ zernike = fringe_zernike  # Fringe Zernike Z_j(P_x, P_y), see pyoptics.bases
 
 
 def zernike_sum(coefficients, P_x, P_y):
-    """sum_j c_j Z_j (complex coefficients allowed)."""
+    """Sum of Fringe Zernikes with complex coefficients allowed.
+
+    Parameters
+    ----------
+    coefficients : dict
+        {j: c_j}.
+    P_x, P_y : numbers or arrays
+        Normalized pupil coordinates.
+
+    Returns
+    -------
+    val : complex array
+        sum_j c_j Z_j.
+    """
 
     return fringe_zernike_sum(coefficients, P_x, P_y).astype(complex)
 
 
 def orientation_zernike(oz, P_x, P_y):
-    """Orientation Zernike polynomial OZ +-j as the complex orientator field
-    o_1 + i*o_2 (see the module documentation)."""
+    """Orientation Zernike polynomial OZ_+-j as the complex orientator field.
+
+    Parameters
+    ----------
+    oz : int
+        Index +-1, +-2, ... (see the module documentation).
+    P_x, P_y : numbers or arrays
+        Normalized pupil coordinates.
+
+    Returns
+    -------
+    o : complex array
+        o_1 + i*o_2.
+
+    Raises
+    ------
+    ValueError
+        For oz = 0.
+    """
 
     j = abs(int(oz))
     if j < 1 or oz == 0:
@@ -162,8 +192,20 @@ def orientation_zernike(oz, P_x, P_y):
 
 
 def orientation_zernike_sum(coefficients, P_x, P_y):
-    """Orientator field sum_oz c_oz OZ_oz as o_1 + i*o_2 (real
-    coefficients)."""
+    """Orientator field of an orientation Zernike expansion.
+
+    Parameters
+    ----------
+    coefficients : dict
+        {oz: c} with real coefficients.
+    P_x, P_y : numbers or arrays
+        Normalized pupil coordinates.
+
+    Returns
+    -------
+    o : complex array
+        sum_oz c_oz OZ_oz as o_1 + i*o_2.
+    """
 
     out = np.zeros(np.broadcast(P_x, P_y).shape, dtype=complex)
     for oz, c in (coefficients or {}).items():
@@ -186,8 +228,24 @@ def _lstsq(columns, values):
 
 
 def fit_zernikes(P_x, P_y, values, n_terms=36, start=1):
-    """Fringe Zernike coefficients {j: c} of (complex or real) values sampled
-    at the pupil points (P_x, P_y) (1D arrays inside the unit circle)."""
+    """Least squares fit of Fringe Zernikes to pupil samples.
+
+    Parameters
+    ----------
+    P_x, P_y : 1d arrays
+        Pupil points inside the unit circle.
+    values : 1d array
+        Real or complex samples.
+    n_terms : int, optional
+        Highest Fringe index.
+    start : int, optional
+        Lowest Fringe index.
+
+    Returns
+    -------
+    coefficients : dict
+        {j: c}, complex for complex values.
+    """
 
     js = list(range(start, n_terms + 1))
     c = _lstsq([zernike(j, P_x, P_y) for j in js], values)
@@ -196,8 +254,22 @@ def fit_zernikes(P_x, P_y, values, n_terms=36, start=1):
 
 
 def fit_orientation_zernikes(P_x, P_y, orientator, n_terms=36):
-    """OZP coefficients {+-j: c} of an orientator field o_1 + i*o_2 sampled
-    at the pupil points (real least squares)."""
+    """Least squares fit of orientation Zernikes to an orientator field.
+
+    Parameters
+    ----------
+    P_x, P_y : 1d arrays
+        Pupil points inside the unit circle.
+    orientator : 1d complex array
+        o_1 + i*o_2 at the pupil points.
+    n_terms : int, optional
+        Highest Fringe index of the orientation Zernikes.
+
+    Returns
+    -------
+    coefficients : dict
+        {+-j: c} with real coefficients.
+    """
 
     ozs = oz_indices(n_terms)
     cols = [orientation_zernike(oz, P_x, P_y) for oz in ozs]
@@ -219,7 +291,18 @@ class JonesPupil(object):
         raise NotImplementedError
 
     def pauli(self, P_x, P_y):
-        """Pauli coefficients, shape (4,) + shape."""
+        """Pauli coefficients of the Jones pupil.
+
+        Parameters
+        ----------
+        P_x, P_y : numbers or arrays
+            Normalized pupil coordinates.
+
+        Returns
+        -------
+        a : complex array
+            Shape (4,) + np.shape(P_x).
+        """
 
         return pauli_coefficients(self(P_x, P_y))
 
@@ -255,8 +338,21 @@ class PauliZernikePupil(JonesPupil):
 
     @classmethod
     def fit(cls, P_x, P_y, J, n_terms=36):
-        """Fit to Jones matrices J (shape (N, 2, 2)) sampled at the pupil
-        points."""
+        """Fit to Jones matrices sampled at pupil points.
+
+        Parameters
+        ----------
+        P_x, P_y : 1d arrays
+            Pupil points inside the unit circle.
+        J : (N, 2, 2) array
+            Jones matrices at the points.
+        n_terms : int, optional
+            Fringe Zernikes per Pauli coefficient.
+
+        Returns
+        -------
+        PauliZernikePupil
+        """
 
         a = pauli_coefficients(J)
 
@@ -288,8 +384,20 @@ class PhysicalJonesPupil(JonesPupil):
         self.circular_diattenuation = dict(circular_diattenuation or {})
 
     def fields(self, P_x, P_y):
-        """Retardance generator g (3, ...) in waves and diattenuation vector
-        d (3, ...) (magnitude (T_max - T_min)/(T_max + T_min))."""
+        """Retardance generator and diattenuation vector on pupil points.
+
+        Parameters
+        ----------
+        P_x, P_y : numbers or arrays
+            Normalized pupil coordinates.
+
+        Returns
+        -------
+        g : array
+            Retardance generator in waves, shape (3,) + np.shape(P_x).
+        d : array
+            Diattenuation vector, magnitude (T_max - T_min)/(T_max + T_min).
+        """
 
         o_r = orientation_zernike_sum(self.retardance, P_x, P_y)
         o_d = orientation_zernike_sum(self.diattenuation, P_x, P_y)
@@ -305,11 +413,27 @@ class PhysicalJonesPupil(JonesPupil):
 
     @classmethod
     def fit(cls, P_x, P_y, J, n_terms=36):
-        """Fit to Jones matrices J sampled at the pupil points: the polar
-        decomposition of each J, then OZP fits of the orientators and
-        Zernike fits of the circular parts. Returns (pupil, scalar) with
-        the scalar part {"phase": Zernikes in waves, "transmission":
-        Zernikes of the mean intensity transmission} of the decomposition."""
+        """Fit to Jones matrices sampled at pupil points.
+
+        The polar decomposition of each J, then OZP fits of the orientators and
+        Zernike fits of the circular parts.
+
+        Parameters
+        ----------
+        P_x, P_y : 1d arrays
+            Pupil points inside the unit circle.
+        J : (N, 2, 2) array
+            Jones matrices at the points.
+        n_terms : int, optional
+            Terms per fit.
+
+        Returns
+        -------
+        pupil : PhysicalJonesPupil
+        scalar : dict
+            The scalar part of the decomposition: {"phase": Zernikes in waves,
+            "transmission": Zernikes of the mean intensity transmission}.
+        """
 
         parts = decompose(J)
         g, d = parts["retardance"], parts["diattenuation"]
@@ -323,9 +447,31 @@ class PhysicalJonesPupil(JonesPupil):
 
 
 def compose(g, d, transmission=1.0, phase=0.0):
-    """Jones matrices sqrt(T)*exp(i*phase)*U H from the retardance generator
-    g (3, ...) in waves, the diattenuation vector d (3, ...), the mean
-    intensity transmission T and the phase (radians)."""
+    """Jones matrices from retardance, diattenuation, transmission and phase.
+
+    J = sqrt(T)*exp(i*phase)*U H.
+
+    Parameters
+    ----------
+    g : array
+        Retardance generator in waves, shape (3, ...).
+    d : array
+        Diattenuation vector, shape (3, ...), magnitudes below 1.
+    transmission : number or array, optional
+        Mean intensity transmission T.
+    phase : number or array, optional
+        Phase in radians.
+
+    Returns
+    -------
+    J : array
+        Shape (...) + (2, 2).
+
+    Raises
+    ------
+    ValueError
+        For a diattenuation of 1 or more.
+    """
 
     g, d = np.asarray(g, dtype=float), np.asarray(d, dtype=float)
     U = _expm_pauli(-1j*np.pi*g)

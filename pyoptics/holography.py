@@ -857,9 +857,22 @@ def quantitative_phase(field, x=None, y=None, reference_field=None, unwrap="qual
 
 
 def optical_path_difference(phase, wavelength):
-    """Optical path difference phase/k_0 (same length unit as wavelength).
+    """Optical path difference phase/k_0.
+
     The thickness of a sample with index n_s in a medium n_m is
     OPD/(n_s - n_m).
+
+    Parameters
+    ----------
+    phase : number or array
+        Phase in radians.
+    wavelength : number
+        Vacuum wavelength.
+
+    Returns
+    -------
+    opd : number or array
+        In the unit of the wavelength.
     """
 
     return phase*wavelength/(2*np.pi)

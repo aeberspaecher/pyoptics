@@ -40,8 +40,26 @@ from .utils import freq_grid, frequencies
 
 
 def image(obj, x, y, NA, k):
-    """Take an image in focus plane (may be complex!) and take it through a 4f
-    system.
+    """Coherent image of an object through a 4f system.
+
+    The spectrum of the object is truncated at the cut-off k*NA (no
+    aberrations, no obliquity factor).
+
+    Parameters
+    ----------
+    obj : 2d array
+        Object field in the focal plane (may be complex).
+    x, y : 1d arrays
+        Coordinates of the object.
+    NA : number
+        Numerical aperture.
+    k : number
+        Wavenumber.
+
+    Returns
+    -------
+    image : 2d array
+        Complex image field.
     """
 
     # FT() returns a centered spectrum, so the frequency grid needs to be in
@@ -251,8 +269,23 @@ def get_otf(x, y, NA, k, pupil_mask=None, phase=None):
 
 
 def get_mtf(x, y, NA, k, pupil_mask=None, phase=None):
-    """Modulation transfer function ``|OTF|``; see get_otf() for parameters and
-    frequency grid.
+    """Modulation transfer function ``|OTF|``.
+
+    Parameters
+    ----------
+    x, y : arrays
+        Linear image plane coordinates.
+    NA : number
+        Image-side numerical aperture.
+    k : number
+        Wavenumber.
+    pupil_mask, phase : arrays or callables, optional
+        See pupil_function().
+
+    Returns
+    -------
+    mtf : array
+        On the frequency grid of `get_otf()`.
     """
 
     return np.abs(get_otf(x, y, NA, k, pupil_mask, phase))

@@ -72,6 +72,19 @@ def lin_pol_to_TE_TM(field, sigma_x, sigma_y):
 
 def TE_TM_pol_to_lin(field, sigma_x, sigma_y):
     """Convert [E_TE, E_TM] data to [E_x, E_y]; inverse of lin_pol_to_TE_TM().
+
+    Parameters
+    ----------
+    field : array
+        TE/TM components along the first axis, shape (2, ...), or a field of
+        shape (Ny, Nx, 2) when sigma_x, sigma_y have the shape (Ny, Nx).
+    sigma_x, sigma_y : numbers or arrays
+        Transverse direction of the plane wave(s), see TE_TM_basis().
+
+    Returns
+    -------
+    field_xy : array
+        Same shape as field.
     """
 
     E_TE, E_TM, stack = _components(field, sigma_x)

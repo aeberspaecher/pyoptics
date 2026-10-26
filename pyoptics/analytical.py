@@ -93,8 +93,22 @@ def airy_pattern(r, NA, wavelength):
 
 
 def airy_encircled_energy(r, NA, wavelength):
-    """Fraction of the energy of the Airy pattern inside a circle of radius r
-    (Rayleigh's formula 1 - J_0(v)**2 - J_1(v)**2, v = 2*pi*NA*r/wavelength).
+    """Fraction of the energy of the Airy pattern inside a circle.
+
+    Rayleigh's formula 1 - J_0(v)**2 - J_1(v)**2, v = 2*pi*NA*r/wavelength.
+
+    Parameters
+    ----------
+    r : number or array
+        Radius of the circle.
+    NA : number
+        Numerical aperture.
+    wavelength : number
+        Wavelength.
+
+    Returns
+    -------
+    fraction : number or array
     """
 
     v = 2*np.pi*NA*np.asarray(r, dtype=float)/wavelength

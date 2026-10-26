@@ -86,7 +86,19 @@ class Illumination(object):
 
     @classmethod
     def coherent(cls, s_x=0.0, s_y=0.0, **kwargs):
-        """One source point at (s_x, s_y)."""
+        """Coherent illumination: one source point.
+
+        Parameters
+        ----------
+        s_x, s_y : numbers, optional
+            Position of the source point in the sigma plane.
+        **kwargs
+            Further arguments of `Illumination` (polarization, dop, name).
+
+        Returns
+        -------
+        Illumination
+        """
 
         kwargs.setdefault("name", "coherent")
 
@@ -94,7 +106,21 @@ class Illumination(object):
 
     @classmethod
     def conventional(cls, sigma, n_samples=31, **kwargs):
-        """Disk of radius sigma."""
+        """Conventional illumination: a disk of radius sigma.
+
+        Parameters
+        ----------
+        sigma : number
+            Partial coherence factor (radius in the sigma plane).
+        n_samples : int, optional
+            Grid points across the unit circle.
+        **kwargs
+            Further arguments of `Illumination`.
+
+        Returns
+        -------
+        Illumination
+        """
 
         S_x, S_y = _grid(n_samples)
         inside = np.hypot(S_x, S_y) <= sigma + 1E-12
@@ -104,7 +130,21 @@ class Illumination(object):
 
     @classmethod
     def annular(cls, sigma_out, sigma_in, n_samples=31, **kwargs):
-        """Ring sigma_in <= ``|s|`` <= sigma_out."""
+        """Annular illumination: the ring sigma_in <= ``|s|`` <= sigma_out.
+
+        Parameters
+        ----------
+        sigma_out, sigma_in : numbers
+            Outer and inner radius.
+        n_samples : int, optional
+            Grid points across the unit circle.
+        **kwargs
+            Further arguments of `Illumination`.
+
+        Returns
+        -------
+        Illumination
+        """
 
         S_x, S_y = _grid(n_samples)
         r = np.hypot(S_x, S_y)
@@ -153,8 +193,28 @@ class Illumination(object):
     @classmethod
     def dipole(cls, sigma_out, sigma_in, opening_angle=35.0, axis="x", pole="sector",
                n_samples=31, **kwargs):
-        """Two poles on the x axis (axis="x"), the y axis ("y") or at the
-        azimuth axis (a number in degrees) and opposite."""
+        """Dipole illumination: two opposite poles.
+
+        Parameters
+        ----------
+        sigma_out, sigma_in : numbers
+            Outer and inner radius of the poles.
+        opening_angle : number, optional
+            Opening angle of sector poles in degrees.
+        axis : {"x", "y"} or number, optional
+            Poles on the x axis, on the y axis or at this azimuth in degrees (and
+            opposite).
+        pole : {"sector", "circle"}, optional
+            Pole shape, see `multipole()`.
+        n_samples : int, optional
+            Grid points across the unit circle.
+        **kwargs
+            Further arguments of `Illumination`.
+
+        Returns
+        -------
+        Illumination
+        """
 
         a = {"x": 0.0, "y": 90.0}.get(axis, axis)
         kwargs.setdefault("name", "dipole {} {:g}–{:g}".format(axis, sigma_in, sigma_out))
@@ -165,9 +225,33 @@ class Illumination(object):
     @classmethod
     def dipole_for_pitch(cls, pitch, wavelength, NA, width=0.2, opening_angle=35.0, axis="x",
                          **kwargs):
-        """Dipole adapted to the pitch: poles of the radial width centered at
+        """Dipole adapted to the pitch for two-beam imaging.
+
+        The poles of the given radial width are centered at
         s_c = wavelength/(2*pitch*NA), where orders 0 and -1 pass the pupil
-        symmetrically (two-beam imaging); s_c is limited to 1 - width/2."""
+        symmetrically; s_c is limited to 1 - width/2.
+
+        Parameters
+        ----------
+        pitch : number
+            Pitch of the lines (image side).
+        wavelength : number
+            Vacuum wavelength.
+        NA : number
+            Numerical aperture.
+        width : number, optional
+            Radial width of the poles in sigma.
+        opening_angle : number, optional
+            Opening angle of the poles in degrees.
+        axis : {"x", "y"} or number, optional
+            See `dipole()`.
+        **kwargs
+            Further arguments of `dipole()` and `Illumination`.
+
+        Returns
+        -------
+        Illumination
+        """
 
         s_c = min(wavelength/(2*pitch*NA), 1 - width/2)
         kwargs.setdefault("name", "dipole {} at σ={:.2f}".format(axis, s_c))
@@ -177,7 +261,27 @@ class Illumination(object):
     @classmethod
     def quadrupole(cls, sigma_out, sigma_in, opening_angle=30.0, rotation=0.0, pole="sector",
                    n_samples=31, **kwargs):
-        """Four poles on the x and y axes (rotated by rotation degrees)."""
+        """Quadrupole illumination: four poles on the x and y axes.
+
+        Parameters
+        ----------
+        sigma_out, sigma_in : numbers
+            Outer and inner radius of the poles.
+        opening_angle : number, optional
+            Opening angle of sector poles in degrees.
+        rotation : number, optional
+            Rotation of the poles in degrees (45 gives a quasar).
+        pole : {"sector", "circle"}, optional
+            Pole shape, see `multipole()`.
+        n_samples : int, optional
+            Grid points across the unit circle.
+        **kwargs
+            Further arguments of `Illumination`.
+
+        Returns
+        -------
+        Illumination
+        """
 
         kwargs.setdefault("name", "quadrupole {:g}–{:g}".format(sigma_in, sigma_out))
 
@@ -187,7 +291,25 @@ class Illumination(object):
     @classmethod
     def quasar(cls, sigma_out, sigma_in, opening_angle=30.0, pole="sector", n_samples=31,
                **kwargs):
-        """Four poles on the diagonals (a quadrupole rotated by 45°)."""
+        """Quasar illumination: four poles on the diagonals.
+
+        Parameters
+        ----------
+        sigma_out, sigma_in : numbers
+            Outer and inner radius of the poles.
+        opening_angle : number, optional
+            Opening angle of sector poles in degrees.
+        pole : {"sector", "circle"}, optional
+            Pole shape, see `multipole()`.
+        n_samples : int, optional
+            Grid points across the unit circle.
+        **kwargs
+            Further arguments of `Illumination`.
+
+        Returns
+        -------
+        Illumination
+        """
 
         kwargs.setdefault("name", "quasar {:g}–{:g}".format(sigma_in, sigma_out))
 
@@ -195,9 +317,26 @@ class Illumination(object):
 
     @classmethod
     def from_map(cls, S_x, S_y, intensity, threshold=0.0, **kwargs):
-        """Freeform (pixelated) source from an intensity map on the points
-        S_x, S_y (e.g. a meshgrid); points with intensity <= threshold or
-        outside the unit circle are dropped."""
+        """Freeform (pixelated) source from an intensity map.
+
+        Points with intensity <= threshold or outside the unit circle are
+        dropped.
+
+        Parameters
+        ----------
+        S_x, S_y : arrays
+            Source points in the sigma plane (e.g. a meshgrid).
+        intensity : array
+            Intensity at each point.
+        threshold : number, optional
+            Points at or below this intensity are dropped.
+        **kwargs
+            Further arguments of `Illumination`.
+
+        Returns
+        -------
+        Illumination
+        """
 
         S_x, S_y, intensity = (np.ravel(a) for a in (S_x, S_y, intensity))
         keep = (intensity > threshold) & (np.hypot(S_x, S_y) <= 1 + 1E-12)
@@ -208,13 +347,36 @@ class Illumination(object):
     # polarization:
 
     def with_polarization(self, polarization, dop=1.0):
-        """Copy of this source with another polarization."""
+        """Copy of this source with another polarization.
+
+        Parameters
+        ----------
+        polarization : see the module docstring
+            New polarization.
+        dop : number, optional
+            Degree of polarization in [0, 1].
+
+        Returns
+        -------
+        Illumination
+        """
 
         return Illumination(self.s_x, self.s_y, self.weights, polarization, dop, self.name)
 
     def polarization_states(self, s_x, s_y):
-        """Mutually incoherent polarization states of the source point (s_x,
-        s_y): a list of (weight, Jones vector), weights adding up to 1."""
+        """Mutually incoherent polarization states of a source point.
+
+        Parameters
+        ----------
+        s_x, s_y : numbers
+            Position of the source point (TE/TM states depend on it).
+
+        Returns
+        -------
+        states : list of (weight, Jones vector)
+            Weights adding up to 1; a degree of polarization below 1 adds equal
+            parts of x and y.
+        """
 
         states = _polarization_states(self.polarization, s_x, s_y)
         if self.dop < 1 and not (isinstance(self.polarization, str)

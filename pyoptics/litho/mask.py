@@ -101,8 +101,20 @@ def counterclockwise(polygon):
 
 
 def offset_polygon(polygon, distance):
-    """Move every edge of a Manhattan polygon outward by distance
-    (negative: inward), keeping it rectilinear."""
+    """Move every edge of a Manhattan polygon outward, keeping it rectilinear.
+
+    Parameters
+    ----------
+    polygon : (N, 2) array
+        Vertices (x, y); edges parallel to x or y.
+    distance : number
+        Shift of each edge along its outward normal (negative: inward).
+
+    Returns
+    -------
+    polygon : (N, 2) array
+        Offset polygon, counterclockwise.
+    """
 
     P = counterclockwise(polygon)
     d = np.roll(P, -1, axis=0) - P
@@ -201,13 +213,27 @@ class MaskLayout(object):
 
     @classmethod
     def from_polygons(cls, pitch_x, pitch_y, polygons, tone="clear", name=None):
-        """Layout of Manhattan polygons (sequences of (x, y) vertices, edges
-        parallel to x or y) in one period of pitch_x x pitch_y (both
-        periodic). The polygons should lie within one period (they are
+        """Layout of Manhattan polygons in one period.
+
+        The polygons should lie within one period of pitch_x x pitch_y (they are
         repeated periodically, images in neighbouring periods are not merged).
-        Overlapping polygons are merged; the first polygon is the
-        feature that cut_coordinates() and the CD metrics use (through its
-        first rectangle)."""
+        Overlapping polygons are merged; the first polygon is the feature that
+        cut_coordinates() and the CD metrics use (through its first rectangle).
+
+        Parameters
+        ----------
+        pitch_x, pitch_y : numbers
+            Periods; both directions must be periodic.
+        polygons : sequence of (N, 2) arrays
+            Vertices (x, y) of each polygon, edges parallel to x or y.
+        tone : {"clear", "dark"}, optional
+            Clear field (polygons are absorber) or dark field (polygons are clear).
+        name : str, optional
+
+        Returns
+        -------
+        MaskLayout
+        """
 
         if pitch_x is None or pitch_y is None:
             raise ValueError("polygon layouts must be periodic in x and y")
@@ -227,9 +253,24 @@ class MaskLayout(object):
 
     @classmethod
     def lines_spaces(cls, pitch, cd, orientation="y", tone="clear", name=None):
-        """Lines and spaces: lines of width cd (absorber for tone="clear",
-        clear trenches for tone="dark") along y (orientation="y", pitch along
-        x) or along x."""
+        """Lines and spaces.
+
+        Parameters
+        ----------
+        pitch : number
+            Period.
+        cd : number
+            Width of the lines (absorber for tone="clear", clear trenches for
+            tone="dark").
+        orientation : {"y", "x"}, optional
+            Direction of the lines: along y (pitch along x) or along x.
+        tone : {"clear", "dark"}, optional
+        name : str, optional
+
+        Returns
+        -------
+        MaskLayout
+        """
 
         name = name or "L/S {:g}/{:g}".format(cd, pitch - cd)
         if orientation == "y":
@@ -240,17 +281,48 @@ class MaskLayout(object):
 
     @classmethod
     def iso_line(cls, cd, pitch=None, orientation="y", tone="clear", name=None):
-        """Isolated line (or trench, tone="dark"); the default pitch is
-        20*cd."""
+        """Isolated line (or trench for tone="dark").
+
+        Parameters
+        ----------
+        cd : number
+            Line width.
+        pitch : number, optional
+            Period of the repeated line, default 20*cd.
+        orientation : {"y", "x"}, optional
+            Direction of the line.
+        tone : {"clear", "dark"}, optional
+        name : str, optional
+
+        Returns
+        -------
+        MaskLayout
+        """
 
         return cls.lines_spaces(20*cd if pitch is None else pitch, cd, orientation, tone,
                                 name or "iso line {:g}".format(cd))
 
     @classmethod
     def contact_holes(cls, pitch, cd, pitch_y=None, cd_y=None, tone="dark", name=None):
-        """Array of rectangular contact holes cd x cd_y on the pitches pitch
-        x pitch_y (defaults: square holes on a square grid). Dark field:
-        clear holes in absorber."""
+        """Array of rectangular contact holes.
+
+        Dark field (default): clear holes in absorber.
+
+        Parameters
+        ----------
+        pitch : number
+            Period in x.
+        cd : number
+            Hole width in x.
+        pitch_y, cd_y : numbers, optional
+            Period and hole width in y (defaults: square holes on a square grid).
+        tone : {"dark", "clear"}, optional
+        name : str, optional
+
+        Returns
+        -------
+        MaskLayout
+        """
 
         pitch_y = pitch if pitch_y is None else pitch_y
         cd_y = cd if cd_y is None else cd_y
@@ -260,15 +332,50 @@ class MaskLayout(object):
 
     @classmethod
     def iso_contact(cls, cd, pitch=None, cd_y=None, tone="dark", name=None):
-        """Isolated contact hole; the default pitch is 10*cd."""
+        """Isolated contact hole.
+
+        Parameters
+        ----------
+        cd : number
+            Hole width in x.
+        pitch : number, optional
+            Period of the repeated hole, default 10*cd.
+        cd_y : number, optional
+            Hole width in y, default cd.
+        tone : {"dark", "clear"}, optional
+        name : str, optional
+
+        Returns
+        -------
+        MaskLayout
+        """
 
         return cls.contact_holes(10*cd if pitch is None else pitch, cd, None, cd_y, tone,
                                  name or "iso contact {:g}".format(cd))
 
     @classmethod
     def staggered_contacts(cls, pitch_x, pitch_y, cd, cd_y=None, tone="dark", name=None):
-        """Staggered (brick) contact array: rows at the distance pitch_y,
-        every other row shifted by pitch_x/2."""
+        """Staggered (brick) contact array.
+
+        Rows at the distance pitch_y, every other row shifted by pitch_x/2.
+
+        Parameters
+        ----------
+        pitch_x : number
+            Period within a row.
+        pitch_y : number
+            Distance of the rows.
+        cd : number
+            Hole width in x.
+        cd_y : number, optional
+            Hole width in y, default cd.
+        tone : {"dark", "clear"}, optional
+        name : str, optional
+
+        Returns
+        -------
+        MaskLayout
+        """
 
         cd_y = cd if cd_y is None else cd_y
 
@@ -288,8 +395,20 @@ class MaskLayout(object):
         return self.tone == "dark"
 
     def scaled(self, factor_cd=1.0, bias=0.0):
-        """Copy with all feature sizes multiplied by factor_cd and enlarged
-        by bias (e.g. a mask CD error for MEEF)."""
+        """Copy with scaled and biased features.
+
+        Parameters
+        ----------
+        factor_cd : number, optional
+            Factor for all feature sizes (polygon layouts: only 1).
+        bias : number, optional
+            Added to every feature size (each edge moves by bias/2), e.g. a mask
+            CD error for MEEF.
+
+        Returns
+        -------
+        MaskLayout
+        """
 
         if self.polygons is not None:
             if factor_cd != 1.0:
@@ -304,8 +423,22 @@ class MaskLayout(object):
     # diffraction:
 
     def max_orders(self, NA, wavelength, sigma_max=1.0):
-        """Largest order indices (m, n) that can pass a pupil of radius NA
-        for source points up to sigma_max."""
+        """Largest diffraction order indices that can pass the pupil.
+
+        Parameters
+        ----------
+        NA : number
+            Numerical aperture (image side).
+        wavelength : number
+            Vacuum wavelength.
+        sigma_max : number, optional
+            Largest source point radius (partial coherence).
+
+        Returns
+        -------
+        M, N : int
+            Largest order indices in x and y (0 for an invariant direction).
+        """
 
         f_max = NA*(1 + sigma_max)/wavelength
         M = 0 if self.pitch_x is None else int(np.floor(self.pitch_x*f_max)) + 1
@@ -367,8 +500,22 @@ class MaskLayout(object):
         return c
 
     def transmission(self, x, y=None, t_clear=1.0, t_absorber=0.0):
-        """Sample the (scalar, thin mask) transmission on the grid x, y
-        (for plots; y=None gives a cut at y = 0)."""
+        """Sample the scalar thin mask transmission, e.g. for plots.
+
+        Parameters
+        ----------
+        x : array
+            x coordinates.
+        y : array, optional
+            y coordinates; None gives a cut at y = 0.
+        t_clear, t_absorber : complex, optional
+            Transmissions of the clear area and the absorber.
+
+        Returns
+        -------
+        t : array
+            Shape (len(y), len(x)), or (len(x),) for y=None.
+        """
 
         X, Y = np.meshgrid(np.atleast_1d(x), np.atleast_1d(0.0 if y is None else y))
         inside = np.zeros(X.shape, dtype=bool)
@@ -438,16 +585,45 @@ class ThinMask(object):
 
     @classmethod
     def att_psm(cls, transmission=0.06, phase=180.0, **kwargs):
-        """Attenuated phase shift mask with the intensity transmission and
-        the phase (degrees) of the absorber."""
+        """Attenuated phase shift mask.
+
+        Parameters
+        ----------
+        transmission : number, optional
+            Intensity transmission of the absorber.
+        phase : number, optional
+            Phase of the absorber in degrees.
+        **kwargs
+            Further arguments of `ThinMask` (e.g. boundary_layer, name).
+
+        Returns
+        -------
+        ThinMask
+        """
 
         kwargs.setdefault("name", "att. PSM {:g} %".format(100*transmission))
 
         return cls(np.sqrt(transmission)*np.exp(1j*np.radians(phase)), **kwargs)
 
     def jones(self, s_x, s_y, NA, wavelength, magnification):
-        """Jones matrices (J_clear, J_absorber) for the source point(s),
-        shape np.shape(s_x) + (2, 2)."""
+        """Jones matrices of the clear area and the absorber for source points.
+
+        Parameters
+        ----------
+        s_x, s_y : numbers or arrays
+            Source point coordinates (sigma).
+        NA : number
+            Numerical aperture (unused by the thin mask).
+        wavelength : number
+            Vacuum wavelength (unused by the thin mask).
+        magnification : number
+            Reduction ratio of the projector (unused by the thin mask).
+
+        Returns
+        -------
+        J_clear, J_absorber : arrays
+            Shape np.shape(s_x) + (2, 2).
+        """
 
         eye = np.broadcast_to(np.eye(2), np.shape(s_x) + (2, 2))
 
@@ -491,8 +667,14 @@ class FilmMask(object):
         self.name = name or "film mask"
 
     def transmissions(self, sin_theta, wavelength):
-        """Transmissions of absorber and clear area for the angle of
-        incidence theta in the blank.
+        """Transmissions of absorber and clear area for oblique incidence.
+
+        Parameters
+        ----------
+        sin_theta : number or array
+            Sine of the angle of incidence in the blank (substrate).
+        wavelength : number
+            Vacuum wavelength in the unit of the layer thicknesses.
 
         Returns
         -------
@@ -510,8 +692,28 @@ class FilmMask(object):
         return t_abs, t_clear
 
     def jones(self, s_x, s_y, NA, wavelength, magnification):
-        """Jones matrices (J_clear, J_absorber) for the source point(s),
-        shape np.shape(s_x) + (2, 2)."""
+        """Jones matrices of the clear area and the absorber for source points.
+
+        The angle of incidence at the mask follows from NA*sigma/magnification
+        in the blank; TE and TM transmissions are combined on the TE/TM basis of
+        each source point.
+
+        Parameters
+        ----------
+        s_x, s_y : numbers or arrays
+            Source point coordinates (sigma).
+        NA : number
+            Numerical aperture (image side).
+        wavelength : number
+            Vacuum wavelength.
+        magnification : number
+            Reduction ratio of the projector.
+
+        Returns
+        -------
+        J_clear, J_absorber : arrays
+            Shape np.shape(s_x) + (2, 2).
+        """
 
         sin_theta = NA*np.hypot(s_x, s_y)/(magnification*np.real(self.substrate))
         t_abs, t_clear = self.transmissions(sin_theta, wavelength)

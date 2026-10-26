@@ -33,7 +33,19 @@ J_rot = lambda phi: np.array([[np.cos(phi), np.sin(phi)], [-np.sin(phi), np.cos(
 
 
 def rotate(J, phi):
-    """Return Jones matrix of an element J rotated by the angle phi.
+    """Jones matrix of an element rotated by an angle.
+
+    Parameters
+    ----------
+    J : 2x2 array
+        Jones matrix of the element.
+    phi : number
+        Rotation angle in radians.
+
+    Returns
+    -------
+    J_rotated : 2x2 array
+        J_rot(phi).T @ J @ J_rot(phi).
     """
 
     return J_rot(phi).T @ J @ J_rot(phi)

@@ -16,8 +16,9 @@
   birefringence
 * More tests for `TIE`
 * WPM: Fresnel transmission correction at index steps, absorbing boundaries
-* Docstrings: NumPy-style Parameters/Returns sections for raytrace, abcd,
-  modes, litho, TIE, interfaces and bases; numpydoc validation in CI
+* Docstrings: Parameters/Returns for single-argument functions, methods and
+  properties (see the report-only numpydoc check in the docs workflow); then
+  make the check blocking per module
 * Documentation: user guide pages per topic, bibliography, doctests, weekly
   re-execution of the notebooks
 * Incoherence in thin films (spatial and temporal incoherence)
@@ -30,6 +31,10 @@
   and offset (cmp. Wyrowski)
 
 ## DONE
+
+* Docstrings: NumPy-style Parameters/Returns sections for every public
+  function with two or more arguments; report-only `numpydoc lint` in the docs
+  workflow (configured in `pyproject.toml`)
 
 * Coated laser mirror (notebook 38): quarter wave layers at oblique incidence
   (`coatings.Layer.quarter_wave(angle=...)`), vectorial focus of polarization
