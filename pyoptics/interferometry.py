@@ -63,6 +63,30 @@ Single-frame analysis:
 - fourier_fringe_analysis(): Takeda's Fourier-transform method for
   interferograms with a carrier
 - find_carrier(): locate the carrier sideband in the spectrum
+
+Spherical surfaces (radius of curvature tests):
+
+- aplanatic_directions(): ray directions of a converging test wave
+- sphere_displacement_phase(): phase of a displaced test sphere
+- fit_sphere_displacement(): displacement of a test sphere from the null
+  position (confocal or cat's eye) from its measured phase
+
+A sphere tested with a converging spherical wave (Fizeau transmission
+sphere, Twyman-Green with a diverger lens) gives a null interferogram in two
+positions: confocal, with its centre of curvature in the focus, and cat's
+eye, with its vertex in the focus. The radius of curvature is the distance
+between the two, R = z_cat - z_confocal (signed as in pyoptics.raytrace,
+R > 0 for a centre of curvature in +z, i.e. downstream). Near either
+position, a small displacement d of the sphere changes the optical path of
+the ray with the direction n by d.n per pass, i.e. the phase by ::
+
+    phi = passes*k*(d_x*n_x + d_y*n_y + d_z*n_z),
+
+tilt fringes for a lateral and power (defocus) fringes for an axial
+displacement. Fitting this model to the measured phase gives the null
+positions from slightly defocused interferograms. In cat's eye, lateral
+displacements cancel to first order (the beam returns on the opposite side
+of the pupil).
 """
 
 import warnings
@@ -768,3 +792,126 @@ def fourier_fringe_analysis(I, x, y, carrier=None, window="tophat",
         return phase, modulation, c
 
     return phase, modulation
+
+
+# --- spherical surfaces -------------------------------------------------------
+
+def aplanatic_directions(x, y, R_pupil, NA, x0=0.0, y0=0.0):
+    """Directions of the rays of a converging spherical wave from an
+    aplanatic transmission sphere (sine condition: sin(theta) = NA*rho).
+
+    The pupil point (x, y) (rho = r/R_pupil) belongs to the ray that
+    converges towards the focus on the axis with the angle theta, i.e. it
+    travels in +z and towards the axis.
+
+    Parameters
+    ----------
+    x, y : arrays
+        Linear coordinates of the grid (e.g. of the detector, on which the
+        pupil is imaged).
+    R_pupil : float
+        Radius of the pupil on the grid.
+    NA : float
+        Numerical aperture of the test wave.
+    x0, y0 : floats, optional
+        Centre of the pupil.
+
+    Returns
+    -------
+    directions : array of shape (len(y), len(x), 3)
+        Unit vectors (n_x, n_y, n_z), NaN outside the pupil.
+    """
+
+    X, Y = ensure_meshgrid(x, y)
+    u, v = NA*(X - x0)/R_pupil, NA*(Y - y0)/R_pupil
+    s2 = u**2 + v**2
+    with np.errstate(invalid="ignore"):
+        n = np.stack([-u, -v, np.sqrt(1 - s2)], axis=-1)
+    n[s2 > NA**2*(1 + 1e-12)] = np.nan
+
+    return n
+
+
+def sphere_displacement_phase(directions, displacement, wavelength, passes=2):
+    """Phase passes*k*(d.n) of a test sphere displaced by d from its null
+    position (first order in d), see the module docstring.
+
+    Parameters
+    ----------
+    directions : array of shape (..., 3)
+        Unit directions n of the test wave (e.g. from aplanatic_directions()
+        or raytrace.System.ray_map()).
+    displacement : (d_x, d_y, d_z)
+        Displacement of the sphere in length units.
+    wavelength : float
+    passes : int, optional
+        2 for a surface in reflection.
+
+    Returns
+    -------
+    phase : array
+    """
+
+    d = np.asarray(displacement, dtype=float)
+
+    return passes*2*pi/wavelength*np.tensordot(directions, d, axes=([-1], [0]))
+
+
+def fit_sphere_displacement(phase, directions, wavelength, mask=None,
+                            lateral=True, passes=2):
+    """Least squares fit of the displacement of a test sphere from its null
+    position to its unwrapped phase.
+
+    Fits phi = c_0 + passes*k*(d.n) (see sphere_displacement_phase()). The
+    axial component d_z from the confocal and the cat's eye interferograms
+    gives the null positions and the radius of curvature: with the stage
+    positions z_1 (near confocal) and z_2 (near cat's eye),
+    R = (z_2 - d_z2) - (z_1 - d_z1).
+
+    Parameters
+    ----------
+    phase : array
+        Unwrapped phase of the test beam relative to the reference.
+    directions : array of shape phase.shape + (3,)
+        Unit directions of the test wave at each pixel.
+    wavelength : float
+    mask : array of bool, optional
+        Pixels to use (default: all with finite phase and directions).
+    lateral : bool, optional
+        Fit the lateral displacement (d_x, d_y) as well. In cat's eye, set it
+        to False and fit tilt terms instead (lateral displacements do not
+        show there; a tilt of the reference does).
+    passes : int, optional
+
+    Returns
+    -------
+    displacement : array (d_x, d_y, d_z)
+        (d_x, d_y are 0 for lateral=False.)
+    residual : array
+        phase minus the fit (0 outside the mask).
+    """
+
+    phase = np.asarray(phase, dtype=float)
+    n = np.asarray(directions, dtype=float)
+    valid = np.isfinite(phase) & np.all(np.isfinite(n), axis=-1)
+    if mask is not None:
+        valid &= np.asarray(mask, dtype=bool)
+
+    s = passes*2*pi/wavelength
+    nv = n[valid]
+    if lateral:
+        A = np.column_stack([np.ones(len(nv)), s*nv[:, 0], s*nv[:, 1], s*nv[:, 2]])
+    else:
+        # tilt of the reference: linear in the transverse direction components
+        A = np.column_stack([np.ones(len(nv)), nv[:, 0], nv[:, 1], s*nv[:, 2]])
+    coeffs = np.linalg.lstsq(A, phase[valid], rcond=None)[0]
+
+    fit = np.zeros_like(phase)
+    fit[valid] = A @ coeffs
+    residual = np.where(valid, phase - fit, 0.0)
+    if lateral:
+        d = coeffs[1:4]
+    else:
+        d = np.array([0.0, 0.0, coeffs[3]])
+
+    return d, residual

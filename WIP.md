@@ -30,6 +30,11 @@
 
 ## DONE
 
+* Radius of curvature measurement with a Fizeau interferometer (notebook 35):
+  double pass systems (`raytrace.double_pass`), optical path on a detector
+  grid (`System.ray_map`), displaced test spheres
+  (`interferometry.fit_sphere_displacement`)
+
 * Polarization ray trace with energy in `raytrace` (`System.trace_polarization`):
   coatings with thickness profiles on any surface (`coatings`), coated
   mirrors, absorbing, uniaxial (retardance, dichroism) and cubic crystal

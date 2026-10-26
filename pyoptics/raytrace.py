@@ -84,6 +84,12 @@ all tilts and decentres set to zero; a fold mirror is then an unfolded plane
 mirror. Real rays always see the actual geometry. Spot diagrams, ray fans,
 OPDs and PSFs are evaluated in the local frame of the image plane.
 
+Interferometers and other double pass setups are traced unfolded: the
+surfaces up to a mirror and back again in reverse order (`double_pass()`).
+`System.ray_map()` interpolates the optical path of the rays onto a
+detector grid in the image plane; the phase difference of two such maps
+(test and reference arm) is the phase of the interferogram.
+
 Polarization and energy
 -----------------------
 `System.trace_polarization()` follows the polarization and the power of
@@ -296,6 +302,10 @@ class Surface:
             D = b**2 - 4*a*C
             # root on the branch through the vertex, stable for c -> 0:
             t = -2*C/(b + np.where(b >= 0, 1.0, -1.0)*np.sqrt(D))
+            # for b ~ 0 (rays through the centre of curvature) the sign is
+            # decided by rounding; the vertex branch has (1 + K) c z <= 1:
+            wrong = (1 + K)*c*(z + t*dz) > 1
+            t = np.where(wrong, C/(a*t), t)
         if self.aspheric:
             t_plane = -z/dz
             t = np.where(np.isfinite(t), t, t_plane)
@@ -673,6 +683,14 @@ ray, RMS radius about the centroid and the centroid (x, y)."""
 RayFan = namedtuple("RayFan", ["p", "ey", "ex"])
 RayFan.__doc__ = """Transverse ray aberrations relative to the chief ray:
 tangential fan ey(P_y = p, P_x = 0) and sagittal fan ex(P_x = p, P_y = 0)."""
+
+RayMap = namedtuple("RayMap", ["x", "y", "opl", "points", "directions", "mask"])
+RayMap.__doc__ = """Ray data interpolated onto a grid (x, y) of the image
+plane (in its local frame): opl[i, j] at (x[j], y[i]) is the optical path of
+the ray that arrives there, i.e. the phase of the field is k_0*opl
+(geometrical optics). points and directions (shape opl.shape + (3,)) are the
+global intersections with and unit directions behind the selected surface
+of the same rays. NaN and mask False where no ray arrives."""
 
 
 class System:
@@ -1575,6 +1593,54 @@ class System:
         return imaging.get_mtf(x, y, pup.NA, pup.k, pup.mask, pup.phase)
 
     # geometrical aberrations:
+    def ray_map(self, x, y, field=None, N=128, surface=None, clip=True):
+        """Optical path and ray data on a grid of the image plane.
+
+        Traces an N x N grid of rays over the entrance pupil and interpolates
+        (linearly between the rays) the optical path of the rays arriving at
+        the image plane onto the grid x, y of its local frame. Unlike opd(),
+        this needs no reference sphere: the field on the image plane is
+        proportional to exp(i*k_0*opl). Use it for afocal and double pass
+        systems (interferometers, see `double_pass()`), whose output beam
+        is (nearly) collimated, or wherever the image plane is a detector.
+
+        Parameters
+        ----------
+        x, y : arrays
+            Linear coordinates of the grid in the image plane.
+        field : number or pair, optional
+            Default: maximum field.
+        N : int, optional
+            Rays across the pupil diameter.
+        surface : int, optional
+            Surface whose ray intersections and directions are returned as
+            well (default: the image plane).
+        clip : bool, optional
+            Vignette rays outside the semi diameters.
+
+        Returns
+        -------
+        RayMap
+        """
+
+        from scipy.interpolate import griddata
+
+        _, PX, PY, inside = self._pupil_grid(N)
+        bundle = self.trace_pupil(field, PX[inside], PY[inside], clip=clip)
+        ok = bundle.valid
+        I = self.to_image_frame(bundle.points[-1, ok])
+        plane = -1 if surface is None else surface + 1
+        values = np.column_stack([bundle.opl[-1, ok], bundle.points[plane, ok],
+                                  bundle.directions[plane, ok]])
+        X, Y = np.meshgrid(x, y)
+        V = griddata(I[:, :2], values, (X, Y), method="linear")
+        mask = np.all(np.isfinite(V), axis=-1)
+        directions = V[..., 4:]
+        with np.errstate(invalid="ignore"):
+            directions = directions/np.linalg.norm(directions, axis=-1, keepdims=True)
+
+        return RayMap(np.asarray(x), np.asarray(y), V[..., 0], V[..., 1:4], directions, mask)
+
     def spot_diagram(self, field=None, N=31):
         """Image plane intersections of a square grid of N x N pupil rays
         (inside the unit disk) relative to the chief ray."""
@@ -1707,6 +1773,63 @@ class System:
             ax.axhline(0, color="0.6", lw=0.6)
 
         return axes
+
+
+# assembly:
+def double_pass(surfaces, image_distance=0.0, n_object=None):
+    """Unfold a double pass: surfaces up to a mirror and back again.
+
+    Light travels through surfaces[:-1], reflects at the mirror
+    surfaces[-1] and returns through the same surfaces in reverse order, as
+    in Twyman-Green and Fizeau interferometers, retroreflectors or double
+    pass setups. The returned surfaces can be passed to System; the
+    surfaces of the return pass are copies at the same places (with the
+    same decentres and tilts), the media between them are those of the
+    forward pass.
+
+    Parameters
+    ----------
+    surfaces : sequence of Surface
+        The forward pass, the last one a mirror. The thickness of
+        surfaces[-2] is the distance to the mirror; the thickness of the
+        mirror itself is ignored. CoordinateBreaks are not supported.
+    image_distance : number, optional
+        Signed z distance from the vertex of surfaces[0] to the image plane
+        of the return pass (e.g. -d for a detector plane at z = -d).
+    n_object : number, optional
+        Index in front of surfaces[0] (the medium of the return path behind
+        surfaces[0]); default 1. Pass the n_object of the System if it
+        differs.
+
+    Returns
+    -------
+    list of Surface
+    """
+
+    *front, mirror = surfaces
+    if not mirror.mirror:
+        raise ValueError("The last surface must be a mirror.")
+    if any(isinstance(s, CoordinateBreak) for s in surfaces):
+        raise ValueError("CoordinateBreaks are not supported in double_pass().")
+
+    # medium (n_after, material) in front of each surface:
+    media = [(1.0 if n_object is None else n_object, None)]
+    for s in front:
+        media.append((s.n_after, s.material) if s.changes_medium else media[-1])
+
+    out = [copy.copy(s) for s in front]
+    m = copy.copy(mirror)
+    m.thickness = -front[-1].thickness if front else image_distance
+    out.append(m)
+    for i in reversed(range(len(front))):
+        r = copy.copy(front[i])
+        r.n_after, r.material = media[i]
+        r.thickness = -front[i - 1].thickness if i > 0 else image_distance
+        if r.label is not None:
+            r.label = r.label + " (return)"
+        out.append(r)
+
+    return out
 
 
 # example designs:
