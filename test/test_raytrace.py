@@ -485,3 +485,72 @@ def test_axial_shift_of_an_element():
     assert moved.vertex_z[4] - lens.vertex_z[4] == pytest.approx(0.01)
     assert moved.vertex_z[6] == pytest.approx(lens.vertex_z[6])
     assert moved.image_z == pytest.approx(lens.image_z)
+
+
+# double pass and ray maps:
+def test_rays_from_the_centre_of_curvature_hit_the_vertex_branch():
+    # all rays start in the centre of curvature (b = 0 in the quadric):
+    s = rt.Surface(-30.0, semi_diameter=10.0)
+    d = np.array([[0.0, 0.1, 1.0], [0.0, -0.2, 1.0], [0.1, 0.1, 1.0]])
+    d /= np.linalg.norm(d, axis=1)[:, None]
+    P = np.tile([0.0, 0.0, -30.0], (3, 1))
+    t = s.intersect(P, d)
+    np.testing.assert_allclose(t, 30.0)
+    Q = P + t[:, None]*d
+    np.testing.assert_allclose(Q[:, 2], s.sag(Q[:, 0]**2 + Q[:, 1]**2), atol=1e-12)
+
+
+def fizeau(z_vertex, R_test, decenter=(0.0, 0.0), reference=False):
+    """Fizeau with a transmission sphere made of a refracting ellipsoid
+    (perfect focus in glass) and a reference surface concentric with the
+    focus; a test sphere with the vertex at z_vertex."""
+
+    n, R1, t = 1.5, 20.0, 5.0
+    R2 = n*R1/(n - 1) - t
+    front = [rt.Surface(R1, t, n_after=n, conic=-1/n**2, semi_diameter=8.0)]
+    if reference:
+        front.append(rt.Surface(R2, mirror=True))
+    else:
+        front += [rt.Surface(R2, z_vertex - t, n_after=1.0),
+                  rt.Surface(R_test, mirror=True, decenter=decenter)]
+
+    return rt.System(rt.double_pass(front, image_distance=-5.0), 0, WL), n*R1/(n - 1)
+
+
+def test_double_pass_media_and_thicknesses():
+    system, F = fizeau(50.0, 20.0)
+    assert len(system.surfaces) == 5
+    np.testing.assert_allclose(system.n, [1, 1.5, 1, 1, 1.5, 1])
+    np.testing.assert_allclose(system.vertex_z, [0, 5, 50, 5, 0])
+    assert system.image_z == -5.0
+    with pytest.raises(ValueError):
+        rt.double_pass([rt.Surface(10.0, 5.0, n_after=1.5)])
+
+
+@pytest.mark.parametrize("R_test", [20.0, -15.0])
+def test_fizeau_nulls_in_confocal_and_cats_eye(R_test):
+    ref, F = fizeau(None, None, reference=True)
+    x = np.linspace(-9, 9, 64)
+    W_ref = ref.ray_map(x, x, 0.0, N=48)
+    for z in (F - R_test, F):
+        W = fizeau(z, R_test)[0].ray_map(x, x, 0.0, N=48)
+        m = W.mask & W_ref.mask
+        assert np.sum(m) > 0.5*m.size
+        dW = (W.opl - W_ref.opl)[m]
+        assert np.ptp(dW) < 1e-8
+    # the test beam and the reference both return collimated:
+    np.testing.assert_allclose(np.abs(W_ref.directions[W_ref.mask][:, 2]), 1.0, atol=1e-12)
+
+
+def test_ray_map_of_a_displaced_test_sphere():
+    from pyoptics.interferometry import fit_sphere_displacement
+
+    ref, F = fizeau(None, None, reference=True)
+    x = np.linspace(-9, 9, 96)
+    W_ref = ref.ray_map(x, x, 0.0, N=64)
+    d = np.array([1e-3, -0.5e-3, 2e-3])
+    R_test = 20.0
+    W = fizeau(F - R_test + d[2], R_test, decenter=d[:2])[0].ray_map(x, x, 0.0, N=64, surface=1)
+    phase = 2*np.pi*(W.opl - W_ref.opl)/WL
+    d_fit, res = fit_sphere_displacement(phase, W.directions, WL, mask=W.mask & W_ref.mask)
+    np.testing.assert_allclose(d_fit, d, atol=2e-6)

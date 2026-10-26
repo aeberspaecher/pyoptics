@@ -287,3 +287,33 @@ def test_takeda_warnings():
 
     with pytest.raises(ValueError):
         fourier_fringe_analysis(I, x, y, carrier=(0.0, 0.0))
+
+
+# --- spherical surfaces -------------------------------------------------------
+
+def test_aplanatic_directions():
+    from pyoptics.interferometry import aplanatic_directions
+
+    x = np.linspace(-1, 1, 65)
+    n = aplanatic_directions(x, x, 1.0, 0.5)
+    np.testing.assert_allclose(np.linalg.norm(n[32, 32:]), np.sqrt(33))  # unit vectors
+    np.testing.assert_allclose(n[32, -1], [-0.5, 0.0, np.sqrt(0.75)])  # rim, towards the axis
+    assert np.isnan(n[0, 0, 0])
+
+
+@pytest.mark.parametrize("lateral", [True, False])
+def test_fit_sphere_displacement(lateral):
+    from pyoptics.interferometry import (aplanatic_directions,
+                                         fit_sphere_displacement,
+                                         sphere_displacement_phase)
+
+    wl = 0.6e-3
+    x = np.linspace(-1.1, 1.1, 128)
+    n = aplanatic_directions(x, x, 1.0, 0.3)
+    d = np.array([0.5e-3, -1e-3, 3e-3]) if lateral else np.array([0.0, 0.0, -2e-3])
+    phase = 1.3 + sphere_displacement_phase(n, d, wl)
+    if not lateral:
+        phase = phase + 40*n[..., 0]  # tilted reference
+    d_fit, res = fit_sphere_displacement(phase, n, wl, lateral=lateral)
+    np.testing.assert_allclose(d_fit, d, atol=1e-12)
+    assert np.max(np.abs(res)) < 1e-8
