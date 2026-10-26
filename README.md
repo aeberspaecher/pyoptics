@@ -227,8 +227,11 @@ Status of the modules:
   optional reference image, intensity weighted model slopes, modal
   reconstruction (least squares fit of Fringe Zernike gradients) and zonal
   reconstruction (Southwell); sensitivity and dynamic range of the design
-- `wpm`: wave propagation method (Cython extension), basic; one test, more
-  examples in the notebook
+- `wpm`: wave propagation method (Cython extension) for inhomogeneous, also
+  absorbing media, 2D and y-invariant 1D fields, multi-step driver; direct
+  O(N^2) sum (OpenMP) or the fast "levels" variant (one FFT pair per distinct
+  index), chosen automatically; tested against Rayleigh-Sommerfeld, plane
+  waves (tilted, evanescent, absorbed), slabs and a GRIN mode
 - `processing`: image processors for single images and image stacks, tested:
   `Scaler` (peak, mean or total of field strength or intensity),
   `CameraNoiser` (Gaussian, Poisson shot noise, linear camera model after

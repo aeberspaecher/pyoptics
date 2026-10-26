@@ -14,7 +14,8 @@
 * Finish the stub `interpolator.TrigInterpolator`
 * Lithography (DUV, see the roadmap in the project files): RCWA for 2D masks, ray traced stress
   birefringence
-* More tests for `wpm` and `TIE`
+* More tests for `TIE`
+* WPM: Fresnel transmission correction at index steps, absorbing boundaries
 * Docstrings: NumPy-style Parameters/Returns sections for raytrace, abcd,
   modes, litho, TIE, interfaces and bases; numpydoc validation in CI
 * Documentation: user guide pages per topic, bibliography, doctests, weekly
