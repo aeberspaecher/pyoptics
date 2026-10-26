@@ -174,9 +174,17 @@ def lens_NA(system, N=48):
         The largest ``n'*|d_xy|`` of the traced rays.
     """
 
-    q = _pupil_rays(system, (0.0, 0.0), N)[1]
+    # cached on the system (keyed by its state, also shared by its copies):
+    # lens_aberrations() needs it at every field point
+    key = (N, system._state_key())
+    cache = system.__dict__.setdefault("_lens_NA_cache", {})
+    if key not in cache:
+        q = _pupil_rays(system, (0.0, 0.0), N)[1]
+        if len(cache) >= 16:
+            cache.clear()
+        cache[key] = float(np.max(np.hypot(q[:, 0], q[:, 1])))
 
-    return float(np.max(np.hypot(q[:, 0], q[:, 1])))
+    return cache[key]
 
 
 def lens_aberrations(system, field=(0.0, 0.0), n_terms=36, N=48, NA=None, length_unit=1e-6):

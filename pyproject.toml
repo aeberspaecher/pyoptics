@@ -17,6 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 plot = ["matplotlib"]
+fast = ["numba"]  # raytrace: compiled ray trace kernel (several times faster traces)
 nufft = ["finufft"]  # tilted: faster exact propagation onto planes tilted about a general axis
 tie = ["sympy"]
 notebooks = ["matplotlib", "jupyterlab", "ipywidgets"]

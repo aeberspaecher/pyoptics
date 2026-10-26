@@ -334,6 +334,8 @@ The part in brackets selects optional extras, which you can combine, for
 example `".[plot,test]"`:
 
 - `plot`: matplotlib, for the plotting tools
+- `fast`: numba, for a compiled ray trace kernel (`raytrace`, several times
+  faster ray traces and ray aiming, most for large lenses)
 - `nufft`: finufft, for faster exact propagation onto tilted planes
   (`tilted`, rotations about a general axis)
 - `tie`: sympy and matplotlib, for the TIE module

@@ -53,8 +53,8 @@ from scipy.ndimage import gaussian_filter
 from scipy.optimize import least_squares
 
 from .fft import FT, inv_FT, fft2, ifft2
-from .propagators import rayleigh_sommerfeld_I_TF
-from .utils import freq_grid, get_dx, k_z
+from .propagators import _transfer_function
+from .utils import freq_grid, get_dx, k_z, wavenumber
 from .bases import fringe_zernike
 from .imaging import pupil_coordinates, pupil_function
 from .unwrap import unwrap_quality_guided
@@ -204,31 +204,38 @@ def _start_object(magnitude, support, start, positivity, real, rng):
 
 
 def _transforms(z, x, y, wavelength, n, propagator):
-    """Forward (object to detector) and backward transforms."""
+    """Forward (object to detector) and backward transforms, and whether they
+    act on arrays in FFT order (ifftshift() of the centered arrays): the far
+    field and the default angular spectrum propagator do, which saves the
+    shifts in every iteration and computes the transfer functions once."""
 
     if z is None:
-        return FT, inv_FT
+        return fft2, ifft2, True
 
     if x is None or y is None or wavelength is None:
         raise ValueError("A detector distance z needs the grid x, y and the wavelength")
     if propagator is None:
-        propagator = rayleigh_sommerfeld_I_TF
         if min(get_dx(x), get_dx(y)) < wavelength/(2*np.real(n)):
             # back propagation by -z would amplify evanescent waves
             raise ValueError("The grid contains evanescent spatial frequencies "
                              "(dx < wavelength/(2*n)); use dx >= wavelength/(2*n)")
+        # rayleigh_sommerfeld_I_TF(u, x, y, +-z, wavelength, n)[0] in FFT order
+        k = wavenumber(wavelength, n)
+        K_X, K_Y = freq_grid(x, y, wavenumbers=True, normal_order=True)
+        TF_f, TF_b = (np.fft.ifftshift(_transfer_function(k, K_X, K_Y, dz)[1]) for dz in (z, -z))
+        return (lambda u: ifft2(fft2(u)*TF_f)), (lambda u: ifft2(fft2(u)*TF_b)), True
 
     forward = lambda u: propagator(u, x, y, z, wavelength, n)[0]
     backward = lambda u: propagator(u, x, y, -z, wavelength, n)[0]
 
-    return forward, backward
+    return forward, backward, False
 
 
 def _iterate(magnitude, support, N_iter, beta, hio, start, positivity, real,
              shrinkwrap, rng, callback, z, x, y, wavelength, n, propagator):
     """Common loop of ER and HIO."""
 
-    forward, backward = _transforms(z, x, y, wavelength, n, propagator)
+    forward, backward, fft_order = _transforms(z, x, y, wavelength, n, propagator)
     magnitude = np.asarray(magnitude, dtype=float)
     if support is None:
         if z is not None:
@@ -244,10 +251,22 @@ def _iterate(magnitude, support, N_iter, beta, hio, start, positivity, real,
     g = _start_object(magnitude, support, start, positivity, real, rng)
     errors, errors_obj = np.empty(N_iter), np.empty(N_iter)
 
+    # the iteration runs in FFT order where possible (all steps but
+    # shrinkwrap and callback act pixel by pixel or are cyclic):
+    to_fft, from_fft = (np.fft.ifftshift, np.fft.fftshift) if fft_order else (None, None)
+    if fft_order:
+        magnitude, support, g = to_fft(magnitude), to_fft(support), to_fft(g)
+    norm = np.sum(magnitude**2)
+
+    def project(G):  # magnitude*exp(i*angle(G))
+        A = np.abs(G)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            return A, np.where(A > 0, magnitude*G/A, magnitude)
+
     for i in range(N_iter):
-        G = forward(g)
-        errors[i] = np.sqrt(np.sum((np.abs(G) - magnitude)**2)/np.sum(magnitude**2))
-        g_prime = backward(magnitude*np.exp(1j*np.angle(G)))  # Fourier projection
+        A, G = project(forward(g))
+        errors[i] = np.sqrt(np.sum((A - magnitude)**2)/norm)
+        g_prime = backward(G)  # Fourier projection
         if real:
             g_prime = g_prime.real.astype(complex)
 
@@ -263,21 +282,29 @@ def _iterate(magnitude, support, N_iter, beta, hio, start, positivity, real,
         else:
             g = np.where(valid, g_prime, 0.0)
 
+        if shrinkwrap is not None or callback is not None:
+            estimate = np.where(valid, g_prime, 0.0)
+            if fft_order:
+                estimate = from_fft(estimate)
         if shrinkwrap is not None:
             # the estimate is the part of g' that meets the constraints:
-            support = shrinkwrap(np.where(valid, g_prime, 0.0), support, i + 1)
+            support = shrinkwrap(estimate, from_fft(support) if fft_order else support, i + 1)
+            if fft_order:
+                support = to_fft(support)
 
         if callback is not None:
-            callback(i + 1, np.where(valid, g_prime, 0.0), support)
+            callback(i + 1, estimate, from_fft(support) if fft_order else support)
 
     # the estimate: last Fourier projection with the object constraints
-    g_prime = backward(magnitude*np.exp(1j*np.angle(forward(g))))
+    g_prime = backward(project(forward(g))[1])
     if real:
         g_prime = g_prime.real.astype(complex)
     valid = support & (g_prime.real >= 0) if positivity else support
     obj = np.where(valid, g_prime, 0.0)
     if real:
         obj = obj.real
+    if fft_order:
+        obj, support = from_fft(obj), from_fft(support)
 
     return RetrievalResult(obj=obj, support=support, errors=errors, errors_object=errors_obj)
 
