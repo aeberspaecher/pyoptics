@@ -204,8 +204,22 @@ class IFTA_OverCompensation(IFTABase):
 
 
 def digitize_phase(field, levels):
-    """Rasterize phase to a given number of levels.
-    Useful for e.g. multi-level beam shaping elements.
+    """Quantize the phase of a field to a given number of levels.
+
+    Useful for e.g. multi-level beam shaping elements; each phase in a bin of
+    (-pi, pi] is replaced by the bin center.
+
+    Parameters
+    ----------
+    field : array
+        Complex field.
+    levels : int
+        Number of phase levels.
+
+    Returns
+    -------
+    field : array
+        Field with the original amplitude and the quantized phase.
     """
 
     ampl = np.abs(field)

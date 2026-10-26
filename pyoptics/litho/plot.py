@@ -29,10 +29,25 @@ def _ax(ax):
 
 def plot_source(illumination, ax=None, show_polarization=True, every=1, color="C0",
                 title=None):
-    """Source points (marker area ~ weight) and polarization ticks.
+    """Plot source points (marker area ~ weight) and polarization ticks.
 
     Polarization ticks show the Jones vector of the dominant state of each
     point (real part of the components); unpolarized points get none.
+
+    Parameters
+    ----------
+    illumination : Illumination
+    ax : matplotlib axis, optional
+    show_polarization : bool, optional
+    every : int, optional
+        Draw a tick for every n-th point only.
+    color : color, optional
+    title : str, optional
+        Default: the name of the source.
+
+    Returns
+    -------
+    ax : matplotlib axis
     """
 
     ax = _ax(ax)
@@ -61,7 +76,25 @@ def plot_source(illumination, ax=None, show_polarization=True, every=1, color="C
 
 
 def plot_mask(layout, ax=None, periods=2, N=400, t_absorber=0.0, cmap="gray", title=None):
-    """Transmission amplitude of the layout over periods x periods."""
+    """Plot the transmission amplitude of a layout.
+
+    Parameters
+    ----------
+    layout : MaskLayout
+    ax : matplotlib axis, optional
+    periods : number, optional
+        Periods shown in each direction.
+    N : int, optional
+        Samples per direction.
+    t_absorber : complex, optional
+        Transmission of the absorber.
+    cmap : str, optional
+    title : str, optional
+
+    Returns
+    -------
+    ax : matplotlib axis
+    """
 
     ax = _ax(ax)
     Px = layout.pitch_x or layout.pitch_y
@@ -78,9 +111,23 @@ def plot_mask(layout, ax=None, periods=2, N=400, t_absorber=0.0, cmap="gray", ti
 
 
 def plot_pupil_fill(sim, ax=None, max_points=2000, title=None):
-    """Positions of all diffraction orders that pass the pupil for all
-    source points (normalized pupil coordinates), colored by order, marker
-    area ~ ``|c|**2*source`` weight."""
+    """Plot the diffraction orders in the pupil for all source points.
+
+    Orders that pass the pupil are shown in normalized pupil coordinates,
+    colored by order, with marker area ~ ``|c|**2*source`` weight.
+
+    Parameters
+    ----------
+    sim : LithoSimulation
+    ax : matplotlib axis, optional
+    max_points : int, optional
+        Largest number of source points shown (thinned out above).
+    title : str, optional
+
+    Returns
+    -------
+    ax : matplotlib axis
+    """
 
     ax = _ax(ax)
     P = sim.projector
@@ -110,9 +157,37 @@ def plot_pupil_fill(sim, ax=None, max_points=2000, title=None):
 
 def plot_image(sim, x, I, y=None, ax=None, threshold=None, dose=1.0, show_mask=True, label=None,
                cmap="inferno", colorbar=True, **kwargs):
-    """Plot a 1D image (with shaded features and the threshold) or a 2D
-    image (with feature outlines and the printed contour at
-    threshold/dose)."""
+    """Plot a 1D or 2D image.
+
+    A 1D image gets shaded features and the threshold, a 2D image the
+    feature outlines and the printed contour at threshold/dose.
+
+    Parameters
+    ----------
+    sim : LithoSimulation
+        For the layout.
+    x : array
+        x coordinates.
+    I : array
+        Intensity, 1D (cut) or 2D.
+    y : array, optional
+        y coordinates of a 2D image.
+    ax : matplotlib axis, optional
+    threshold : number, optional
+        Printing threshold.
+    dose : number, optional
+        Relative dose.
+    show_mask : bool, optional
+    label : str, optional
+    cmap : str, optional
+    colorbar : bool, optional
+    **kwargs
+        Passed to plot() (1D) or imshow() (2D).
+
+    Returns
+    -------
+    artist : matplotlib Line2D or AxesImage
+    """
 
     ax = _ax(ax)
     L = sim.layout
@@ -153,8 +228,29 @@ def plot_image(sim, x, I, y=None, ax=None, threshold=None, dose=1.0, show_mask=T
 
 def plot_bossung(foci, doses, cd, ax=None, cd_target=None, tolerance=0.1, cmap="viridis",
                  every=1, colorbar=True):
-    """Bossung curves: CD vs. focus, one curve per dose (colored by dose,
-    with a colorbar)."""
+    """Plot Bossung curves: CD vs. focus, one curve per dose.
+
+    Parameters
+    ----------
+    foci, doses : arrays
+        Axes of the focus-exposure matrix.
+    cd : array
+        Shape (len(doses), len(foci)).
+    ax : matplotlib axis, optional
+    cd_target : number, optional
+        Target CD, drawn with its tolerance band.
+    tolerance : number, optional
+        Relative CD tolerance.
+    cmap : str, optional
+        Color map for the doses.
+    every : int, optional
+        Plot every n-th dose only.
+    colorbar : bool, optional
+
+    Returns
+    -------
+    ax : matplotlib axis
+    """
 
     ax = _ax(ax)
     cm = plt.get_cmap(cmap)
@@ -174,12 +270,31 @@ def plot_bossung(foci, doses, cd, ax=None, cd_target=None, tolerance=0.1, cmap="
 
 def plot_process_window(foci, doses, cd, cd_target, tolerance=0.1, axes=None, el_min=None,
                         color="C0", label=None):
-    """Focus-dose process window (CD spec contours and in-spec doses) and
-    exposure latitude vs. depth of focus.
+    """Plot the process window and exposure latitude vs. depth of focus.
+
+    The left axis shows the CD spec contours and the in-spec doses in the
+    focus-dose plane, the right one EL vs. DOF.
+
+    Parameters
+    ----------
+    foci, doses : arrays
+        Axes of the focus-exposure matrix.
+    cd : array
+        Shape (len(doses), len(foci)).
+    cd_target : number
+        Target CD.
+    tolerance : number, optional
+        Relative CD tolerance.
+    axes : pair of matplotlib axes, optional
+    el_min : number, optional
+        Exposure latitude to mark.
+    color : color, optional
+    label : str, optional
 
     Returns
     -------
-    dof, el : arrays (see metrics.el_dof())
+    dof, el : arrays
+        See `metrics.el_dof()`.
     """
 
     if axes is None:

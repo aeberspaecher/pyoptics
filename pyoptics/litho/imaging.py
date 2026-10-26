@@ -133,7 +133,18 @@ class Projector(object):
         return 2*np.pi/self.wavelength
 
     def pupil_phase(self, P_x, P_y):
-        """Wavefront phase in radians on normalized pupil coordinates."""
+        """Wavefront phase of the lens on normalized pupil coordinates.
+
+        Parameters
+        ----------
+        P_x, P_y : numbers or arrays
+            Pupil coordinates normalized to the NA.
+
+        Returns
+        -------
+        W : array
+            Phase in radians from the Zernike aberrations plus the phase function.
+        """
 
         W = 2*np.pi*fringe_zernike_sum(self.zernikes, P_x, P_y)
         if self.phase is not None:
@@ -142,8 +153,24 @@ class Projector(object):
         return W
 
     def pupil_amplitude(self, P_x, P_y):
-        """Amplitude transmission of the pupil (apodization) on normalized
-        pupil coordinates; 1 without apodization."""
+        """Amplitude transmission of the pupil (apodization).
+
+        Parameters
+        ----------
+        P_x, P_y : numbers or arrays
+            Pupil coordinates normalized to the NA.
+
+        Returns
+        -------
+        A : number or array
+            1 without apodization.
+
+        Raises
+        ------
+        ValueError
+            If linear apodization Zernikes give a negative transmission inside the
+            pupil.
+        """
 
         S = fringe_zernike_sum(self.apodization_zernikes, P_x, P_y)
         if self.apodization_model == "log":
@@ -431,7 +458,19 @@ class LithoSimulation(object):
         return I_xyz.sum(axis=1)[:, 0, 0]
 
     def open_frame(self, focus=0.0, depth=0.0):
-        """Intensity of a clear mask in the same plane (normalization)."""
+        """Intensity of a clear mask in the same plane (used for the normalization).
+
+        Parameters
+        ----------
+        focus : number, optional
+            Image plane position relative to the focal plane, see `image()`.
+        depth : number, optional
+            Depth below the resist top (wafer stack only).
+
+        Returns
+        -------
+        I_0 : number
+        """
 
         return self._open_frames([focus], depth)[0]
 
@@ -481,15 +520,52 @@ class LithoSimulation(object):
         return (I[0], I_xyz[0]) if return_components else I[0]
 
     def through_focus(self, x, foci, y=None, depth=0.0):
-        """Images for all foci, shape (len(foci),) + image shape."""
+        """Images for several foci.
+
+        Parameters
+        ----------
+        x : array
+            x positions (image side).
+        foci : sequence of numbers
+            Image plane positions, see `image()`.
+        y : array, optional
+            y positions; None gives cuts at y = 0.
+        depth : number, optional
+            Depth below the resist top (wafer stack only).
+
+        Returns
+        -------
+        I : array
+            Shape (len(foci),) + image shape.
+        """
 
         return self._images(x, y, foci, depth)[0]
 
     # helpers for metrics:
 
     def cut_coordinates(self, N=201, periods=1.0, direction=None):
-        """A cut through the center of the first feature, across it: returns
-        (positions, center, cd, direction) with direction "x" or "y"."""
+        """Positions of a cut across the first feature, through its center.
+
+        Parameters
+        ----------
+        N : int, optional
+            Number of points.
+        periods : number, optional
+            Length of the cut in periods.
+        direction : {"x", "y"}, optional
+            Direction of the cut; default: the periodic direction (x if both).
+
+        Returns
+        -------
+        u : array
+            Positions along the cut.
+        center : number
+            Center of the feature along the cut.
+        cd : number
+            Nominal size of the feature along the cut.
+        direction : str
+            "x" or "y".
+        """
 
         L = self.layout
         if direction is None:
@@ -517,14 +593,56 @@ class LithoSimulation(object):
         return u, I.reshape(len(foci), -1)
 
     def cut(self, N=401, periods=1.0, direction=None, focus=0.0, depth=0.0):
-        """Image along a cut through the first feature: returns (u, I)."""
+        """Image along a cut through the first feature.
+
+        Parameters
+        ----------
+        N : int, optional
+            Number of points.
+        periods : number, optional
+            Length of the cut in periods.
+        direction : {"x", "y"}, optional
+            See `cut_coordinates()`.
+        focus : number, optional
+            Image plane position, see `image()`.
+        depth : number, optional
+            Depth below the resist top (wafer stack only).
+
+        Returns
+        -------
+        u : array
+            Positions along the cut.
+        I : array
+            Intensity.
+        """
 
         u, I = self._cuts(N, periods, direction, [focus], depth)
 
         return u, I[0]
 
     def cd(self, threshold=0.3, dose=1.0, focus=0.0, depth=0.0, N=401, direction=None):
-        """Printed CD of the first feature for the threshold model."""
+        """Printed CD of the first feature for the threshold model.
+
+        Parameters
+        ----------
+        threshold : number, optional
+            Printing threshold for the dose times the (normalized) intensity.
+        dose : number, optional
+            Relative dose.
+        focus : number, optional
+            Image plane position, see `image()`.
+        depth : number, optional
+            Depth below the resist top (wafer stack only).
+        N : int, optional
+            Points of the cut.
+        direction : {"x", "y"}, optional
+            See `cut_coordinates()`.
+
+        Returns
+        -------
+        cd : number
+            NaN if the feature does not print.
+        """
 
         u, center, cd, direction = self.cut_coordinates(N, 1.0, direction)
         _, I = self.cut(N, 1.0, direction, focus, depth)
@@ -532,8 +650,28 @@ class LithoSimulation(object):
         return metrics.threshold_cd(u, dose*I, threshold, center, self.layout.feature_is_bright)
 
     def fem(self, foci, doses, threshold=0.3, depth=0.0, N=401, direction=None):
-        """Focus-exposure matrix: CD of the first feature, shape
-        (len(doses), len(foci))."""
+        """Focus-exposure matrix of the CD of the first feature.
+
+        Parameters
+        ----------
+        foci : sequence of numbers
+            Image plane positions, see `image()`.
+        doses : sequence of numbers
+            Relative doses.
+        threshold : number, optional
+            Printing threshold.
+        depth : number, optional
+            Depth below the resist top (wafer stack only).
+        N : int, optional
+            Points of the cut.
+        direction : {"x", "y"}, optional
+            See `cut_coordinates()`.
+
+        Returns
+        -------
+        cds : array
+            Shape (len(doses), len(foci)).
+        """
 
         u, center, cd, direction = self.cut_coordinates(N, 1.0, direction)
         cuts = self._cuts(N, 1.0, direction, foci, depth)[1]
@@ -542,8 +680,27 @@ class LithoSimulation(object):
 
     def dose_to_size(self, cd_target=None, threshold=0.3, focus=0.0, depth=0.0, N=401,
                      direction=None):
-        """Dose that prints the first feature at cd_target (default: its
-        nominal size)."""
+        """Dose that prints the first feature at the target CD.
+
+        Parameters
+        ----------
+        cd_target : number, optional
+            Target CD; default: the nominal size of the feature.
+        threshold : number, optional
+            Printing threshold.
+        focus : number, optional
+            Image plane position, see `image()`.
+        depth : number, optional
+            Depth below the resist top (wafer stack only).
+        N : int, optional
+            Points of the cut.
+        direction : {"x", "y"}, optional
+            See `cut_coordinates()`.
+
+        Returns
+        -------
+        dose : number
+        """
 
         u, center, cd, direction = self.cut_coordinates(N, 1.0, direction)
         _, I = self.cut(N, 1.0, direction, focus, depth)
@@ -552,8 +709,31 @@ class LithoSimulation(object):
 
     def meef(self, threshold=0.3, dose=1.0, delta=1.0, focus=0.0, depth=0.0, N=801,
              direction=None):
-        """Mask error enhancement factor dCD_wafer/dCD_mask (both at wafer
-        scale) from mask CDs biased by -+delta/2."""
+        """Mask error enhancement factor dCD_wafer/dCD_mask.
+
+        Both CDs at wafer scale, from mask CDs biased by -delta/2 and +delta/2.
+
+        Parameters
+        ----------
+        threshold : number, optional
+            Printing threshold.
+        dose : number, optional
+            Relative dose.
+        delta : number, optional
+            Total mask CD change (wafer scale).
+        focus : number, optional
+            Image plane position, see `image()`.
+        depth : number, optional
+            Depth below the resist top (wafer stack only).
+        N : int, optional
+            Points of the cut.
+        direction : {"x", "y"}, optional
+            See `cut_coordinates()`.
+
+        Returns
+        -------
+        meef : number
+        """
 
         cds = [self.with_(layout=self.layout.scaled(bias=b)).cd(threshold, dose, focus, depth, N,
                                                                  direction)
@@ -562,8 +742,28 @@ class LithoSimulation(object):
         return (cds[1] - cds[0])/delta
 
     def nils(self, threshold=None, dose=1.0, focus=0.0, depth=0.0, N=801, direction=None):
-        """NILS of the first feature: ``cd*|d ln(I)/du|`` at its nominal edges
-        (threshold=None) or at the printed edges for the threshold."""
+        """NILS of the first feature, ``cd*|d ln(I)/du|``.
+
+        Parameters
+        ----------
+        threshold : number, optional
+            None (default): at the nominal edges of the feature; otherwise at the
+            printed edges for this threshold.
+        dose : number, optional
+            Relative dose (with a threshold).
+        focus : number, optional
+            Image plane position, see `image()`.
+        depth : number, optional
+            Depth below the resist top (wafer stack only).
+        N : int, optional
+            Points of the cut.
+        direction : {"x", "y"}, optional
+            See `cut_coordinates()`.
+
+        Returns
+        -------
+        nils : number
+        """
 
         u, center, cd, direction = self.cut_coordinates(N, 1.0, direction)
         _, I = self.cut(N, 1.0, direction, focus, depth)

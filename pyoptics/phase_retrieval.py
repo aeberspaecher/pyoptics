@@ -100,6 +100,17 @@ def fourier_error(obj, magnitude):
     """Normalized rms deviation of abs(FT(obj)) from the measured magnitude.
 
     E_F = sqrt(sum((abs(FT(obj)) - magnitude)**2)/sum(magnitude**2)).
+
+    Parameters
+    ----------
+    obj : 2d array
+        Object estimate.
+    magnitude : 2d array
+        Measured Fourier magnitude (centered, as FT() returns it).
+
+    Returns
+    -------
+    error : number
     """
 
     return np.sqrt(np.sum((np.abs(FT(obj)) - magnitude)**2)/np.sum(magnitude**2))

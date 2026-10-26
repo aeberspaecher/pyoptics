@@ -28,8 +28,28 @@ RMS = lambda x: np.sqrt(1.0/np.size(x)*np.sum(np.abs(x)**2))
 # TODO: kick all general deriavtive stuff out of this module
 
 def low_pass(img, x, y, sigma_cutoff, NA, lam):
-    """Perform low pass filtering with frequencies that should not be
-    present in the system.
+    """Remove spatial frequencies that the imaging system cannot transmit.
+
+    All frequencies beyond sigma_cutoff times the cut-off k*NA are set to zero
+    (hard filter); the result is rescaled to the energy (sum) of the input.
+
+    Parameters
+    ----------
+    img : 2d array
+        Intensity image.
+    x, y : 1d arrays
+        Coordinates of the image (equidistant).
+    sigma_cutoff : number
+        Cut-off in units of the coherent cut-off frequency k*NA.
+    NA : number
+        Numerical aperture.
+    lam : number
+        Wavelength.
+
+    Returns
+    -------
+    filtered : 2d array
+        Filtered (real) image with the energy of img.
     """
 
     energy_orig = get_image_energy(img)
@@ -54,6 +74,21 @@ def low_pass(img, x, y, sigma_cutoff, NA, lam):
 
 
 def low_pass_stack(stack, x, y, sigma_cutoff, NA, lam):
+    """Apply `low_pass()` to each image of a stack.
+
+    Parameters
+    ----------
+    stack : 3d array
+        Image stack of shape (Ny, Nx, N_images).
+    x, y, sigma_cutoff, NA, lam
+        See `low_pass()`.
+
+    Returns
+    -------
+    filtered : 3d array
+        Filtered stack, same shape as stack.
+    """
+
     ret_stack = np.zeros_like(stack)
     for i in range(np.size(stack, 2)):
         ret_stack[:,:,i] = low_pass(stack[:,:,i], x, y, sigma_cutoff, NA, lam)
@@ -62,7 +97,27 @@ def low_pass_stack(stack, x, y, sigma_cutoff, NA, lam):
 
 
 def smoothed_deriv(stack, x, x0, order):
-    """Compute smoothed derivatives using a Savitzky-Golay filter.
+    """Derivative along the stack axis from finite difference weights.
+
+    The weights for the derivative of the given order at x0 from the samples
+    at x are computed with sympy (optional dependency) and applied to all
+    pixels.
+
+    Parameters
+    ----------
+    stack : 3d array
+        Image stack of shape (Ny, Nx, len(x)).
+    x : sequence of numbers
+        Positions (e.g. defocus values z) of the images in the stack.
+    x0 : number
+        Position at which to evaluate the derivative.
+    order : int
+        Order of the derivative.
+
+    Returns
+    -------
+    deriv : 2d array
+        Derivative at x0, shape (Ny, Nx).
     """
     import sympy  # optional dependency, only needed here
 
@@ -76,6 +131,20 @@ def smoothed_deriv(stack, x, x0, order):
 
 
 def get_k_grid(x, y):
+    """Angular frequency grid for centered FFTs.
+
+    Parameters
+    ----------
+    x, y : 1d arrays
+        Equidistant coordinates.
+
+    Returns
+    -------
+    KX, KY : 2d arrays
+        k_x and k_y (2*pi times the spatial frequencies) on a meshgrid, centered
+        as returned by fftshift().
+    """
+
     dx = x[1] - x[0]
     dy = y[1] - y[0]
     Nx, Ny = len(x), len(y)
@@ -85,11 +154,23 @@ def get_k_grid(x, y):
 
 
 def scaled_laplace_like(f, c, x, y):
-    """Compute a differential operator similar to a Laplacian:
-    div(c*grad(f))
-    with scalar f and c.
+    """Compute div(c*grad(f)) with Fourier derivatives.
 
-    Use Fourier methods.
+    For constant c this is c times the Laplacian of f.
+
+    Parameters
+    ----------
+    f : 2d array
+        Scalar function.
+    c : 2d array or number
+        Scalar weight applied to the gradient.
+    x, y : 1d arrays
+        Equidistant coordinates.
+
+    Returns
+    -------
+    U : 2d array
+        div(c*grad(f)) (real part).
     """
 
     # compute x and y derivatives in k space:
@@ -114,6 +195,21 @@ def scaled_laplace_like(f, c, x, y):
 
 
 def laplacian(f, x, y):
+    """Laplacian of f with Fourier derivatives.
+
+    Parameters
+    ----------
+    f : 2d array
+        Scalar function.
+    x, y : 1d arrays
+        Equidistant coordinates.
+
+    Returns
+    -------
+    L : 2d array
+        Laplacian of f (real part).
+    """
+
     KX, KY = get_k_grid(x, y)
 
     F = FT(f)
@@ -123,8 +219,25 @@ def laplacian(f, x, y):
 
 
 def inv_laplacian(f, x, y, alpha=0.0):
-    """Inverse Laplacian from Fourier method using Tikhonov
-    regularization.
+    """Inverse Laplacian with Fourier methods and Tikhonov regularization.
+
+    Divides the spectrum by -(k_x**2 + k_y**2 + alpha). Without
+    regularization, the zero frequency is undefined and set to zero, i.e.
+    the mean free solution is returned.
+
+    Parameters
+    ----------
+    f : 2d array
+        Scalar function.
+    x, y : 1d arrays
+        Equidistant coordinates.
+    alpha : number, optional
+        Regularization parameter (in units of k**2).
+
+    Returns
+    -------
+    L_inv : 2d array
+        Inverse Laplacian of f (real part).
     """
 
     KX, KY = get_k_grid(x, y)
@@ -146,6 +259,30 @@ def inv_laplacian(f, x, y, alpha=0.0):
 
 
 def solve_tie(I, dI_dz, x, y, lam, alpha):
+    """Solve the transport of intensity equation for the phase.
+
+    Inverts k dI/dz = -div(I grad(phase)) with two inverse Laplacians (see
+    the module docstring for the sign convention).
+
+    Parameters
+    ----------
+    I : 2d array
+        Intensity in focus.
+    dI_dz : 2d array
+        Axial derivative of the intensity.
+    x, y : 1d arrays
+        Equidistant coordinates.
+    lam : number
+        Wavelength.
+    alpha : number
+        Regularization parameter, see `inv_laplacian()`.
+
+    Returns
+    -------
+    phase : 2d array
+        Recovered phase in radians (mean free).
+    """
+
     k = 2*pi/lam
 
     iL_flow = inv_laplacian(dI_dz, x, y, alpha)
@@ -165,8 +302,26 @@ def solve_tie(I, dI_dz, x, y, lam, alpha):
 
 
 def tie(phase, I, x, y, lam):
-    """Compute dI/dz = -div(I grad(phase))/k from I and a phase (see module
+    """Forward transport of intensity equation.
+
+    Compute dI/dz = -div(I grad(phase))/k from I and a phase (see module
     docstring for the sign convention).
+
+    Parameters
+    ----------
+    phase : 2d array
+        Phase in radians.
+    I : 2d array
+        Intensity.
+    x, y : 1d arrays
+        Equidistant coordinates.
+    lam : number
+        Wavelength.
+
+    Returns
+    -------
+    dI_dz : 2d array
+        Axial derivative of the intensity.
     """
 
     k = 2*pi/lam
@@ -177,6 +332,27 @@ def tie(phase, I, x, y, lam):
 
 def enhanced_tie_solve(N, I, dI_dz, x, y, lam, alpha, true_phase=None):
     # solve TIE first for the phase:
+    """Solve the TIE iteratively, correcting the residual flux.
+
+    Starts with `solve_tie()`, then repeats N times: compute the flux of the
+    current phase with `tie()`, solve for the phase of the residual flux and
+    add it to the estimate.
+
+    Parameters
+    ----------
+    N : int
+        Number of refinement iterations.
+    I, dI_dz, x, y, lam, alpha
+        See `solve_tie()`.
+    true_phase : 2d array, optional
+        Known phase; if given, the RMS error is printed after each iteration.
+
+    Returns
+    -------
+    phase : 2d array
+        Refined phase in radians.
+    """
+
     phase0 = solve_tie(I, dI_dz, x, y, lam, alpha)
 
     # compute residual flux and residual phase:
@@ -197,10 +373,37 @@ def enhanced_tie_solve(N, I, dI_dz, x, y, lam, alpha, true_phase=None):
 
 
 def get_image_energy(image):
+    """Energy of an intensity image, i.e. the sum of its pixels.
+
+    Parameters
+    ----------
+    image : array
+        Intensity image.
+
+    Returns
+    -------
+    energy : number
+    """
+
     return np.sum(image)
 
 
 def energy_normalize_stack(stack, ind):
+    """Scale all images of a stack to the energy of one of them.
+
+    Parameters
+    ----------
+    stack : 3d array
+        Image stack of shape (Ny, Nx, N_images).
+    ind : int
+        Index of the reference image.
+
+    Returns
+    -------
+    normalized : 3d array
+        Copy of the stack with equal energies.
+    """
+
     norm_energy = get_image_energy(stack[:, :, ind])
     ret_stack = stack.copy()
 
@@ -212,6 +415,24 @@ def energy_normalize_stack(stack, ind):
 
 
 def symmetrize_image(image):
+    """Antisymmetric extension of an image to twice its size.
+
+    The image is mirrored with a sign change across its right and lower edges
+    (upper left: image, upper right and lower left: -mirror, lower right:
+    double mirror), which removes the jumps at the borders for FFT based
+    solvers.
+
+    Parameters
+    ----------
+    image : 2d array
+        Image of shape (Ny, Nx).
+
+    Returns
+    -------
+    symmetrized : 2d array
+        Image of shape (2*Ny, 2*Nx).
+    """
+
     symmetrized = np.zeros([2*np.size(image,0), 2*np.size(image, 1)])
     Ny, Nx = np.shape(image)
 
@@ -225,6 +446,19 @@ def symmetrize_image(image):
 
 
 def desymmetrize_image(image):
+    """Upper left quarter of an image, the inverse of `symmetrize_image()`.
+
+    Parameters
+    ----------
+    image : 2d array
+        Symmetrized image of shape (2*Ny, 2*Nx).
+
+    Returns
+    -------
+    image : 2d array
+        Image of shape (Ny, Nx).
+    """
+
     Ny, Nx = np.shape(image)
     desymmetrized = image[:Ny//2, :Nx//2]
 
@@ -232,6 +466,23 @@ def desymmetrize_image(image):
 
 
 def symmetrize_stack(stack, x, y):
+    """Apply `symmetrize_image()` to each image of a stack.
+
+    Parameters
+    ----------
+    stack : 3d array
+        Image stack of shape (Ny, Nx, N_images).
+    x, y : 1d arrays
+        Equidistant coordinates of the images.
+
+    Returns
+    -------
+    symmetrized : 3d array
+        Stack of shape (2*Ny, 2*Nx, N_images).
+    x_new, y_new : 1d arrays
+        Coordinates of the symmetrized images, starting at x[0] and y[0].
+    """
+
     symmetrized = np.zeros([2*np.size(stack,0), 2*np.size(stack, 1), np.size(stack,2)])
     for i in range(np.size(stack, 2)):
         symmetrized[:,:,i] = symmetrize_image(stack[:,:,i])
@@ -246,4 +497,14 @@ def symmetrize_stack(stack, x, y):
 
 
 def desymmetrize_stack(stack, x, y):
+    """Inverse of `symmetrize_stack()` (not implemented yet, returns None).
+
+    Parameters
+    ----------
+    stack : 3d array
+        Symmetrized stack.
+    x, y : 1d arrays
+        Coordinates of the symmetrized stack.
+    """
+
     pass

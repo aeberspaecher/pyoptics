@@ -108,9 +108,29 @@ class WaferStack(object):
         return self.resist[2]
 
     def coefficients(self, k_perp, k0, n_medium, pol):
-        """t_top, r_top, r_b and k_z in the resist for plane waves with the
-        transverse wave numbers k_perp (array) coming from the medium
-        n_medium, for pol "TE" or "TM"."""
+        """Fresnel coefficients of the stack seen from the resist.
+
+        Parameters
+        ----------
+        k_perp : array
+            Transverse wave numbers of the plane waves.
+        k0 : number
+            Vacuum wave number.
+        n_medium : number
+            Refractive index of the medium above the stack.
+        pol : {"TE", "TM"}
+
+        Returns
+        -------
+        t_top : array
+            Transmission from the medium through the layers above into the resist.
+        r_top : array
+            Reflection at the layers above, seen from the resist.
+        r_b : array
+            Reflection of the layers below the resist (BARC, substrate).
+        k_z : array
+            Axial wave number in the resist.
+        """
 
         k_perp = np.asarray(k_perp, dtype=float)
         n_r = self.resist_n
@@ -129,9 +149,30 @@ class WaferStack(object):
         return t_top, r_top, r_b, k_z
 
     def factors(self, k_perp, k0, n_medium, depth, pol):
-        """Tangential field factors of the downward and upward waves at the
-        depth (below the resist top) relative to the incident tangential
-        field at the top of the stack, and k_z."""
+        """Tangential field factors of the downward and upward waves at a depth.
+
+        Relative to the incident tangential field at the top of the stack,
+        including the multiple reflections in the resist.
+
+        Parameters
+        ----------
+        k_perp : array
+            Transverse wave numbers.
+        k0 : number
+            Vacuum wave number.
+        n_medium : number
+            Refractive index of the medium above the stack.
+        depth : number
+            Depth below the resist top.
+        pol : {"TE", "TM"}
+
+        Returns
+        -------
+        down, up : arrays
+            Factors of the downward and upward travelling waves.
+        k_z : array
+            Axial wave number in the resist.
+        """
 
         t_top, r_top, r_b, k_z = self.coefficients(k_perp, k0, n_medium, pol)
         d = self.thickness
@@ -142,9 +183,29 @@ class WaferStack(object):
         return down, up, k_z
 
     def transmit(self, E, K_x, K_y, k0, n_medium, depth, vectorial=True):
-        """Field in the resist at the depth for plane waves with the fields E
-        (shape (3,) + K_x.shape, at the top of the stack in the medium) and
-        transverse wave vectors (K_x, K_y)."""
+        """Field in the resist at a depth for a set of plane waves.
+
+        Parameters
+        ----------
+        E : array
+            Fields of the plane waves at the top of the stack in the medium,
+            shape (3,) + K_x.shape.
+        K_x, K_y : arrays
+            Transverse wave vectors.
+        k0 : number
+            Vacuum wave number.
+        n_medium : number
+            Refractive index of the medium above the stack.
+        depth : number
+            Depth below the resist top.
+        vectorial : bool, optional
+            False: scalar model (both components with the TE factors, no E_z).
+
+        Returns
+        -------
+        E_resist : array
+            Field components (E_x, E_y, E_z) in the resist, same shape as E.
+        """
 
         k_perp = np.hypot(K_x, K_y)
         if not vectorial:
@@ -174,9 +235,23 @@ class WaferStack(object):
         return n, t
 
     def reflectance(self, na, wavelength, n_medium=1.0, pol="unpolarized"):
-        """Reflectance of the stack for plane waves from the medium with the
-        transverse wave numbers k_0*na; pol "TE", "TM" or "unpolarized"
-        (the mean)."""
+        """Reflectance of the whole stack for plane waves from the medium.
+
+        Parameters
+        ----------
+        na : number or array
+            Transverse wave numbers in units of k_0 (n_medium*sin(theta)).
+        wavelength : number
+            Vacuum wavelength.
+        n_medium : number, optional
+            Refractive index of the medium above the stack.
+        pol : {"TE", "TM", "unpolarized"}, optional
+            "unpolarized" is the mean of TE and TM.
+
+        Returns
+        -------
+        R : number or array
+        """
 
         if pol == "unpolarized":
             return np.mean([self.reflectance(na, wavelength, n_medium, p) for p in ("TE", "TM")], axis=0)
@@ -186,9 +261,22 @@ class WaferStack(object):
         return np.abs(r)**2
 
     def substrate_reflectance(self, na, wavelength, n_medium=1.0, pol="unpolarized"):
-        """Reflectance ``|r_b|**2`` of the layers below the resist (BARC,
-        substrate) seen from the resist, for plane waves with the transverse
-        wave numbers k_0*na."""
+        """Reflectance ``|r_b|**2`` of the layers below the resist, seen from the resist.
+
+        Parameters
+        ----------
+        na : number or array
+            Transverse wave numbers in units of k_0.
+        wavelength : number
+            Vacuum wavelength.
+        n_medium : number, optional
+            Refractive index of the medium above the stack.
+        pol : {"TE", "TM", "unpolarized"}, optional
+
+        Returns
+        -------
+        R : number or array
+        """
 
         if pol == "unpolarized":
             return np.mean([self.substrate_reflectance(na, wavelength, n_medium, p)
@@ -198,8 +286,22 @@ class WaferStack(object):
         return np.abs(self.coefficients(k0*np.asarray(na, dtype=float), k0, n_medium, pol)[2])**2
 
     def absorbed(self, na, wavelength, n_medium=1.0, pol="unpolarized"):
-        """Fraction of the incident power absorbed in the resist, for plane
-        waves from the medium with the transverse wave numbers k_0*na."""
+        """Fraction of the incident power absorbed in the resist.
+
+        Parameters
+        ----------
+        na : number or array
+            Transverse wave numbers in units of k_0.
+        wavelength : number
+            Vacuum wavelength.
+        n_medium : number, optional
+            Refractive index of the medium above the stack.
+        pol : {"TE", "TM", "unpolarized"}, optional
+
+        Returns
+        -------
+        A : number or array
+        """
 
         if pol == "unpolarized":
             return np.mean([self.absorbed(na, wavelength, n_medium, p) for p in ("TE", "TM")], axis=0)

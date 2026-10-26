@@ -56,6 +56,18 @@ def refracted_angle(phi_in, n_in, n_out):
 
 def r_s(phi_1, n_1, n_2):
     """Reflection (wave amplitude) coefficient for s-polarized waves.
+
+    Parameters
+    ----------
+    phi_1 : number or array
+        Angle of incidence in radians.
+    n_1, n_2 : numbers or arrays
+        (Complex) refractive indices of the incident and the second medium.
+
+    Returns
+    -------
+    r : complex or array
+        (n_1*cos(phi_1) - n_2*cos(phi_2))/(n_1*cos(phi_1) + n_2*cos(phi_2)).
     """
 
     phi_2 = refracted_angle(phi_1, n_1, n_2)
@@ -66,6 +78,18 @@ def r_s(phi_1, n_1, n_2):
 
 def r_p(phi_1, n_1, n_2):
     """Reflection (wave amplitude) coefficient for p-polarized waves.
+
+    Parameters
+    ----------
+    phi_1 : number or array
+        Angle of incidence in radians.
+    n_1, n_2 : numbers or arrays
+        (Complex) refractive indices of the incident and the second medium.
+
+    Returns
+    -------
+    r : complex or array
+        (n_2*cos(phi_1) - n_1*cos(phi_2))/(n_2*cos(phi_1) + n_1*cos(phi_2)).
     """
 
     phi_2 = refracted_angle(phi_1, n_1, n_2)
@@ -76,6 +100,18 @@ def r_p(phi_1, n_1, n_2):
 
 def R_s(phi_1, n_1, n_2):
     """Energy reflection coefficient for s-polarized waves.
+
+    Parameters
+    ----------
+    phi_1 : number or array
+        Angle of incidence in radians.
+    n_1, n_2 : numbers or arrays
+        (Complex) refractive indices of the incident and the second medium.
+
+    Returns
+    -------
+    R : number or array
+        ``|r_s|**2``.
     """
 
     R = np.abs(r_s(phi_1, n_1, n_2))**2
@@ -85,6 +121,18 @@ def R_s(phi_1, n_1, n_2):
 
 def R_p(phi_1, n_1, n_2):
     """Energy reflection coefficient for p-polarized waves.
+
+    Parameters
+    ----------
+    phi_1 : number or array
+        Angle of incidence in radians.
+    n_1, n_2 : numbers or arrays
+        (Complex) refractive indices of the incident and the second medium.
+
+    Returns
+    -------
+    R : number or array
+        ``|r_p|**2``.
     """
 
     R = np.abs(r_p(phi_1, n_1, n_2))**2
@@ -94,6 +142,18 @@ def R_p(phi_1, n_1, n_2):
 
 def t_s(phi_1, n_1, n_2):
     """Transmission coefficient (wave amplitude) for s-polarized waves.
+
+    Parameters
+    ----------
+    phi_1 : number or array
+        Angle of incidence in radians.
+    n_1, n_2 : numbers or arrays
+        (Complex) refractive indices of the incident and the second medium.
+
+    Returns
+    -------
+    t : complex or array
+        2*n_1*cos(phi_1)/(n_1*cos(phi_1) + n_2*cos(phi_2)).
     """
 
     phi_2 = refracted_angle(phi_1, n_1, n_2)
@@ -104,6 +164,18 @@ def t_s(phi_1, n_1, n_2):
 
 def t_p(phi_1, n_1, n_2):
     """Transmission coefficient (wave amplitude) for p-polarized waves.
+
+    Parameters
+    ----------
+    phi_1 : number or array
+        Angle of incidence in radians.
+    n_1, n_2 : numbers or arrays
+        (Complex) refractive indices of the incident and the second medium.
+
+    Returns
+    -------
+    t : complex or array
+        2*n_1*cos(phi_1)/(n_2*cos(phi_1) + n_1*cos(phi_2)).
     """
 
     phi_2 = refracted_angle(phi_1, n_1, n_2)
@@ -117,6 +189,18 @@ def T_s(phi_1, n_1, n_2):
 
     Ratio of the z-components of the time averaged Poynting vectors. T_s = 0
     under total internal reflection.
+
+    Parameters
+    ----------
+    phi_1 : number or array
+        Angle of incidence in radians.
+    n_1, n_2 : numbers or arrays
+        (Complex) refractive indices of the incident and the second medium.
+
+    Returns
+    -------
+    T : number or array
+        Transmitted fraction of the power.
     """
 
     phi_2 = refracted_angle(phi_1, n_1, n_2)
@@ -131,6 +215,18 @@ def T_p(phi_1, n_1, n_2):
 
     Ratio of the z-components of the time averaged Poynting vectors. T_p = 0
     under total internal reflection.
+
+    Parameters
+    ----------
+    phi_1 : number or array
+        Angle of incidence in radians.
+    n_1, n_2 : numbers or arrays
+        (Complex) refractive indices of the incident and the second medium.
+
+    Returns
+    -------
+    T : number or array
+        Transmitted fraction of the power.
     """
 
     phi_2 = refracted_angle(phi_1, n_1, n_2)
@@ -141,7 +237,17 @@ def T_p(phi_1, n_1, n_2):
 
 
 def brewster_angle(n_1, n_2):
-    """Return Brewster's angle (p-wave reflectivity = 0).
+    """Brewster's angle, at which the p-wave reflectivity vanishes.
+
+    Parameters
+    ----------
+    n_1, n_2 : numbers or arrays
+        Refractive indices of the incident and the second medium.
+
+    Returns
+    -------
+    phi_B : number or array
+        arctan(n_2/n_1) in radians.
     """
 
     b = arctan2(n_2, n_1)
@@ -150,7 +256,18 @@ def brewster_angle(n_1, n_2):
 
 
 def critical_angle(n_1, n_2):
-    """Return critical angle for total internal reflection.
+    """Critical angle for total internal reflection.
+
+    Parameters
+    ----------
+    n_1, n_2 : numbers or arrays
+        Refractive indices of the incident (denser) and the second medium.
+
+    Returns
+    -------
+    phi_c : number or array
+        arcsin(n_2/n_1) in radians; complex if n_2 > n_1 (no total internal
+        reflection).
     """
 
     phi_c = scimath.arcsin(n_2/n_1)

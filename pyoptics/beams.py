@@ -88,9 +88,22 @@ def spherical_wave(x, y, z, wavelength, x0, y0, z0, U0=1.0, n=1.0):
 
 # Gaussian beams:
 def z_r_from_divergence_angle(w0, theta, n=1.0, wl=None):
-    """Rayleigh length from waist w0 and far field divergence (half) angle
-    theta in the medium, z_r = w0/theta (paraxial). n and wl are not needed
-    and only kept for backwards compatibility.
+    """Rayleigh length from the waist and the far field divergence.
+
+    z_r = w0/theta (paraxial).
+
+    Parameters
+    ----------
+    w0 : number
+        Waist radius.
+    theta : number
+        Far field divergence half angle in the medium (radians).
+    n, wl : optional
+        Not needed, only kept for backwards compatibility.
+
+    Returns
+    -------
+    z_r : number
     """
 
     return w0/theta

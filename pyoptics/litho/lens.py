@@ -150,8 +150,19 @@ def _pupil_rays(system, field, N):
 
 
 def lens_NA(system, N=48):
-    """Image space NA of the lens on axis: the largest ``n'*|d_xy|`` of the
-    traced rays."""
+    """Image space NA of the lens on axis.
+
+    Parameters
+    ----------
+    system : raytrace.System
+    N : int, optional
+        Rays across the pupil.
+
+    Returns
+    -------
+    NA : float
+        The largest ``n'*|d_xy|`` of the traced rays.
+    """
 
     q = _pupil_rays(system, (0.0, 0.0), N)[1]
 
@@ -282,15 +293,25 @@ field, NA : image field point and the NA of the pupil coordinates
 
 
 def quarter_wave_coating(n_glass, wavelength, n_coating=None):
-    """Single layer antireflection coating: a quarter wave layer at normal
-    incidence of index n_coating (default sqrt(n_glass), zero reflection;
-    MgF2 has about 1.40 at 248 nm and 1.43 at 193 nm).
+    """Single layer antireflection coating.
+
+    A quarter wave layer at normal incidence of index n_coating (default
+    sqrt(n_glass), zero reflection; MgF2 has about 1.40 at 248 nm and 1.43 at
+    193 nm).
+
+    Parameters
+    ----------
+    n_glass : number
+        Refractive index of the lens.
+    wavelength : number
+        Wavelength in the unit of the thickness.
+    n_coating : number, optional
+        Refractive index of the layer.
 
     Returns
     -------
     list of (n, thickness)
-        The layers from the air side, thickness in the units of wavelength,
-        for lens_jones_pupil(coating=...).
+        The layers from the air side, for lens_jones_pupil(coating=...).
     """
 
     n_c = np.sqrt(n_glass) if n_coating is None else n_coating

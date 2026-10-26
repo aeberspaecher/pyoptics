@@ -59,6 +59,15 @@ LAMBDA_C = 656.2725  # hydrogen C line
 
 def abbe_number(n_d, n_F, n_C):
     """Abbe number V_d = (n_d - 1)/(n_F - n_C).
+
+    Parameters
+    ----------
+    n_d, n_F, n_C : numbers or arrays
+        Refractive indices at the d, F and C lines.
+
+    Returns
+    -------
+    V_d : number or array
     """
 
     return (n_d - 1.0)/(n_F - n_C)
@@ -96,6 +105,17 @@ def cauchy_coeffs_from_abbe(n_d, V_d, lambda_d=LAMBDA_d, lambda_F=LAMBDA_F,
 
 def cauchy_n(wavelength, A, B):
     """Two-term Cauchy formula n = A + B/wavelength**2.
+
+    Parameters
+    ----------
+    wavelength : number or array
+        Wavelength in the unit used for B.
+    A, B : numbers
+        Cauchy coefficients, see `cauchy_coeffs_from_abbe()`.
+
+    Returns
+    -------
+    n : number or array
     """
 
     return A + B/np.asarray(wavelength, dtype=float)**2
@@ -105,7 +125,22 @@ def abbe_dispersion(wavelength, n_d, V_d, lambda_d=LAMBDA_d,
                     lambda_F=LAMBDA_F, lambda_C=LAMBDA_C):
     """Refractive index n(wavelength) of a glass given by n_d and V_d.
 
-    See cauchy_coeffs_from_abbe() for the parameters.
+    Uses the two-term Cauchy formula through n_d with the given Abbe number.
+
+    Parameters
+    ----------
+    wavelength : number or array
+        Wavelength, in nm with the default line wavelengths.
+    n_d : number
+        Refractive index at lambda_d.
+    V_d : number
+        Abbe number (positive; np.inf: no dispersion).
+    lambda_d, lambda_F, lambda_C : numbers, optional
+        Wavelengths of the d, F and C lines, see `cauchy_coeffs_from_abbe()`.
+
+    Returns
+    -------
+    n : number or array
 
     Examples
     --------
@@ -120,15 +155,40 @@ def abbe_dispersion(wavelength, n_d, V_d, lambda_d=LAMBDA_d,
 # media for the polarization ray trace:
 
 def extinction_from_absorption(alpha, wavelength):
-    """Extinction coefficient k = alpha*wavelength/(4*pi) of a medium whose
-    intensity decays as exp(-alpha*z) (alpha in the inverse unit of
-    wavelength)."""
+    """Extinction coefficient from the intensity absorption coefficient.
+
+    Parameters
+    ----------
+    alpha : number or array
+        Intensity absorption coefficient: the intensity decays as
+        exp(-alpha*z); in the inverse unit of the wavelength.
+    wavelength : number
+        Vacuum wavelength.
+
+    Returns
+    -------
+    k : number or array
+        Imaginary part of the refractive index, alpha*wavelength/(4*pi).
+    """
 
     return alpha*wavelength/(4*np.pi)
 
 
 def absorption_from_extinction(k, wavelength):
-    """Intensity absorption coefficient alpha = 4*pi*k/wavelength."""
+    """Intensity absorption coefficient from the extinction coefficient.
+
+    Parameters
+    ----------
+    k : number or array
+        Imaginary part of the refractive index.
+    wavelength : number
+        Vacuum wavelength.
+
+    Returns
+    -------
+    alpha : number or array
+        4*pi*k/wavelength, in the inverse unit of the wavelength.
+    """
 
     return 4*np.pi*k/wavelength
 
@@ -149,8 +209,20 @@ def _value(value, wavelength_nm):
 
 
 def complex_index(material, wavelength_nm=None):
-    """Complex refractive index n + i*k of a Material, a number (complex
-    allowed), a function n(wavelength_nm) or a pair (n_d, V_d)."""
+    """Complex refractive index n + i*k of a material description.
+
+    Parameters
+    ----------
+    material : Material, number, callable or (n_d, V_d)
+        A `Material`, a (complex) number, a function n(wavelength_nm) or a
+        pair (n_d, V_d) for `abbe_dispersion()`.
+    wavelength_nm : number, optional
+        Vacuum wavelength in nm (needed for dispersive materials).
+
+    Returns
+    -------
+    n : complex
+    """
 
     if isinstance(material, Material):
         return complex(material.index(wavelength_nm))
@@ -210,18 +282,51 @@ class Material(object):
         return float(np.real(self.index(wavelength_nm)))
 
     def delta_index(self, k, basis, wavelength_nm=None):
-        """Complex index matrices (N, 2, 2) on the transverse bases (N, 3, 2)
-        of the rays with unit directions k (N, 3), minus n_geometric()."""
+        """Anisotropic part of the complex index on the transverse ray bases.
+
+        The isotropic medium returns (index() - n_geometric()) times the
+        identity; anisotropic subclasses override this.
+
+        Parameters
+        ----------
+        k : (N, 3) array
+            Unit directions of the rays.
+        basis : (N, 3, 2) array
+            Transverse bases of the rays.
+        wavelength_nm : number, optional
+            Vacuum wavelength in nm.
+
+        Returns
+        -------
+        dN : (N, 2, 2) array
+            Complex index matrices minus n_geometric().
+        """
 
         dn = complex(self.index(wavelength_nm)) - self.n_geometric(wavelength_nm)
 
         return np.tile(dn*np.eye(2), (len(k), 1, 1))
 
     def propagation(self, k, length, wavelength, wavelength_nm=None):
-        """Polarization ray tracing matrices (N, 3, 3) of paths of the given
-        lengths along the unit directions k (N, 3) beyond the geometric
-        optical path n_geometric()*length: retardance, diattenuation and
-        absorption. wavelength (vacuum) is in the unit of the lengths."""
+        """Polarization ray tracing matrices of paths in the medium.
+
+        Retardance, diattenuation and absorption beyond the geometric optical
+        path n_geometric()*length.
+
+        Parameters
+        ----------
+        k : (N, 3) array
+            Unit directions of the rays.
+        length : (N,) array
+            Geometrical path lengths.
+        wavelength : number
+            Vacuum wavelength in the unit of the lengths.
+        wavelength_nm : number, optional
+            Vacuum wavelength in nm for the dispersion.
+
+        Returns
+        -------
+        P : (N, 3, 3) array
+        """
 
         B = transverse_basis(k)
         dN = self.delta_index(k, B, wavelength_nm)
@@ -299,6 +404,23 @@ class Uniaxial(Material):
         return float(np.real(self._indices(wavelength_nm)[0]))
 
     def delta_index(self, k, basis, wavelength_nm=None):
+        """Index matrices of the ordinary and extraordinary eigenstates.
+
+        Parameters
+        ----------
+        k : (N, 3) array
+            Unit directions of the rays.
+        basis : (N, 3, 2) array
+            Transverse bases of the rays.
+        wavelength_nm : number, optional
+            Vacuum wavelength in nm.
+
+        Returns
+        -------
+        dN : (N, 2, 2) array
+            Complex index matrices minus n_geometric().
+        """
+
         n_o, n_e = self._indices(wavelength_nm)
         o = np.cross(k, self.axis)
         norm = np.linalg.norm(o, axis=-1)
@@ -373,8 +495,20 @@ class CubicCrystal(Material):
         return _value(self.n, wavelength_nm)
 
     def index_change(self, k, basis):
-        """Change of the refractive index (N, 2, 2) on the transverse basis
-        (N, 3, 2) of the rays with unit directions k (N, 3), local frame."""
+        """Intrinsic birefringence on the transverse bases of the rays.
+
+        Parameters
+        ----------
+        k : (N, 3) array
+            Unit directions of the rays in the local frame.
+        basis : (N, 3, 2) array
+            Transverse bases of the rays.
+
+        Returns
+        -------
+        dN : (N, 2, 2) array
+            Change of the refractive index.
+        """
 
         k_c = k @ self.to_crystal.T
         B_c = np.einsum("ij,njk->nik", self.to_crystal, basis)
@@ -384,6 +518,22 @@ class CubicCrystal(Material):
         return -2*self.delta_n*N
 
     def delta_index(self, k, basis, wavelength_nm=None):
+        """Intrinsic birefringence plus the difference of the mean index to n_geometric().
+
+        Parameters
+        ----------
+        k : (N, 3) array
+            Unit directions of the rays.
+        basis : (N, 3, 2) array
+            Transverse bases of the rays.
+        wavelength_nm : number, optional
+            Vacuum wavelength in nm.
+
+        Returns
+        -------
+        dN : (N, 2, 2) array
+        """
+
         dn = 0.0 if self.n is None else complex(self.index(wavelength_nm)) - self.n_geometric(wavelength_nm)
 
         return self.index_change(k, basis) + dn*np.eye(2)

@@ -34,7 +34,19 @@ from ..vectorial_imaging import contrast, nils
 
 
 def image_log_slope(x, I, x_edge):
-    """``|d ln(I)/dx|`` at x_edge."""
+    """Image log slope ``|d ln(I)/dx|`` at an edge.
+
+    Parameters
+    ----------
+    x, I : arrays
+        Cut through the image.
+    x_edge : number
+        Position of the edge.
+
+    Returns
+    -------
+    ils : number
+    """
 
     return nils(x, I, x_edge, 1.0)
 
@@ -82,7 +94,24 @@ def feature_edges(u, I, threshold, center=0.0, bright=False):
 
 
 def threshold_cd(u, I, threshold, center=0.0, bright=False):
-    """Printed CD of the feature at center (nan if it does not print)."""
+    """Printed CD of the feature at center for a threshold.
+
+    Parameters
+    ----------
+    u, I : arrays
+        Cut through the feature (u increasing).
+    threshold : number
+        Contour level (dose already applied to I).
+    center : number, optional
+        Position of the feature center.
+    bright : bool, optional
+        True for a bright feature (prints where I >= threshold).
+
+    Returns
+    -------
+    cd : number
+        nan if the feature does not print.
+    """
 
     left, right = feature_edges(u, I, threshold, center, bright)
 
@@ -90,8 +119,26 @@ def threshold_cd(u, I, threshold, center=0.0, bright=False):
 
 
 def nils_at_threshold(u, I, threshold, center=0.0, bright=False, cd=None):
-    """NILS at the printed edges: ``cd*|d ln(I)/du|``, averaged over both edges;
-    cd defaults to the printed CD."""
+    """NILS at the printed edges, ``cd*|d ln(I)/du|`` averaged over both edges.
+
+    Parameters
+    ----------
+    u, I : arrays
+        Cut through the feature (u increasing).
+    threshold : number
+        Contour level (dose already applied to I).
+    center : number, optional
+        Position of the feature center.
+    bright : bool, optional
+        True for a bright feature.
+    cd : number, optional
+        Width used for the normalization; default: the printed CD.
+
+    Returns
+    -------
+    nils : number
+        nan if the feature does not print.
+    """
 
     left, right = feature_edges(u, I, threshold, center, bright)
     if np.isnan(left):
@@ -102,8 +149,25 @@ def nils_at_threshold(u, I, threshold, center=0.0, bright=False, cd=None):
 
 
 def dose_to_size(u, I, cd_target, threshold=0.3, center=0.0):
-    """Dose D that puts the printed edges at center -+ cd_target/2 (mean
-    intensity of both edges), D = threshold/I_edge."""
+    """Dose that puts the printed edges at center -+ cd_target/2.
+
+    D = threshold/I_edge with the mean intensity I_edge of both edges.
+
+    Parameters
+    ----------
+    u, I : arrays
+        Cut through the feature (u increasing).
+    cd_target : number
+        Target CD.
+    threshold : number, optional
+        Printing threshold.
+    center : number, optional
+        Position of the feature center.
+
+    Returns
+    -------
+    dose : number
+    """
 
     I_edge = np.mean(np.interp([center - cd_target/2, center + cd_target/2], u, I))
 
@@ -184,6 +248,13 @@ def el_dof(foci, dose_low, dose_high):
     For every focus window [f_i, f_j], the common dose range is [max(low),
     min(high)]; its exposure latitude is (high - low)/((high + low)/2).
 
+    Parameters
+    ----------
+    foci : array
+        Foci (increasing).
+    dose_low, dose_high : arrays
+        In-spec dose range per focus, e.g. from `process_window()`.
+
     Returns
     -------
     dof, el : arrays
@@ -213,8 +284,20 @@ def el_dof(foci, dose_low, dose_high):
 
 
 def dof_at_el(dof, el, el_min):
-    """Largest depth of focus with an exposure latitude of at least el_min
-    (0 if none)."""
+    """Largest depth of focus with a minimum exposure latitude.
+
+    Parameters
+    ----------
+    dof, el : arrays
+        From `el_dof()`.
+    el_min : number
+        Required exposure latitude (relative).
+
+    Returns
+    -------
+    dof : float
+        0 if no window reaches el_min.
+    """
 
     ok = np.asarray(el) >= el_min
 

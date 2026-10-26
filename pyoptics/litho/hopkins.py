@@ -305,9 +305,25 @@ class SOCS(object):
         return self.eigenvalues.shape[1]
 
     def kernel_fields(self, x, y=None, focus_index=0):
-        """Coherent amplitude kernels in real space: the fields of the
-        kernels for a unit mask spectrum, sum_o phi_k[o, c] exp(i f_o.r),
-        summed over the channels; shape (n_kernels, len(y), len(x))."""
+        """Coherent amplitude kernels in real space.
+
+        The fields of the kernels for a unit mask spectrum,
+        sum_o phi_k[o, c] exp(i f_o.r), summed over the channels.
+
+        Parameters
+        ----------
+        x : array
+            x coordinates.
+        y : array, optional
+            y coordinates; None gives cuts at y = 0.
+        focus_index : int, optional
+            Index of the focus.
+
+        Returns
+        -------
+        fields : array
+            Shape (n_kernels, len(y), len(x)).
+        """
 
         n_y, n_x, n_c = self.tcc.shape
         phi = self.kernels[focus_index].reshape(n_y, n_x, n_c, -1).sum(axis=2)
@@ -316,8 +332,24 @@ class SOCS(object):
         return W_y @ phi.transpose(2, 0, 1) @ W_x.T
 
     def image(self, x, y=None, layout=None, mask_vector=None, normalize=True):
-        """Image for all foci as the sum of the coherent images of the
-        kernels; arguments and shape as for TCC.image()."""
+        """Image as the sum of the coherent images of the kernels.
+
+        Parameters
+        ----------
+        x, y : arrays
+            Image grid; y=None gives the cut at y = 0.
+        layout : MaskLayout, optional
+            Default: the layout of the simulation.
+        mask_vector : array, optional
+            A mask spectrum instead of a layout.
+        normalize : bool, optional
+            Divide by the open frame.
+
+        Returns
+        -------
+        array
+            Shape (len(foci), len(y), len(x)), or (len(foci), len(x)) for y=None.
+        """
 
         tcc = self.tcc
         a = tcc._vector(layout, mask_vector)

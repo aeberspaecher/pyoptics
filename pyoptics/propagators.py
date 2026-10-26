@@ -747,7 +747,27 @@ def fraunhofer_scaled(field, x_prime, y_prime, z, wavelength, x_out, y_out, n=1.
     approximation, Fresnel number of the input much smaller than one). With
     x_out, y_out the output grid of fraunhofer(), both agree.
 
-    Parameters and returns as for fresnel_scaled().
+    Parameters
+    ----------
+    field : array
+    x_prime, y_prime : arrays
+        Linear or 2d equidistant coordinates of the field; the phases refer
+        to x' = y' = 0.
+    z : number
+        Propagation distance (z != 0).
+    wavelength : number
+        Vacuum wavelength.
+    x_out, y_out : arrays
+        Linear or 2d equidistant output coordinates.
+    n : number, optional
+        Refractive index.
+
+    Returns
+    -------
+    field_propagated : array
+        Field of shape (len(y_out), len(x_out)).
+    x_out, y_out : arrays
+        The output coordinates as given.
     """
 
     return _fresnel_single_transform(field, x_prime, y_prime, z, wavelength, x_out, y_out,
@@ -1090,6 +1110,20 @@ def vectorial_fresnel(field, x_prime, y_prime, z, wavelength, n=1.0):
 
     The name was misleading: the function does not use the Fresnel
     approximation.
+
+    Parameters
+    ----------
+    field : array
+    x_prime, y_prime : arrays
+    z : number
+    wavelength : number
+    n : number, optional
+        See `vectorial_mansuripur()`.
+
+    Returns
+    -------
+    tuple
+        The return values of `vectorial_mansuripur()`.
     """
 
     warnings.warn("vectorial_fresnel() is deprecated, use vectorial_mansuripur() "
@@ -1141,8 +1175,21 @@ def fresnel_number(outer_aperture_diameter, z, wavelength, wavefront_curvature=N
 
 
 def z_from_fresnel_number(F, aperture_diameter, wavelength):
-    """Inverse of fresnel_number() for a collimated beam and a circular
-    aperture.
+    """Inverse of fresnel_number() for a collimated beam and a circular aperture.
+
+    Parameters
+    ----------
+    F : number
+        Fresnel number.
+    aperture_diameter : number
+        Diameter of the aperture.
+    wavelength : number
+        Wavelength (same unit as the diameter).
+
+    Returns
+    -------
+    z : number
+        Propagation distance (aperture_diameter/2)**2/(wavelength*F).
     """
 
     z = (aperture_diameter/2.0)**2/(wavelength*F)
