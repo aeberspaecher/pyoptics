@@ -18,7 +18,7 @@ convention.
 
 import numpy as np
 from numpy import pi
-from numpy.fft import fft, ifft, fft2, ifft2, fftfreq, fftshift, ifftshift
+from numpy.fft import fftfreq, fftshift
 
 from .fft import FT, inv_FT
 
