@@ -14,6 +14,10 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.9", "3.11", "3.13"]
+        # the NumPy ray trace on 3.9 and 3.11, the numba kernel on 3.13
+        include:
+          - python-version: "3.13"
+            extras: ",fast"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -21,7 +25,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install pyoptics with test extras
-        run: python -m pip install -e ".[test]"
+        run: python -m pip install -e ".[test${{ matrix.extras }}]"
       - name: Run tests
         run: python -m pytest -v test
 
