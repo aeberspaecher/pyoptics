@@ -39,6 +39,8 @@ Imaging and ray tracing
    pyoptics.bases
    pyoptics.vectorial_imaging
    pyoptics.raytrace
+   pyoptics.delano
+   pyoptics.lens_optimization
 
 Lithography
 -----------

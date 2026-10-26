@@ -2571,3 +2571,84 @@ def zeiss_arfi_lens(wavelength=ARF_WAVELENGTH_NM*1e-6, aperture_margin=1.01, ref
         system = system.with_image_distance(system.surfaces[-1].thickness + dz)
 
     return system
+
+
+# 13 element KrF lens laid out in the y-ybar diagram (pyoptics.delano) and
+# corrected with pyoptics.lens_optimization (notebook 42): surface, radius,
+# thickness to the next surface, medium behind ("S": fused silica, "A": air),
+# paraxial beam radius |y| + |ybar| at full field (the stop: its semi
+# diameter), all in mm; surface 21 is the stop.
+_DELANO_KRF = """
+ 1    -284.205966879    2.998817957 S   54.5529
+ 2     355.305949774   88.930707203 A   54.7571
+ 3    1232.330325615   22.533328088 S   70.8565
+ 4    -180.506796748   26.885525593 A   73.1242
+ 5     166.563241052  102.790579403 S   71.6685
+ 6      78.249436507   59.252942273 A   53.0719
+ 7     -75.397901167    2.996395519 S   57.3330
+ 8     434.390030495   61.117999014 A   58.2438
+ 9     738.800842322    3.002745990 S   90.4320
+10     644.442361095   28.917115444 A   91.3565
+11    -357.371289599   36.342622439 S  106.8704
+12    -178.918014513    0.997529351 A  123.4596
+13    6983.392875378   58.185312959 S  123.7965
+14    -217.998577326    0.993957708 A  136.4765
+15     792.661730638   38.016612515 S  136.4869
+16    -478.689419813   21.785935204 A  134.5438
+17     393.758799992    2.999169916 S  129.7512
+18     180.385292579   42.635912503 A  128.9807
+19     477.882620788   22.735622454 S  127.9576
+20  -19403.259325633    0.996345208 A  125.5441
+21               inf    0.995970725 A  125.3813
+22     205.729971387   33.697669977 S  125.3698
+23     520.282940787   86.985859826 A  118.1905
+24     199.547463164  150.439211633 S  100.2827
+25    -665.455979552    7.142307267 A   54.2689
+26      94.500587115   46.698284203 S   50.6776
+27     155.901087515   18.954648981 A   26.6704
+"""
+_DELANO_KRF_ASPHERES = {
+}
+
+
+def delano_krf_lens(wavelength=248.3e-6):
+    """13 element all fused silica KrF projection lens, NA 0.7, 4x, 1 m.
+
+    Designed in notebook 42 ("Delano diagrams"): first order layout in the
+    y-ybar diagram (`delano.refine()`: two waists, Petzval sum zero,
+    telecentric on both sides), thick singlets (`delano.thicken()`) and real
+    ray correction (`lens_optimization.LensOptimizer`, aperture and field
+    opened in stages). Magnification -0.25, image side NA 0.7, image field
+    radius 13.6 mm (a 26 x 8 mm slit), object to image 1000 mm, image side
+    working distance about 19 mm. With only 13 spherical elements it is far
+    from diffraction limited (about 0.5 to 1.3 waves RMS over the field; real
+    KrF lenses of NA 0.7 have about 30 elements), and the correction traded
+    the object side telecentricity for image quality (chief ray slope about
+    170 mrad at the edge of the reticle field; image side 11 mrad): an
+    example of a first order layout and its correction, not a production
+    design.
+
+    Parameters
+    ----------
+    wavelength : number, optional
+        Vacuum wavelength in mm (default: KrF, 248.3 nm, the design
+        wavelength). Fused silica after Malitson.
+
+    Returns
+    -------
+    System
+        Lengths in mm, maximum field object_height = 54.4 mm. Only the stop
+        has a semi diameter.
+    """
+
+    stop = 20
+    surfaces = []
+    for i, line in enumerate(_DELANO_KRF.strip().splitlines()):
+        number, R, t, medium, sd = line.split()
+        surfaces.append(Surface(float(R), float(t),
+                                material=fused_silica if medium == "S" else None,
+                                n_after=None if medium == "S" else 1.0,
+                                aspheric=_DELANO_KRF_ASPHERES.get(int(number), ()),
+                                semi_diameter=float(sd) if i == stop else None, label=number))
+
+    return System(surfaces, stop, wavelength, object_distance=29.970870652, object_height=54.4)
