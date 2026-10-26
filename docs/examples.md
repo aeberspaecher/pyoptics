@@ -87,6 +87,7 @@ notebooks/38_coated_laser_mirror
 - {doc}`notebooks/28_hopkins_socs`
 - {doc}`notebooks/29_litho_resist_swing`
 - {doc}`notebooks/30_litho_rigorous_mask`
+- {doc}`notebooks/40_litho_mask_models`
 - {doc}`notebooks/31_litho_jones_pupil`
 - {doc}`notebooks/32_litho_source_optimization`
 - {doc}`notebooks/33_litho_opc`
@@ -101,6 +102,7 @@ notebooks/27_litho_lens_aberrations
 notebooks/28_hopkins_socs
 notebooks/29_litho_resist_swing
 notebooks/30_litho_rigorous_mask
+notebooks/40_litho_mask_models
 notebooks/31_litho_jones_pupil
 notebooks/32_litho_source_optimization
 notebooks/33_litho_opc
