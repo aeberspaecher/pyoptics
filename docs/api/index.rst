@@ -108,3 +108,4 @@ Utilities
    pyoptics.masks
    pyoptics.interpolator
    pyoptics.plot_tools
+   pyoptics.sketch
