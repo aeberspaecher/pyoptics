@@ -187,4 +187,4 @@ The figure at the top of this README is made by
 ## License
 
 pyoptics is released under the [BSD 3-Clause License](LICENSE).
-Copyright 2017–2026 Alexander Eberspächer.
+Copyright 2014–2026 Alexander Eberspächer.

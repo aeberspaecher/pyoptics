@@ -25,7 +25,7 @@ shutil.copytree(ROOT/"notebooks", _nb_target, ignore=shutil.ignore_patterns(".ip
 
 project = "pyoptics"
 author = "Alexander Eberspächer"
-copyright = "2017–2026, Alexander Eberspächer"
+copyright = "2014–2026, Alexander Eberspächer"
 release = _version("pyoptics")
 version = release
 
