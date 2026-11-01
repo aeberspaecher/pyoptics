@@ -51,6 +51,16 @@ def test_paraxial_ray_imaging():
     sketch.dic_microscope,
     sketch.confocal_microscope,
     sketch.fpm_microscope,
+    sketch.twyman_green,
+    sketch.fizeau_interferometer,
+    sketch.shack_hartmann_sensor,
+    sketch.phase_diversity_setup,
+    sketch.holography_setup,
+    lambda ax: sketch.holography_setup(ax, microscope=True),
+    sketch.fold_mirror,
+    sketch.krf_illuminator,
+    sketch.spatial_filter,
+    lambda ax: sketch.spatial_filter(ax, pinhole=False),
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()
@@ -58,3 +68,12 @@ def test_sketches_draw(draw):
     assert len(ax.lines) + len(ax.patches) > 5
     assert ax.get_aspect() == 1.0
     plt.close(fig)
+
+
+def test_fold_unfolds_light_pipe():
+    # a ray in a light pipe of half width h stays inside and is mirrored at the walls
+    h = 0.3
+    y = np.linspace(-3, 3, 601)
+    yf = sketch._fold(y, h)
+    assert np.all(np.abs(yf) <= h + 1e-12)
+    assert np.allclose(sketch._fold(np.array([0.1, 0.5, 0.7]), h), [0.1, 0.1, -0.1])
