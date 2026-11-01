@@ -14,6 +14,7 @@ Propagation
 
    pyoptics.propagators
    pyoptics.tilted
+   pyoptics.analytic_phase
    pyoptics.wpm
    pyoptics.fft
 

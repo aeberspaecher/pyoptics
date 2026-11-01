@@ -31,6 +31,11 @@ here):
   tilted plane to a parallel one
 - vectorial_tilted_plane(): the same for vector fields, in the plane's axes
 
+Fields with strongly curved wavefronts (behind lenses, near foci and point
+sources) are propagated with few samples by pyoptics.analytic_phase, which
+keeps the quadratic phase analytic (semi-analytical and homeomorphic Fourier
+transforms after Wyrowski and coworkers), also onto tilted planes.
+
 Vectorial propagation (fields of shape (Ny, Nx, 2) or (Ny, Nx, 3) with the
 components [E_x, E_y(, E_z)]):
 

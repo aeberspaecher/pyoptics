@@ -12,6 +12,7 @@ to run them yourself, see [Running the notebooks](#running-the-notebooks).
 - {doc}`notebooks/03_tilted_planes`
 - {doc}`notebooks/04_chirp_z_transform`
 - {doc}`notebooks/05_WPM`
+- {doc}`notebooks/46_analytic_phase_propagation`
 
 ```{toctree}
 :hidden:
@@ -22,6 +23,7 @@ notebooks/02_vectorial_diffraction
 notebooks/03_tilted_planes
 notebooks/04_chirp_z_transform
 notebooks/05_WPM
+notebooks/46_analytic_phase_propagation
 ```
 
 ## Beams, modes and paraxial optics

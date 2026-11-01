@@ -29,11 +29,13 @@
 ## More challenging
 
 * Ince-Gaussian beams
-* spectrum of plane wave propagation with analytical handling of linear phase
-  and offset (cmp. Wyrowski)
 
 ## DONE
 
+* Propagation with analytic handling of the quadratic and linear phase and
+  of grid offsets after Wyrowski and coworkers (`analytic_phase`:
+  semi-analytical and homeomorphic Fourier transforms, parallel and tilted
+  planes, notebook 46)
 * Docstrings: NumPy-style Parameters/Returns sections for every public
   function with two or more arguments; report-only `numpydoc lint` in the docs
   workflow (configured in `pyproject.toml`)
