@@ -265,7 +265,13 @@ What each module does and how mature it is. Planned work is listed in
   prisms, mirrors, detectors) with paraxially traced rays, tested: thin lens
   ray tracing in both directions; ready-made sketches of a Köhler
   microscope, Abbe's 4f picture with filtered orders, phase contrast, DIC,
-  confocal and LED array (Fourier ptychography) microscopes
+  confocal and LED array (Fourier ptychography) microscopes; primitives for
+  folded layouts (beam splitters, rotated lenses and detectors, spherical
+  surfaces, lenslet arrays, beams as bands between edge rays) and sketches
+  of a Twyman-Green and a Fizeau interferometer, a Shack-Hartmann and a
+  phase diversity lens test, off-axis holography (lensless and microscope),
+  a coated fold mirror with s and p, the KrF illuminator with its pupil and
+  field planes, and a spatial filter
 - Unfinished stubs: `interpolator.TrigInterpolator` cannot be evaluated yet,
   the functions in `polarization._polarization` are empty
 
