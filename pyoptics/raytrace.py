@@ -1760,7 +1760,7 @@ class System:
     # pupil and field surfaces:
     def pupil_closeness(self, field=None):
         """Paraxial closeness of the surfaces to a pupil, the sub aperture
-        ratio |y_m|/(|y_m| + |y_c|) of the marginal ray height y_m (full
+        ratio ``|y_m|/(|y_m| + |y_c|)`` of the marginal ray height y_m (full
         aperture) and the chief ray height y_c (field, default: the maximum
         field) at each vertex, shape (S,).
 
