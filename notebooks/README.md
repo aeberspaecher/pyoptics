@@ -115,3 +115,8 @@ To re-execute all notebooks and store their outputs:
 jupyter nbconvert --to notebook --execute --inplace notebooks/*.ipynb
 ```
 <!-- docs:running-end -->
+
+## License
+
+The notebooks are part of pyoptics and released under the [BSD 3-Clause License](../LICENSE).
+Copyright 2017–2026 Alexander Eberspächer.
