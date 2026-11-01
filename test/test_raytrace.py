@@ -487,6 +487,79 @@ def test_axial_shift_of_an_element():
     assert moved.image_z == pytest.approx(lens.image_z)
 
 
+def test_radius_change_of_a_surface():
+    # thick singlet: the paraxial matrix follows the thick lens with the new radius
+    R1, R2, d = 60.0, -80.0, 6.0
+    system = singlet(R1, R2, d)
+    for i, dR in ((0, 0.5), (1, -1.0)):
+        changed = system.with_radius_change(i, dR)
+        R = [R1, R2]
+        R[i] += dR
+        assert np.allclose(changed.paraxial().matrix, abcd.thick_lens(R[0], R[1], d, N_GLASS))
+        assert system.surfaces[i].R == [R1, R2][i]  # the original is unchanged
+    # a flatter front surface weakens the lens: the focus moves behind the
+    # fixed image plane, and the real rays see the same defocus as an image
+    # plane moved towards the lens
+    changed = system.with_radius_change(0, 0.5)
+    assert changed.image_z == pytest.approx(system.image_z)
+    assert changed.paraxial().image_distance > changed.surfaces[-1].thickness
+    dZ4 = changed.zernike(0.0, 9, N=33)[3] - system.zernike(0.0, 9, N=33)[3]
+    assert dZ4 != 0.0
+    assert np.sign(dZ4) == np.sign(system.with_image_distance(
+        system.surfaces[-1].thickness - 0.1).zernike(0.0, 9, N=33)[3] - system.zernike(0.0, 9, N=33)[3])
+    # a central difference of the power against the thick lens formula
+    h = 1e-3
+
+    def P(R):
+        return -abcd.thick_lens(R, R2, d, N_GLASS)[1, 0]
+
+    dP = (system.with_radius_change(0, h).power() - system.with_radius_change(0, -h).power())/(2*h)
+    assert dP == pytest.approx((P(R1 + h) - P(R1 - h))/(2*h), rel=1e-6)
+    assert dP == pytest.approx(-(N_GLASS - 1)/R1**2, rel=0.05)
+    # planes and ideal lenses have no radius to change
+    with pytest.raises(ValueError):
+        singlet(R2=np.inf).with_radius_change(1, 1.0)
+    ideal = rt.System([rt.IdealLens(50.0, 50.0, semi_diameter=5.0)], 0, WL)
+    with pytest.raises(ValueError):
+        ideal.with_radius_change(0, 1.0)
+
+
+def test_index_change_of_a_medium():
+    R1, R2, d, dn = 60.0, -80.0, 6.0, 1e-3
+    system = singlet(R1, R2, d)
+    changed = system.with_index_change(0, dn)
+    assert changed.n[1] == pytest.approx(N_GLASS + dn)
+    assert changed.n[2] == pytest.approx(1.0)
+    assert np.allclose(changed.paraxial().matrix, abcd.thick_lens(R1, R2, d, N_GLASS + dn))
+    # real rays: the same as a system built with the changed index
+    rebuilt = rt.System([rt.Surface(R1, d, n_after=N_GLASS + dn, semi_diameter=10.0),
+                         rt.Surface(R2, system.surfaces[-1].thickness, n_after=1.0)], 0, WL)
+    assert changed.rms_opd(0.0, 33) == pytest.approx(rebuilt.rms_opd(0.0, 33), rel=1e-9)
+    assert np.allclose(changed.trace_pupil(0.0).points[-1], rebuilt.trace_pupil(0.0).points[-1])
+    # the change carries through dummy surfaces inside the medium and applies
+    # at every wavelength (dispersion of a glass (n_d, V_d) unchanged)
+    surfaces = [rt.Surface(R1, d/2, material=(N_GLASS, 64.2), semi_diameter=10.0),
+                rt.Surface(np.inf, d/2),
+                rt.Surface(R2, 100.0, n_after=1.0)]
+    glass = rt.System(surfaces, 0, WL)
+    assert np.allclose(glass.with_index_change(0, dn).n - glass.n, [0.0, dn, dn, 0.0])
+    other = glass.with_wavelength(0.45e-3)
+    assert np.allclose(other.with_index_change(0, dn).n - other.n, [0.0, dn, dn, 0.0])
+    # repeated changes add up
+    twice = glass.with_index_change(0, dn).with_index_change(0, dn)
+    assert twice.n[1] == pytest.approx(glass.n[1] + 2*dn)
+    # a surface that does not start a new medium
+    with pytest.raises(ValueError):
+        glass.with_index_change(1, dn)
+    with pytest.raises(ValueError):
+        rt.Surface(R1, d, index_offset=dn)
+    # one element of the Caldwell lens: only its glass changes
+    lens = rt.caldwell_krf_lens()
+    diff = lens.with_index_change(4, 1e-5).n - lens.n
+    assert diff[5] == pytest.approx(1e-5)
+    assert np.allclose(np.delete(diff, 5), 0.0)
+
+
 # double pass and ray maps:
 def test_rays_from_the_centre_of_curvature_hit_the_vertex_branch():
     # all rays start in the centre of curvature (b = 0 in the quadric):

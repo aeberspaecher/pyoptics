@@ -140,6 +140,9 @@
   Caldwell KrF lithography lens as an example (notebook 19)
 * axial (z) shift sensitivity of the Caldwell lens elements
   (`System.with_axial_shift`; focus, Z9, magnification; notebook 19)
+* radius and refractive index sensitivities (`System.with_radius_change`,
+  `System.with_index_change`, `Surface(index_offset=...)`; per surface and
+  per element of the Caldwell lens in notebook 19)
 * water immersion ArF lens (NA 1.35, 8x, 11 aspheres) from Zeiss patent
   US 7,187,503 B2, second embodiment (`raytrace.zeiss_arfi_lens()`); ray
   aiming by continuation for the rim rays of high NA lenses

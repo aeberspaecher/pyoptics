@@ -265,11 +265,16 @@ class Surface:
         Thin film stack for trace_polarization() (layers from the medium in
         front of the surface); None: bare surface.
     label : str, optional
+    index_offset : number, optional
+        Added to the index of the medium behind the surface at every
+        wavelength (index errors of a melt, see System.with_index_change()).
+        Only for surfaces that change the medium. A Material keeps its own
+        index in the polarization propagation of trace_polarization().
     """
 
     def __init__(self, R=np.inf, thickness=0.0, n_after=None, material=None, conic=0.0,
                  aspheric=(), semi_diameter=None, mirror=False, decenter=(0.0, 0.0),
-                 tilt=(0.0, 0.0, 0.0), coating=None, label=None):
+                 tilt=(0.0, 0.0, 0.0), coating=None, label=None, index_offset=0.0):
         if mirror and (n_after is not None or material is not None):
             raise ValueError("A mirror does not change the medium.")
         self.R = R
@@ -284,6 +289,9 @@ class Surface:
         self.tilt = tuple(tilt) + (0.0,)*(3 - len(tilt))
         self.coating = coating
         self.label = label
+        if index_offset and not self.changes_medium:
+            raise ValueError("index_offset needs a surface that changes the medium.")
+        self.index_offset = index_offset
 
     @property
     def displaced(self):
@@ -325,15 +333,16 @@ class Surface:
         n : number
         """
 
+        dn = getattr(self, "index_offset", 0.0)
         if self.material is not None:
             if isinstance(self.material, Material):
-                return self.material.n_geometric(wavelength_nm)
+                return self.material.n_geometric(wavelength_nm) + dn
             if callable(self.material):
-                return float(self.material(wavelength_nm))
+                return float(self.material(wavelength_nm)) + dn
             n_d, V_d = self.material
-            return float(abbe_dispersion(wavelength_nm, n_d, V_d))
+            return float(abbe_dispersion(wavelength_nm, n_d, V_d)) + dn
         if self.n_after is not None:
-            return float(self.n_after)
+            return float(self.n_after) + dn
 
         return n_before
 
@@ -1297,6 +1306,65 @@ class System:
         else:
             other.surfaces[first - 1].thickness += dz
         other.surfaces[last].thickness -= dz
+
+        return other
+
+    def with_radius_change(self, index, dR):
+        """Copy with the vertex radius of one surface changed by dR.
+
+        Conic and aspheric coefficients, thicknesses and apertures stay the
+        same. Together with with_axial_shift() and decentred surfaces this
+        gives the radius sensitivities of tolerancing.
+
+        Parameters
+        ----------
+        index : int
+            Index of the surface.
+        dR : number
+            Change of the (signed) radius, R -> R + dR.
+
+        Returns
+        -------
+        System
+            The modified copy.
+        """
+
+        s = self.surfaces[index]
+        if np.isinf(s.R) or isinstance(s, (IdealLens, Axicon, CoordinateBreak)):
+            raise ValueError("Surface {} has no finite radius to change.".format(index))
+        other = self.copy()
+        other.surfaces[index].R = s.R + dR
+
+        return other
+
+    def with_index_change(self, index, dn):
+        """Copy with the refractive index behind a surface changed by dn.
+
+        The offset applies at every wavelength (dispersion unchanged) to the
+        medium that starts at surface `index`, i.e. to the glass of a lens
+        when `index` is its first surface, up to the next surface that
+        changes the medium. Paraxial data, Seidel terms and real rays all
+        see it.
+
+        Parameters
+        ----------
+        index : int
+            Index of the surface behind which the medium starts. It has to
+            change the medium (n_after or material).
+        dn : number
+            Index change.
+
+        Returns
+        -------
+        System
+            The modified copy.
+        """
+
+        s = self.surfaces[index]
+        if not s.changes_medium or s.mirror or isinstance(s, (IdealLens, CoordinateBreak)):
+            raise ValueError("Surface {} does not start a new medium.".format(index))
+        other = self.copy()
+        other.surfaces[index].index_offset = getattr(s, "index_offset", 0.0) + dn
 
         return other
 
