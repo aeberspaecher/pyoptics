@@ -74,6 +74,7 @@ notebooks/14_coated_laser_mirror
 - {doc}`notebooks/48_laser_head_doe`
 - {doc}`notebooks/49_eye_aberrometer`
 - {doc}`notebooks/51_fresnel_lenses`
+- {doc}`notebooks/56_gaussian_beam_decomposition`
 - {doc}`notebooks/45_zernike_aberration_gallery`
 
 ```{toctree}
@@ -90,6 +91,7 @@ notebooks/47_rays_and_waves
 notebooks/48_laser_head_doe
 notebooks/49_eye_aberrometer
 notebooks/51_fresnel_lenses
+notebooks/56_gaussian_beam_decomposition
 notebooks/45_zernike_aberration_gallery
 ```
 

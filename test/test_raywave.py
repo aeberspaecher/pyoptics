@@ -6,6 +6,7 @@
 import numpy as np
 import pytest
 
+from pyoptics import abcd
 from pyoptics.analytic_phase import QuadraticPhaseField
 from pyoptics.propagators import rayleigh_sommerfeld_I_TF
 from pyoptics.raytrace import System, Surface, IdealLens
@@ -217,3 +218,72 @@ def test_field_to_rays_structured_round_trip():
     err = np.abs(u*np.exp(-1j*phase) - ref)
     assert np.max(err)/np.max(np.abs(ref)) < 0.02
     assert abs(phase) < 0.05
+
+
+def _singlet(back=50.0):
+    """Plano-convex singlet (R = 30, 4 thick, n = 1.5), image plane `back` behind it."""
+    return System([Surface(R=30.0, thickness=4.0, n_after=1.5, semi_diameter=6.0),
+                   Surface(R=np.inf, thickness=back, n_after=1.0)], 0, WL)
+
+
+def test_beamlet_trace_single_beam_follows_abcd():
+    # a single round beamlet (waist w = 0.5 at z = -10) through a thick lens is
+    # the Gaussian beam of the paraxial ABCD law, with its Gouy phase
+    w = 0.5
+    B = GaussianBeamlets([[0.0, 0.0]], [[0.0, 0.0]], [0.0], [1.0], [2j/w**2*np.eye(2)], WL,
+                         z0=-10.0)
+    for back in (30.0, 56.0, 80.0):  # in front of, near and behind the focus
+        out, M, gouy, keep = B.trace(_singlet(back), details=True)
+        Mabcd = abcd.compose(abcd.free_space(10.0), abcd.thick_lens(30.0, np.inf, 4.0, 1.5),
+                             abcd.free_space(back))
+        q = abcd.transform_q(Mabcd, abcd.q_from_waist(w, 0.0, WL), )
+        assert np.allclose(out.Gamma[0], K/np.conj(q)*np.eye(2), rtol=2e-3)
+        psi = -np.angle(Mabcd[0, 0] + Mabcd[0, 1]/abcd.q_from_waist(w, 0.0, WL))
+        assert np.isclose(np.angle(np.exp(-1j*psi)), np.angle(out.amplitude[0]), atol=5e-3)
+        assert np.isclose(abs(out.amplitude[0]),
+                          1/abs(Mabcd[0, 0] + Mabcd[0, 1]/abcd.q_from_waist(w, 0.0, WL)),
+                          rtol=2e-3)
+        # unwrapped: past the focus near -pi, the transfer matrix is symplectic
+        assert -np.pi < gouy[0] < 0 and (gouy[0] < -np.pi/2) == (back > 56.0)
+        J = np.block([[np.zeros((2, 2)), np.eye(2)], [-np.eye(2), np.zeros((2, 2))]])
+        assert np.allclose(M[0].T @ J @ M[0], J, atol=1e-6)
+
+
+def test_beamlet_trace_free_space_equals_propagation():
+    # a dummy surface (no change of medium): tracing is free propagation
+    u0, x, X, Y = _gaussian(N=256, tilt=0.002)
+    B = GaussianBeamlets.from_field(u0, x, x, WL, step=4, z0=-5.0)
+    s = System([Surface(semi_diameter=10.0, thickness=20.0)], 0, WL)
+    out = B.trace(s)
+    c = len(x)//2
+    assert np.allclose(out.field(X[c], Y[c]), B.field(X[c], Y[c], 20.0), atol=1e-6)
+
+
+def test_beamlet_trace_sum_through_focus():
+    # many beamlets through a thick lens agree with the single Gaussian beam
+    # in front of, at and behind the focus (each beamlet with its own Gouy phase)
+    w = 0.5
+    x = np.linspace(-1.5, 1.5, 241)
+    X, Y = np.meshgrid(x, x)
+    B = GaussianBeamlets.from_field(np.exp(-(X**2 + Y**2)/w**2), x, x, WL, step=4, z0=-10.0)
+    ref = GaussianBeamlets([[0.0, 0.0]], [[0.0, 0.0]], [0.0], [1.0], [2j/w**2*np.eye(2)], WL,
+                           z0=-10.0)
+    s = _singlet(80.0)
+    out, R = B.trace(s), ref.trace(s)
+    for z in (40.0, 60.0, 80.0):
+        xs = np.linspace(-0.2, 0.2, 81) if z == 60.0 else np.linspace(-1.0, 1.0, 81)
+        a, b = out.field(xs, 0*xs, z), R.field(xs, 0*xs, z)
+        assert np.max(np.abs(a - b))/np.max(np.abs(b)) < 0.03
+
+
+def test_beamlet_trace_clips():
+    w = 0.5
+    x = np.linspace(-1.5, 1.5, 121)
+    X, Y = np.meshgrid(x, x)
+    B = GaussianBeamlets.from_field(np.exp(-(X**2 + Y**2)/w**2), x, x, WL, step=4, z0=-1.0)
+    s = System([Surface(semi_diameter=0.3, thickness=10.0)], 0, WL)
+    out, M, gouy, keep = B.trace(s, details=True)
+    assert len(out) == keep.sum() < len(B)
+    assert np.all(np.hypot(*B.centres[keep].T) <= 0.3)
+    with pytest.raises(ValueError):
+        B.trace(System([Surface(semi_diameter=1.0)], 0, 2*WL))
