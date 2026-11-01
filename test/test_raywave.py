@@ -201,3 +201,19 @@ def test_wigner_marginals_and_ray_line():
     # the Wigner function of a chirped Gaussian sits on the ray line k = dS/dx
     for j in (100, 128, 150):
         assert abs(k[np.argmax(W[:, j])] - K*(0.005 - x[j]/40.0)) < 1.5*dk
+
+
+def test_field_to_rays_structured_round_trip():
+    # field -> structured rays -> straight propagation -> field, vs. the angular spectrum
+    u0, x, X, Y = _gaussian(N=256, L=2.0, w0=0.3, f=40.0, tilt=0.005)
+    R = field_to_rays(u0, x, x, WL, structured=True, threshold=1e-6)
+    assert R.points.shape == (256, 256, 3) and np.any(np.isnan(R.opl))
+    z = 10.0
+    Pz, Sz = straight_rays(R.points, R.directions, R.opl, z)
+    u = rays_to_field(x, x, Pz, R.directions, Sz, WL, launch=R.points[..., :2],
+                      irradiance=np.abs(u0)**2)
+    ref = rayleigh_sommerfeld_I_TF(u0, x, x, z, WL)[0]
+    phase = np.angle(np.vdot(ref, u))
+    err = np.abs(u*np.exp(-1j*phase) - ref)
+    assert np.max(err)/np.max(np.abs(ref)) < 0.02
+    assert abs(phase) < 0.05
