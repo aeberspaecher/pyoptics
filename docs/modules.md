@@ -150,7 +150,8 @@ What each module does and how mature it is. Planned work is listed in
   fields (also from an `analytic_phase.QuadraticPhaseField`) and propagated
   in closed form through foci and caustics, rays along the local phase
   gradient (traceable with `raytrace.System.trace()`), rays from local
-  spectra (sampled Husimi function) and the Wigner function of a 1D field
+  spectra (sampled Husimi function) and the Wigner function of a 1D field;
+  structured rays from fields for the round trip through ray-traced optics
 - `raytrace`: sequential ray tracing, tested: spherical, conic and even
   aspheric surfaces, lenses and mirrors, ideal (paraxial) lenses, apertures
   and vignetting, indices from constants, `materials.abbe_dispersion` or any

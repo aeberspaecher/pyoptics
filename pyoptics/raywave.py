@@ -721,7 +721,7 @@ def _rays_from(X, Y, kx, ky, power, opl, k, z):
 
 
 def field_to_rays(field, x=None, y=None, wavelength=None, n=1.0, z=0.0, step=1, threshold=1e-3,
-                  phase=None):
+                  phase=None, structured=False):
     """Rays along the local phase gradient (energy flux) of a field.
 
     Every sample (of a sub grid with the given step) with ``|u|**2`` above
@@ -749,6 +749,12 @@ def field_to_rays(field, x=None, y=None, wavelength=None, n=1.0, z=0.0, step=1, 
     phase : array, optional
         Unwrapped phase; default: unwrapped from the field (for the optical
         path; the directions never need unwrapping).
+    structured : bool, optional
+        If True, keep the grid: the arrays have the shape (Ny', Nx', ...)
+        of the (sub sampled) grid, with NaN for the dropped samples, so that
+        the rays (also after System.trace() and a reshape) can be turned
+        into a field again with rays_to_field() (launch: the start points,
+        irradiance: ``|u|**2``).
 
     Returns
     -------
@@ -771,6 +777,14 @@ def field_to_rays(field, x=None, y=None, wavelength=None, n=1.0, z=0.0, step=1, 
     lit[:, :-1] &= bright[:, 1:]
     keep = lit[sl]
     power = I[sl]*dx*dy*step**2
+    if structured:
+        kx, ky = gx[sl], gy[sl]
+        kz2 = k**2 - kx**2 - ky**2
+        keep = keep & (kz2 > 0)
+        D = np.stack([kx, ky, np.sqrt(np.where(keep, kz2, 0.0))], -1)/k
+        P = np.stack([X[sl], Y[sl], np.full(X[sl].shape, float(z))], -1)
+        P[~keep], D[~keep] = np.nan, np.nan
+        return FieldRays(P, D, np.where(keep, ph[sl]*n/k, np.nan), np.where(keep, power, 0.0))
     rays = _rays_from(X[sl][keep], Y[sl][keep], gx[sl][keep], gy[sl][keep], power[keep],
                       ph[sl][keep]*n/k, k, z)
     return rays
