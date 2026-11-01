@@ -285,8 +285,8 @@ class QuadraticPhaseField(object):
         """The same field on other linear coordinates: the amplitude is
         interpolated (cubic splines, zero outside the grid), the phase is
         evaluated analytically. Accurate as long as A is smooth (a
-        RuntimeWarning is issued if its phase changes by more than pi/4
-        between samples, e.g. behind an FFT step that multiplied the
+        RuntimeWarning is issued if its phase changes by more than 0.25 rad
+        between samples (weighted with the amplitude), e.g. behind an FFT step that multiplied the
         quadratic phase into A: pass the output grid to the transform
         instead)."""
         x, y = _grid(x, "x"), _grid(y, "y")
@@ -349,8 +349,12 @@ def _transform_axis(A, x, alpha, beta, sign, axis, mode, out, pad):
     shp = _shape(axis, A.ndim, N)
 
     if not use_sft:
-        # (beta + s*k)*xc is analytic; the rest is a centered sum over xi.
-        g = A*np.exp(1j*alpha*x**2).reshape(shp)
+        # alpha*x**2 + beta*x = alpha*xi**2 + beta_c*x - alpha*xc**2 with
+        # beta_c = beta + 2*alpha*xc; (beta_c + s*k)*xc is analytic, the rest
+        # is a centered sum over xi.
+        gamma0 = -alpha*xc**2
+        beta = beta + 2*alpha*xc
+        g = A*np.exp(1j*alpha*xi**2).reshape(shp)
         if out is None:
             dk = 2*np.pi/(N*dx)
             q = dk*(np.arange(N) - N//2)
@@ -361,8 +365,10 @@ def _transform_axis(A, x, alpha, beta, sign, axis, mode, out, pad):
         else:
             q = np.asarray(out, dtype=float) + sign*beta
             B = _zoom_dft(g, xi, q, sign, axis)
+            # the sum is periodic in q (period 2*pi/dx); only one period is the transform
+            B = B*(np.abs(q) <= np.pi/dx*(1 + 1E-12)).reshape(_shape(axis, A.ndim, len(q)))
         k = q - sign*beta
-        return B*dx, k, (0.0, sign*xc, beta*xc), False
+        return B*dx, k, (0.0, sign*xc, beta*xc + gamma0), False
 
     # SFT: (A * c)(x_kappa) by FFT convolution with the analytic chirp spectrum
     Np = _fft._next_fast_len(int(np.ceil(pad*N))) if pad and pad > 1 else N
@@ -413,8 +419,9 @@ def semi_analytical_FT(field, kx_out=None, ky_out=None, mode="auto", pad=2):
     kx_out, ky_out : arrays, optional
         Output wavenumbers (linear, equidistant). Axes transformed with the
         FFT are evaluated there directly (chirp-z transform), axes
-        transformed with the SFT are interpolated. Default: the natural grid
-        of each transform (N samples).
+        transformed with the SFT are interpolated (zero outside the natural
+        window of each). Default: the natural grid of each transform (N
+        samples).
     mode : str, optional
         "auto" (default: SFT where the chirp ratio rho >= 1, see the module
         docstring), "sft" or "fft".
@@ -447,21 +454,27 @@ def _kz(k, KX, KY):
 
 
 def _check_residual(phase, weight, what, axes=(0, 1)):
-    """Warn if a sampled phase changes by more than pi/4 between neighbours
-    where the amplitude matters."""
-    significant = weight > 1E-4*np.max(weight) if np.max(weight) > 0 else weight > 0
-    steps = []
+    """Warn if a sampled phase changes by more than 0.25 rad between
+    neighbours, with the steps weighted by the relative amplitude
+    sqrt(weight/max) of the weaker neighbour (steps in the faint wings matter
+    less). Steps of 0.25 rad give errors of the order of 1E-2, the errors
+    fall about with the square of the step."""
+    w_max = np.max(weight)
+    if not w_max > 0:
+        return 0.0
+    amp = np.sqrt(np.asarray(weight, dtype=float)/w_max)
+    step = 0.0
     for axis in axes:
         if phase.shape[axis] > 1:
             d = np.abs(np.diff(phase, axis=axis))
-            m = (np.take(significant, np.arange(phase.shape[axis] - 1), axis=axis)
-                 & np.take(significant, np.arange(1, phase.shape[axis]), axis=axis))
-            steps.append(np.max(d[m]) if np.any(m) else 0.0)
-    step = max(steps) if steps else 0.0
-    if step > np.pi/4:
+            a = np.minimum(np.take(amp, np.arange(phase.shape[axis] - 1), axis=axis),
+                           np.take(amp, np.arange(1, phase.shape[axis]), axis=axis))
+            step = max(step, float(np.max(d*a)))
+    if step > 0.25:
         warnings.warn("{}: the sampled remainder of the phase changes by up to {:.2f} rad "
-                      "between samples; refine the grid (more samples or a smaller window)"
-                      .format(what, step), RuntimeWarning, stacklevel=3)
+                      "between samples (weighted with the amplitude); refine the grid (more "
+                      "samples or a smaller window)".format(what, step),
+                      RuntimeWarning, stacklevel=3)
     return step
 
 
@@ -488,7 +501,7 @@ def propagate(field, z, paraxial=False, x_out=None, y_out=None, mode="auto", pad
         remainder of exp(i*k_z*z) multiplies the sampled spectrum: exact
         angular spectrum (Rayleigh-Sommerfeld) propagation, as long as the
         remainder is sampled (a RuntimeWarning is issued if it changes by more
-        than pi/4 between samples).
+        than 0.25 rad between samples, weighted with the amplitude).
         Evanescent waves decay.
     x_out, y_out : arrays, optional
         Output coordinates (linear, equidistant), see

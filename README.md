@@ -28,7 +28,7 @@ throughout.
 
 | Area | What you get | Modules |
 |---|---|---|
-| **Wave propagation** | Rayleigh-Sommerfeld, Fresnel and Fraunhofer propagators, band-limited and padded propagation, free output windows (shifted angular spectrum, chirp-z), vectorial fields and high NA focusing, propagation onto tilted planes, wave propagation method (WPM) for inhomogeneous media | `propagators`, `tilted`, `fft`, `wpm` |
+| **Wave propagation** | Rayleigh-Sommerfeld, Fresnel and Fraunhofer propagators, band-limited and padded propagation, free output windows (shifted angular spectrum, chirp-z), vectorial fields and high NA focusing, propagation onto tilted planes, analytic handling of curved wavefronts (semi-analytical and homeomorphic Fourier transforms after Wyrowski, few samples at any distance and on tilted planes), wave propagation method (WPM) for inhomogeneous media | `propagators`, `tilted`, `analytic_phase`, `fft`, `wpm` |
 | **Beams and modes** | Hermite- and Laguerre-Gaussian beams, ABCD matrices and resonators, Collins integral, M² and beam widths after ISO 11146, mode decomposition, LP fibre modes and coupling efficiency | `beams`, `abcd`, `beam_quality`, `modes` |
 | **Thin films and polarization** | Fresnel coefficients, coherent multilayer stacks, Jones and Mueller calculus, Stokes parameters, dispersion and crystal materials | `interfaces`, `thin_films`, `polarization`, `materials` |
 | **Imaging** | PSF, OTF/MTF and Strehl ratio with pupil masks and aberrations, Zernike, Legendre and Chebyshev bases, partially coherent vectorial imaging | `imaging`, `bases`, `vectorial_imaging`, `analytical` |
@@ -127,7 +127,7 @@ print(f"NILS {sim.nils():.2f}, dose to size {sim.dose_to_size(threshold=0.3):.2f
 
 ## Example notebooks
 
-The [`notebooks/`](notebooks/README.md) folder holds 45 executed Jupyter
+The [`notebooks/`](notebooks/README.md) folder holds 46 executed Jupyter
 notebooks, one per topic, from free space propagation and Gaussian beams over
 thin films, imaging, ray tracing and interferometry to a complete lithography
 workflow with lens design, source optimization and OPC. They are stored with

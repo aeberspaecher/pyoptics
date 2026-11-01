@@ -18,6 +18,15 @@ What each module does and how mature it is. Planned work is listed in
   Jacobian; carrier removal, power flux and ISO 11146 beam widths on
   inclined planes (detectors); `tilted_plane()` and
   `vectorial_tilted_plane()` are also available from `propagators`
+- `analytic_phase`: propagation with analytic handling of the wavefront
+  phase after Wyrowski and coworkers, tested: fields stored as a smooth
+  sampled amplitude times a separable quadratic phase with carrier
+  (`QuadraticPhaseField`); exact semi-analytical Fourier transforms (SFT)
+  with automatic switch to the FFT; angular spectrum and Fresnel propagation
+  with the same small number of samples at any distance, through the focus;
+  propagation onto tilted planes (spectrum rotation with only the smooth
+  amplitude interpolated); pointwise homeomorphic Fourier transform and
+  geometric propagation with amplitude transport and Gouy phase
 - `fft`, `utils`, `masks`, `geometry`, `analytical`: mature and tested
   (`fft.czt()`: Bluestein's chirp-z transform; `fft.zoom_FT()` and
   `zoom_inv_FT()` evaluate `FT()` and `inv_FT()` on any equidistant grid)

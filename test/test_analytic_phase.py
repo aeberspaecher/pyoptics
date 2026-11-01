@@ -54,7 +54,7 @@ def test_sft_of_curved_gaussian_is_exact():
 
 
 def test_fft_and_sft_agree_on_a_fine_grid():
-    F, x, y = _gaussian_lens(512, 600.0, 60.0, 4000.0)
+    F, x, y = _gaussian_lens(512, 600.0, 60.0, 4000.0, y_shift=50.0)   # off-centre grid in y
     U = F.field()
     S_sft = semi_analytical_FT(F, mode="sft")
     S_fft = semi_analytical_FT(F, mode="fft", kx_out=S_sft.x, ky_out=S_sft.y)
