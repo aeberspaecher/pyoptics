@@ -43,6 +43,32 @@ Likewise, a single in-focus PSF cannot distinguish a pupil phase phi(P) from
 -phi(-P), so the sign of the even Zernikes (defocus, astigmatism, spherical
 aberration, ...) is undetermined. A known defocus applied to some of the
 measurements (phase diversity) removes this ambiguity.
+
+References
+----------
+R. W. Gerchberg and W. O. Saxton, "A practical algorithm for the determination
+of phase from image and diffraction plane pictures", Optik 35, 237-246 (1972).
+
+J. R. Fienup, "Reconstruction of an object from the modulus of its Fourier
+transform", Opt. Lett. 3, 27-29 (1978).
+
+J. R. Fienup, "Phase retrieval algorithms: a comparison", Appl. Opt. 21,
+2758-2769 (1982).
+
+S. Marchesini, H. He, H. N. Chapman, S. P. Hau-Riege, A. Noy, M. R. Howells, U.
+Weierstall and J. C. H. Spence, "X-ray image reconstruction from a diffraction
+pattern alone", Phys. Rev. B 68, 140101 (2003).
+
+G. J. Williams, H. M. Quiney, B. B. Dhal, C. Q. Tran, K. A. Nugent, A. G.
+Peele, D. Paterson and M. D. de Jonge, "Fresnel coherent diffractive imaging",
+Phys. Rev. Lett. 97, 025506 (2006).
+
+D. L. Misell, "An examination of an iterative method for the solution of the
+phase problem in optics and electron optics: I. Test calculations", J. Phys. D
+6, 2200-2216 (1973).
+
+R. A. Gonsalves, "Phase retrieval and diversity in adaptive optics", Opt. Eng.
+21, 829-832 (1982).
 """
 
 from dataclasses import dataclass, field as dc_field

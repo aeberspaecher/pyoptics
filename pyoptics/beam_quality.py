@@ -32,6 +32,21 @@ M² = pi/(4*wavelength)*d_0*Theta. ISO asks for at least 10 positions, about
 half of them within one Rayleigh length of the waist and about half beyond
 two Rayleigh lengths. The fit is done separately for each principal axis
 (for simple astigmatic beams).
+
+References
+----------
+ISO 11146-1:2021, "Lasers and laser-related equipment - Test methods for laser
+beam widths, divergence angles and beam propagation ratios - Part 1: Stigmatic
+and simple astigmatic beams", International Organization for Standardization
+(2021).
+
+ISO 11146-3:2004, "Lasers and laser-related equipment - Test methods for laser
+beam widths, divergence angles and beam propagation ratios - Part 3: Intrinsic
+and geometrical laser beam classification, propagation and details of test
+methods", International Organization for Standardization (2004).
+
+A. E. Siegman, "New developments in laser resonators", Proc. SPIE 1224, 2-14
+(1990).
 """
 
 import warnings

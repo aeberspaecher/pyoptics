@@ -74,6 +74,19 @@ Contents
 - imaging: `cardinal_points()`, `image()`
 - wave optics: `collins()`, the Collins integral (Fresnel diffraction
   through any ABCD system)
+
+References
+----------
+H. Kogelnik and T. Li, "Laser beams and resonators", Appl. Opt. 5, 1550-1567
+(1966).
+
+A. E. Siegman, "Lasers", University Science Books (1986).
+
+S. A. Collins, "Lens-system diffraction integral written in terms of matrix
+optics", J. Opt. Soc. Am. 60, 1168-1177 (1970).
+
+B. E. A. Saleh and M. C. Teich, "Fundamentals of Photonics", 2nd ed., Wiley
+(2007).
 """
 
 from collections import namedtuple

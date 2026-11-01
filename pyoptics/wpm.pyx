@@ -39,6 +39,15 @@ the window does not re-enter on the other side.
 
 Limitations: the WPM is a scalar method and neglects reflections; at index
 steps, the transmitted amplitude is not corrected by Fresnel coefficients.
+
+References
+----------
+K.-H. Brenner and W. Singer, "Light propagation through microlenses: a new
+simulation method", Appl. Opt. 32, 4984-4988 (1993).
+
+S. Schmidt, T. Tiess, S. Schröter, R. Hambach, M. Jäger, H. Bartelt, A.
+Tünnermann and H. Gross, "Wave-optical modeling beyond the
+thin-element-approximation", Opt. Express 24, 30188 (2016).
 """
 
 

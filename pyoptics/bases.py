@@ -7,6 +7,21 @@ In optics, different basis sets are used to describe fields in the plane, e.g.
 Zernike polynomials in the description of aberrations in systems with circular
 aperture stops. This module offers an object oriented approach to such basis
 sets.
+
+References
+----------
+F. Zernike, "Beugungstheorie des Schneidenverfahrens und seiner verbesserten
+Form, der Phasenkontrastmethode", Physica 1, 689-704 (1934).
+
+R. J. Noll, "Zernike polynomials and atmospheric turbulence", J. Opt. Soc. Am.
+66, 207-211 (1976).
+
+J. C. Wyant and K. Creath, "Basic wavefront aberration theory for optical
+metrology", in R. R. Shannon and J. C. Wyant (eds.), Applied Optics and Optical
+Engineering, Vol. XI, Academic Press (1992).
+
+V. N. Mahajan and G.-m. Dai, "Orthonormal polynomials in wavefront analysis:
+analytical solution", J. Opt. Soc. Am. A 24, 2994-3016 (2007).
 """
 
 from abc import ABCMeta, abstractmethod

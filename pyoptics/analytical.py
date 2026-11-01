@@ -2,6 +2,16 @@
 #-*- coding:utf-8 -*-
 
 """Analytical solutions for testing.
+
+References
+----------
+M. Born and E. Wolf, "Principles of Optics", 7th ed., Cambridge University
+Press (1999).
+
+J. W. Goodman, "Introduction to Fourier Optics", 4th ed., W. H. Freeman (2017).
+
+V. N. Mahajan, "Optical Imaging and Aberrations, Part II: Wave Diffraction
+Optics", 2nd ed., SPIE Press (2011).
 """
 
 import numpy as np

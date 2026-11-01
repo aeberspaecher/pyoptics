@@ -17,6 +17,13 @@ image stack (3d array, the last index numbering the images). Images may be
 complex valued fields E or (real) intensities. The intensity of a field is
 taken as ``|E|**2`` throughout this module, without the prefactor n/(2 Z_0) of
 utils.I().
+
+References
+----------
+EMVA Standard 1288, "Standard for Characterization of Image Sensors and
+Cameras", Release 4.0, European Machine Vision Association (2021).
+
+J. R. Janesick, "Photon Transfer", SPIE Press (2007).
 """
 
 from abc import abstractmethod

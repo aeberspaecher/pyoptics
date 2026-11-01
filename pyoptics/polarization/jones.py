@@ -16,6 +16,18 @@ With exp(-i*omega*t), J_RHCP = [1, i]/sqrt(2) describes the real field
 i.e. counterclockwise as seen by an observer looking towards the source
 (positive helicity). This is right-handed in the IEEE convention (and
 left-handed in the traditional optics naming, e.g. Born & Wolf, Hecht).
+
+References
+----------
+R. C. Jones, "A new calculus for the treatment of optical systems. I.
+Description and discussion of the calculus", J. Opt. Soc. Am. 31, 488-493
+(1941).
+
+R. M. A. Azzam and N. M. Bashara, "Ellipsometry and Polarized Light",
+North-Holland (1977).
+
+R. A. Chipman, W.-S. T. Lam and G. Young, "Polarized Light and Optical
+Systems", CRC Press (2018).
 """
 
 import numpy as np

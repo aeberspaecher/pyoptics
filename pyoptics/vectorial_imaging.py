@@ -48,6 +48,21 @@ TM (p).
 Convention: fields vary as exp(i(k.r - omega*t)), a defocus z > 0 (image
 plane behind the focal plane) multiplies each plane wave by
 exp(+i*k_z*z).
+
+References
+----------
+B. Richards and E. Wolf, "Electromagnetic diffraction in optical systems II.
+Structure of the image field in an aplanatic system", Proc. R. Soc. Lond. A
+253, 358-379 (1959).
+
+D. G. Flagello, T. Milster and A. E. Rosenbluth, "Theory of high-NA imaging in
+homogeneous thin films", J. Opt. Soc. Am. A 13, 53-64 (1996).
+
+C. Mack, "Fundamental Principles of Optical Lithography: The Science of
+Microfabrication", Wiley (2007).
+
+A. Erdmann, "Optical and EUV Lithography: A Modeling Perspective", SPIE Press
+(2021).
 """
 
 import numpy as np

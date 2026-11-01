@@ -8,6 +8,20 @@ layers therefore have the complex refractive index n + i*k with k > 0, and a
 layer of thickness t adds the phase +k_0*(n + i*k)*cos(theta)*t. McLeod's
 characteristic matrices (exp(+i*omega*t), n - i*k) enter as their complex
 conjugates.
+
+References
+----------
+A. Zangwill, "Modern Electrodynamics", Cambridge University Press (2013).
+
+G. Brooker, "Modern Classical Optics", Oxford University Press (2003).
+
+H. A. Macleod, "Thin-Film Optical Filters", 3rd ed., Institute of Physics
+Publishing (2001).
+
+P. Yeh, "Optical Waves in Layered Media", Wiley (1988).
+
+M. Born and E. Wolf, "Principles of Optics", 7th ed., Cambridge University
+Press (1999).
 """
 
 # Literature:

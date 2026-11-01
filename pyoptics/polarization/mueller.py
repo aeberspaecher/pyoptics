@@ -9,6 +9,16 @@ S_3 = 2 Im(conj(E_x)*E_y) is positive for E = [1, i]/sqrt(2), i.e. for a
 field that rotates from x to y in time at a fixed position (positive
 helicity), see jones.py. All Müller matrices agree with M_from_jones() applied
 to the corresponding Jones matrix.
+
+References
+----------
+D. H. Goldstein, "Polarized Light", 3rd ed., CRC Press (2011).
+
+S.-Y. Lu and R. A. Chipman, "Interpretation of Mueller matrices based on polar
+decomposition", J. Opt. Soc. Am. A 13, 1106-1113 (1996).
+
+R. A. Chipman, W.-S. T. Lam and G. Young, "Polarized Light and Optical
+Systems", CRC Press (2018).
 """
 
 from functools import reduce

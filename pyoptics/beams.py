@@ -12,6 +12,16 @@ Convention: fields vary as exp(i(k.r - omega*t)); the time dependence
 exp(-i*omega*t) is implicit. A beam travelling in +z thus carries the phase
 exp(+i*k*z), a diverging wavefront (z > 0 behind a waist) has the phase
 +k*r**2/(2*R(z)) with R(z) > 0, and the Gouy phase enters as exp(-i*psi(z)).
+
+References
+----------
+A. E. Siegman, "Lasers", University Science Books (1986).
+
+H. Kogelnik and T. Li, "Laser beams and resonators", Appl. Opt. 5, 1550-1567
+(1966).
+
+B. E. A. Saleh and M. C. Teich, "Fundamentals of Photonics", 2nd ed., Wiley
+(2007).
 """
 
 from itertools import product

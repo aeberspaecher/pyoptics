@@ -70,6 +70,17 @@ Units: the system (e.g. caldwell_krf_lens()) is in mm, the lithography
 simulation in its own length unit; length_unit is that unit in mm (1e-6
 for nm, the default). Field points are image (wafer) coordinates in the
 units of the system.
+
+References
+----------
+C. Mack, "Fundamental Principles of Optical Lithography: The Science of
+Microfabrication", Wiley (2007).
+
+A. Erdmann, "Optical and EUV Lithography: A Modeling Perspective", SPIE Press
+(2021).
+
+H.-J. Rostalski, A. Dodoc, A. Epple and H. Beierl, "Refractive projection
+objective for immersion lithography", US 7,187,503 B2 (2007).
 """
 
 from collections import namedtuple

@@ -32,6 +32,15 @@ source (annular, dipole, quasar, ...) with the same metric.
 
 This is source optimization only; the mask stays fixed apart from the
 implicit bias per clip (no SMO, no OPC).
+
+References
+----------
+A. E. Rosenbluth, S. Bukofsky, C. Fonseca, M. Hibbs, K. Lai, A. F. Molless, R.
+N. Singh and A. K. K. Wong, "Optimum mask and source patterns to print a given
+shape", J. Microlith. Microfab. Microsyst. 1, 13-30 (2002).
+
+Y. Granik, "Source optimization for image fidelity and throughput", J.
+Microlith. Microfab. Microsyst. 3, 509 (2004).
 """
 
 from collections import namedtuple

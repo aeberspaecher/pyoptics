@@ -79,6 +79,12 @@ Functions:
 - rotation_from_angles(): R for tilts about x and y
 
 Convention: fields vary as exp(i(k.r - omega*t)), see pyoptics.propagators.
+
+References
+----------
+K. Matsushima, H. Schimmel and F. Wyrowski, "Fast calculation method for
+optical diffraction on tilted planes by use of the angular spectrum of plane
+waves", J. Opt. Soc. Am. A 20, 1755-1762 (2003).
 """
 
 import numpy as np

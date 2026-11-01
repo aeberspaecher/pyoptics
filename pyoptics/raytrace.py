@@ -129,6 +129,31 @@ Limitations: monochromatic traces (build systems at several wavelengths for
 colour), uniform pupil amplitude in the PSF, surfaces of revolution only (no
 toroids or freeforms), paraxial data only for the nominal centred system,
 no ray splitting in birefringent media (see `materials`).
+
+References
+----------
+W. T. Welford, "Aberrations of Optical Systems", Adam Hilger (1986).
+
+R. Kingslake and R. B. Johnson, "Lens Design Fundamentals", 2nd ed., Academic
+Press (2010).
+
+G. H. Spencer and M. V. R. K. Murty, "General ray-tracing procedure", J. Opt.
+Soc. Am. 52, 672-678 (1962).
+
+J. B. Caldwell, "All-fused-silica 248-nm lithographic projection lens", Optics
+& Photonics News 9(11), 40-41 (1998).
+
+H.-J. Rostalski, A. Dodoc, A. Epple and H. Beierl, "Refractive projection
+objective for immersion lithography", US 7,187,503 B2 (2007).
+
+G. Fürter, J. Wangler, U. Dinger and G. Ittner, "REMA objective for
+microlithographic projection exposure systems", US 5,982,558 (1999).
+
+J. Wangler and J. Liegel, "Illuminating arrangement including a zoom objective
+incorporating two axicons", US 5,675,401 (1997).
+
+I. H. Malitson, "Interspecimen comparison of the refractive index of fused
+silica", J. Opt. Soc. Am. 55, 1205-1209 (1965).
 """
 
 import copy

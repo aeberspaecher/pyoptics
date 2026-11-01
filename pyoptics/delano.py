@@ -71,6 +71,17 @@ turns towards the origin), a negative lens a concave one.
 Reference: E. Delano, "First-order design and the y, ybar diagram", Appl.
 Opt. 2, 1251-1256 (1963); R. V. Shack, "Analytic system design with pencil
 and ruler", Proc. SPIE 39, 127 (1973).
+
+References
+----------
+E. Delano, "First-order design and the y, ybar diagram", Appl. Opt. 2,
+1251-1256 (1963).
+
+R. V. Shack, "Analytic system design with pencil and ruler", Proc. SPIE 39, 127
+(1973).
+
+F. J. López-López, "The application of the Delano y-ybar diagram to optical
+design", Ph.D. dissertation, University of Arizona (1973).
 """
 
 from collections import namedtuple

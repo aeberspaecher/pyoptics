@@ -50,6 +50,17 @@ Limitations: no crosstalk between lenslets (each spot is computed in the
 window of its own lenslet only; light leaving the window is lost, which
 sets the dynamic range), scalar Fraunhofer diffraction with ideal thin
 lenslets, square lenslets without dead zones.
+
+References
+----------
+B. C. Platt and R. Shack, "History and principles of Shack-Hartmann wavefront
+sensing", J. Refract. Surg. 17, S573-S577 (2001).
+
+W. H. Southwell, "Wave-front estimation from wave-front slope measurements", J.
+Opt. Soc. Am. 70, 998-1006 (1980).
+
+R. J. Noll, "Zernike polynomials and atmospheric turbulence", J. Opt. Soc. Am.
+66, 207-211 (1976).
 """
 
 from collections import namedtuple

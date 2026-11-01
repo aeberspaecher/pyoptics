@@ -39,6 +39,14 @@ numpy.fft), run with the number of threads in the module variable workers
 faster than numpy.fft for grids of 512**2 and more. Set
 pyoptics.fft.workers = 1 for single threaded transforms, e.g. when running
 several simulations in parallel processes.
+
+References
+----------
+L. R. Rabiner, R. W. Schafer and C. M. Rader, "The chirp z-transform
+algorithm", IEEE Trans. Audio Electroacoust. 17, 86-92 (1969).
+
+L. I. Bluestein, "A linear filtering approach to the computation of discrete
+Fourier transform", IEEE Trans. Audio Electroacoust. 18, 451-455 (1970).
 """
 
 import numpy as np

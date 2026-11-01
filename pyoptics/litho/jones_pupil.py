@@ -90,6 +90,22 @@ transmission of 1, so that the scalar transmission and phase stay with the
 Projector (apodization, Zernikes).
 
 Convention: fields vary as exp(i(k.r - omega*t)).
+
+References
+----------
+G. R. McIntyre, J. Kye, H. Levinson and A. R. Neureuther, "Polarization
+aberrations in hyper-numerical-aperture projection printing: a comparison of
+various representations", J. Micro/Nanolith. MEMS MOEMS 5, 033001 (2006).
+
+M. Totzeck, P. Gräupner, T. Heil et al., "Polarization influence on imaging",
+J. Microlith. Microfab. Microsyst. 4, 031108 (2005).
+
+J. Ruoff and M. Totzeck, "Orientation Zernike polynomials: a useful way to
+describe the polarization effects of optical imaging systems", J.
+Micro/Nanolith. MEMS MOEMS 8, 031404 (2009).
+
+S.-Y. Lu and R. A. Chipman, "Interpretation of Mueller matrices based on polar
+decomposition", J. Opt. Soc. Am. A 13, 1106-1113 (1996).
 """
 
 import numpy as np

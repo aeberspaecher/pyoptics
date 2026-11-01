@@ -9,6 +9,16 @@ with kappa > 0. Accordingly, the refracted angle is chosen such that
 Im(n_out*cos(phi_out)) >= 0: transmitted waves (evanescent ones under total
 internal reflection, or waves in absorbing media) decay away from the
 interface.
+
+References
+----------
+M. Born and E. Wolf, "Principles of Optics", 7th ed., Cambridge University
+Press (1999).
+
+A. Zangwill, "Modern Electrodynamics", Cambridge University Press (2013).
+
+R. M. A. Azzam and N. M. Bashara, "Ellipsometry and Polarized Light",
+North-Holland (1977).
 """
 
 from math import pi

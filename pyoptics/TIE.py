@@ -14,6 +14,20 @@ exp(-i k r**2/(2f))) has dI/dz > 0 on axis.
 The module contains no propagator of its own: to compute defocused images, use
 pyoptics.propagators, e.g. rayleigh_sommerfeld_I_TF(), which follows the same
 convention.
+
+References
+----------
+M. R. Teague, "Deterministic phase retrieval: a Green's function solution", J.
+Opt. Soc. Am. 73, 1434-1441 (1983).
+
+N. Streibl, "Phase imaging by the transport equation of intensity", Opt.
+Commun. 49, 6-10 (1984).
+
+D. Paganin and K. A. Nugent, "Noninterferometric phase imaging with partially
+coherent light", Phys. Rev. Lett. 80, 2586-2589 (1998).
+
+C. Zuo et al., "Transport of intensity equation: a tutorial", Opt. Lasers Eng.
+135, 106187 (2020).
 """
 
 import numpy as np

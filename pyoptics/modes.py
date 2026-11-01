@@ -83,6 +83,18 @@ mode.
 All functions use the pyoptics convention exp(i(k.r - omega*t)), and the
 wavelength is the wavelength in the medium in which the beams are given (the
 beams module uses k = 2*pi/wavelength).
+
+References
+----------
+A. E. Siegman, "Lasers", University Science Books (1986).
+
+D. Marcuse, "Loss analysis of single-mode fiber splices", Bell Syst. Tech. J.
+56, 703-718 (1977).
+
+D. Gloge, "Weakly guiding fibers", Appl. Opt. 10, 2252-2258 (1971).
+
+A. W. Snyder and J. D. Love, "Optical Waveguide Theory", Chapman and Hall
+(1983).
 """
 
 from collections import namedtuple

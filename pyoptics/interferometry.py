@@ -87,6 +87,32 @@ displacement. Fitting this model to the measured phase gives the null
 positions from slightly defocused interferograms. In cat's eye, lateral
 displacements cancel to first order (the beam returns on the opposite side
 of the pupil).
+
+References
+----------
+J. H. Bruning, D. R. Herriott, J. E. Gallagher, D. P. Rosenfeld, A. D. White
+and D. J. Brangaccio, "Digital wavefront measuring interferometer for testing
+optical surfaces and lenses", Appl. Opt. 13, 2693-2703 (1974).
+
+J. E. Greivenkamp, "Generalized data reduction for heterodyne interferometry",
+Opt. Eng. 23, 350-352 (1984).
+
+P. Carré, "Installation et utilisation du comparateur photoélectrique et
+interférentiel du Bureau International des Poids et Mesures", Metrologia 2,
+13-23 (1966).
+
+P. Hariharan, B. F. Oreb and T. Eiju, "Digital phase-shifting interferometry: a
+simple error-compensating phase calculation algorithm", Appl. Opt. 26,
+2504-2506 (1987).
+
+M. Takeda, H. Ina and S. Kobayashi, "Fourier-transform method of fringe-pattern
+analysis for computer-based topography and interferometry", J. Opt. Soc. Am.
+72, 156-160 (1982).
+
+K. Creath, "Phase-measurement interferometry techniques", Prog. Opt. 26,
+349-393 (1988).
+
+D. Malacara (ed.), "Optical Shop Testing", 3rd ed., Wiley (2007).
 """
 
 import warnings

@@ -45,6 +45,39 @@ propagation by z > 0 multiplies each plane wave by exp(+i*k_z*z), so the
 camera plane is reached from the object with +d and the object from the
 camera with -d. Wavelengths are vacuum wavelengths; n is the refractive index
 of the medium between object and camera.
+
+References
+----------
+D. Gabor, "A new microscopic principle", Nature 161, 777-778 (1948).
+
+E. N. Leith and J. Upatnieks, "Reconstructed wavefronts and communication
+theory", J. Opt. Soc. Am. 52, 1123-1130 (1962).
+
+U. Schnars and W. Jüptner, "Direct recording of holograms by a CCD target and
+numerical reconstruction", Appl. Opt. 33, 179-181 (1994).
+
+E. Cuche, P. Marquet and C. Depeursinge, "Simultaneous amplitude-contrast and
+quantitative phase-contrast microscopy by numerical reconstruction of Fresnel
+off-axis holograms", Appl. Opt. 38, 6994-7001 (1999).
+
+E. Cuche, P. Marquet and C. Depeursinge, "Spatial filtering for zero-order and
+twin-image elimination in digital off-axis holography", Appl. Opt. 39,
+4070-4075 (2000).
+
+I. Yamaguchi and T. Zhang, "Phase-shifting digital holography", Opt. Lett. 22,
+1268-1270 (1997).
+
+T. Latychevskaia and H.-W. Fink, "Solution to the twin image problem in
+holography", Phys. Rev. Lett. 98, 233901 (2007).
+
+P. Memmolo, C. Distante, M. Paturzo, A. Finizio, P. Ferraro and B. Javidi,
+"Automatic focusing in digital holography and its application to stretched
+holograms", Opt. Lett. 36, 1945-1947 (2011).
+
+U. Schnars and W. Jüptner, "Digital Holography", Springer (2005).
+
+M. K. Kim, "Digital Holographic Microscopy: Principles, Techniques, and
+Applications", Springer (2011).
 """
 
 import warnings

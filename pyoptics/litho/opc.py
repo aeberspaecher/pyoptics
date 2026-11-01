@@ -37,6 +37,24 @@ SOCS kernels) of the target layout, and interpolated along the normals.
 
 Only Manhattan polygons are supported, no curvilinear masks, and the
 threshold model stands in for the resist.
+
+References
+----------
+N. B. Cobb, "Fast optical and process proximity correction algorithms for
+integrated circuit manufacturing", Ph.D. dissertation, University of
+California, Berkeley (1998).
+
+A. K.-K. Wong, "Resolution Enhancement Techniques in Optical Lithography", SPIE
+Press (2001).
+
+R. Socha et al., "Forbidden pitches for 130 nm lithography and below", Proc.
+SPIE 4000, 1140 (2000).
+
+A. K. Wong, R. A. Ferguson and S. M. Mansfield, "The mask error factor in
+optical lithography", IEEE Trans. Semicond. Manuf. 13, 235-242 (2000).
+
+A. Poonawala and P. Milanfar, "Mask design for optical microlithography - an
+inverse imaging problem", IEEE Trans. Image Process. 16, 774-788 (2007).
 """
 
 from collections import namedtuple
