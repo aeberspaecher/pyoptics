@@ -5,7 +5,8 @@
 
 A `System` is a sequence of `Surface` objects (spheres, conics and even
 aspheres, refracting or reflecting), optional `IdealLens` surfaces, cones
-(`Axicon`) and `CoordinateBreak` elements. Surfaces can be decentred and
+(`Axicon`), surfaces with a Fringe Zernike departure (`ZernikeSurface`: figure
+errors, mount deformations, freeforms) and `CoordinateBreak` elements. Surfaces can be decentred and
 tilted. Rays are traced exactly (exact intersections, vector law of refraction and
 reflection); paraxial marginal and chief rays, the pupils, the powers of
 the system, its surfaces and elements, the Seidel sums of every surface, the
@@ -130,8 +131,8 @@ Units: all lengths (radii, thicknesses, wavelength) share one unit, set by
 wavelength to nm for the dispersion of materials.
 
 Limitations: monochromatic traces (build systems at several wavelengths for
-colour), uniform pupil amplitude in the PSF, surfaces of revolution only (no
-toroids or freeforms), paraxial data only for the nominal centred system,
+colour), uniform pupil amplitude in the PSF, surfaces of revolution (no
+toroids) apart from the Zernike departures of `ZernikeSurface`, paraxial data only for the nominal centred system,
 no ray splitting in birefringent media (see `materials`).
 
 References
@@ -670,6 +671,101 @@ class Axicon(Surface):
             t = t_plane
 
         return t
+
+
+class ZernikeSurface(Surface):
+    """Surface with a Fringe Zernike departure from its base sag (freeform).
+
+    The sag is ::
+
+        z(x, y) = z_base(r**2) + sum_j c_j Z_j(x/r_norm, y/r_norm)
+
+    with the sag z_base of `Surface` (sphere, conic, aspheric terms) and the
+    Fringe Zernikes Z_j of `bases.fringe_zernike()` (peak value 1 on the
+    unit circle) in the local frame of the surface. Like Zemax's "Zernike
+    Fringe Sag" surface, it models figure errors and mount deformations of
+    a surface (a mirror on a three point mount, a clamped window) and
+    freeforms. The departure only enters the real ray trace; the paraxial
+    data, Seidel sums and draw() use the base surface. The compiled kernel
+    does not cover it, systems with Zernike surfaces are traced with NumPy.
+
+    Parameters
+    ----------
+    R, thickness, ... : optional
+        As for `Surface` (all keyword arguments are passed on).
+    zernike : dict, optional
+        {j: c_j}, Fringe index and coefficient in length units.
+    norm_radius : number, optional
+        Normalization radius r_norm of the Zernikes.
+    """
+
+    def __init__(self, R=np.inf, thickness=0.0, zernike=None, norm_radius=1.0, **kwargs):
+        super().__init__(R, thickness, **kwargs)
+        # a sorted tuple of pairs keeps the state hashable (System._state_key)
+        self.zernike = tuple(sorted((int(j), float(c)) for j, c in (zernike or {}).items()))
+        self.norm_radius = float(norm_radius)
+
+    def __repr__(self):
+        return "ZernikeSurface(R={}, thickness={}, zernike={}, norm_radius={})".format(
+            self.R, self.thickness, dict(self.zernike), self.norm_radius)
+
+    def departure(self, x, y):
+        """Zernike part of the sag at the points (x, y) of the local frame."""
+
+        x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+        u, v = x/self.norm_radius, y/self.norm_radius
+        z = np.zeros(np.broadcast(u, v).shape)
+        for j, c in self.zernike:
+            z = z + c*fringe_zernike(j, u, v)
+
+        return z
+
+    def sag_xy(self, x, y):
+        """Sag z(x, y), base sag plus the Zernike departure."""
+
+        return self.sag(x**2 + y**2) + self.departure(x, y)
+
+    def _gradient(self, x, y):
+        """dz/dx and dz/dy of the full sag (departure by central differences)."""
+
+        s = self._slope_over_r(x**2 + y**2)
+        h = 1e-6*self.norm_radius
+        gx = (self.departure(x + h, y) - self.departure(x - h, y))/(2*h)
+        gy = (self.departure(x, y + h) - self.departure(x, y - h))/(2*h)
+
+        return x*s + gx, y*s + gy
+
+    def intersect(self, P, d):
+        """Distance along the rays to the surface: from the base surface by
+        Newton steps on the full sag (see `Surface.intersect()`)."""
+
+        t = super().intersect(P, d)
+        if not self.zernike:
+            return t
+        t = np.where(np.isfinite(t), t, -P[:, 2]/d[:, 2])
+        for _ in range(50):
+            Q = P + t[:, None]*d
+            gx, gy = self._gradient(Q[:, 0], Q[:, 1])
+            G = Q[:, 2] - self.sag_xy(Q[:, 0], Q[:, 1])
+            dG = d[:, 2] - gx*d[:, 0] - gy*d[:, 1]
+            with np.errstate(invalid="ignore", divide="ignore"):
+                step = G/dG
+            t = t - step
+            with np.errstate(invalid="ignore"):
+                if np.all(~np.isfinite(step) | (np.abs(step) < 1e-14*(1 + np.abs(t)))):
+                    break
+        Q = P + t[:, None]*d
+        t = np.where(np.isfinite(self.sag(Q[:, 0]**2 + Q[:, 1]**2)), t, np.nan)
+
+        return t
+
+    def normal(self, Q):
+        """Unit normals (pointing into +z) at the points Q relative to the vertex."""
+
+        gx, gy = self._gradient(Q[:, 0], Q[:, 1])
+        N = np.stack([-gx, -gy, np.ones(len(Q))], axis=-1)
+
+        return N/_norm(N)[:, None]
 
 
 class CoordinateBreak(Surface):
@@ -2733,8 +2829,8 @@ class System:
         return RayFan(p, tan[:, 1] - chief[1], sag[:, 0] - chief[0])
 
     # plots:
-    def draw(self, ax=None, fields=None, n_rays=7, colors=None, lw=0.8):
-        """Draw the meridional section of the system with ray fans.
+    def draw(self, ax=None, fields=None, n_rays=7, colors=None, lw=0.8, plane="yz"):
+        """Draw the meridional (or sagittal) section of the system with ray fans.
 
         Parameters
         ----------
@@ -2748,6 +2844,10 @@ class System:
             One color per field.
         lw : number, optional
             Line width of the rays.
+        plane : {"yz", "xz"}, optional
+            Section to draw: the y-z plane (default) with fans of rays across
+            P_y, or the x-z plane with fans across P_x (seen from +y, x up),
+            e.g. for decentres, tilts or fields in x.
 
         Returns
         -------
@@ -2756,6 +2856,10 @@ class System:
 
         import matplotlib.pyplot as plt
 
+        if plane not in ("yz", "xz"):
+            raise ValueError("plane must be 'yz' or 'xz'")
+        a = 1 if plane == "yz" else 0  # transverse coordinate drawn
+
         if ax is None:
             ax = plt.gca()
         if fields is None:
@@ -2763,19 +2867,19 @@ class System:
         p = np.linspace(-1, 1, n_rays)
         r_max = np.zeros(len(self.surfaces))
         for j, field in enumerate(fields):
-            b = self.trace_pupil(field, 0*p, p)
+            b = self.trace_pupil(field, *((0*p, p) if a == 1 else (p, 0*p)))
             pts = b.points
             color = colors[j] if colors is not None else "C{}".format(j)
-            ax.plot(pts[:, :, 2], pts[:, :, 1], color=color, lw=lw)
-            r_max = np.fmax(r_max, np.nanmax(np.abs(pts[1:-1, :, 1]), axis=1))
+            ax.plot(pts[:, :, 2], pts[:, :, a], color=color, lw=lw)
+            r_max = np.fmax(r_max, np.nanmax(np.abs(pts[1:-1, :, a]), axis=1))
 
         n = self.n
         frames, (o_img, R_img) = self.frames()
 
         def to_global(i, yy, zz):
             o, R = frames[i]
-            q = np.stack([0*yy, yy, zz], axis=-1) @ R.T + o
-            return q[..., 2], q[..., 1]
+            q = np.stack([0*yy, yy, zz] if a == 1 else [yy, 0*yy, zz], axis=-1) @ R.T + o
+            return q[..., 2], q[..., a]
 
         heights = []
         for i, s in enumerate(self.surfaces):
@@ -2798,11 +2902,13 @@ class System:
                     ax.plot([z1[0], corner[0][0], z2[0]], [y1[0], corner[1][0], y2[0]], color="k",
                             lw=1.2)
         h_img = 1.1*np.nanmax(np.abs(r_max)) if np.any(np.isfinite(r_max)) else 1.0
-        corners = np.array([[0, -h_img, 0], [0, h_img, 0]]) @ R_img.T + o_img
-        ax.plot(corners[:, 2], corners[:, 1], color="0.5", lw=1, ls="--")
+        corners = np.zeros((2, 3))
+        corners[:, a] = (-h_img, h_img)
+        corners = corners @ R_img.T + o_img
+        ax.plot(corners[:, 2], corners[:, a], color="0.5", lw=1, ls="--")
         ax.axhline(0, color="0.6", lw=0.6, ls="-.")
         ax.set_xlabel("z")
-        ax.set_ylabel("y")
+        ax.set_ylabel(plane[0])
         ax.set_aspect("equal", adjustable="datalim")
 
         return ax

@@ -150,7 +150,8 @@ What each module does and how mature it is. Planned work is listed in
   lithography projection lens (NA 0.56, 4x) with decentre and axial shift
   sensitivities of its elements (`with_axial_shift()`), a water immersion
   ArF lens and a KrF REMA objective and zoom-axicon from patents; cones
-  (`Axicon`); polarization ray
+  (`Axicon`), surfaces with a Fringe Zernike departure (`ZernikeSurface`:
+  figure errors, mount deformations, freeforms), x-z sections in `draw()`; polarization ray
   trace with energy (`System.trace_polarization()`, Chipman's 3x3 matrices):
   Fresnel refraction and reflection through thin film coatings on any
   surface (`coatings.Coating`, `coatings.Layer`) with layer thickness
