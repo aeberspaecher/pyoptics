@@ -17,7 +17,7 @@
 * More tests for `TIE`
 * WPM: Fresnel transmission correction at index steps, absorbing boundaries;
   symmetrized step (alternate the two operator orderings) against the power
-  drift in narrow waveguides (notebook 05, section 11)
+  drift in narrow waveguides (notebook 05, section 12)
 * Docstrings: Parameters/Returns for single-argument functions, methods and
   properties (see the report-only numpydoc check in the docs workflow); then
   make the check blocking per module
