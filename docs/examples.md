@@ -71,6 +71,7 @@ notebooks/14_coated_laser_mirror
 - {doc}`notebooks/20_polarization_raytrace`
 - {doc}`notebooks/21_lens_focus_waves`
 - {doc}`notebooks/47_rays_and_waves`
+- {doc}`notebooks/48_laser_head_doe`
 - {doc}`notebooks/45_zernike_aberration_gallery`
 
 ```{toctree}
@@ -84,6 +85,7 @@ notebooks/19_ray_tracing
 notebooks/20_polarization_raytrace
 notebooks/21_lens_focus_waves
 notebooks/47_rays_and_waves
+notebooks/48_laser_head_doe
 notebooks/45_zernike_aberration_gallery
 ```
 
