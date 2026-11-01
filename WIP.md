@@ -32,6 +32,10 @@
 
 ## DONE
 
+* Microscopy (`microscopy`: Abbe imaging with Köhler illumination, weak
+  object transfer, Zernike phase contrast, Nomarski DIC, confocal PSFs and
+  optical sectioning, Fourier ptychography with pupil recovery; notebooks
+  52 to 55)
 * Fresnel lenses (`fresnel`: zones from a parent surface, ideal and real
   facet ray tracing with draft, shadowing and riser losses, exact facet
   design and the fit back to an asphere, kinoforms; notebook 51)

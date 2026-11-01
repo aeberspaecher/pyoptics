@@ -122,6 +122,24 @@ notebooks/29_TIE
 notebooks/30_IFTA
 ```
 
+## Microscopy
+
+- {doc}`notebooks/52_abbe_image_formation`
+- {doc}`notebooks/53_phase_contrast_dic`
+- {doc}`notebooks/54_confocal_microscopy`
+- {doc}`notebooks/55_fourier_ptychography`
+- {doc}`notebooks/27_holographic_microscopy` (in *Measurement, phase retrieval and beam shaping*)
+
+```{toctree}
+:hidden:
+:caption: Microscopy
+
+notebooks/52_abbe_image_formation
+notebooks/53_phase_contrast_dic
+notebooks/54_confocal_microscopy
+notebooks/55_fourier_ptychography
+```
+
 ## Lithography
 
 - {doc}`notebooks/31_vectorial_imaging_lithography`
