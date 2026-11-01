@@ -108,6 +108,20 @@ What each module does and how mature it is. Planned work is listed in
   pupil, PSF with pupil masks (obscuration, apodization) and phases (also
   zoomed onto any output window via the chirp-z transform), OTF and
   MTF, Strehl ratio and Maréchal approximations
+- `microscopy`: microscope imaging, tested: partially coherent bright
+  field images of thin objects after Abbe, with Köhler illumination sampled
+  on the frequency grid (disk, annulus, oblique or any source points,
+  `source_points()`), pupils with exact defocus, aberrations and masks
+  (`pupil()`), weak object amplitude and phase transfer functions
+  (`weak_object_transfer()`) and the grating cutoff λ/(NA + NA_c); Zernike
+  phase rings (`phase_ring()`) and the Nomarski DIC effective object with
+  shear and bias (`dic_object()`); scalar 3D amplitude PSFs from the pupil
+  (uniform or aplanatic, `psf_3d()`), fluorescence confocal PSFs for any
+  pinhole (`confocal_psf()`, Airy units), the thin plane response of
+  optical sectioning and the reflection mirror response; Fourier
+  ptychography: LED array illumination, the low resolution forward model
+  and the reconstruction by alternating projections with embedded pupil
+  recovery (quasi-Newton or EPRY step), pupil overlap in k-space
 - `abcd`: ABCD (ray transfer) matrices, tested: thin and thick lenses,
   spherical interfaces, tilted mirrors (tangential/sagittal), GRIN media;
   `OpticalSystem` builds systems element by element and traces rays and
