@@ -143,6 +143,14 @@ What each module does and how mature it is. Planned work is listed in
   autofocus (amplitude variance, Tamura coefficient, gradient, Laplacian);
   quantitative phase with background compensation, tilt removal and
   unwrapping (`unwrap`)
+- `raywave`: conversion between ray ensembles and wave fields, tested:
+  ray field summation from a structured ray grid (ray tubes with the
+  amplitude from the ray density, overlapping sheets added with their Gouy
+  (Maslov) phases), Gaussian beamlets launched from rays or from sampled
+  fields (also from an `analytic_phase.QuadraticPhaseField`) and propagated
+  in closed form through foci and caustics, rays along the local phase
+  gradient (traceable with `raytrace.System.trace()`), rays from local
+  spectra (sampled Husimi function) and the Wigner function of a 1D field
 - `raytrace`: sequential ray tracing, tested: spherical, conic and even
   aspheric surfaces, lenses and mirrors, ideal (paraxial) lenses, apertures
   and vignetting, indices from constants, `materials.abbe_dispersion` or any
