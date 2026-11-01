@@ -352,7 +352,7 @@ def weak_object_transfer(x, y, wavelength, NA, source=None, P=None, n=1.0, defoc
     """Amplitude and phase transfer functions for weak objects.
 
     For a weak object t = 1 + a + i*phi (``|a|, |phi|`` << 1) the image is linear
-    in a and phi, relative to the background I_0 = sum_s w_s |P(k_s)|**2::
+    in a and phi, relative to the background ``I_0 = sum_s w_s |P(k_s)|**2``::
 
         I = I_0 * (1 + inv_FT{ H_a * FT(a) + H_phi * FT(phi) })
 
@@ -915,7 +915,8 @@ def fpm_reconstruct(images, x, y, wavelength, NA, k_x, k_y, n_iter=20, P=None,
         NA (pupil and object share a free factor, and a pupil tilt is an
         object shift).
     errors : 1d array
-        Normalized amplitude error sum (|psi| - sqrt(I))**2 / sum I per pass.
+        Normalized amplitude error ``sum (|psi| - sqrt(I))**2 / sum I`` per
+        pass.
     """
 
     images = np.asarray(images, dtype=float)
