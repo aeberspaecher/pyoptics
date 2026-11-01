@@ -7,8 +7,10 @@ A `System` is a sequence of `Surface` objects (spheres, conics and even
 aspheres, refracting or reflecting), optional `IdealLens` surfaces, cones
 (`Axicon`) and `CoordinateBreak` elements. Surfaces can be decentred and
 tilted. Rays are traced exactly (exact intersections, vector law of refraction and
-reflection); paraxial marginal and chief rays, the pupils and the Seidel
-sums come from a paraxial y-nu trace, whose system matrix agrees with
+reflection); paraxial marginal and chief rays, the pupils, the powers of
+the system, its surfaces and elements, the Seidel sums of every surface, the
+Petzval sum, the third order image surfaces and distortion and the primary
+colour come from a paraxial y-nu trace, whose system matrix agrees with
 `pyoptics.abcd`. The main result is the optical path difference (OPD) over
 the pupil, which can be fitted with Fringe Zernikes and handed on to
 `pyoptics.imaging` for PSFs, MTFs and Strehl ratios.
@@ -78,7 +80,8 @@ following surfaces (fold mirrors, tilted sub-assemblies). The image plane
 can be decentred and tilted with `image_decenter` and `image_tilt` of
 `System`.
 
-First order properties (`paraxial()`, `seidel()`, the pupils used for ray
+First order properties (`paraxial()`, `seidel()`, `third_order()`,
+`chromatic_seidel()`, the powers, the pupils used for ray
 aiming and for the reference sphere) are those of the nominal system with
 all tilts and decentres set to zero; a fold mirror is then an unfolded plane
 mirror. Real rays always see the actual geometry. Spot diagrams, ray fans,
@@ -932,7 +935,8 @@ wavenumber k and callables phase(P_x, P_y) (radians) and mask(P_x, P_y) of
 the normalized imaging pupil coordinates, e.g.
 imaging.get_psf(x, y, pupil.NA, pupil.k, pupil.mask, pupil.phase)."""
 
-Seidel = namedtuple("Seidel", ["S", "total", "W040", "W131", "W222", "W220", "W311"])
+Seidel = namedtuple("Seidel", ["S", "total", "W040", "W131", "W222", "W220", "W311", "W",
+                               "aspheric"])
 Seidel.__doc__ = """Seidel sums.
 
 Attributes
@@ -951,6 +955,59 @@ W040, W131, W222, W220, W311 : wavefront coefficients in waves at full
         W311 = -S_V/2
 
     (divided by the wavelength), theta measured from the y axis.
+W : (S_surfaces, 5) array of the per surface wavefront coefficients W040,
+    W131, W222, W220, W311 in waves (they add up to the totals)
+aspheric : (S_surfaces, 5) array, the part of S that comes from the
+    departure of the surface from its vertex sphere (conic and A4 r**4);
+    S - aspheric is the contribution of the vertex sphere
+
+The contributions of a surface depend on the paraxial marginal and chief
+rays that reach it, i.e. on the surfaces in front of it and on the stop;
+only their sum is a property of the system (Welford).
+"""
+
+ThirdOrder = namedtuple("ThirdOrder", ["petzval_sum", "petzval_radius", "sagittal_radius",
+                                       "tangential_radius", "medial_radius", "distortion"])
+ThirdOrder.__doc__ = """Image surfaces and distortion from the Seidel sums.
+
+Attributes
+----------
+petzval_sum : sum of c*(n' - n)/(n n') = sum(phi/(n n')) over the surfaces,
+    i.e. S_IV/H**2 (for thin lenses in air sum(phi_k/n_k))
+petzval_radius : radius of the Petzval surface, -1/(n'_k*petzval_sum),
+    with the sign convention of the radii (R < 0: centre of curvature in
+    -z, the image surface bends towards the lens, as for a positive singlet)
+sagittal_radius, tangential_radius, medial_radius : radii of the third
+    order sagittal, tangential and medial (best, midway) image surfaces,
+    1/R_s = -n'_k (S_III + S_IV)/H**2, 1/R_t = -n'_k (3 S_III + S_IV)/H**2,
+    1/R_m = -n'_k (2 S_III + S_IV)/H**2 (np.inf for a flat surface)
+distortion : relative third order distortion at the field, (real chief ray
+    height - paraxial image height)/paraxial image height = S_V/(2 n'_k u'_k
+    eta'), with the paraxial marginal ray slope u'_k and image height eta'
+    (> 0: pincushion, < 0: barrel)
+
+n'_k is the image space index (signed, -n' behind an odd number of
+mirrors). The astigmatic surfaces lie on the same side of the Petzval
+surface, the tangential one three times as far away (Welford;
+Kingslake and Johnson, ch. 4).
+"""
+
+ChromaticSeidel = namedtuple("ChromaticSeidel", ["C", "total", "axial", "lateral", "delta_n"])
+ChromaticSeidel.__doc__ = """Primary (first order) chromatic aberrations.
+
+Attributes
+----------
+C : (S_surfaces, 2) array of the contributions C_I (axial colour) and C_II
+    (lateral colour) of each surface, C_I = A y Delta(dn/n), C_II = Abar y
+    Delta(dn/n), with dn = n(short) - n(long) of the medium (Welford)
+total : the two sums
+axial : z position of the short wavelength paraxial image minus that of the
+    long one, -C_I/(n'_k u'_k**2) (< 0 for an undercorrected positive lens)
+lateral : paraxial chief ray height at the short wavelength minus that at
+    the long one, in the image plane of the system, C_II/(n'_k u'_k) (with the
+    slope u = dy/dz of this module; Welford's -C_II/(n'u') in his angle
+    convention)
+delta_n : (S + 1,) array of dn in object space and behind each surface
 """
 
 SpotDiagram = namedtuple("SpotDiagram", ["x", "y", "rms", "centroid"])
@@ -968,6 +1025,18 @@ the ray that arrives there, i.e. the phase of the field is k_0*opl
 (geometrical optics). points and directions (shape opl.shape + (3,)) are the
 global intersections with and unit directions behind the selected surface
 of the same rays. NaN and mask False where no ray arrives."""
+
+
+def _seidel_waves(S, wavelength):
+    """Wavefront coefficients W040, W131, W222, W220, W311 (waves) of Seidel
+    sums S_I...S_V (last axis), in the OPD convention of this module."""
+
+    S = np.asarray(S, dtype=float)
+    k = np.array([-1/8, -1/2, -1/2, 0.0, -1/2])/wavelength
+    W = S*k
+    W[..., 3] = -(S[..., 2] + S[..., 3])/4/wavelength
+
+    return W
 
 
 class System:
@@ -1406,9 +1475,10 @@ class System:
         ub_in = np.concatenate([[u_c], uc[:-1]])
         H = n_s[0]*(u_c*y_m - u_m*y_c)
         S = np.zeros((len(self.surfaces), 5))
+        S_asph = np.zeros_like(S)
         for i, s in enumerate(self.surfaces):
             if isinstance(s, IdealLens):
-                S[i] = np.nan
+                S[i] = S_asph[i] = np.nan
                 continue
             n1, n2 = n_s[i], n_s[i + 1]
             c, y, yb = s.c, ym[i], yc[i]
@@ -1427,13 +1497,147 @@ class System:
             dS = 8*a4*(n2 - n1)
             S[i] = [S_I + dS*y**4, S_II + dS*y**3*yb, S_III + dS*y**2*yb**2, S_IV,
                     S_V + dS*y*yb**3]
+            S_asph[i] = [dS*y**4, dS*y**3*yb, dS*y**2*yb**2, 0.0, dS*y*yb**3]
         tot = S.sum(axis=0)
-        wl = self.wavelength
 
         # Welford's sums are positive for undercorrected systems, whose OPD
         # (OPL_ray - OPL_chief) is negative at the rim:
-        return Seidel(S, tot, -tot[0]/8/wl, -tot[1]/2/wl, -tot[2]/2/wl, -(tot[2] + tot[3])/4/wl,
-                      -tot[4]/2/wl)
+        W = _seidel_waves(S, self.wavelength)
+        W_tot = _seidel_waves(tot, self.wavelength)
+
+        return Seidel(S, tot, *W_tot, W, S_asph)
+
+    def _check_seidel_field(self, field):
+        f = _field_xy(self.max_field if field is None else field)[1]
+        if f == 0:
+            raise ValueError("Needs a field (the system has max_field = 0).")
+
+    def third_order(self, field=None):
+        """Petzval sum, third order image surfaces and distortion, see
+        `ThirdOrder`.
+
+        Parameters
+        ----------
+        field : number, optional
+            Field for the chief ray (default: the maximum field). The radii
+            do not depend on it, the relative distortion grows with field**2.
+
+        Returns
+        -------
+        ThirdOrder
+        """
+
+        self._check_seidel_field(field)
+        sd = self.seidel(field)
+        p = self.paraxial(field)
+        n_k = (self.n*self.sigma)[-1]
+        H2 = p.lagrange**2
+        S_III, S_IV, S_V = sd.total[2:]
+        P = S_IV/H2
+
+        def radius(curvature):
+            return np.inf if curvature == 0 else 1/curvature
+
+        nu = n_k*p.marginal[-1, 1]
+
+        return ThirdOrder(P, radius(-n_k*P), radius(-n_k*(S_III + S_IV)/H2),
+                          radius(-n_k*(3*S_III + S_IV)/H2), radius(-n_k*(2*S_III + S_IV)/H2),
+                          S_V/(2*nu*p.image_height))
+
+    def chromatic_seidel(self, d_wavelength, field=None):
+        """Primary axial and lateral colour from the paraxial rays, see
+        `ChromaticSeidel`.
+
+        Parameters
+        ----------
+        d_wavelength : number
+            Width of the band (in the length unit), the indices are taken at
+            wavelength -+ d_wavelength/2 (e.g. 486.1 - 656.3 nm for F - C).
+        field : number, optional
+            Field for the chief ray (default: the maximum field).
+
+        Returns
+        -------
+        ChromaticSeidel
+        """
+
+        n_short = self.with_wavelength(self.wavelength - d_wavelength/2).n
+        n_long = self.with_wavelength(self.wavelength + d_wavelength/2).n
+        sigma = self.sigma
+        n_s = self.n*sigma
+        dn_s = (n_short - n_long)*sigma
+        (y_m, u_m), (y_c, u_c) = self._paraxial_rays(field)
+        ym, um = self._paraxial_trace(y_m, u_m)
+        yc, uc = self._paraxial_trace(y_c, u_c)
+        u_in = np.concatenate([[u_m], um[:-1]])
+        ub_in = np.concatenate([[u_c], uc[:-1]])
+        C = np.zeros((len(self.surfaces), 2))
+        for i, s in enumerate(self.surfaces):
+            if isinstance(s, IdealLens):
+                C[i] = np.nan
+                continue
+            n1, n2 = n_s[i], n_s[i + 1]
+            A = n1*(u_in[i] + ym[i]*s.c)
+            Ab = n1*(ub_in[i] + yc[i]*s.c)
+            d = dn_s[i + 1]/n2 - dn_s[i]/n1
+            C[i] = [A*ym[i]*d, Ab*ym[i]*d]
+        tot = C.sum(axis=0)
+        nu = n_s[-1]*um[-1]
+
+        return ChromaticSeidel(C, tot, -tot[0]/(nu*um[-1]), tot[1]/nu, n_short - n_long)
+
+    # powers:
+    def power(self):
+        """Power of the system, n'/f' (reciprocal of the efl in air), from
+        the paraxial matrix."""
+
+        return -self._matrix()[1, 0]
+
+    def surface_powers(self):
+        """Paraxial powers c*(n' - n) of the surfaces (signed indices, so
+        -2 n c for a mirror in a medium n), shape (S,)."""
+
+        n_s = self.n*self.sigma
+
+        return np.array([s.paraxial_power(n_s[i], n_s[i + 1])
+                         for i, s in enumerate(self.surfaces)])
+
+    def power_contributions(self):
+        """Share of each surface in the power of the system: y_i phi_i/y_1
+        for a ray that enters parallel to the axis (heights y_i at the
+        vertices). The contributions add up to power() exactly. A surface far
+        from the axis ray (large y) weighs more than its own power phi_i."""
+
+        ys, _ = self._paraxial_trace(1.0, 0.0)
+
+        return ys*self.surface_powers()
+
+    def elements(self):
+        """Index ranges (first, last) of the elements: runs of surfaces from
+        a surface with glass behind it to the next one with air (or the
+        background gas) behind it (cemented groups are one element). A
+        mirror or ideal lens in air is an element of its own."""
+
+        n = self.n
+        out, first = [], None
+        for i, s in enumerate(self.surfaces):
+            if first is None:
+                if not self._is_gap(n[i + 1]):
+                    first = i
+                elif s.mirror or isinstance(s, IdealLens):
+                    out.append((i, i))
+            elif self._is_gap(n[i + 1]):
+                out.append((first, i))
+                first = None
+
+        return out
+
+    def element_powers(self):
+        """Powers of the elements() (thick lens powers in their surrounding
+        media, phi = phi_1 + phi_2 - (t/n) phi_1 phi_2 for a singlet in air),
+        shape (number of elements,)."""
+
+        return np.array([-self._matrix(a, b + 1)[1, 0] for a, b in self.elements()])
 
     # real rays:
     def rays(self, field=None, px=0.0, py=0.0, aim=None):
