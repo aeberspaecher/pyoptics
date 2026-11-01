@@ -259,6 +259,11 @@ What each module does and how mature it is. Planned work is listed in
   EMVA 1288 with dark current, read noise, full well, gain, ADC and fixed
   pattern noise), `Shifter` (subpixel Fourier shift) and `Centerer`
   (centering on the intensity centroid, `utils.center_of_mass()`)
+- `sketch`: schematic drawings of optical layouts (thin lenses, stops,
+  prisms, mirrors, detectors) with paraxially traced rays, tested: thin lens
+  ray tracing in both directions; ready-made sketches of a Köhler
+  microscope, Abbe's 4f picture with filtered orders, phase contrast, DIC,
+  confocal and LED array (Fourier ptychography) microscopes
 - Unfinished stubs: `interpolator.TrigInterpolator` cannot be evaluated yet,
   the functions in `polarization._polarization` are empty
 
