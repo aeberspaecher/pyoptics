@@ -134,6 +134,7 @@ notebooks/30_IFTA
 - {doc}`notebooks/42_litho_illuminator`
 - {doc}`notebooks/43_litho_delano_lens_design`
 - {doc}`notebooks/44_seidel_caldwell_lens`
+- {doc}`notebooks/50_magnification_distortion_telecentricity`
 
 ```{toctree}
 :hidden:
@@ -153,6 +154,7 @@ notebooks/41_litho_telecentricity
 notebooks/42_litho_illuminator
 notebooks/43_litho_delano_lens_design
 notebooks/44_seidel_caldwell_lens
+notebooks/50_magnification_distortion_telecentricity
 ```
 
 ## Running the notebooks
