@@ -70,6 +70,26 @@ from neighbouring rays) or from a sampled field
 (GaussianBeamlets.from_field(), also from a QuadraticPhaseField of
 pyoptics.analytic_phase, whose analytic phase supplies tilt and curvature).
 
+GaussianBeamlets.trace() carries the beamlets through the surfaces of a
+raytrace.System (Gaussian beam decomposition through real optics). Every
+beamlet is followed by its base ray and eight parabasal rays (centre and
+direction shifted in x and y), traced exactly. Their central differences in
+the output plane give the 4 x 4 ray transfer matrix M = [[A, B], [C, D]] of
+the neighbourhood of the base ray in the canonical coordinates (x, k_perp),
+which is symplectic, and the beamlet follows the complex ABCD law (a
+Gaussian beamlet is the family of complex rays k_perp = Gamma*xi, Arnaud
+1985) ::
+
+    Gamma' = (C + D Gamma)(A + B Gamma)^-1,   a' = a/sqrt(det(A + B Gamma)),
+
+with the phase k_0*OPL of the base ray. det(A + B Gamma) never vanishes,
+but its argument grows by pi through every line focus: the square root is
+taken on the branch that follows the beamlet (its Gouy phase), accumulated
+in closed form along every straight segment of the base ray. Beamlets
+whose rays are vignetted are dropped, so an aperture inside a system is
+resolved to the beamlet size; for a sharp cut, sum the beamlets in the
+aperture plane and decompose the field again with from_field().
+
 Waves to rays
 -------------
 

@@ -164,7 +164,9 @@ What each module does and how mature it is. Planned work is listed in
   amplitude from the ray density, overlapping sheets added with their Gouy
   (Maslov) phases), Gaussian beamlets launched from rays or from sampled
   fields (also from an `analytic_phase.QuadraticPhaseField`) and propagated
-  in closed form through foci and caustics, rays along the local phase
+  in closed form through foci and caustics, or traced through the surfaces
+  of a `raytrace.System` (base ray and parabasal rays, complex ABCD law,
+  Gouy phase on the continuous branch), rays along the local phase
   gradient (traceable with `raytrace.System.trace()`), rays from local
   spectra (sampled Husimi function) and the Wigner function of a 1D field;
   structured rays from fields for the round trip through ray-traced optics
