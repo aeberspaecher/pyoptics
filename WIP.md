@@ -168,3 +168,7 @@
   `raytrace.Axicon` cones, invented source, diffuser, coupling lens and
   glass rod; sigma, annular settings, pupil fill per field point,
   uniformity and telecentricity against the lens (notebook 42)
+* Zernike aberration gallery (notebook 45): a ray traced lens for each Fringe
+  Zernike Z2 to Z16 with ray fans, rays and waves through focus and PSFs;
+  `raytrace.ZernikeSurface` (Fringe Zernike sag departure) and
+  `System.draw(plane="xz")`

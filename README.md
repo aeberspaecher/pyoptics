@@ -127,7 +127,7 @@ print(f"NILS {sim.nils():.2f}, dose to size {sim.dose_to_size(threshold=0.3):.2f
 
 ## Example notebooks
 
-The [`notebooks/`](notebooks/README.md) folder holds 43 executed Jupyter
+The [`notebooks/`](notebooks/README.md) folder holds 45 executed Jupyter
 notebooks, one per topic, from free space propagation and Gaussian beams over
 thin films, imaging, ray tracing and interferometry to a complete lithography
 workflow with lens design, source optimization and OPC. They are stored with

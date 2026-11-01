@@ -627,3 +627,95 @@ def test_ray_map_of_a_displaced_test_sphere():
     phase = 2*np.pi*(W.opl - W_ref.opl)/WL
     d_fit, res = fit_sphere_displacement(phase, W.directions, WL, mask=W.mask & W_ref.mask)
     np.testing.assert_allclose(d_fit, d, atol=2e-6)
+
+
+# Zernike surfaces (freeform departures):
+def _zernike_window(zernike, R=np.inf, n=N_GLASS):
+    """Plane window with a Zernike departure on its front face, collimated beam."""
+
+    front = rt.ZernikeSurface(R, 3.0, n_after=n, semi_diameter=12.0, zernike=zernike,
+                              norm_radius=10.0)
+    return rt.System([front, rt.Surface(np.inf, 5.0, n_after=1.0, semi_diameter=12.0)], 0, WL,
+                     entrance_pupil_radius=10.0)
+
+
+def test_zernike_surface_without_departure_is_the_base_surface():
+    plain = singlet(R1=60.0, R2=-80.0)
+    zs = plain.copy()
+    s = zs.surfaces[0]
+    zs.surfaces[0] = rt.ZernikeSurface(s.R, s.thickness, n_after=s.n_after, semi_diameter=s.semi_diameter)
+    p = np.linspace(-1, 1, 11)
+    a, b = plain.trace_pupil(0.0, 0.3*p, p), zs.trace_pupil(0.0, 0.3*p, p)
+    assert np.array_equal(a.valid, b.valid)
+    assert np.allclose(a.points, b.points, atol=1e-10, equal_nan=True)
+    assert np.allclose(a.opl, b.opl, atol=1e-10, equal_nan=True)
+
+
+@pytest.mark.parametrize("j", [5, 8, 11, 12, 15])
+def test_zernike_surface_sag_and_optical_path(j):
+    from pyoptics.bases import fringe_zernike
+
+    c = 2e-4
+    system = _zernike_window({j: c})
+    rng = np.random.default_rng(j)
+    r, phi = np.sqrt(rng.random(50)), 2*np.pi*rng.random(50)
+    px, py = 0.95*r*np.cos(phi), 0.95*r*np.sin(phi)
+    b = system.trace_pupil(0.0, px, py)
+    Q = b.points[1]
+    s = system.surfaces[0]
+    # the intersections lie on the surface:
+    assert np.allclose(Q[:, 2], s.sag_xy(Q[:, 0], Q[:, 1]), atol=1e-13)
+    assert np.allclose(Q[:, 2], c*fringe_zernike(j, Q[:, 0]/10.0, Q[:, 1]/10.0), atol=1e-13)
+    # thin element in a collimated beam: OPL changes by -(n - 1) times the departure
+    # (up to the tiny walk-off of the rays in the window, second order in the slopes)
+    opl = b.opl[2] - system.trace_pupil(0.0, 0.0, 0.0).opl[2, 0]
+    dep = c*(fringe_zernike(j, px, py) - fringe_zernike(j, 0.0, 0.0))
+    assert np.allclose(opl, -(N_GLASS - 1)*dep, atol=1e-3*c)
+
+
+def test_zernike_surface_normal_matches_finite_differences():
+    s = rt.ZernikeSurface(40.0, conic=-0.5, aspheric=(1e-6,), zernike={7: 1e-3, 10: -5e-4},
+                          norm_radius=8.0)
+    x, y = np.array([0.0, 1.3, -4.0, 6.5]), np.array([0.0, -2.2, 3.1, 0.4])
+    h = 1e-5
+    gx = (s.sag_xy(x + h, y) - s.sag_xy(x - h, y))/(2*h)
+    gy = (s.sag_xy(x, y + h) - s.sag_xy(x, y - h))/(2*h)
+    N = np.stack([-gx, -gy, np.ones_like(x)], axis=-1)
+    N /= np.linalg.norm(N, axis=-1, keepdims=True)
+    Q = np.column_stack([x, y, s.sag_xy(x, y)])
+    assert np.allclose(s.normal(Q), N, atol=1e-8)
+
+
+def test_zernike_surface_wavefront_fit():
+    # trefoil on the window: the Fringe fit of the OPD finds it (and nothing else)
+    c = 3e-4
+    system = _zernike_window({10: c})
+    system.surfaces[-1].thickness = 0.0
+    lens = rt.System(system.surfaces + [rt.IdealLens(100.0, 100.0)], 0, WL, entrance_pupil_radius=10.0)
+    coeffs = lens.zernike(0.0, 16, 48)
+    expected = -(N_GLASS - 1)*c/WL
+    assert coeffs[9] == pytest.approx(expected, rel=0.02)
+    others = np.delete(coeffs, [0, 9])
+    assert np.max(np.abs(others)) < 1e-3*abs(expected)
+
+
+def test_draw_xz_plane_of_a_rotated_system():
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    def build(dec):
+        return rt.System([rt.Surface(np.inf, 5.0, semi_diameter=8.0),
+                          rt.Surface(50.0, 5.0, n_after=N_GLASS, semi_diameter=12.0, decenter=dec),
+                          rt.Surface(-50.0, 90.0, n_after=1.0, semi_diameter=12.0, decenter=dec)],
+                         0, WL)
+
+    fig, (a, b) = plt.subplots(1, 2)
+    build((0.0, 0.7)).draw(a, plane="yz")
+    build((0.7, 0.0)).draw(b, plane="xz")
+    for la, lb in zip(a.get_lines(), b.get_lines()):
+        assert np.allclose(la.get_xydata(), lb.get_xydata(), atol=1e-9, equal_nan=True)
+    assert b.get_ylabel() == "x"
+    with pytest.raises(ValueError):
+        build((0.0, 0.0)).draw(a, plane="xy")
+    plt.close(fig)

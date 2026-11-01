@@ -68,6 +68,7 @@ notebooks/14_coated_laser_mirror
 - {doc}`notebooks/19_ray_tracing`
 - {doc}`notebooks/20_polarization_raytrace`
 - {doc}`notebooks/21_lens_focus_waves`
+- {doc}`notebooks/45_zernike_aberration_gallery`
 
 ```{toctree}
 :hidden:
@@ -79,6 +80,7 @@ notebooks/17_psf_mtf_strehl
 notebooks/19_ray_tracing
 notebooks/20_polarization_raytrace
 notebooks/21_lens_focus_waves
+notebooks/45_zernike_aberration_gallery
 ```
 
 ## Measurement, phase retrieval and beam shaping
