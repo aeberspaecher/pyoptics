@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from pyoptics import fresnel as fr
-from pyoptics.fresnel import FresnelSurface, FACET, RISER, SHADOWED, TIR
+from pyoptics.fresnel import FresnelSurface, RISER, SHADOWED, TIR
 from pyoptics.raytrace import Surface, System
 
 

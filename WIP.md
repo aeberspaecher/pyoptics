@@ -32,6 +32,9 @@
 
 ## DONE
 
+* Fresnel lenses (`fresnel`: zones from a parent surface, ideal and real
+  facet ray tracing with draft, shadowing and riser losses, exact facet
+  design and the fit back to an asphere, kinoforms; notebook 51)
 * Conversion between rays and wave fields (`raywave`: ray field summation
   with Gouy phases, Gaussian beamlets, phase gradient and local spectrum
   rays, Wigner function; notebooks 47, 48 and 49)

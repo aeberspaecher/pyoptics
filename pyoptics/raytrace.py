@@ -68,6 +68,9 @@ spherical aberration (marginal rays focus short) has OPD < 0 at the rim
 transverse ray aberration is eps = (R/n') dW/dY (R: radius of the reference
 sphere, Y: height in the exit pupil).
 
+Fresnel lenses (a parent surface collapsed into zones, with real facets
+and risers) are `fresnel.FresnelSurface`, a subclass of `Surface`.
+
 Tilts and decentres
 -------------------
 Every surface has a local frame in which it is the centred surface

@@ -131,7 +131,7 @@ from collections import namedtuple
 
 import numpy as np
 
-from .raytrace import Surface, Rays, _dot, _norm
+from .raytrace import Surface, _dot, _norm
 
 
 __all__ = ["FresnelSurface", "zone_radii", "focusing_slopes", "surface_from_slopes",
@@ -892,7 +892,7 @@ def vogel_spiral(n):
     return rho*np.cos(phi), rho*np.sin(phi)
 
 
-def focusing_slopes(r, focus, n1, n2, d_in=(0.0, 0.0, 1.0), z=0.0):
+def focusing_slopes(r, focus, n1, n2, d_in=(0.0, 0.0, 1.0), z=0.0, d_out=None):
     """Exact facet slopes dz/dr that send rays through a point on the axis.
 
     The facet normal is parallel to n1 d - n2 d' (vector law of refraction)
@@ -914,6 +914,10 @@ def focusing_slopes(r, focus, n1, n2, d_in=(0.0, 0.0, 1.0), z=0.0):
         axis at z_s: d_in = (r, z - z_s)/norm, see the notebook.
     z : number or array, optional
         Heights of the facet points.
+    d_out : (N, 3) array, optional
+        Wanted output directions instead of those to the focus (e.g. into a
+        plate whose far side refracts them to the focus); focus is then
+        ignored.
 
     Returns
     -------
@@ -925,7 +929,10 @@ def focusing_slopes(r, focus, n1, n2, d_in=(0.0, 0.0, 1.0), z=0.0):
     z = np.broadcast_to(np.asarray(z, dtype=float), r.shape)
     d1 = np.broadcast_to(np.asarray(d_in, dtype=float), r.shape + (3,))
     d1 = d1/_norm(d1.reshape(-1, 3)).reshape(r.shape + (1,))
-    if np.isinf(focus):
+    if d_out is not None:
+        d2 = np.broadcast_to(np.asarray(d_out, dtype=float), r.shape + (3,))
+        d2 = d2/np.linalg.norm(d2, axis=-1, keepdims=True)
+    elif np.isinf(focus):
         d2 = np.zeros(r.shape + (3,))
         d2[..., 2] = np.sign(focus)
     else:

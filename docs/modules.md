@@ -152,6 +152,16 @@ What each module does and how mature it is. Planned work is listed in
   gradient (traceable with `raytrace.System.trace()`), rays from local
   spectra (sampled Husimi function) and the Wigner function of a 1D field;
   structured rays from fields for the round trip through ray-traced optics
+- `fresnel`: Fresnel lenses, tested: a parent surface (sphere, conic,
+  even asphere) collapsed into zones of constant pitch, constant depth or
+  given radii, with curved or flat (conical) facets and drafted risers
+  (`FresnelSurface`); ray tracing on the base plane with the parent's
+  normals (ideal model) or through the real sawtooth (riser hits, shadowing
+  and TIR lost or traced on as stray light, optical path with the steps);
+  classification of the rays of a pupil (`facet_losses()`), exact facet
+  slopes for a focus (`focusing_slopes()`) and the fit of a parent to
+  slopes (`surface_from_slopes()`); kinoform depth, scalar efficiency and
+  the diffractive Abbe number; PMMA dispersion
 - `raytrace`: sequential ray tracing, tested: spherical, conic and even
   aspheric surfaces, lenses and mirrors, ideal (paraxial) lenses, apertures
   and vignetting, indices from constants, `materials.abbe_dispersion` or any
