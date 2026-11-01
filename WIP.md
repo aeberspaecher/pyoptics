@@ -32,6 +32,9 @@
 
 ## DONE
 
+* Conversion between rays and wave fields (`raywave`: ray field summation
+  with Gouy phases, Gaussian beamlets, phase gradient and local spectrum
+  rays, Wigner function; notebook 47)
 * Propagation with analytic handling of the quadratic and linear phase and
   of grid offsets after Wyrowski and coworkers (`analytic_phase`:
   semi-analytical and homeomorphic Fourier transforms, parallel and tilted

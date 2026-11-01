@@ -32,7 +32,7 @@ throughout.
 | **Beams and modes** | Hermite- and Laguerre-Gaussian beams, ABCD matrices and resonators, Collins integral, M² and beam widths after ISO 11146, mode decomposition, LP fibre modes and coupling efficiency | `beams`, `abcd`, `beam_quality`, `modes` |
 | **Thin films and polarization** | Fresnel coefficients, coherent multilayer stacks, Jones and Mueller calculus, Stokes parameters, dispersion and crystal materials | `interfaces`, `thin_films`, `polarization`, `materials` |
 | **Imaging** | PSF, OTF/MTF and Strehl ratio with pupil masks and aberrations, Zernike, Legendre and Chebyshev bases, partially coherent vectorial imaging | `imaging`, `bases`, `vectorial_imaging`, `analytical` |
-| **Ray tracing and lens design** | Sequential ray trace with conics and aspheres, tilts and decentres, tolerance sensitivities (decentre, axial shift, radius, index), paraxial data and Seidel sums, OPD maps and Zernike fits, spot diagrams, polarization ray trace through coatings and crystals, damped least squares optimization, Delano diagrams | `raytrace`, `coatings`, `lens_optimization`, `delano` |
+| **Ray tracing and lens design** | Sequential ray trace with conics and aspheres, tilts and decentres, tolerance sensitivities (decentre, axial shift, radius, index), paraxial data and Seidel sums, OPD maps and Zernike fits, spot diagrams, polarization ray trace through coatings and crystals, damped least squares optimization, Delano diagrams; conversion between ray ensembles and wave fields (ray field summation with Gouy phases, Gaussian beamlets, phase gradient and Wigner rays) | `raytrace`, `raywave`, `coatings`, `lens_optimization`, `delano` |
 | **Wavefront metrology** | Phase-shifting and Fourier fringe analysis, digital holography, Shack-Hartmann sensors, phase retrieval (Fienup, phase diversity), phase unwrapping, TIE, IFTA beam shaping | `interferometry`, `holography`, `shack_hartmann`, `phase_retrieval`, `unwrap`, `TIE`, `ifta` |
 | **Lithography** | Sources, masks and projectors (Abbe and Hopkins/SOCS imaging), thin and rigorous (RCWA) masks, resist and wafer stacks, CD, NILS, Bossung curves and process windows, ray traced projection lenses and illuminators, Jones pupils, source optimization and OPC | `litho` |
 
@@ -127,7 +127,7 @@ print(f"NILS {sim.nils():.2f}, dose to size {sim.dose_to_size(threshold=0.3):.2f
 
 ## Example notebooks
 
-The [`notebooks/`](notebooks/README.md) folder holds 46 executed Jupyter
+The [`notebooks/`](notebooks/README.md) folder holds 47 executed Jupyter
 notebooks, one per topic, from free space propagation and Gaussian beams over
 thin films, imaging, ray tracing and interferometry to a complete lithography
 workflow with lens design, source optimization and OPC. They are stored with
