@@ -14,6 +14,7 @@ from . import interferometry
 from . import holography
 from . import raytrace
 from . import raywave
+from . import fresnel
 from . import phase_retrieval
 from . import shack_hartmann
 from . import modes

@@ -41,6 +41,7 @@ Imaging and ray tracing
    pyoptics.vectorial_imaging
    pyoptics.raytrace
    pyoptics.raywave
+   pyoptics.fresnel
    pyoptics.delano
    pyoptics.lens_optimization
 

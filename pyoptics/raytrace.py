@@ -68,6 +68,9 @@ spherical aberration (marginal rays focus short) has OPD < 0 at the rim
 transverse ray aberration is eps = (R/n') dW/dY (R: radius of the reference
 sphere, Y: height in the exit pupil).
 
+Fresnel lenses (a parent surface collapsed into zones, with real facets
+and risers) are `fresnel.FresnelSurface`, a subclass of `Surface`.
+
 Tilts and decentres
 -------------------
 Every surface has a local frame in which it is the centred surface
@@ -1691,7 +1694,7 @@ class System:
         S = np.zeros((len(self.surfaces), 5))
         S_asph = np.zeros_like(S)
         for i, s in enumerate(self.surfaces):
-            if isinstance(s, IdealLens):
+            if isinstance(s, IdealLens) or not getattr(s, "has_seidel", True):
                 S[i] = S_asph[i] = np.nan
                 continue
             n1, n2 = n_s[i], n_s[i + 1]
@@ -2887,8 +2890,12 @@ class System:
             heights.append(h)
             if isinstance(s, CoordinateBreak):
                 continue
-            yy = np.linspace(-h, h, 101)
-            ax.plot(*to_global(i, yy, s.sag(yy**2)), color="k", lw=2.5 if s.mirror else 1.2)
+            if hasattr(s, "section"):  # e.g. the facets of a fresnel.FresnelSurface
+                yy, zz = s.section(h)
+            else:
+                yy = np.linspace(-h, h, 101)
+                zz = s.sag(yy**2)
+            ax.plot(*to_global(i, yy, zz), color="k", lw=2.5 if s.mirror else 1.2)
         # lens edges between surfaces in glass (not in air or the background gas):
         for i in range(len(self.surfaces) - 1):
             s1, s2 = self.surfaces[i], self.surfaces[i + 1]
