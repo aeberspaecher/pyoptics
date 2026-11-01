@@ -52,7 +52,8 @@ Setup sketches for the other example notebooks:
   microscope (notebooks 26 and 27).
 - krf_illuminator(): the KrF illuminator with its pupil and field planes
   (notebook 42).
-- spatial_filter(): beam expander with a pinhole that removes a ghost.
+- spatial_filter(): beam expander with a pinhole that removes a ghost
+  (notebook 56).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -1645,8 +1646,8 @@ def krf_illuminator(ax, title=None):
 
 
 def spatial_filter(ax, pinhole=True, title=None):
-    """Sketch of a spatial filter: a beam expander with a pinhole in the
-    common focus.
+    """Sketch of a spatial filter: a 3x beam expander with a pinhole in the
+    common focus (the setup of notebook 56).
 
     The clean part of the input beam (orange) is focused onto the axis and
     passes the pinhole. Light that travels in other directions, from a
@@ -1662,7 +1663,7 @@ def spatial_filter(ax, pinhole=True, title=None):
     title : str, optional
     """
 
-    f1, f2 = 1.5, 3.0
+    f1, f2 = 1.2, 3.6
     z1 = 0.0
     z_ph = z1 + f1
     z2 = z_ph + f2
@@ -1673,21 +1674,21 @@ def spatial_filter(ax, pinhole=True, title=None):
     zb, yb = paraxial_ray(lenses, z1 - 1.5, -w, 0.0, z_end)
     band(ax, zt, yt, zb, yb, color=LASER)
     # a ghost: a weaker beam at a small angle, focused beside the pinhole
-    u_g = 0.12
+    u_g = 0.08
     end_g = z_ph if pinhole else z_end
     for y0 in (-0.6*w, 0.0, 0.6*w):
         z, y = paraxial_ray(lenses, z1 - 1.5, y0 - u_g*1.5, u_g, end_g)
         ax.plot(z, y, color=TEST, lw=0.9, ls="--", zorder=2)
     lens(ax, z1, 1.3*w, text="lens 1")
-    lens(ax, z2, 2.4*w, text="lens 2")
+    lens(ax, z2, 3.3*w, text="lens 2")
     if pinhole:
         stop(ax, z_ph, 0.9, openings=((0, 0.06),), width=0.05, text="pinhole in the\n"
              "back focal plane", text_y=-1.0)
     else:
         plane(ax, z_ph, 0.9, text="no pinhole")
     label(ax, z1 - 0.9, 0.55, "clean beam\n+ ghost (dashed)", fontsize=8, va="bottom")
-    label(ax, z_end - 0.3, -2.4*w - 0.12, "filtered and\nexpanded beam" if pinhole else
+    label(ax, z_end - 0.3, -3.1*w - 0.12, "filtered and\nexpanded beam" if pinhole else
           "ghost crosses the\nexpanded beam", fontsize=8, va="top")
     arrow(ax, z_ph + 0.15, f1*u_g + 0.25, z_ph + 0.02, f1*u_g + 0.02, color=TEST,
           text="x = f₁ θ", text_pos=(z_ph + 0.2, f1*u_g + 0.3), ha="left", va="bottom")
-    _finish(ax, (z1 - 1.6, z_end + 0.1), (-1.25, 1.1), title)
+    _finish(ax, (z1 - 1.6, z_end + 0.1), (-1.6, 1.4), title)
