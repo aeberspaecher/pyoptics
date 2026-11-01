@@ -53,6 +53,18 @@ Jones matrices for an illuminating plane wave (source point (s_x, s_y)):
 Transmissions are relative to the clear area: the clear region has the
 transmission 1 (FilmMask normalizes to the clear region unless
 normalize=False), so that images can be normalized to the open frame.
+
+References
+----------
+J. Tirapu-Azpiroz, P. Burchard and E. Yablonovitch, "Boundary layer model to
+account for thick mask effects in photolithography", Proc. SPIE 5040, 1611
+(2003).
+
+A. Erdmann, "Optical and EUV Lithography: A Modeling Perspective", SPIE Press
+(2021).
+
+A. K.-K. Wong, "Resolution Enhancement Techniques in Optical Lithography", SPIE
+Press (2001).
 """
 
 import numpy as np

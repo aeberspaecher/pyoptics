@@ -69,6 +69,19 @@ at wafer scale as well (1x), the reduction ratio of the projector is only
 used to obtain the angles of incidence at the mask.
 
 Convention: fields vary as exp(i(k.r - omega*t)).
+
+References
+----------
+C. Mack, "Fundamental Principles of Optical Lithography: The Science of
+Microfabrication", Wiley (2007).
+
+H. J. Levinson, "Principles of Lithography", 4th ed., SPIE Press (2019).
+
+A. Erdmann, "Optical and EUV Lithography: A Modeling Perspective", SPIE Press
+(2021).
+
+A. K.-K. Wong, "Resolution Enhancement Techniques in Optical Lithography", SPIE
+Press (2001).
 """
 
 from .illumination import Illumination

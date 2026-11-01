@@ -50,6 +50,17 @@ pyoptics.litho.lens; the reticle point is field/magnification (magnification
 a source point s illuminates the wafer with the transverse wave vector
 k_0*NA*s, i.e. s = -d_xy/(NA*|magnification|) with the reticle side ray
 directions d of the (inverting) projection lens.
+
+References
+----------
+J. Wangler and J. Liegel, "Illuminating arrangement including a zoom objective
+incorporating two axicons", US 5,675,401 (1997).
+
+G. Fürter, J. Wangler, U. Dinger and G. Ittner, "REMA objective for
+microlithographic projection exposure systems", US 5,982,558 (1999).
+
+J. B. Caldwell, "All-fused-silica 248-nm lithographic projection lens", Optics
+& Photonics News 9(11), 40-41 (1998).
 """
 
 from collections import namedtuple

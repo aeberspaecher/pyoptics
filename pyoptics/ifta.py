@@ -14,6 +14,20 @@ Both the constraint enforcers and the error condition will be given these
 arguments:
 
 curr_obj, curr_img, num_iter.
+
+References
+----------
+R. W. Gerchberg and W. O. Saxton, "A practical algorithm for the determination
+of phase from image and diffraction plane pictures", Optik 35, 237-246 (1972).
+
+J. R. Fienup, "Phase retrieval algorithms: a comparison", Appl. Opt. 21,
+2758-2769 (1982).
+
+F. Wyrowski and O. Bryngdahl, "Iterative Fourier-transform algorithm applied to
+computer holography", J. Opt. Soc. Am. A 5, 1058-1065 (1988).
+
+O. Ripoll, V. Kettunen and H. P. Herzig, "Review of iterative Fourier-transform
+algorithms for beam shaping applications", Opt. Eng. 43, 2549-2556 (2004).
 """
 
 import numpy as np

@@ -39,6 +39,17 @@ A degree of polarization dop < 1 mixes the polarization with unpolarized
 light: the fraction dop of the intensity is in the given state, the rest is
 unpolarized. For "TE" the intensity in the preferred state (IPS) is then
 (1 + dop)/2.
+
+References
+----------
+C. Mack, "Fundamental Principles of Optical Lithography: The Science of
+Microfabrication", Wiley (2007).
+
+A. K.-K. Wong, "Resolution Enhancement Techniques in Optical Lithography", SPIE
+Press (2001).
+
+B. J. Lin, "Immersion lithography and its impact on semiconductor
+manufacturing", J. Microlith. Microfab. Microsyst. 3, 377-395 (2004).
 """
 
 import numpy as np

@@ -25,6 +25,16 @@ Metrics:
 
 The functions work on 1D cuts u, I with u increasing and finely sampled
 (linear interpolation between samples).
+
+References
+----------
+C. Mack, "Fundamental Principles of Optical Lithography: The Science of
+Microfabrication", Wiley (2007).
+
+J. W. Bossung, "Projection printing characterization", Proc. SPIE 100, 80
+(1977).
+
+H. J. Levinson, "Principles of Lithography", 4th ed., SPIE Press (2019).
 """
 
 import numpy as np

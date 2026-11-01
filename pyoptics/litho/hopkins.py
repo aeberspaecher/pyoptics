@@ -50,6 +50,18 @@ normal incidence (s = 0). For a ThinMask, whose transmissions do not depend
 on the angle of incidence, Hopkins and Abbe agree exactly (up to rounding);
 for a FilmMask, the angle dependence of the absorber is dropped. Truncated
 SOCS adds the energy of the dropped kernels as a further error.
+
+References
+----------
+H. H. Hopkins, "On the diffraction theory of optical images", Proc. R. Soc.
+Lond. A 217, 408-432 (1953).
+
+N. B. Cobb, "Fast optical and process proximity correction algorithms for
+integrated circuit manufacturing", Ph.D. dissertation, University of
+California, Berkeley (1998).
+
+A. Erdmann, "Optical and EUV Lithography: A Modeling Perspective", SPIE Press
+(2021).
 """
 
 import numpy as np

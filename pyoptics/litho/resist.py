@@ -59,6 +59,23 @@ The geometry is a cut across the feature: diffusion along the feature
 (y) is neglected, which is exact for lines and spaces.
 
 Lengths in nm, times in s, doses in mJ/cm**2.
+
+References
+----------
+F. H. Dill, W. P. Hornberger, P. S. Hauge and J. M. Shaw, "Characterization of
+positive photoresist", IEEE Trans. Electron Devices 22, 445-452 (1975).
+
+H. Ito and C. G. Willson, "Chemical amplification in the design of dry
+developing resist materials", Polym. Eng. Sci. 23, 1012-1018 (1983).
+
+C. A. Mack, "Development of positive photoresists", J. Electrochem. Soc. 134,
+148-152 (1987).
+
+J. A. Sethian, "A fast marching level set method for monotonically advancing
+fronts", Proc. Natl. Acad. Sci. USA 93, 1591-1595 (1996).
+
+C. Mack, "Fundamental Principles of Optical Lithography: The Science of
+Microfabrication", Wiley (2007).
 """
 
 import heapq

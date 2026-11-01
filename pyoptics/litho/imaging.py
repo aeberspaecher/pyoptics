@@ -34,6 +34,20 @@ prints where D*I exceeds the threshold.
 Convention: fields vary as exp(i(k.r - omega*t)); a focus z > 0 places the
 image plane (or the top of the wafer stack) behind the focal plane, each
 plane wave gets exp(+i*k_z*z).
+
+References
+----------
+E. Abbe, "Beiträge zur Theorie des Mikroskops und der mikroskopischen
+Wahrnehmung", Arch. Mikrosk. Anat. 9, 413-468 (1873).
+
+D. G. Flagello, T. Milster and A. E. Rosenbluth, "Theory of high-NA imaging in
+homogeneous thin films", J. Opt. Soc. Am. A 13, 53-64 (1996).
+
+C. Mack, "Fundamental Principles of Optical Lithography: The Science of
+Microfabrication", Wiley (2007).
+
+A. Erdmann, "Optical and EUV Lithography: A Modeling Perspective", SPIE Press
+(2021).
 """
 
 import numpy as np

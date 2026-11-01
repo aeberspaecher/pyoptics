@@ -37,6 +37,24 @@ small NA and field, which then grow to the specification.
 
 Rays are traced without vignetting (clip=False); a ray that fails (it misses
 a surface or is totally reflected) gives a large residual.
+
+References
+----------
+K. Levenberg, "A method for the solution of certain non-linear problems in
+least squares", Q. Appl. Math. 2, 164-168 (1944).
+
+D. W. Marquardt, "An algorithm for least-squares estimation of nonlinear
+parameters", J. Soc. Ind. Appl. Math. 11, 431-441 (1963).
+
+M. A. Branch, T. F. Coleman and Y. Li, "A subspace, interior, and conjugate
+gradient method for large-scale bound-constrained minimization problems", SIAM
+J. Sci. Comput. 21, 1-23 (1999).
+
+X. Yang, Q. Fu and W. Heidrich, "Curriculum learning for ab initio deep learned
+refractive optics", Nat. Commun. 15 (2024).
+
+R. Kingslake and R. B. Johnson, "Lens Design Fundamentals", 2nd ed., Academic
+Press (2010).
 """
 
 import copy

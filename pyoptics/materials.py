@@ -44,6 +44,19 @@ absorbing part of the index only acts on the polarization along the ray
 and their walk-off are neglected, their phase difference is not. Index
 data are evaluated at wavelengths in nm; a value can be a number, a function
 n(wavelength_nm) or a pair (n_d, V_d) for `abbe_dispersion()`.
+
+References
+----------
+I. H. Malitson, "Interspecimen comparison of the refractive index of fused
+silica", J. Opt. Soc. Am. 55, 1205-1209 (1965).
+
+J. H. Burnett, Z. H. Levine and E. L. Shirley, "Intrinsic birefringence in
+calcium fluoride and barium fluoride", Phys. Rev. B 64, 241102 (2001).
+
+W. J. Smith, "Modern Optical Engineering", 4th ed., McGraw-Hill (2008).
+
+M. Born and E. Wolf, "Principles of Optics", 7th ed., Cambridge University
+Press (1999).
 """
 
 import numpy as np

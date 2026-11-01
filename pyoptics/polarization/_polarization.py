@@ -17,6 +17,14 @@ projections onto the x-y plane, i.e. the Jones vectors in the pupil that
 aplanatic focusing (propagators.aplanatic_rotation()) turns into the s and p
 polarized plane waves. On the axis (sigma = 0) the plane of incidence is
 undefined; there phi = 0 is used (TE = y, TM = x).
+
+References
+----------
+M. Born and E. Wolf, "Principles of Optics", 7th ed., Cambridge University
+Press (1999).
+
+R. A. Chipman, W.-S. T. Lam and G. Young, "Polarized Light and Optical
+Systems", CRC Press (2018).
 """
 
 import numpy as np

@@ -48,6 +48,17 @@ bottom anti-reflective coating for the lowest substrate reflectance.
 
 Convention: fields vary as exp(i(k.r - omega*t)), absorbing media have
 n + i*k with k > 0.
+
+References
+----------
+D. G. Flagello, T. Milster and A. E. Rosenbluth, "Theory of high-NA imaging in
+homogeneous thin films", J. Opt. Soc. Am. A 13, 53-64 (1996).
+
+T. A. Brunner, "Optimization of optical properties of resist processes", Proc.
+SPIE 1466, 297 (1991).
+
+C. Mack, "Fundamental Principles of Optical Lithography: The Science of
+Microfabrication", Wiley (2007).
 """
 
 import numpy as np

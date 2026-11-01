@@ -30,6 +30,20 @@ profile too.
 Convention: exp(i(k.r - omega*t)) as in `pyoptics.thin_films`; absorbing
 media have n + i*k with k > 0. r and t are the ratios of the tangential
 electric field components (Zangwill), see `Coating.amplitudes()`.
+
+References
+----------
+H. A. Macleod, "Thin-Film Optical Filters", 3rd ed., Institute of Physics
+Publishing (2001).
+
+A. Zangwill, "Modern Electrodynamics", Cambridge University Press (2013).
+
+G. Yun, K. Crabtree and R. A. Chipman, "Three-dimensional polarization
+ray-tracing calculus I: definition and diattenuation", Appl. Opt. 50, 2855-2865
+(2011).
+
+R. A. Chipman, W.-S. T. Lam and G. Young, "Polarized Light and Optical
+Systems", CRC Press (2018).
 """
 
 import numpy as np

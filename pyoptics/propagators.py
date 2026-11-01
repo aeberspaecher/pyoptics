@@ -68,6 +68,29 @@ Negative z propagates backwards; the angular spectrum propagators then drop
 evanescent waves, which backward propagation would amplify exponentially. In
 rayleigh_sommerfeld_I_TF(), absorbing media can be described by a complex
 n = n' + i*kappa with kappa > 0.
+
+References
+----------
+J. W. Goodman, "Introduction to Fourier Optics", 4th ed., W. H. Freeman (2017).
+
+F. Shen and A. Wang, "Fast-Fourier-transform based numerical integration method
+for the Rayleigh-Sommerfeld diffraction formula", Appl. Opt. 45, 1102-1110
+(2006).
+
+K. Matsushima and T. Shimobaba, "Band-limited angular spectrum method for
+numerical simulation of free-space propagation in far and near fields", Opt.
+Express 17, 19662-19673 (2009).
+
+K. Matsushima, "Shifted angular spectrum method for off-axis numerical
+propagation", Opt. Express 18, 18453-18463 (2010).
+
+B. Richards and E. Wolf, "Electromagnetic diffraction in optical systems II.
+Structure of the image field in an aplanatic system", Proc. R. Soc. Lond. A
+253, 358-379 (1959).
+
+M. Mansuripur, "Certain computational aspects of vector diffraction problems",
+J. Opt. Soc. Am. A 6, 786-805 (1989), erratum J. Opt. Soc. Am. A 10, 382
+(1993).
 """
 
 # TODO: can from_spectrum switches be implemented? this might save Fourier transforms.

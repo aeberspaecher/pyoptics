@@ -27,6 +27,19 @@ better the pupil (and with it the PSF) is resolved.
 get_psf() can evaluate the PSF on a separate output grid x_out, y_out (e.g. a
 fine grid around the core or an off-axis window) by a chirp-z transform of
 the pupil, without zero padding: x, y then only set the pupil sampling.
+
+References
+----------
+J. W. Goodman, "Introduction to Fourier Optics", 4th ed., W. H. Freeman (2017).
+
+M. Born and E. Wolf, "Principles of Optics", 7th ed., Cambridge University
+Press (1999).
+
+V. N. Mahajan, "Optical Imaging and Aberrations, Part II: Wave Diffraction
+Optics", 2nd ed., SPIE Press (2011).
+
+G. D. Boreman, "Modulation Transfer Function in Optical and Electro-Optical
+Systems", SPIE Press (2001).
 """
 
 import warnings

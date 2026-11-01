@@ -51,6 +51,22 @@ layers to the tangential field of the order at the bottom of the layers
 (transmission) or at the top (reflection). Diffraction efficiencies are
 ``Re(K_z,m)*|E_m|**2/(Re(K_z,inc)*|E_inc|**2)`` with the full fields (E_z from
 transversality).
+
+References
+----------
+M. G. Moharam and T. K. Gaylord, "Rigorous coupled-wave analysis of
+planar-grating diffraction", J. Opt. Soc. Am. 71, 811-818 (1981).
+
+M. G. Moharam, D. A. Pommet, E. B. Grann and T. K. Gaylord, "Stable
+implementation of the rigorous coupled-wave analysis for surface-relief
+gratings: enhanced transmittance matrix approach", J. Opt. Soc. Am. A 12,
+1077-1086 (1995).
+
+P. Lalanne and G. M. Morris, "Highly improved convergence of the coupled-wave
+method for TM polarization", J. Opt. Soc. Am. A 13, 779-784 (1996).
+
+L. Li, "Use of Fourier series in the analysis of discontinuous periodic
+structures", J. Opt. Soc. Am. A 13, 1870-1876 (1996).
 """
 
 import numpy as np
