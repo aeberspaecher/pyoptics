@@ -357,3 +357,36 @@ def test_backward_propagation_drops_evanescent_waves():
     # forwards again: the propagating part of the focus is recovered
     there = rayleigh_sommerfeld_I_TF(back, x, y, 20*WL, WL)[0]
     assert np.allclose(there, field, atol=1e-2)
+
+
+@pytest.mark.parametrize("band_limit", [False, True])
+def test_planes_match_single_propagations(band_limit):
+    from pyoptics.propagators import rayleigh_sommerfeld_I_TF_planes
+
+    N, wl = 64, 0.5e-3
+    x = wl*(np.arange(N) - N//2)
+    X, Y = np.meshgrid(x, x)
+    field = np.exp(-(X**2 + Y**2)/(8*wl)**2)*np.exp(0.3j*X/wl)
+    zs = np.array([-0.4, -0.01, 0.0, 0.02, 0.5, 3.0])
+    # a small batch size: several batches, the last one partly filled
+    planes, x_out, y_out = rayleigh_sommerfeld_I_TF_planes(field, x, x, zs, wl,
+                                                           band_limit=band_limit,
+                                                           max_bytes=4*16*N*N)
+    assert planes.shape == (len(zs), N, N)
+    assert x_out is x and y_out is x
+    for z, E in zip(zs, planes):
+        E_ref = rayleigh_sommerfeld_I_TF(field, x, x, z, wl, band_limit=band_limit)[0]
+        assert np.allclose(E, E_ref, rtol=0, atol=1e-13)
+
+
+def test_planes_in_an_absorbing_medium():
+    from pyoptics.propagators import rayleigh_sommerfeld_I_TF_planes
+
+    N, wl, n = 32, 0.5e-3, 1.5 + 0.01j
+    x = wl*(np.arange(N) - N//2)
+    X, Y = np.meshgrid(x, x)
+    field = np.exp(-(X**2 + Y**2)/(4*wl)**2)
+    zs = [0.01, 0.1]
+    planes = rayleigh_sommerfeld_I_TF_planes(field, x, x, zs, wl, n=n)[0]
+    for z, E in zip(zs, planes):
+        assert np.allclose(E, rayleigh_sommerfeld_I_TF(field, x, x, z, wl, n=n)[0], rtol=0, atol=1e-13)
