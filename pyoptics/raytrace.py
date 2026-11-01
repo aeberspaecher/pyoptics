@@ -9,9 +9,10 @@ aspheres, refracting or reflecting), optional `IdealLens` surfaces, cones
 tilted. Rays are traced exactly (exact intersections, vector law of refraction and
 reflection); paraxial marginal and chief rays, the pupils, the powers of
 the system, its surfaces and elements, the Seidel sums of every surface, the
-Petzval sum, the third order image surfaces and distortion and the primary
-colour come from a paraxial y-nu trace, whose system matrix agrees with
-`pyoptics.abcd`. The main result is the optical path difference (OPD) over
+Petzval sum, the third order image surfaces and distortion, the primary
+colour and the closeness of the surfaces to a pupil or a field come from a
+paraxial y-nu trace, whose system matrix agrees with `pyoptics.abcd` (the
+ray footprints on the surfaces give the real ray closeness). The main result is the optical path difference (OPD) over
 the pupil, which can be fitted with Fringe Zernikes and handed on to
 `pyoptics.imaging` for PSFs, MTFs and Strehl ratios.
 
@@ -160,6 +161,7 @@ silica", J. Opt. Soc. Am. 55, 1205-1209 (1965).
 """
 
 import copy
+import warnings
 from collections import namedtuple
 
 import numpy as np
@@ -1019,6 +1021,29 @@ lateral : paraxial chief ray height at the short wavelength minus that at
 delta_n : (S + 1,) array of dn in object space and behind each surface
 """
 
+Footprints = namedtuple("Footprints", ["fields", "centre", "radius", "total_radius", "ratio",
+                                       "closeness"])
+Footprints.__doc__ = """Ray footprints on the surfaces (local frames), see
+`System.footprints()`.
+
+Attributes
+----------
+fields : the fields traced
+centre : (F, S, 2) array, centre (x, y) of the bounding box of the bundle of
+    each field on each surface
+radius : (F, S) array, radius sqrt(A/pi) of the circle with the area A of the
+    footprint (convex hull of the ray hits)
+total_radius : (S,) array, semi diameter filled by the rays of all fields
+    (largest distance of a ray from the vertex), or the semi diameters of the
+    surfaces (relative_to="aperture")
+ratio : (F, S) array radius/total_radius, 1 at a pupil, near 0 at a field
+    surface; ratio**2 is the share of the area that one field fills
+closeness : (S,) array, the ratio averaged over the fields (NaN where all
+    rays were lost)
+
+Coordinate breaks report the footprint in their own frame.
+"""
+
 SpotDiagram = namedtuple("SpotDiagram", ["x", "y", "rms", "centroid"])
 SpotDiagram.__doc__ = """Image plane intersections x, y relative to the chief
 ray, RMS radius about the centroid and the centroid (x, y)."""
@@ -1046,6 +1071,31 @@ def _seidel_waves(S, wavelength):
     W[..., 3] = -(S[..., 2] + S[..., 3])/4/wavelength
 
     return W
+
+
+def _hull_area(Q):
+    """Area of the convex hull of the points Q, shape (N, 2) (monotone chain)."""
+
+    Q = np.unique(np.round(Q, 12), axis=0)
+    if len(Q) < 3:
+        return 0.0
+    Q = Q[np.lexsort((Q[:, 1], Q[:, 0]))]
+
+    def turn(o, a, b):
+        return (a[0] - o[0])*(b[1] - o[1]) - (a[1] - o[1])*(b[0] - o[0])
+
+    def half(points):
+        h = []
+        for q in points:
+            while len(h) >= 2 and turn(h[-2], h[-1], q) <= 0:
+                h.pop()
+            h.append(q)
+        return h[:-1]
+
+    H = np.array(half(Q) + half(Q[::-1]))
+    x, y = H[:, 0], H[:, 1]
+
+    return 0.5*abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))
 
 
 class System:
@@ -1706,6 +1756,109 @@ class System:
         shape (number of elements,)."""
 
         return np.array([-self._matrix(a, b + 1)[1, 0] for a, b in self.elements()])
+
+    # pupil and field surfaces:
+    def pupil_closeness(self, field=None):
+        """Paraxial closeness of the surfaces to a pupil, the sub aperture
+        ratio ``|y_m|/(|y_m| + |y_c|)`` of the marginal ray height y_m (full
+        aperture) and the chief ray height y_c (field, default: the maximum
+        field) at each vertex, shape (S,).
+
+        1 at a pupil (stop, y_c = 0), 0 at a field surface (object, image
+        or an intermediate image, y_m = 0). Near a pupil a surface acts on
+        all fields alike (spherical aberration, power), near a field on each
+        field point separately (distortion, field curvature; dust and
+        defects there are imaged sharply). The ratio does not depend on the
+        field to first order: y_c is linear in the field, but its sign is
+        lost, so a surface on either side of the stop gets the same value.
+        See `footprints()` for the real ray version.
+        """
+
+        self._check_seidel_field(field)
+        (y_m, u_m), (y_c, u_c) = self._paraxial_rays(field)
+        ym, _ = self._paraxial_trace(y_m, u_m)
+        yc, _ = self._paraxial_trace(y_c, u_c)
+        a, b = np.abs(ym), np.abs(yc)
+        with np.errstate(invalid="ignore"):
+            return np.where(a + b > 0, a/(a + b), np.nan)
+
+    def footprints(self, fields=None, N=15, n_rim=64, relative_to="footprint", clip=True):
+        """Footprints of the ray bundles of field points on the surfaces and
+        the closeness of the surfaces to a pupil from real rays.
+
+        For each field, a grid of rays over the entrance pupil (with its rim)
+        is traced. On each surface (in its local frame) the footprint of the
+        bundle (convex hull of the ray hits) has an area A and the radius
+        sqrt(A/pi) of the circle of equal area. The ratio of that radius to
+        the semi diameter r that the rays of all fields fill (the largest
+        distance of any ray from the vertex), i.e. (A/(pi r**2))**0.5, tells
+        how much of the surface a single field point lights up: 1 at a
+        pupil, where all bundles overlap, and near 0 at a field surface,
+        where each field point lights a small patch. ratio**2 is the share
+        of the used area (the disc of radius r) that a single field fills;
+        the ratio lies between 0 and 1. For a rotationally symmetric system the total radius
+        is centre + radius of the bundle of the largest field, and the ratio
+        of that field matches the paraxial `pupil_closeness()`.
+
+        Parameters
+        ----------
+        fields : sequence, optional
+            Fields (numbers for y fields or (x, y) pairs). Default: 0, 0.5
+            and 1 times the maximum field; with rotational symmetry the
+            fields of opposite sign light up mirrored footprints of equal
+            reach.
+        N : int, optional
+            Rays across the pupil diameter of the grid.
+        n_rim : int, optional
+            Rays on the rim of the pupil, which outline the footprints.
+        relative_to : "footprint" or "aperture", optional
+            Divide by the semi diameter that all fields fill (default) or
+            by the semi diameter of the surface (y_max/y_max_possible with
+            the clear aperture, smaller where the apertures have margins;
+            NaN for surfaces without one).
+        clip : bool, optional
+            Vignette rays outside the semi diameters.
+
+        Returns
+        -------
+        Footprints
+        """
+
+        if fields is None:
+            fx, fy = _field_xy(self.max_field)
+            if fx == 0 and fy == 0:
+                raise ValueError("Needs a field (the system has max_field = 0).")
+            fields = [(t*fx, t*fy) for t in (0.0, 0.5, 1.0)]
+        if relative_to not in ("footprint", "aperture"):
+            raise ValueError("relative_to must be 'footprint' or 'aperture'.")
+        _, PX, PY, inside = self._pupil_grid(N)
+        phi = 2*np.pi*np.arange(n_rim)/n_rim
+        px = np.concatenate([PX[inside], np.sin(phi)])
+        py = np.concatenate([PY[inside], np.cos(phi)])
+        frames = self.frames()[0]
+        S = len(self.surfaces)
+        centre = np.full((len(fields), S, 2), np.nan)
+        radius = np.full((len(fields), S), np.nan)
+        reach = np.zeros(S)
+        for k, f in enumerate(fields):
+            bundle = self.trace_pupil(f, px, py, clip=clip)
+            ok = bundle.valid
+            if not np.any(ok):
+                continue
+            for i, (o, R) in enumerate(frames):
+                Q = ((bundle.points[i + 1, ok] - o) @ R)[:, :2]
+                centre[k, i] = 0.5*(Q.min(axis=0) + Q.max(axis=0))
+                radius[k, i] = np.sqrt(_hull_area(Q)/np.pi)
+                reach[i] = max(reach[i], np.max(np.hypot(*Q.T)))
+        if relative_to == "aperture":
+            reach = np.array([np.nan if s.semi_diameter is None else s.semi_diameter
+                              for s in self.surfaces])
+        with np.errstate(invalid="ignore", divide="ignore"), warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)  # all rays lost: NaN
+            ratio = radius/reach
+            closeness = np.nanmean(ratio, axis=0)
+
+        return Footprints(list(fields), centre, radius, reach, ratio, closeness)
 
     # real rays:
     def rays(self, field=None, px=0.0, py=0.0, aim=None):

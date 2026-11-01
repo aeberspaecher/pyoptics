@@ -174,3 +174,62 @@ def test_caldwell_lens_axial_colour_and_balanced_sums():
     t = lens.third_order()
     assert abs(t.petzval_radius) > 100*1000  # flat Petzval surface (> 100 m)
     assert abs(t.distortion) < 1e-4
+
+
+def relay(field=np.radians(1.0), f=50.0):
+    """Stop in the front focal plane of an ideal lens, a dummy surface in the
+    intermediate image and a second ideal lens that relays it."""
+
+    surfaces = [rt.Surface(np.inf, f, semi_diameter=1.0), rt.IdealLens(f, f),
+                rt.Surface(np.inf, f), rt.IdealLens(f, f), rt.Surface(np.inf, f)]
+
+    return rt.System(surfaces, 0, WL, field_angle=field)
+
+
+def test_pupil_closeness_is_one_at_the_stop_and_zero_in_the_image():
+    field, f = np.radians(1.0), 50.0
+    system = relay(field, f)
+    y_c = f*np.tan(field)
+    expected = [1.0, 1/(1 + y_c), 0.0, 1/(1 + y_c), 1.0]
+    assert np.allclose(system.pupil_closeness(), expected)
+    # independent of the field to first order only through |y_c|/|y_m|:
+    assert np.allclose(relay(2*field, f).pupil_closeness()[1], 1/(1 + 2*f*np.tan(field)), rtol=1e-3)
+    # the real footprints of the ideal lenses agree:
+    fp = system.footprints(N=21, n_rim=128)
+    assert fp.ratio.shape == (3, 5) and fp.centre.shape == (3, 5, 2)
+    assert np.allclose(fp.ratio[-1], expected, atol=2e-3)
+    assert np.all((fp.ratio >= 0) & (fp.ratio <= 1 + 1e-12))
+    # the bundle of the on axis field fills the disc of the full field's
+    # reach as much as that of the full field does:
+    assert np.allclose(fp.closeness, expected, atol=2e-3)
+    assert np.allclose(fp.radius[:, 0], 1.0, atol=2e-3)
+    assert fp.total_radius[1] == pytest.approx(1 + y_c, rel=1e-3)
+
+
+def test_footprints_against_paraxial_for_a_slow_singlet():
+    system = stop_in_front(field=np.radians(1.0))
+    fp = system.footprints()
+    assert fp.closeness == pytest.approx(system.pupil_closeness(), abs=5e-3)
+    # relative to the clear aperture (none given behind the stop):
+    ap = system.footprints(relative_to="aperture")
+    assert ap.ratio[:, 0] == pytest.approx(fp.radius[:, 0]/2.0)
+    assert np.all(np.isnan(ap.ratio[:, 1:]))
+
+
+def test_pupil_closeness_needs_a_field():
+    system = stop_in_front(field=0.0)
+    with pytest.raises(ValueError):
+        system.pupil_closeness()
+    with pytest.raises(ValueError):
+        system.footprints()
+    fp = system.footprints(fields=[0.0])
+    assert np.allclose(fp.ratio, 1.0, atol=2e-3)
+
+
+def test_hull_area():
+    phi = np.linspace(0, 2*np.pi, 2000, endpoint=False)
+    Q = np.column_stack([np.cos(phi), np.sin(phi)])
+    inner = 0.5*Q[::7]
+    assert rt._hull_area(np.vstack([Q, inner])) == pytest.approx(np.pi, rel=1e-5)
+    assert rt._hull_area(np.zeros((5, 2))) == 0.0
+    assert rt._hull_area(np.column_stack([phi, 2*phi])) == pytest.approx(0.0, abs=1e-9)
