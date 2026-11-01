@@ -53,9 +53,11 @@ Confocal microscopy:
 Fourier ptychography:
 
 - led_array(): illumination wave vectors of an LED matrix below the sample.
+- fpm_pupil(): the objective pupil on the camera's frequency grid.
 - fpm_images(): the low resolution images of a thin object under each LED.
 - fpm_reconstruct(): the object spectrum stitched together in k-space by
-  alternating projections, with embedded pupil recovery (EPRY).
+  alternating projections (quasi-Newton or EPRY updates) with embedded pupil
+  recovery.
 - circle_overlap(): the overlap of two pupil circles in k-space (FPM needs
   roughly 40 to 60 % between neighbouring LEDs).
 
@@ -104,6 +106,10 @@ ptychographic microscopy", Nat. Photonics 7, 739-745 (2013).
 X. Ou, G. Zheng and C. Yang, "Embedded pupil function recovery for Fourier
 ptychographic microscopy", Opt. Express 22, 4960-4972 (2014).
 
+L.-H. Yeh, J. Dong, J. Zhong, L. Tian, M. Chen, G. Tang, M. Soltanolkotabi
+and L. Waller, "Experimental robustness of Fourier ptychography phase
+retrieval algorithms", Opt. Express 23, 33214-33240 (2015).
+
 L. Tian, X. Li, K. Ramchandran and L. Waller, "Multiplexed coded
 illumination for Fourier ptychography with an LED array microscope",
 Biomed. Opt. Express 5, 2376-2389 (2014).
@@ -124,7 +130,7 @@ from .utils import freq_grid, frequencies, get_dx
 __all__ = ["source_points", "pupil", "abbe_image", "weak_object_transfer",
            "grating_cutoff", "phase_ring", "dic_object", "psf_3d", "airy_unit",
            "confocal_psf", "plane_response", "mirror_response", "led_array",
-           "fpm_images", "fpm_reconstruct", "circle_overlap"]
+           "fpm_pupil", "fpm_images", "fpm_reconstruct", "circle_overlap"]
 
 
 _AXES = (-2, -1)
@@ -346,12 +352,14 @@ def weak_object_transfer(x, y, wavelength, NA, source=None, P=None, n=1.0, defoc
     """Amplitude and phase transfer functions for weak objects.
 
     For a weak object t = 1 + a + i*phi (``|a|, |phi|`` << 1) the image is linear
-    in a and phi::
+    in a and phi, relative to the background I_0 = sum_s w_s |P(k_s)|**2::
 
-        I = 1 + inv_FT{ H_a * FT(a) + H_phi * FT(phi) }
+        I = I_0 * (1 + inv_FT{ H_a * FT(a) + H_phi * FT(phi) })
 
-    with C(f) = sum_s w_s conj(P(k_s)) P(k_s + f) / sum_s w_s |P(k_s)|**2,
+    with C(f) = sum_s w_s conj(P(k_s)) P(k_s + f) / I_0,
     H_a(f) = C(f) + conj(C(-f)) and H_phi(f) = i*(C(f) - conj(C(-f))).
+    I_0 = 1 for a clear pupil; a phase ring of intensity transmission T
+    gives I_0 = T and the relative phase transfer -2/sqrt(T).
     In focus with a symmetric condenser and pupil H_phi vanishes: bright
     field shows no phase. Defocus, oblique illumination, a phase ring or a
     DIC prism make H_phi nonzero.
@@ -364,8 +372,8 @@ def weak_object_transfer(x, y, wavelength, NA, source=None, P=None, n=1.0, defoc
     Returns
     -------
     H_a, H_phi : 2d arrays
-        Transfer functions on the centered frequency grid of x, y (H_a(0) = 2
-        for a clear pupil). Both are real for real symmetric systems; in
+        Transfer functions (relative to the background) on the centered
+        frequency grid of x, y (H_a(0) = 2). Both are real for real symmetric systems; in
         general they are Hermitian (H(-f) = conj(H(f))).
     """
 
@@ -751,8 +759,33 @@ def _fpm_windows(x, y, m, k_x, k_y):
     return c_x, c_y
 
 
-def _low_res_pupil(x, y, m, wavelength, NA, n=1.0):
-    """Pupil on the m x m low resolution frequency grid (the central crop)."""
+def fpm_pupil(x, y, m, wavelength, NA, n=1.0):
+    """Objective pupil on the camera grid of Fourier ptychography.
+
+    The camera samples the m x m central part of the high resolution grid's
+    spectrum: its pixel pitch is dx*N/m.
+
+    Parameters
+    ----------
+    x, y : 1d arrays
+        High resolution coordinates (N x N).
+    m : int
+        Camera pixels per side.
+    wavelength : number
+        Vacuum wavelength.
+    NA : number
+        Objective numerical aperture.
+    n : number, optional
+        Immersion index. Defaults to 1.
+
+    Returns
+    -------
+    P : 2d array
+        Clear pupil on the m x m frequency grid (multiply aberrations onto it
+        for fpm_images(P=...)).
+    x_lr, y_lr : 1d arrays
+        Camera pixel coordinates.
+    """
     N_y, N_x = len(y), len(x)
     x_lr = (np.arange(m) - m//2)*get_dx(x)*N_x/m
     y_lr = (np.arange(m) - m//2)*get_dx(y)*N_y/m
@@ -799,7 +832,7 @@ def fpm_images(obj, x, y, wavelength, NA, k_x, k_y, m, P=None):
     """
 
     N_y, N_x = len(y), len(x)
-    P_lr, x_lr, y_lr = _low_res_pupil(x, y, m, wavelength, NA)
+    P_lr, x_lr, y_lr = fpm_pupil(x, y, m, wavelength, NA)
     if P is not None:
         P_lr = P
     T = FT(np.asarray(obj, dtype=complex))
@@ -813,20 +846,28 @@ def fpm_images(obj, x, y, wavelength, NA, k_x, k_y, m, P=None):
 
 
 def fpm_reconstruct(images, x, y, wavelength, NA, k_x, k_y, n_iter=20, P=None,
-                    update_pupil=True, alpha=1.0, beta=1.0, order=None, start=None,
-                    callback=None):
+                    update_pupil=True, method="quasi-newton", alpha=1.0, beta=1.0,
+                    delta=(1e-3, 1e-2), order=None, start=None, callback=None):
     """Fourier ptychographic reconstruction with embedded pupil recovery.
 
     The high resolution object spectrum is stitched together from the low
     resolution images by alternating projections (Zheng et al. 2013): for
     each LED, the part of the spectrum under the shifted pupil is
     propagated to the camera, its amplitude replaced by the measured one,
-    and the change fed back into the spectrum (and the pupil, EPRY after Ou
-    et al. 2014)::
+    and the change fed back into the spectrum and the pupil (embedded pupil
+    function recovery, EPRY, after Ou et al. 2014)::
 
         dPsi = FT(sqrt(I_j)*psi/|psi|) - Psi
         T_j += alpha*conj(P)/max|P|**2 * dPsi
         P   += beta*conj(T_j)/max|T_j|**2 * dPsi.
+
+    The default "quasi-newton" method (Tian et al. 2014) weights the updates
+    with the magnitudes and regularizes them with delta = (d1, d2),
+    relative to the maxima; it recovers aberrations faster and more
+    reliably::
+
+        T_j += alpha*|P| conj(P)/(max|P| (|P|**2 + d1 max|P|**2)) * dPsi
+        P   += beta*|T_j| conj(T_j)/(max|T_j| (|T_j|**2 + d2 max|T_j|**2)) * dPsi.
 
     Parameters
     ----------
@@ -848,8 +889,13 @@ def fpm_reconstruct(images, x, y, wavelength, NA, k_x, k_y, n_iter=20, P=None,
     update_pupil : bool, optional
         Recover the pupil (aberrations) along with the object. Defaults to
         True.
+    method : {"quasi-newton", "epry"}, optional
+        Update rule, see above. Defaults to "quasi-newton".
     alpha, beta : numbers, optional
         Step sizes of the object and pupil updates. Defaults to 1.
+    delta : tuple of two numbers, optional
+        Regularization (d1, d2) of the quasi-Newton updates. Defaults to
+        (1e-3, 1e-2).
     order : array of int, optional
         Order in which the LEDs are processed. Defaults to increasing
         illumination angle (bright field first), which converges best.
@@ -865,7 +911,9 @@ def fpm_reconstruct(images, x, y, wavelength, NA, k_x, k_y, n_iter=20, P=None,
     obj : 2d array
         Complex high resolution object (N x N).
     P : 2d array
-        Recovered pupil (m x m).
+        Recovered pupil (m x m), scaled to a mean magnitude of 1 inside the
+        NA (pupil and object share a free factor, and a pupil tilt is an
+        object shift).
     errors : 1d array
         Normalized amplitude error sum (|psi| - sqrt(I))**2 / sum I per pass.
     """
@@ -873,7 +921,7 @@ def fpm_reconstruct(images, x, y, wavelength, NA, k_x, k_y, n_iter=20, P=None,
     images = np.asarray(images, dtype=float)
     L, m, _ = images.shape
     N_y, N_x = len(y), len(x)
-    P_support, _, _ = _low_res_pupil(x, y, m, wavelength, NA)
+    P_support, _, _ = fpm_pupil(x, y, m, wavelength, NA)
     support = np.abs(P_support) > 0
     P = P_support.copy() if P is None else np.asarray(P, dtype=complex).copy()
     c_x, c_y = _fpm_windows(x, y, m, k_x, k_y)
@@ -892,6 +940,9 @@ def fpm_reconstruct(images, x, y, wavelength, NA, k_x, k_y, n_iter=20, P=None,
     else:
         T = FT(np.asarray(start, dtype=complex))
 
+    if method not in ("quasi-newton", "epry"):
+        raise ValueError("method must be 'quasi-newton' or 'epry'")
+    quasi_newton = method == "quasi-newton"
     errors = np.zeros(n_iter)
     total = np.sum(images)
     for it in range(n_iter):
@@ -905,13 +956,28 @@ def fpm_reconstruct(images, x, y, wavelength, NA, k_x, k_y, n_iter=20, P=None,
             err += np.sum((mag - amp[j])**2)
             psi_new = amp[j]*np.exp(1j*np.angle(psi))
             dPsi = FT(psi_new)/scale - Psi
-            T[sl] = T_j + alpha*np.conj(P)/np.max(np.abs(P))**2*dPsi
+            if quasi_newton:
+                a_P, a_T = np.abs(P), np.abs(T_j)
+                m_P, m_T = a_P.max(), a_T.max()
+                T[sl] = T_j + alpha*a_P*np.conj(P)/(m_P*(a_P**2 + delta[0]*m_P**2))*dPsi
+            else:
+                T[sl] = T_j + alpha*np.conj(P)/np.max(np.abs(P))**2*dPsi
             if update_pupil:
-                P = P + beta*np.conj(T_j)/np.max(np.abs(T_j))**2*dPsi
+                if quasi_newton:
+                    P = P + beta*a_T*np.conj(T_j)/(m_T*(a_T**2 + delta[1]*m_T**2))*dPsi
+                else:
+                    P = P + beta*np.conj(T_j)/np.max(np.abs(T_j))**2*dPsi
                 P[~support] = 0.0
         errors[it] = err/total
         if callback is not None:
             callback(it, inv_FT(T), P)
+
+    if update_pupil:
+        # object and pupil are only determined up to a factor between them:
+        # scale the pupil to a mean magnitude of 1
+        s = np.mean(np.abs(P[support]))
+        if s > 0:
+            P, T = P/s, T*s
 
     return inv_FT(T), P, errors
 

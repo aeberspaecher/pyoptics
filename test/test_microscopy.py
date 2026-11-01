@@ -203,3 +203,41 @@ def test_fpm_forward_and_reconstruct():
     c = np.vdot(rec_f, ref)/abs(np.vdot(rec_f, ref))
     rel = np.linalg.norm(rec_f*c - ref)/np.linalg.norm(ref)
     assert rel < 0.05
+
+
+def test_fpm_pupil_recovery():
+    from scipy.ndimage import gaussian_filter
+    from pyoptics.bases import fringe_zernike
+    from pyoptics.utils import freq_grid
+    wl, NA = 0.5, 0.1
+    N, dx, m = 128, 0.25, 32
+    L = N*dx
+    x, y, X, Y = grid2d(-L/2, L/2, -L/2, L/2, N)
+    k_x, k_y, NA_ill = mic.led_array(7, 4.0, 80.0, wl)
+    rng = np.random.default_rng(1)
+    a = 1 - 0.5*(gaussian_filter(rng.random((N, N)), 2, mode="wrap") > 0.5)
+    ph = 6*gaussian_filter(rng.random((N, N)), 3, mode="wrap")
+    obj = gaussian_filter(a, 0.5, mode="wrap")*np.exp(1j*ph)
+    P0, x_lr, y_lr = mic.fpm_pupil(x, y, m, wl, NA)
+    K_x, K_y = freq_grid(x_lr, y_lr)
+    k0 = 2*np.pi/wl
+    rx, ry = K_x/(k0*NA), K_y/(k0*NA)
+    W = 0.1*fringe_zernike(4, rx, ry)
+    P_true = P0*np.exp(2j*np.pi*W)
+    images, _, _ = mic.fpm_images(obj, x, y, wl, NA, k_x, k_y, m, P=P_true)
+    rec, P, err = mic.fpm_reconstruct(images, x, y, wl, NA, k_x, k_y, n_iter=60)
+    # compare without piston and tilt (a pupil tilt is an object shift), inside
+    # 80 % of the radius (the rim is seen by few frequencies)
+    inside = np.hypot(rx, ry) < 0.8
+    # compare without piston and tilt (a pupil tilt is an object shift)
+    d = np.unwrap(np.angle(P*np.conj(P_true)))[inside]
+    A = np.stack([np.ones(inside.sum()), rx[inside], ry[inside]], axis=1)
+    c, *_ = np.linalg.lstsq(A, d, rcond=None)
+    rms_W = np.std(W[inside])
+    assert np.std(d - A @ c)/(2*np.pi) < 0.75*rms_W
+    # the data are fitted better than with the ideal pupil
+    _, _, err_fixed = mic.fpm_reconstruct(images, x, y, wl, NA, k_x, k_y, n_iter=60,
+                                          update_pupil=False)
+    assert err[-1] < err_fixed[-1]/2
+    with pytest.raises(ValueError):
+        mic.fpm_reconstruct(images, x, y, wl, NA, k_x, k_y, n_iter=1, method="newton")
