@@ -6,7 +6,7 @@
 Behind a lens, near a point source or far from a waist, a field has a
 strongly curved wavefront. Sampled as a complex array, its phase must change
 by less than pi between neighbouring samples: a beam of width L with the
-radius of curvature R needs about L**2/(lambda*|R|) samples per axis, often
+radius of curvature R needs about ``L**2/(lambda*|R|)`` samples per axis, often
 thousands, although its amplitude is smooth and needs only a few dozen.
 Wyrowski and coworkers therefore write the field as ::
 
@@ -38,7 +38,7 @@ k_j = beta + 2*alpha*x_j. The convolution with the chirp c is done with FFTs
 (its spectrum is known in closed form, sqrt(i*pi/alpha) exp(-i*nu**2/(4*alpha))).
 This is exact, and the sampling of the chirps is the only condition: with N
 samples of spacing dx, the chirp exp(i*alpha*x**2) is sampled in x if
-rho = |alpha|*N*dx**2/pi < 1 and its counterpart exp(-i*nu**2/(4*alpha)) in
+``rho = |alpha|*N*dx**2/pi < 1`` and its counterpart exp(-i*nu**2/(4*alpha)) in
 the frequency domain if rho > 1. The transforms here pick per axis: for
 rho < 1 the quadratic phase is multiplied into A and an ordinary (chirp-z)
 FFT is used, for rho >= 1 the SFT ("mode" forces one of them). In the limit
@@ -68,7 +68,7 @@ any FFT. homeomorphic_FT() evaluates it for any smooth phase given as an
 unwrapped sampled array, geometric_propagation() chains it with the transfer
 function and the inverse transform, which reduces exactly to geometric optics
 with the transport of the amplitude: the sample at x moves to
-x + z*grad(psi)/k_z, its amplitude scales with 1/sqrt(|det(I - z H G)|)
+x + z*grad(psi)/k_z, its amplitude scales with ``1/sqrt(|det(I - z H G)|)``
 (G: Hessian of k_z) and it collects the phase z*k**2/k_z plus the Gouy phase
 -pi/2 per crossed caustic. It fails near foci and caustics, where the SFT
 (or the FFT) is required.
@@ -277,7 +277,7 @@ class QuadraticPhaseField(object):
         return tuple(out)
 
     def chirp_ratio(self):
-        """rho = |alpha|*N*d**2/pi per axis: the transforms use the SFT for
+        """``rho = |alpha|*N*d**2/pi`` per axis: the transforms use the SFT for
         rho >= 1 and the FFT (phase multiplied into A) for rho < 1."""
         return tuple(_chirp_ratio(a, c) for a, c in ((self.alpha[0], self.x), (self.alpha[1], self.y)))
 
@@ -695,7 +695,7 @@ def homeomorphic_FT(amplitude, phase, x, y):
     kx, ky : arrays
         Wavenumbers (non-uniform, shape (Ny, Nx)) of the spectrum samples.
     U_amplitude : array
-        Complex amplitude (incl. 2*pi/sqrt|det H| and the signature phase).
+        Complex amplitude (incl. ``2*pi/sqrt(|det H|)`` and the signature phase).
     U_phase : array
         Unwrapped phase phase - k.x of the spectrum.
     """
