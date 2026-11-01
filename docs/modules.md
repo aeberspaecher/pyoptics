@@ -31,7 +31,9 @@ What each module does and how mature it is. Planned work is listed in
   (`fft.czt()`: Bluestein's chirp-z transform; `fft.zoom_FT()` and
   `zoom_inv_FT()` evaluate `FT()` and `inv_FT()` on any equidistant grid)
   (`utils.pad()`/`unpad()` for centered zero padding; `analytical` holds the
-  Airy pattern, its encircled energy and the diffraction limited OTF)
+  Airy pattern, its encircled energy, the diffraction limited OTF and the
+  exact series solutions for a dielectric cylinder (TE) and sphere (scalar),
+  also for beams: `cylinder_field()`, `sphere_field()`)
 - `bases`: mature (Zernike, Legendre, Chebyshev bases, numerical
   orthogonalization, fits); all bases can be shifted and rotated, Legendre and
   Chebyshev derive from the abstract `TensorProductBasis`; tested
