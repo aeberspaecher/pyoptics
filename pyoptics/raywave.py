@@ -647,6 +647,178 @@ class GaussianBeamlets(object):
             out += np.einsum("j,jm->m", factor[s], np.exp(1j*(lin + 0.5*q)))
         return out.reshape(shape)
 
+    def trace(self, system, z=None, clip=True, delta=1e-3, details=False):
+        """Carry the beamlets through the surfaces of a raytrace.System.
+
+        Every beamlet is followed by its base ray and eight parabasal rays
+        (its centre shifted by +-delta*w in x and y, its transverse wave
+        vector by +-delta*2/w in k_x and k_y), all traced exactly through the
+        system. In the output plane, central differences of the parabasal
+        rays give the 4 x 4 ray transfer matrix M = [[A, B], [C, D]] of the
+        neighbourhood of the base ray, in the canonical coordinates
+        (x, y, k_x, k_y) of the launch plane and of the output plane, and the
+        beamlet follows the complex ABCD law (Arnaud 1985) ::
+
+            Gamma' = (C + D Gamma)(A + B Gamma)^-1,
+            a' = a/sqrt(det(A + B Gamma)),  phase' = k_0*OPL of the base ray.
+
+        The square root is taken on the branch that follows the beamlet
+        through the system (its Gouy phase): the argument of det(A + B Gamma)
+        is accumulated in planes normal to the base ray, in closed form along
+        every straight segment and by the (small) change of the projection at
+        every surface. A beamlet is dropped if one of its rays is lost
+        (vignetting with clip=True, total internal reflection, missed
+        surfaces). Mirrors fold the light out of +z; the output plane must lie
+        in a medium where the light travels in +z.
+
+        Parameters
+        ----------
+        system : raytrace.System
+            The system, with the same wavelength; the beamlets lie in its
+            object space (index system.n[0]), in front of the first surface.
+        z : number, optional
+            Output plane (global z) behind the last surface; default: the
+            image plane of the system.
+        clip : bool, optional
+            Drop beamlets that hit a semi diameter.
+        delta : number, optional
+            Size of the parabasal offsets relative to the beamlet.
+        details : bool, optional
+            Also return the transfer matrices and Gouy phases.
+
+        Returns
+        -------
+        beamlets : GaussianBeamlets
+            In the plane z, in the medium behind the last surface.
+        M : array (N, 4, 4)
+            Only with details=True: transfer matrices of the kept beamlets.
+        gouy : array (N,)
+            Only with details=True: -arg(det(A + B Gamma))/2, unwrapped (for
+            a round beamlet through a focus: -pi/2 per line focus).
+        keep : array (N,) of bool
+            Only with details=True: which input beamlets were kept.
+        """
+
+        from .raytrace import Rays  # raytrace imports are heavy, keep them local
+
+        if not np.isclose(system.wavelength, self.wavelength, rtol=1e-12, atol=0.0):
+            raise ValueError("GaussianBeamlets.trace: the system has another wavelength")
+        n_sys = system.n
+        if not np.isclose(n_sys[0], self.n):
+            raise ValueError("GaussianBeamlets.trace: the beamlets must lie in the object space "
+                             "of the system (n = {})".format(n_sys[0]))
+        N = len(self)
+        k0 = 2*np.pi/self.wavelength
+        k = self.k
+        z = system.image_z if z is None else float(z)
+
+        # base ray and eight parabasal rays (+-e_j in x, y, k_x, k_y):
+        w = np.sqrt(2/np.real(np.trace(self.Gamma.imag, axis1=1, axis2=2)/2))
+        eps = np.stack([delta*w, delta*w, delta*2/w, delta*2/w], -1)  # (N, 4)
+        offsets = np.zeros((9, N, 4))
+        for j in range(4):
+            offsets[1 + 2*j, :, j] = eps[:, j]
+            offsets[2 + 2*j, :, j] = -eps[:, j]
+        state = np.concatenate([self.centres, self.k_perp], -1)[None] + offsets  # (9, N, 4)
+        kz = np.sqrt(k**2 - state[..., 2]**2 - state[..., 3]**2)
+        P0 = np.stack([state[..., 0], state[..., 1], np.full((9, N), self.z0)], -1)
+        D0 = np.stack([state[..., 2], state[..., 3], kz], -1)/k
+        opl0 = np.broadcast_to(self.phase/k0, (9, N))
+        bundle = system.trace(Rays(P0.reshape(-1, 3), D0.reshape(-1, 3), opl0.reshape(-1)),
+                              clip=clip, last=len(system.surfaces) - 1)
+        S = len(system.surfaces)
+        pts = bundle.points.reshape(S + 1, 9, N, 3)
+        dirs = bundle.directions.reshape(S + 1, 9, N, 3)
+        opls = bundle.opl.reshape(S + 1, 9, N)
+        keep = np.all(np.isfinite(pts), axis=(0, 1, 3)) & np.all(np.isfinite(dirs), axis=(0, 1, 3))
+        if np.any(keep & (dirs[-1, 0, :, 2] <= 0)):
+            raise ValueError("GaussianBeamlets.trace: the light must travel in +z behind the "
+                             "last surface")
+        pts, dirs, opls = pts[:, :, keep], dirs[:, :, keep], opls[:, :, keep]
+        eps, Gamma = eps[keep], self.Gamma[keep]
+        n_out = abs(n_sys[-1])
+
+        def matrix(Q, d, origin, normal, e1, e2, n):
+            """Transfer matrix from the launch plane to the plane through origin
+            with the given normal, coordinates along e1, e2; the rays are the
+            lines Q + s*d."""
+            s = np.sum((origin - Q)*normal, -1)/np.sum(d*normal, -1)
+            X = Q + s[..., None]*d - origin
+            u = np.stack([np.sum(X*e1, -1), np.sum(X*e2, -1),
+                          n*k0*np.sum(d*e1, -1), n*k0*np.sum(d*e2, -1)], -1)  # (9, N, 4)
+            M = np.empty(u.shape[1:2] + (4, 4))
+            for j in range(4):
+                M[:, :, j] = (u[1 + 2*j] - u[2 + 2*j])/(2*eps[:, j, None])
+            return M
+
+        def XP(M):
+            X = M[:, :2, :2] + M[:, :2, 2:] @ Gamma
+            P = M[:, 2:, :2] + M[:, 2:, 2:] @ Gamma
+            return X, P
+
+        def det2(X):
+            return X[:, 0, 0]*X[:, 1, 1] - X[:, 0, 1]*X[:, 1, 0]
+
+        def normal_frame(t):
+            """Right handed (e1, e2, t) normal to the unit vectors t."""
+            a = np.where(np.abs(t[:, 0:1]) < 0.9, [[1.0, 0.0, 0.0]], [[0.0, 1.0, 0.0]])
+            e1 = np.cross(a, t)
+            e1 /= np.linalg.norm(e1, axis=-1, keepdims=True)
+            return e1, np.cross(t, e1)
+
+        ex, ey, ez = np.eye(3)
+        # unwrapped arg det(A + B Gamma): launch plane (identity) -> normal planes along
+        # the base ray -> output plane
+        theta = np.zeros(len(eps))
+        prev = np.ones(len(eps), dtype=complex)  # det X in the previous plane
+
+        def step(detX, predicted=None):
+            """Add the change of arg(det X) to theta; predicted: the analytic
+            (continuous) increment, which fixes the multiple of 2*pi."""
+            nonlocal prev, theta
+            change = np.angle(detX/prev)
+            if predicted is not None:
+                change = change + 2*np.pi*np.round((predicted - change)/(2*np.pi))
+            theta = theta + change
+            prev = detX
+
+        # S + 1 straight segments: object space, behind each surface; the
+        # segment i starts at pts[i] with direction dirs[i] and ends at pts[i + 1]
+        z_end = np.broadcast_to(np.array([0.0, 0.0, z]), pts[0].shape)
+        for i in range(S + 1):
+            Q, d, n = pts[i], dirs[i], abs(n_sys[i])
+            t = d[0]
+            e1, e2 = normal_frame(t)
+            start = Q[0]
+            M = matrix(Q, d, start, t, e1, e2, n)
+            X, P = XP(M)
+            step(det2(X))  # change of the plane at a surface (or launch): no focus
+            end = pts[i + 1][0] if i < S else start + (z - start[:, 2:3])/t[:, 2:3]*t
+            L = np.sum((end - start)*t, -1)
+            nu = np.linalg.eigvals(P @ _inv2(X))  # Im > 0
+            predicted = np.sum(np.angle(1 + L[:, None]*nu/(n*k0)), -1)
+            M = matrix(Q, d, end, t, e1, e2, n)
+            X, P = XP(M)
+            step(det2(X), predicted)
+        # output plane z
+        M = matrix(pts[-1], dirs[-1], z_end, ez, ex, ey, n_out)
+        X, P = XP(M)
+        step(det2(X))
+        Gamma_out = P @ _inv2(X)
+        Gamma_out = 0.5*(Gamma_out + np.swapaxes(Gamma_out, -1, -2))
+        detX = det2(X)
+        factor = np.exp(-0.5j*theta)/np.sqrt(np.abs(detX))
+
+        base_d = dirs[-1, 0]
+        s = (z - pts[-1, 0, :, 2])/base_d[:, 2]
+        centre = pts[-1, 0, :, :2] + s[:, None]*base_d[:, :2]
+        opl = opls[-1, 0] + n_out*s
+        out = GaussianBeamlets(centre, n_out*k0*base_d[:, :2], k0*opl, self.amplitude[keep]*factor,
+                               Gamma_out, self.wavelength, n_out, z)
+        if details:
+            return out, M, -0.5*theta, keep
+        return out
+
 
 # field to rays:
 
