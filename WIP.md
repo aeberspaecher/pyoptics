@@ -25,10 +25,11 @@
   re-execution of the notebooks
 * Incoherence in thin films (spatial and temporal incoherence)
 * FDTD, next milestones (done: 1D/2D core, numba kernels, dispersive media,
-  waveguide modes, mode sources/monitors, S-parameters, Q extraction;
-  notebooks 57, 59 and 60): mode sources with dispersion-matched auxiliary
-  grids (no backward leakage away from the centre wavelength); Bloch boundaries
-  (gratings vs. RCWA, photonic crystals) and 3D; a second-order Debye
+  waveguide modes, mode sources/monitors, S-parameters, Q extraction,
+  Bloch boundaries, diffraction orders vs. RCWA, band structures;
+  notebooks 57, 59, 60 and 62): mode sources with dispersion-matched auxiliary
+  grids (no backward leakage away from the centre wavelength); photonic-crystal
+  waveguides and cavities, grating couplers, metasurfaces and 3D; a second-order Debye
   update; better accuracy for metal boundaries in the Hz mode (first order
   now); `analytical.cylinder_field` for H along the axis (the series is in
   notebook 57 and test_fdtd.py)

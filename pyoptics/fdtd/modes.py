@@ -499,8 +499,8 @@ class ModeMonitor(Monitor):
         # samples are buffered and transformed in blocks (one matrix
         # product per block instead of an outer product per step)
         block = 256
-        self._bE = np.zeros((block, nt))
-        self._bH = np.zeros((block, nt))
+        self._bE = np.zeros((block, nt), np.result_type(sim.dtype, np.float64))
+        self._bH = np.zeros((block, nt), np.result_type(sim.dtype, np.float64))
         self._bt = np.zeros(block)
         self._fill = 0
         self._n = 0

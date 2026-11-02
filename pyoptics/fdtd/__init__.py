@@ -19,7 +19,9 @@ Building blocks
   `Lorentz` and `Debye` poles; `Medium.fit()` to tabulated n + ik), drawn
   on the grid with sub-cell averaging of the permittivity (anisotropic for
   E in the plane of the Hz mode).
-- Boundaries: `PML` (convolutional PML), "pec" walls, "periodic".
+- Boundaries: `PML` (convolutional PML), "pec" walls, "periodic",
+  `Bloch(k)` (Bloch-periodic, complex fields: oblique incidence on
+  periodic structures, band structures).
 - Sources: `PointSource`, `LineSource` (soft currents), `TFSF` (plane wave
   in a total-field / scattered-field box), with the time profiles
   `GaussianPulse` and `ContinuousWave`.
@@ -31,6 +33,9 @@ Building blocks
   `s_parameters`.
 - `resonances` (`pyoptics.fdtd.analysis`): frequencies and Q of ring-down
   signals by the matrix pencil method.
+- Periodic structures (`pyoptics.fdtd.periodic`): `DiffractionMonitor`
+  (power in the diffraction orders of gratings) and `bloch_modes`
+  (frequencies of Bloch modes, for band diagrams of photonic crystals).
 - `Simulation` puts them together; `pyoptics.fdtd.plot` draws structures,
   fields and animations.
 
@@ -65,26 +70,29 @@ Speed: the NumPy kernels are the reference; with numba installed
 (``Simulation(backend=...)``), with identical results and 10 to 20 times
 faster on multi-core machines.
 
-Planned (proposals/fdtd.md): Bloch boundaries, 3D.
+Planned (proposals/fdtd.md): grating couplers, photonic crystal devices,
+3D.
 """
 
 from .grid import Grid
 from .geometry import (Shape, Union, Difference, Everywhere, Slab, Rect, Circle, Annulus,
                        Polygon, Path, SBend, Bend, Ring, sbend_points)
 from .media import Medium, VACUUM, Drude, Lorentz, Debye, omega_from_eV
-from .boundaries import PML, PEC, PERIODIC
+from .boundaries import PML, PEC, PERIODIC, Bloch
 from .sources import GaussianPulse, ContinuousWave, PointSource, LineSource, TFSF
 from .monitors import (Probe, Snapshots, SnapshotStack, DFTField, DFTFieldData, Flux)
 from .modes import (Mode, waveguide_modes, find_modes, section_modes, ModeSource, ModeMonitor,
                     s_parameters)
 from .analysis import resonances, Resonances
+from .periodic import DiffractionMonitor, DiffractionOrders, bloch_modes
 from .simulation import Simulation
 from ._kernels_numba import available as numba_available
 
 __all__ = ["Grid", "Shape", "Union", "Difference", "Everywhere", "Slab", "Rect", "Circle",
            "Annulus", "Polygon", "Path", "SBend", "Bend", "Ring", "sbend_points", "Medium",
-           "VACUUM", "Drude", "Lorentz", "Debye", "omega_from_eV", "PML", "PEC", "PERIODIC",
+           "VACUUM", "Drude", "Lorentz", "Debye", "omega_from_eV", "PML", "PEC", "PERIODIC", "Bloch",
            "GaussianPulse", "ContinuousWave", "PointSource", "LineSource", "TFSF", "Probe",
            "Snapshots", "SnapshotStack", "DFTField", "DFTFieldData", "Flux", "Mode",
            "waveguide_modes", "find_modes", "section_modes", "ModeSource", "ModeMonitor",
-           "s_parameters", "resonances", "Resonances", "Simulation", "numba_available"]
+           "s_parameters", "resonances", "Resonances", "DiffractionMonitor",
+           "DiffractionOrders", "bloch_modes", "Simulation", "numba_available"]

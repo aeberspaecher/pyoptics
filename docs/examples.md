@@ -16,6 +16,7 @@ to run them yourself, see [Running the notebooks](#running-the-notebooks).
 - {doc}`notebooks/57_fdtd_basics`
 - {doc}`notebooks/59_fdtd_metals_plasmons`
 - {doc}`notebooks/60_fdtd_photonic_circuits`
+- {doc}`notebooks/62_fdtd_periodic_structures`
 
 ```{toctree}
 :hidden:
@@ -30,6 +31,7 @@ notebooks/46_analytic_phase_propagation
 notebooks/57_fdtd_basics
 notebooks/59_fdtd_metals_plasmons
 notebooks/60_fdtd_photonic_circuits
+notebooks/62_fdtd_periodic_structures
 ```
 
 ## Beams, modes and paraxial optics

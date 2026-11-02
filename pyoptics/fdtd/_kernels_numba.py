@@ -5,8 +5,10 @@
 
 Each kernel updates all H or all E components of a mode in one parallel
 loop over the grid, including the CPML (psi arrays of the full grid size,
-touched only where the per-axis flag is set), periodic or PEC ends and
-the dispersive polarization densities. They follow the NumPy updates in
+touched only where the per-axis flag is set), periodic, Bloch-periodic
+(phase factors ph = exp(i k L) at the far end, conj(ph) at the near end;
+1 for plain periodicity) or PEC ends and the dispersive polarization
+densities. With Bloch phases the fields are complex. They follow the NumPy updates in
 simulation.py exactly; 1D runs as a 2D Ez grid with one periodic cell
 along y. ``available`` tells whether numba could be imported.
 """
@@ -32,7 +34,7 @@ else:  # pragma: no cover
 
 
 @_jit
-def h_ez(Ez, Hx, Hy, dt, dx, dy, px, py, fxh, bxh, cxh, kxh, fyh, byh, cyh, kyh, psi_hx_y, psi_hy_x):
+def h_ez(Ez, Hx, Hy, dt, dx, dy, px, py, phx, phy, fxh, bxh, cxh, kxh, fyh, byh, cyh, kyh, psi_hx_y, psi_hy_x):
     nx, ny = Ez.shape
     for i in prange(nx):
         for j in range(ny):
@@ -41,7 +43,7 @@ def h_ez(Ez, Hx, Hy, dt, dx, dy, px, py, fxh, bxh, cxh, kxh, fyh, byh, cyh, kyh,
             if j < ny - 1:
                 e1 = Ez[i, j + 1]
             elif py:
-                e1 = Ez[i, 0]
+                e1 = Ez[i, 0]*phy
             else:
                 e1 = 0.0
             d = (e1 - e0)/dy
@@ -53,7 +55,7 @@ def h_ez(Ez, Hx, Hy, dt, dx, dy, px, py, fxh, bxh, cxh, kxh, fyh, byh, cyh, kyh,
             if i < nx - 1:
                 e1 = Ez[i + 1, j]
             elif px:
-                e1 = Ez[0, j]
+                e1 = Ez[0, j]*phx
             else:
                 e1 = 0.0
             d = (e1 - e0)/dx
@@ -64,7 +66,7 @@ def h_ez(Ez, Hx, Hy, dt, dx, dy, px, py, fxh, bxh, cxh, kxh, fyh, byh, cyh, kyh,
 
 
 @_jit
-def e_ez(Ez, Hx, Hy, Ca, Cb, dt, dx, dy, px, py, fxe, bxe, cxe, kxe, fye, bye, cye, kye,
+def e_ez(Ez, Hx, Hy, Ca, Cb, dt, dx, dy, px, py, cphx, cphy, fxe, bxe, cxe, kxe, fye, bye, cye, kye,
          psi_ez_x, psi_ez_y, P, Pp, W, pa, pb, pc):
     nx, ny = Ez.shape
     K = pa.shape[0]
@@ -74,7 +76,7 @@ def e_ez(Ez, Hx, Hy, Ca, Cb, dt, dx, dy, px, py, fxe, bxe, cxe, kxe, fye, bye, c
             if i > 0:
                 h0 = Hy[i - 1, j]
             else:
-                h0 = Hy[nx - 1, j]
+                h0 = Hy[nx - 1, j]*cphx
             d1 = (Hy[i, j] - h0)/dx
             if fxe[i]:
                 psi_ez_x[i, j] = bxe[i]*psi_ez_x[i, j] + cxe[i]*d1
@@ -83,7 +85,7 @@ def e_ez(Ez, Hx, Hy, Ca, Cb, dt, dx, dy, px, py, fxe, bxe, cxe, kxe, fye, bye, c
             if j > 0:
                 h0 = Hx[i, j - 1]
             else:
-                h0 = Hx[i, ny - 1]
+                h0 = Hx[i, ny - 1]*cphy
             d2 = (Hx[i, j] - h0)/dy
             if fye[j]:
                 psi_ez_y[i, j] = bye[j]*psi_ez_y[i, j] + cye[j]*d2
@@ -104,7 +106,7 @@ def e_ez(Ez, Hx, Hy, Ca, Cb, dt, dx, dy, px, py, fxe, bxe, cxe, kxe, fye, bye, c
 
 
 @_jit
-def h_hz(Ex, Ey, Hz, dt, dx, dy, px, py, fxh, bxh, cxh, kxh, fyh, byh, cyh, kyh, psi_hz_y, psi_hz_x):
+def h_hz(Ex, Ey, Hz, dt, dx, dy, px, py, phx, phy, fxh, bxh, cxh, kxh, fyh, byh, cyh, kyh, psi_hz_y, psi_hz_x):
     nx, ny = Hz.shape
     for i in prange(nx):
         for j in range(ny):
@@ -112,7 +114,7 @@ def h_hz(Ex, Ey, Hz, dt, dx, dy, px, py, fxh, bxh, cxh, kxh, fyh, byh, cyh, kyh,
             if j < ny - 1:
                 e1 = Ex[i, j + 1]
             elif py:
-                e1 = Ex[i, 0]
+                e1 = Ex[i, 0]*phy
             else:
                 e1 = 0.0
             d1 = (e1 - Ex[i, j])/dy
@@ -123,7 +125,7 @@ def h_hz(Ex, Ey, Hz, dt, dx, dy, px, py, fxh, bxh, cxh, kxh, fyh, byh, cyh, kyh,
             if i < nx - 1:
                 e1 = Ey[i + 1, j]
             elif px:
-                e1 = Ey[0, j]
+                e1 = Ey[0, j]*phx
             else:
                 e1 = 0.0
             d2 = (e1 - Ey[i, j])/dx
@@ -134,7 +136,7 @@ def h_hz(Ex, Ey, Hz, dt, dx, dy, px, py, fxh, bxh, cxh, kxh, fyh, byh, cyh, kyh,
 
 
 @_jit
-def e_hz(Ex, Ey, Hz, CaX, CbX, CaY, CbY, dt, dx, dy, px, py, fxe, bxe, cxe, kxe, fye, bye, cye, kye,
+def e_hz(Ex, Ey, Hz, CaX, CbX, CaY, CbY, dt, dx, dy, px, py, cphx, cphy, fxe, bxe, cxe, kxe, fye, bye, cye, kye,
          psi_ex_y, psi_ey_x, PX, PpX, WX, PY, PpY, WY, pa, pb, pc):
     nx, ny = Hz.shape
     K = pa.shape[0]
@@ -144,7 +146,7 @@ def e_hz(Ex, Ey, Hz, CaX, CbX, CaY, CbY, dt, dx, dy, px, py, fxe, bxe, cxe, kxe,
             if j > 0:
                 h0 = Hz[i, j - 1]
             else:
-                h0 = Hz[i, ny - 1]
+                h0 = Hz[i, ny - 1]*cphy
             d = (Hz[i, j] - h0)/dy
             if fye[j]:
                 psi_ex_y[i, j] = bye[j]*psi_ex_y[i, j] + cye[j]*d
@@ -165,7 +167,7 @@ def e_hz(Ex, Ey, Hz, CaX, CbX, CaY, CbY, dt, dx, dy, px, py, fxe, bxe, cxe, kxe,
             if i > 0:
                 h0 = Hz[i - 1, j]
             else:
-                h0 = Hz[nx - 1, j]
+                h0 = Hz[nx - 1, j]*cphx
             d = (Hz[i, j] - h0)/dx
             if fxe[i]:
                 psi_ey_x[i, j] = bxe[i]*psi_ey_x[i, j] + cxe[i]*d

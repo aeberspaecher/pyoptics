@@ -81,7 +81,7 @@ class Probe(Monitor):
 
     def record(self, sim):
         self._t.append(_time_of(sim, self.component))
-        self._v.append(float(sim.fields[self.component][self._idx]))
+        self._v.append(sim.fields[self.component][self._idx].item())
 
     @property
     def times(self):
@@ -149,7 +149,8 @@ class Snapshots(Monitor):
         Spatial subsampling.
     dtype : numpy dtype
         Storage type of the frames; float16 halves the memory of float32
-        and is plenty for plots.
+        and is plenty for plots. Complex (Bloch) fields are stored as their
+        real part unless dtype is complex.
     keep_last : int, optional
         Keep only the last frames (ring buffer).
     start : number
@@ -186,7 +187,10 @@ class Snapshots(Monitor):
     def record(self, sim):
         if sim.step_count % self.every or sim.time < self.start:
             return
-        frame = sim.fields[self.component][self._idx].astype(self.dtype)
+        frame = sim.fields[self.component][self._idx]
+        if np.iscomplexobj(frame) and self.dtype.kind != "c":
+            frame = frame.real      # complex (Bloch) fields: the real part
+        frame = frame.astype(self.dtype)
         t = _time_of(sim, self.component)
         if self._writer is not None:
             self._writer.append(t, frame)
@@ -370,8 +374,8 @@ class Flux(Monitor):
         self._H = np.zeros((len(self._omega), nE), complex)
 
     def record(self, sim):
-        E = np.asarray(sim.fields[self._cE][self._sE], dtype=float).ravel()
-        Hpair = np.asarray(sim.fields[self._cH][self._sH], dtype=float)
+        E = np.asarray(sim.fields[self._cE][self._sE]).ravel()
+        Hpair = np.asarray(sim.fields[self._cH][self._sH])
         if sim.ndim == 1:
             H = 0.5*(Hpair[0] + Hpair[1])
         else:

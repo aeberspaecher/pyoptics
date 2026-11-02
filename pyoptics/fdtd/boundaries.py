@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
-"""Boundary conditions: convolutional PML, PEC walls and periodicity.
+"""Boundary conditions: convolutional PML, PEC walls, periodicity and
+Bloch periodicity.
 
 The convolutional perfectly matched layer (CPML, Roden and Gedney 2000)
 stretches the coordinate across the absorbing layer with
@@ -73,18 +74,50 @@ PEC = "pec"
 PERIODIC = "periodic"
 
 
-def parse(boundaries, ndim):
-    """Normalize a boundary spec to one entry (PML, "pec" or "periodic")
-    per axis. A single entry is used for all axes; "pml" means PML()."""
+class Bloch(object):
+    """Bloch-periodic boundary along an axis: F(x + L) = F(x) exp(i k L)
+    for all fields, with L the length of the domain along the axis.
 
-    if isinstance(boundaries, (str, PML)):
+    Parameters
+    ----------
+    k : float
+        Bloch wave number along the axis (rad per length unit). k = 0 is
+        plain periodicity; otherwise the fields are complex (the
+        simulation switches to complex dtype).
+
+    Uses: oblique incidence on gratings (k = n k0 sin(theta) of the
+    incident wave at one wavelength; with a pulse, the angle varies across
+    the band at fixed k), band structures of photonic crystals (one run per
+    k on the unit cell).
+    """
+
+    def __init__(self, k=0.0):
+        self.k = float(k)
+
+    def __eq__(self, other):
+        return isinstance(other, Bloch) and other.k == self.k
+
+    def __hash__(self):
+        return hash(("bloch", self.k))
+
+    def __repr__(self):
+        return "Bloch(k=%g)" % self.k
+
+
+def parse(boundaries, ndim):
+    """Normalize a boundary spec to one entry (PML, "pec", "periodic" or
+    Bloch; Bloch(0) becomes "periodic") per axis. A single entry is used for all axes; "pml" means PML()."""
+
+    if isinstance(boundaries, (str, PML, Bloch)):
         boundaries = (boundaries,)*ndim
     boundaries = tuple(boundaries)
     if len(boundaries) != ndim:
         raise ValueError("need one boundary per axis")
     out = []
     for b in boundaries:
-        if isinstance(b, PML):
+        if isinstance(b, Bloch):
+            out.append(PERIODIC if b.k == 0 else b)
+        elif isinstance(b, PML):
             out.append(b)
         elif b == "pml":
             out.append(PML())

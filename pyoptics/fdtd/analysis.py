@@ -50,8 +50,9 @@ class Resonances(object):
 
     @property
     def Q(self):
+        # lossless modes (decay ~ 0 up to round-off, either sign): inf
         with np.errstate(divide="ignore"):
-            return self.omega/(2*self.decay)
+            return np.where(self.decay > 0, self.omega/(2*np.maximum(self.decay, 1e-300)), np.inf)
 
     def __len__(self):
         return len(self.omega)

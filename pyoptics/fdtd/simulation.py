@@ -31,6 +31,24 @@ from .grid import E_COMPONENTS, H_COMPONENTS, OFFSETS
 from .media import VACUUM
 
 
+def stability_omega(medium):
+    """Highest natural frequency of the polarization of a medium, which
+    lowers the stable time step: omega_p**2/eps for a Drude pole,
+    omega_0**2*(1 + delta_eps/eps) for a Lorentz pole (squares summed over
+    the poles, eps the background permittivity eps_inf); Debye poles and
+    conductivity do not count."""
+
+    from .media import Drude, Lorentz
+    eps = max(medium.eps, 1e-12)
+    om2 = 0.0
+    for p in medium.poles:
+        if isinstance(p, Drude):
+            om2 += p.omega_p**2/eps
+        elif isinstance(p, Lorentz):
+            om2 += p.omega_0**2*(1 + p.delta_eps/eps)
+    return np.sqrt(om2)
+
+
 class Simulation(object):
     """FDTD simulation in 1D or 2D.
 
@@ -46,12 +64,18 @@ class Simulation(object):
         plane, fields Ez, Hx, Hy), Hz the magnetic field along z (Ex, Ey,
         Hz). Ignored in 1D, which has Ez and Hy. See the module docstring
         of pyoptics.fdtd for the TE/TM names.
-    boundaries : str, PML or sequence of them
-        Per axis "pml" (or a PML instance), "pec" or "periodic"; a single
-        entry applies to all axes. Default: PML() everywhere.
+    boundaries : str, PML, Bloch or sequence of them
+        Per axis "pml" (or a PML instance), "pec", "periodic" or Bloch(k)
+        (Bloch-periodic with wave number k; makes the fields complex); a
+        single entry applies to all axes. Default: PML() everywhere.
     background : Medium
     courant : number
-        Time step as a fraction of the stability limit.
+        Time step as a fraction of the stability limit. With Drude and
+        Lorentz media the limit is lower than in vacuum: the scheme is
+        stable for (dt/dt0)**2 + (Omega dt/2)**2 <= 1, with dt0 the vacuum
+        limit and Omega**2 = omega_p**2/eps (Drude) or
+        omega_0**2 (1 + delta_eps/eps) (Lorentz), summed over the poles of
+        the medium (stability_omega()); the default time step includes it.
     dt : number, optional
         Explicit time step (overrides courant).
     subpixel : int, optional
@@ -65,7 +89,9 @@ class Simulation(object):
         (``pip install pyoptics[fast]``), which is 10 to 20 times faster.
         NumPy is the reference implementation.
     dtype : numpy dtype
-        float64 (default) or float32.
+        float64 (default) or float32 (precision of the coefficients and
+        fields); complex128 or complex64 make the fields complex, which
+        Bloch boundaries with k != 0 do automatically.
     """
 
     def __init__(self, grid, structure=(), sources=(), monitors=(), mode="Ez", boundaries="pml",
@@ -83,11 +109,19 @@ class Simulation(object):
         self.monitors = list(monitors)
         self.boundaries = _bnd.parse(boundaries, grid.ndim)
         self.background = background
-        self.dt = grid.time_step(courant) if dt is None else dt
+        if dt is None:
+            Om2 = max(stability_omega(m)**2 for m in [background] + [m for _, m in self.structure])
+            dt = courant/np.sqrt(np.sum(1.0/grid.spacing**2) + Om2/4)
+        self.dt = dt
         self.subpixel = int(subpixel) if subpixel else (64 if grid.ndim == 1 else 8)
         self.averaging = averaging
         self.backend = backend
-        self.dtype = np.dtype(dtype)
+        self.rdtype = np.empty(0, dtype).real.dtype       # coefficients
+        bloch = any(isinstance(b, _bnd.Bloch) for b in self.boundaries)
+        if bloch or np.dtype(dtype).kind == "c":
+            self.dtype = np.result_type(self.rdtype, np.complex64)  # fields
+        else:
+            self.dtype = self.rdtype
         self.step_count = 0
         self.track_energy = False
         self._e_prev = None
@@ -191,17 +225,17 @@ class Simulation(object):
         media = self._media()
         poles = [(k, p) for k, m in enumerate(media) for p in m.poles]
         self._pole_coeffs = np.array([p.coefficients(dt) for _, p in poles],
-                                     dtype=self.dtype).reshape(-1, 3)
+                                     dtype=self.rdtype).reshape(-1, 3)
         self._P, self._Pp, self._W = {}, {}, {}
         for c in self.e_components:
             eps, sigma, frac = self.rasterize(c)
             s = sigma*dt/(2*eps)
             self.eps[c] = eps
             self.sigma[c] = sigma
-            self._Ca[c] = ((1 - s)/(1 + s)).astype(self.dtype) if np.any(sigma) else None
-            self._Cb[c] = (dt/eps/(1 + s)).astype(self.dtype)
+            self._Ca[c] = ((1 - s)/(1 + s)).astype(self.rdtype) if np.any(sigma) else None
+            self._Cb[c] = (dt/eps/(1 + s)).astype(self.rdtype)
             K = len(poles)
-            self._W[c] = np.array([frac[k] for k, _ in poles], dtype=self.dtype).reshape((K,) + grid.shape)
+            self._W[c] = np.array([frac[k] for k, _ in poles], dtype=self.rdtype).reshape((K,) + grid.shape)
             self._P[c] = np.zeros((K,) + grid.shape, self.dtype)
             self._Pp[c] = np.zeros((K,) + grid.shape, self.dtype)
         self._backend = self._resolve_backend()
@@ -218,7 +252,7 @@ class Simulation(object):
                     for bb, cc, ik in coeffs:
                         shp = [1]*self.ndim
                         shp[a] = -1
-                        shaped.append(tuple(v.reshape(shp).astype(self.dtype) for v in (bb, cc, ik)))
+                        shaped.append(tuple(v.reshape(shp).astype(self.rdtype) for v in (bb, cc, ik)))
                     self._pml[(a, kind)] = (b.cells, shaped)
         self._psi = {}
         self.step_count = 0
@@ -246,7 +280,7 @@ class Simulation(object):
         """Full-length CPML coefficient arrays per axis and the 2D views
         (1D runs as a 2D Ez grid with one periodic cell along y)."""
 
-        dt = self.dtype.type
+        dt = self.rdtype.type
         shape2 = self.grid.shape if self.ndim == 2 else (self.grid.shape[0], 1)
         self._nb_shape = shape2
         coef = {}
@@ -255,9 +289,9 @@ class Simulation(object):
             b_ = self.boundaries[a] if a < self.ndim else _bnd.PERIODIC
             for kind, off in (("h", 0.5), ("e", 0.0)):
                 f = np.zeros(N, dtype=np.bool_)
-                bb = np.zeros(N, self.dtype)
-                cc = np.zeros(N, self.dtype)
-                ik = np.ones(N, self.dtype)
+                bb = np.zeros(N, self.rdtype)
+                cc = np.zeros(N, self.rdtype)
+                ik = np.ones(N, self.rdtype)
                 if isinstance(b_, _bnd.PML):
                     n = b_.cells
                     (bl, cl, kl), (br, cr, kr) = b_.coefficients(N, self.grid.spacing[a], self.dt, off)
@@ -271,7 +305,10 @@ class Simulation(object):
         self._nb_psi = {}
         for key, a, kind in (("h0", 0, "h"), ("h1", 1, "h"), ("e0", 0, "e"), ("e1", 1, "e")):
             self._nb_psi[key] = np.zeros(shape2 if need(a, kind) else (1, 1), self.dtype)
-        self._nb_ones = {c: np.ones(shape2, self.dtype) for c in self.e_components}
+        self._nb_ones = {c: np.ones(shape2, self.rdtype) for c in self.e_components}
+        ph = [self._phase(a) if a < self.ndim else 1.0 for a in range(2)]
+        self._nb_ph = tuple(self.dtype.type(p) for p in ph)
+        self._nb_cph = tuple(self.dtype.type(np.conj(p)) for p in ph)
         self._nb_dummy = np.zeros(shape2, self.dtype)
 
     def _v(self, a):
@@ -285,22 +322,23 @@ class Simulation(object):
     def _numba_h(self):
         from . import _kernels_numba as kn
         f = self.fields
-        dt = self.dtype.type(self.dt)
+        dt = self.rdtype.type(self.dt)
         dx, dy = self._nb_spacing
         px, py = self._nb_periodic
         cx, cy = self._nb_coef[(0, "h")], self._nb_coef[(1, "h")]
         psi = self._nb_psi
         if self.mode == "Ez":
             Hx = f["Hx"] if self.ndim == 2 else self._nb_dummy
-            kn.h_ez(self._v(f["Ez"]), Hx, self._v(f["Hy"]), dt, dx, dy, px, py, *cx, *cy,
+            kn.h_ez(self._v(f["Ez"]), Hx, self._v(f["Hy"]), dt, dx, dy, px, py, *self._nb_ph, *cx, *cy,
                     psi["h1"], psi["h0"])
         else:
-            kn.h_hz(f["Ex"], f["Ey"], f["Hz"], dt, dx, dy, px, py, *cx, *cy, psi["h1"], psi["h0"])
+            kn.h_hz(f["Ex"], f["Ey"], f["Hz"], dt, dx, dy, px, py, *self._nb_ph, *cx, *cy, psi["h1"],
+                    psi["h0"])
 
     def _numba_e(self):
         from . import _kernels_numba as kn
         f = self.fields
-        dt = self.dtype.type(self.dt)
+        dt = self.rdtype.type(self.dt)
         dx, dy = self._nb_spacing
         px, py = self._nb_periodic
         cx, cy = self._nb_coef[(0, "e")], self._nb_coef[(1, "e")]
@@ -311,17 +349,26 @@ class Simulation(object):
         if self.mode == "Ez":
             Hx = f["Hx"] if self.ndim == 2 else self._nb_dummy
             kn.e_ez(self._v(f["Ez"]), Hx, self._v(f["Hy"]), Ca["Ez"], self._v(self._Cb["Ez"]), dt,
-                    dx, dy, px, py, *cx, *cy, psi["e0"], psi["e1"], self._vk(self._P["Ez"]),
+                    dx, dy, px, py, *self._nb_cph, *cx, *cy, psi["e0"], psi["e1"], self._vk(self._P["Ez"]),
                     self._vk(self._Pp["Ez"]), self._vk(self._W["Ez"]), pa, pb, pc)
         else:
             kn.e_hz(f["Ex"], f["Ey"], f["Hz"], Ca["Ex"], self._Cb["Ex"], Ca["Ey"], self._Cb["Ey"], dt,
-                    dx, dy, px, py, *cx, *cy, psi["e1"], psi["e0"], self._P["Ex"], self._Pp["Ex"],
+                    dx, dy, px, py, *self._nb_cph, *cx, *cy, psi["e1"], psi["e0"], self._P["Ex"], self._Pp["Ex"],
                     self._W["Ex"], self._P["Ey"], self._Pp["Ey"], self._W["Ey"], pa, pb, pc)
 
     # ---------------------------------------------------------- derivatives
 
     def _periodic(self, a):
-        return self.boundaries[a] == _bnd.PERIODIC
+        b = self.boundaries[a]
+        return b == _bnd.PERIODIC or isinstance(b, _bnd.Bloch)
+
+    def _phase(self, a):
+        """exp(i k L) of a Bloch boundary along axis a (1 otherwise)."""
+
+        b = self.boundaries[a]
+        if isinstance(b, _bnd.Bloch):
+            return np.exp(1j*b.k*self.grid.size[a])
+        return 1.0
 
     def _sl(self, a, s):
         idx = [slice(None)]*self.ndim
@@ -353,10 +400,10 @@ class Simulation(object):
         d[self._sl(a, slice(0, -1))] = F[self._sl(a, slice(1, None))] - F[self._sl(a, slice(0, -1))]
         last = self._sl(a, -1)
         if self._periodic(a):
-            d[last] = F[self._sl(a, 0)] - F[last]
+            d[last] = F[self._sl(a, 0)]*self.dtype.type(self._phase(a)) - F[last]
         else:
             d[last] = -F[last]     # the tangential E on the outer wall is 0
-        d /= self.dtype.type(self.grid.spacing[a])
+        d /= self.rdtype.type(self.grid.spacing[a])
         return self._stretch(d, a, "h", key)
 
     def _dbwd(self, F, a, key):
@@ -365,15 +412,17 @@ class Simulation(object):
         d = np.empty_like(F)
         d[self._sl(a, slice(1, None))] = F[self._sl(a, slice(1, None))] - F[self._sl(a, slice(0, -1))]
         first = self._sl(a, 0)
-        d[first] = F[first] - F[self._sl(a, -1)]    # periodic; overwritten by the wall otherwise
-        d /= self.dtype.type(self.grid.spacing[a])
+        # periodic (Bloch: F(-1) = F(N - 1) exp(-i k L)); overwritten by
+        # the wall otherwise
+        d[first] = F[first] - F[self._sl(a, -1)]*self.dtype.type(np.conj(self._phase(a)))
+        d /= self.rdtype.type(self.grid.spacing[a])
         return self._stretch(d, a, "e", key)
 
     # ---------------------------------------------------------------- update
 
     def _update_h(self):
         f = self.fields
-        dt = self.dtype.type(self.dt)
+        dt = self.rdtype.type(self.dt)
         if self._backend == "numba":
             self._numba_h()
         elif self.ndim == 1:
@@ -397,7 +446,7 @@ class Simulation(object):
                 dP += Pn - P[k]
                 Pp[k] = P[k]
                 P[k] = Pn
-            curl = curl - dP/self.dtype.type(self.dt)
+            curl = curl - dP/self.rdtype.type(self.dt)
         Ca = self._Ca[c]
         if Ca is not None:
             F *= Ca
@@ -486,13 +535,15 @@ class Simulation(object):
         if not self._ready:
             return 0.0
         dV = np.prod(self.grid.spacing)
+        f = {c: self.fields[c].astype(np.result_type(self.fields[c], np.float64))
+             for c in self.components}
         if self._e_prev is not None and self.track_energy:
-            w = sum(np.sum(self.eps[c]*self.fields[c]*self._e_prev[c].astype(float))
+            w = sum(np.sum(self.eps[c]*np.real(f[c]*np.conj(self._e_prev[c])))
                     for c in self.e_components)
         else:
-            w = sum(np.sum(self.eps[c]*self.fields[c].astype(float)**2) for c in self.e_components)
-        w += sum(np.sum(self.fields[c].astype(float)**2) for c in self.h_components)
-        return 0.5*w*dV
+            w = sum(np.sum(self.eps[c]*np.abs(f[c])**2) for c in self.e_components)
+        w += sum(np.sum(np.abs(f[c])**2) for c in self.h_components)
+        return 0.5*float(w)*dV
 
     def permittivity(self, component=None):
         """Rasterized permittivity at the nodes of a component (default: the
