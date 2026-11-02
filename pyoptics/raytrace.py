@@ -3628,8 +3628,53 @@ _DELANO_KRF_ASPHERES = {
     39: (1.295033694e-09, -9.681036151e-13, -1.166000468e-17),
 }
 
+# the same lens corrected without aspheres (notebook 43)
+_DELANO_KRF_SPHERICAL = """
+ 1    -106.395492871     9.995303680 S  59.5646
+ 2   -2818.408379695     6.355490278 A  62.5919
+ 3    -384.063737467    29.136850368 S  65.4236
+ 4    -128.797687908     0.989746289 A  75.7031
+ 5     410.596327570    32.545455240 S  75.9340
+ 6    -250.572144712     0.986218452 A  78.9402
+ 7     110.258009196    52.934135596 S  78.9197
+ 8    -635.896375907    24.429301257 A  65.4186
+ 9    -259.384753743     9.987435794 S  54.7425
+10      81.013388653    40.181953403 A  52.5593
+11     -95.774087547     9.988645960 S  52.5632
+12     154.398610723    54.037831889 A  54.4115
+13    -468.591215892    31.672783989 S  79.1754
+14    -159.678839744     0.998371434 A  90.6018
+15    1202.037974759    51.864472078 S  90.8571
+16    -161.116632218     0.993219039 A  98.3282
+17     393.764214410    31.426925027 S  98.2359
+18    -696.219280558     0.992282432 A  93.6562
+19     214.702958686    29.009710227 S  93.3703
+20    1030.316337601    12.036155987 A  83.5756
+21    -531.145667432     9.994245669 S  77.9421
+22    3334.141979929     9.657248739 A  75.3353
+23    -408.849229518     9.994340131 S  71.6466
+24     123.382617114    49.902068475 A  69.7062
+25    -120.163641310     9.995844554 S  69.4242
+26     650.870054375    17.443323659 A  71.3332
+27    -381.387777905    22.716774129 S  77.3299
+28     506.915438884     3.767985952 A  84.0598
+29     824.291665984    47.588832185 S  86.0612
+30    -198.869915748     0.982042129 A 101.1447
+31               inf     0.996349333 A 101.3603
+32     615.953325336    60.656977779 S 101.7662
+33    -228.443572463     8.878904317 A 114.7702
+34     389.745973985    36.703158046 S 115.3736
+35   -1139.418478747    12.725615615 A 113.3655
+36     163.843065450   127.404051980 S 111.6716
+37   -2930.736676531     1.139090695 A  71.1617
+38     102.262623475    29.957506376 S  70.6014
+39     237.734170412    13.864966317 A  53.8600
+40    -265.465092588    56.298697651 S  43.7696
+41    -188.937701986     8.783629710 A  19.7353
+"""
 
-def delano_krf_lens(wavelength=248.3e-6):
+
+def delano_krf_lens(wavelength=248.3e-6, spherical=False):
     """20 element all fused silica KrF projection lens with 5 aspheres,
     NA 0.7, 4x, 1 m.
 
@@ -3654,6 +3699,10 @@ def delano_krf_lens(wavelength=248.3e-6):
     wavelength : number, optional
         Vacuum wavelength in mm (default: KrF, 248.3 nm, the design
         wavelength). Fused silica after Malitson.
+    spherical : bool, optional
+        The same 20 elements corrected without aspheres in the same way
+        (about 0.4 to 0.55 waves RMS), the starting point for the choice
+        of the aspheric surfaces in notebook 43.
 
     Returns
     -------
@@ -3664,12 +3713,15 @@ def delano_krf_lens(wavelength=248.3e-6):
 
     stop = 30
     surfaces = []
-    for i, line in enumerate(_DELANO_KRF.strip().splitlines()):
+    data = _DELANO_KRF_SPHERICAL if spherical else _DELANO_KRF
+    aspheres = {} if spherical else _DELANO_KRF_ASPHERES
+    for i, line in enumerate(data.strip().splitlines()):
         number, R, t, medium, sd = line.split()
         surfaces.append(Surface(float(R), float(t),
                                 material=fused_silica if medium == "S" else None,
                                 n_after=None if medium == "S" else 1.0,
-                                aspheric=_DELANO_KRF_ASPHERES.get(int(number), ()),
+                                aspheric=aspheres.get(int(number), ()),
                                 semi_diameter=float(sd) if i == stop else None, label=number))
 
-    return System(surfaces, stop, wavelength, object_distance=29.998254434, object_height=54.4)
+    return System(surfaces, stop, wavelength,
+                  object_distance=29.986058139 if spherical else 29.998254434, object_height=54.4)
