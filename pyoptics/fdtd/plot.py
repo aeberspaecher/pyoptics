@@ -9,7 +9,8 @@
 - animate(): a matplotlib animation of a SnapshotStack (time domain) or of
   a DFT field (the steady state Re{F exp(-i omega t)} over one period,
   which needs no stored frames at all). In notebooks, show it with
-  IPython.display.HTML(anim.to_jshtml()); save it with anim.save().
+  IPython.display.HTML(anim.to_jshtml()) or as a GIF with gif(anim); save
+  it with anim.save().
 - xt_diagram(): a 1D run as an image over x and t.
 
 Real fields use a diverging colormap with symmetric limits, intensities
@@ -19,7 +20,6 @@ inferno. The colours of sources and monitors are those of pyoptics.sketch.
 
 import numpy as np
 
-from .grid import OFFSETS
 from . import sources as _src
 from . import monitors as _mon
 from .boundaries import PML
@@ -53,20 +53,17 @@ def _extent(coords):
     return out
 
 
-def _structure_outline(ax, sim, region=None, color="k", lw=0.6, alpha=0.6):
-    """Contours of the permittivity on top of a field plot."""
+def _structure_outline(ax, sim, color="k", lw=0.6, alpha=0.6):
+    """Outline of each shape of the structure on top of a field plot."""
 
-    c = sim.e_components[0]
-    eps = sim.permittivity(c)
-    if np.ptp(eps) == 0:
+    if not sim.structure or sim.ndim != 2:
         return
-    x, y = sim.coords(c)
-    levels = np.unique(np.round(eps, 6))
-    if len(levels) > 6:
-        levels = np.linspace(eps.min(), eps.max(), 4)[1:-1]
-    else:
-        levels = (levels[:-1] + levels[1:])/2
-    ax.contour(x, y, eps.T, levels=levels, colors=color, linewidths=lw, alpha=alpha)
+    x, y = sim.coords(sim.e_components[0])
+    X, Y = np.meshgrid(x, y, indexing="ij")
+    for shape, _ in sim.structure:
+        inside = shape.contains(X, Y).astype(float)
+        if 0 < inside.mean() < 1:
+            ax.contour(x, y, inside.T, levels=[0.5], colors=color, linewidths=lw, alpha=alpha)
 
 
 def _overlays(ax, sim, show_pml=True, show_sources=True, show_monitors=True):
@@ -139,7 +136,8 @@ def _overlays(ax, sim, show_pml=True, show_sources=True, show_monitors=True):
 
 def plot_structure(sim, ax=None, component=None, cmap="Greys", show_pml=True, show_sources=True,
                    show_monitors=True, colorbar=False):
-    """Permittivity map (2D) or profile (1D) with PML, sources and monitors.
+    """Refractive index map (2D, sqrt of the permittivity) or permittivity
+    profile (1D) with PML, sources and monitors.
 
     Sources are drawn in amber (points, lines, the TFSF box with an arrow
     for the direction), monitors in blue (flux lines dashed, DFT regions
@@ -156,11 +154,12 @@ def plot_structure(sim, ax=None, component=None, cmap="Greys", show_pml=True, sh
         ax.set_ylabel(r"$\varepsilon_r$")
         ax.set_xlim(*sim.grid.extent)
     else:
-        im = ax.imshow(eps.T, origin="lower", extent=_extent(coords), cmap=cmap,
-                       vmin=min(1.0, eps.min()), vmax=1 + 2*max(eps.max() - 1, 0.5),
+        n = np.sqrt(np.maximum(eps, 0))
+        im = ax.imshow(n.T, origin="lower", extent=_extent(coords), cmap=cmap,
+                       vmin=min(1.0, n.min()), vmax=1 + 1.4*max(n.max() - 1, 0.3),
                        interpolation="nearest")
         if colorbar:
-            _plt().colorbar(im, ax=ax, label=r"$\varepsilon_r$")
+            _plt().colorbar(im, ax=ax, label="n")
         ax.set_xlabel("x")
         ax.set_ylabel("y")
         ax.set_aspect("equal")
@@ -320,6 +319,8 @@ def animate(data, component=None, sim=None, ax=None, frames=24, wavelength_index
                            vmax=vmax, interpolation="bilinear", animated=True)
         if sim is not None:
             _structure_outline(ax, sim)
+        ax.set_xlim(_extent(coords)[:2])
+        ax.set_ylim(_extent(coords)[2:])
         ax.set_xlabel("x")
         ax.set_ylabel("y")
         ax.set_aspect("equal")
@@ -333,6 +334,25 @@ def animate(data, component=None, sim=None, ax=None, frames=24, wavelength_index
         return artist, txt
 
     return FuncAnimation(fig, update, frames=n, interval=interval, blit=False)
+
+
+def gif(anim, fps=12, dpi=None):
+    """Render an animation to an animated GIF; returns an IPython Image (the
+    notebook stores the GIF itself, typically much smaller than the
+    frames of to_jshtml())."""
+
+    import os
+    import tempfile
+    from IPython.display import Image
+    fd, path = tempfile.mkstemp(suffix=".gif")
+    os.close(fd)
+    try:
+        anim.save(path, writer="pillow", fps=fps, dpi=dpi)
+        with open(path, "rb") as f:
+            data = f.read()
+    finally:
+        os.remove(path)
+    return Image(data=data, format="gif")
 
 
 def xt_diagram(stack, ax=None, sim=None, vmax=None, cmap=FIELD_CMAP, colorbar=True):

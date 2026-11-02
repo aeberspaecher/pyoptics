@@ -21,7 +21,7 @@ Monitor regions are given as ((xmin, xmax), (ymin, ymax)) (None for the
 whole domain); each component keeps the nodes that fall inside.
 """
 
-from collections import deque
+import collections
 
 import numpy as np
 
@@ -175,8 +175,8 @@ class Snapshots(Monitor):
             self.component = sim.e_components[0] if sim.mode == "Ez" else "Hz"
         self._idx, self.coords = _region_index(sim, self.component, self.region, self.stride)
         self._mode = sim.mode
-        self._frames = deque(maxlen=self.keep_last)
-        self._times = deque(maxlen=self.keep_last)
+        self._frames = collections.deque(maxlen=self.keep_last)
+        self._times = collections.deque(maxlen=self.keep_last)
         self._writer = None
         if self.path is not None:
             shape = tuple(len(c) for c in self.coords)

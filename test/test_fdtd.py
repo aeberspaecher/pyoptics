@@ -102,7 +102,7 @@ def test_slab_2d_periodic(mode):
 
 def _cylinder_run(ppw, structure, mode="Ez"):
     grid = fdtd.Grid((6.0, 6.0), 1/1.5/ppw)
-    dft = fdtd.DFTField(1.0, components=[mode], region=((-1.5, 1.5), (-1.5, 1.5)))
+    dft = fdtd.DFTField(1.0, components=[mode], region=((-1.9, 1.9), (-1.9, 1.9)))
     sim = fdtd.Simulation(grid, structure, [fdtd.TFSF((-2, 2, -2, 2), fdtd.GaussianPulse(1.0, 0.15))],
                           [dft], mode=mode, boundaries=fdtd.PML(12))
     sim.run(time=45)
@@ -126,6 +126,35 @@ def test_cylinder_vs_exact_series():
     # the incident field has the pyoptics phase convention exp(+ikx)
     F0 = d0.field("Ez")[0][:, np.argmin(np.abs(y))]/ref
     assert np.abs(F0 - np.exp(2j*np.pi*x)).max() < 0.02
+
+
+def _cylinder_series_H(x, z, radius, n_cyl, wl, M=25):
+    """Exact total field of a dielectric cylinder for H along its axis (the
+    Hz mode): continuous u and du/dr/eps at the surface."""
+
+    from scipy.special import jv, jvp, hankel1, h1vp
+    k = 2*np.pi/wl
+    kr, phi, xr = k*np.hypot(x, z), np.arctan2(x, z), k*radius
+    u = np.zeros(np.shape(kr), complex)
+    for m in range(-M, M + 1):
+        J, Jp, H, Hp = jv(m, xr), jvp(m, xr), hankel1(m, xr), h1vp(m, xr)
+        Ji, Jip = jv(m, n_cyl*xr), jvp(m, n_cyl*xr)
+        a = (Jip*J - n_cyl*Ji*Jp)/(n_cyl*Ji*Hp - Jip*H)
+        c = (J + a*H)/Ji
+        u += np.where(kr < xr, c*jv(m, n_cyl*kr), jv(m, kr) + a*hankel1(m, kr))*1j**m*np.exp(1j*m*phi)
+    return u
+
+
+def test_cylinder_hz_vs_exact_series():
+    R, n = 0.8, 1.5
+    _, d0 = _cylinder_run(20, [], "Hz")
+    _, d1 = _cylinder_run(20, [(fdtd.Circle((0, 0), R), fdtd.Medium(n**2))], "Hz")
+    x, y = d0.coords("Hz")
+    i, j = np.argmin(np.abs(x)), np.argmin(np.abs(y))
+    ref = d0.field("Hz")[0][i, j]*np.exp(-2j*np.pi*x[i])   # incident wave referred to x = 0
+    X, Y = np.meshgrid(x, y, indexing="ij")
+    err = np.abs(d1.field("Hz")[0]/ref - _cylinder_series_H(Y, X, R, n, 1.0))
+    assert np.sqrt(np.mean(err**2)) < 0.04
 
 
 @pytest.mark.parametrize("mode", ["Ez", "Hz"])

@@ -28,7 +28,7 @@ import numpy as np
 
 from . import boundaries as _bnd
 from .grid import E_COMPONENTS, H_COMPONENTS, OFFSETS
-from .media import Medium, VACUUM
+from .media import VACUUM
 
 
 class Simulation(object):

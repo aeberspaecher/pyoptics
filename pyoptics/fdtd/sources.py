@@ -234,7 +234,6 @@ class TFSF(Source):
             raise ValueError("TFSF needs a 2D simulation")
         grid = sim.grid
         ex = grid.axis(0)
-        ey = grid.axis(1)
         xmin, xmax, ymin, ymax = self.box
         self.i0 = int(np.ceil((xmin - grid.origin[0])/grid.spacing[0] - 1e-9))
         self.i1 = int(np.floor((xmax - grid.origin[0])/grid.spacing[0] + 1e-9))

@@ -18,6 +18,23 @@ Propagation
    pyoptics.wpm
    pyoptics.fft
 
+Rigorous electromagnetics (FDTD)
+--------------------------------
+
+.. autosummary::
+   :toctree: generated
+
+   pyoptics.fdtd
+   pyoptics.fdtd.grid
+   pyoptics.fdtd.geometry
+   pyoptics.fdtd.media
+   pyoptics.fdtd.boundaries
+   pyoptics.fdtd.sources
+   pyoptics.fdtd.monitors
+   pyoptics.fdtd.simulation
+   pyoptics.fdtd.storage
+   pyoptics.fdtd.plot
+
 Beams, modes and paraxial optics
 --------------------------------
 
