@@ -14,7 +14,7 @@ to run them yourself, see [Running the notebooks](#running-the-notebooks).
 - {doc}`notebooks/05_WPM`
 - {doc}`notebooks/46_analytic_phase_propagation`
 - {doc}`notebooks/57_fdtd_basics`
-- {doc}`notebooks/58_fdtd_metals_plasmons`
+- {doc}`notebooks/59_fdtd_metals_plasmons`
 
 ```{toctree}
 :hidden:
@@ -27,7 +27,7 @@ notebooks/04_chirp_z_transform
 notebooks/05_WPM
 notebooks/46_analytic_phase_propagation
 notebooks/57_fdtd_basics
-notebooks/58_fdtd_metals_plasmons
+notebooks/59_fdtd_metals_plasmons
 ```
 
 ## Beams, modes and paraxial optics
