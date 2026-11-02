@@ -14,7 +14,12 @@ Hz mode ::
     eps dEx/dt + sigma Ex = dHz/dy - Jx,
     eps dEy/dt + sigma Ey = -dHz/dx - Jy,
 
-and in 1D (propagation along x) the Ez mode with Ez and Hy only. H is
+in 1D (propagation along x) the Ez mode with Ez and Hy only, and in 3D
+all six components ::
+
+    dH/dt = -curl E - M,   eps dE/dt + sigma E = curl H - J.
+
+H is
 updated from E with forward differences, E from H with backward
 differences; E lives at integer, H at half-integer time steps. The
 conductive term is discretized semi-implicitly,
@@ -22,6 +27,7 @@ E <- Ca E + Cb (curl H - J) with Ca = (1 - s)/(1 + s), Cb = dt/eps/(1 + s),
 s = sigma dt/(2 eps).
 """
 
+import itertools
 import time as _time
 
 import numpy as np
@@ -50,7 +56,7 @@ def stability_omega(medium):
 
 
 class Simulation(object):
-    """FDTD simulation in 1D or 2D.
+    """FDTD simulation in 1D, 2D or 3D.
 
     Parameters
     ----------
@@ -62,7 +68,8 @@ class Simulation(object):
     mode : "Ez" or "Hz"
         2D polarization: Ez has the electric field along z (out of the
         plane, fields Ez, Hx, Hy), Hz the magnetic field along z (Ex, Ey,
-        Hz). Ignored in 1D, which has Ez and Hy. See the module docstring
+        Hz). Ignored in 1D, which has Ez and Hy, and in 3D, which has all
+        six components (the mode is then "3D"). See the module docstring
         of pyoptics.fdtd for the TE/TM names.
     boundaries : str, PML, Bloch or sequence of them
         Per axis "pml" (or a PML instance), "pec", "periodic" or Bloch(k)
@@ -80,27 +87,34 @@ class Simulation(object):
         Explicit time step (overrides courant).
     subpixel : int, optional
         Sub-samples per cell and axis for averaging the permittivity across
-        material boundaries (1: staircase). Default 64 in 1D, 8 in 2D.
+        material boundaries (1: staircase). Default 64 in 1D, 8 in 2D and
+        3D (in 3D only the cells crossed by a boundary are sub-sampled).
     averaging : "anisotropic" or "arithmetic"
-        How the in-plane E components of the Hz mode see material
-        boundaries (see rasterize()); the Ez mode and 1D are unaffected.
+        How the E components in the plane of the Hz mode and all E
+        components in 3D see material boundaries (see rasterize()); the Ez
+        mode and 1D are unaffected.
     backend : "auto", "numpy" or "numba"
         Update kernels; "auto" uses numba if it is installed
         (``pip install pyoptics[fast]``), which is 10 to 20 times faster.
         NumPy is the reference implementation.
-    dtype : numpy dtype
-        float64 (default) or float32 (precision of the coefficients and
-        fields); complex128 or complex64 make the fields complex, which
-        Bloch boundaries with k != 0 do automatically.
+    dtype : numpy dtype, optional
+        float64 (default in 1D and 2D) or float32 (default in 3D, half the
+        memory) for the coefficients and fields; complex128 or complex64
+        make the fields complex, which Bloch boundaries with k != 0 do
+        automatically.
     """
 
     def __init__(self, grid, structure=(), sources=(), monitors=(), mode="Ez", boundaries="pml",
                  background=VACUUM, courant=0.99, dt=None, subpixel=None, averaging="anisotropic",
-                 backend="auto", dtype=np.float64):
+                 backend="auto", dtype=None):
         if grid.ndim == 1:
             mode = "Ez"
-        if mode not in ("Ez", "Hz"):
+        elif grid.ndim == 3:
+            mode = "3D"
+        elif mode not in ("Ez", "Hz"):
             raise ValueError("mode must be 'Ez' or 'Hz'")
+        if dtype is None:
+            dtype = np.float32 if grid.ndim == 3 else np.float64
         self.grid = grid
         self.ndim = grid.ndim
         self.mode = mode
@@ -138,6 +152,13 @@ class Simulation(object):
         return H_COMPONENTS[(self.ndim, self.mode)]
 
     @property
+    def default_component(self):
+        """The component sources and monitors use by default: Hz in the Hz
+        mode, Ez otherwise."""
+
+        return "Hz" if self.mode == "Hz" else "Ez"
+
+    @property
     def components(self):
         return self.e_components + self.h_components
 
@@ -162,7 +183,9 @@ class Simulation(object):
     def rasterize(self, component):
         """Effective permittivity, conductivity and filling fractions of the
         media at the nodes of a component, from subpixel**ndim samples per
-        cell.
+        cell. In 3D only the cells whose sampling cube is crossed by a
+        material boundary (corners in different media) are sub-sampled;
+        features smaller than a cell can slip through.
 
         Returns
         -------
@@ -173,7 +196,8 @@ class Simulation(object):
             get 1/eps = n_a**2 <1/eps> + (1 - n_a**2)/<eps>, with the
             component n_a of the boundary normal estimated from the first
             moment of eps over the samples (Farjadpour et al., diagonal
-            approximation). E along z is always parallel to the boundaries.
+            approximation). E along z is always parallel to the boundaries
+            in 2D. In 3D all E components are averaged this way.
         fractions : array (n_media, ...)
             Filling fraction of each medium of _media().
         """
@@ -184,34 +208,68 @@ class Simulation(object):
         sub = (np.arange(s) + 0.5)/s - 0.5
         media = self._media()
         eps_of = np.array([m.eps for m in media])
-        frac = np.zeros((len(media),) + grid.shape)
-        inv = np.zeros(grid.shape)
-        moment = np.zeros((self.ndim,) + grid.shape)
+        K = len(media)
+        if self.ndim == 3:
+            # media at the corners of the sampling cubes; cubes with equal
+            # corners are taken as uniform
+            corners = [np.append(c, c[-1] + h) - h/2 for c, h in zip(base, grid.spacing)]
+            idc = self._medium_ids(np.meshgrid(*corners, indexing="ij"), media)
+            ref = idc[:-1, :-1, :-1]
+            mixed = np.zeros(grid.shape, dtype=bool)
+            for corner in itertools.product((0, 1), repeat=3):
+                mixed |= idc[tuple(slice(c, c + n) for c, n in zip(corner, grid.shape))] != ref
+            sel = np.nonzero(mixed)
+            pts0 = [b[i] for b, i in zip(base, sel)]
+        else:
+            sel = None
+            pts0 = np.meshgrid(*base, indexing="ij")
+        shape = pts0[0].shape
+        frac_s = np.zeros((K,) + shape)
+        inv_s = np.zeros(shape)
+        moment_s = np.zeros((self.ndim,) + shape)
         shifts = np.stack(np.meshgrid(*[sub]*self.ndim, indexing="ij"), -1).reshape(-1, self.ndim)
         for shift in shifts:
-            pts = np.meshgrid(*[c + d*h for c, d, h in zip(base, shift, grid.spacing)], indexing="ij")
-            ids = np.zeros(grid.shape, dtype=int)
-            for shape, medium in self.structure:
-                k = next(i for i, m in enumerate(media) if m is medium)
-                ids[shape.contains(*pts)] = k
+            ids = self._medium_ids([p + d*h for p, d, h in zip(pts0, shift, grid.spacing)], media)
             e = eps_of[ids]
-            for k in range(len(media)):
-                frac[k] += ids == k
-            inv += 1/e
+            for k in range(K):
+                frac_s[k] += ids == k
+            inv_s += 1/e
             for a in range(self.ndim):
-                moment[a] += shift[a]*e
+                moment_s[a] += shift[a]*e
         n = len(shifts)
-        frac /= n
-        inv /= n
+        if sel is None:
+            frac, inv, moment = frac_s/n, inv_s/n, moment_s
+        else:
+            frac = np.zeros((K,) + grid.shape)
+            for k in range(K):
+                frac[k] = ref == k
+                frac[k][sel] = frac_s[k]/n
+            inv = 1/eps_of[ref]
+            inv[sel] = inv_s/n
+            moment = np.zeros((self.ndim,) + grid.shape)
+            for a in range(self.ndim):
+                moment[a][sel] = moment_s[a]
         eps = np.tensordot(eps_of, frac, axes=1)
         sigma = np.tensordot(np.array([m.sigma for m in media]), frac, axes=1)
-        axis = {"Ex": 0, "Ey": 1}.get(component) if self.ndim == 2 else None
+        if self.ndim == 3:
+            axis = "xyz".index(component[1])
+        else:
+            axis = {"Ex": 0, "Ey": 1}.get(component) if self.ndim == 2 else None
         if self.averaging == "anisotropic" and axis is not None:
             norm2 = np.sum(moment**2, axis=0)
             has = norm2 > 1e-24*np.max(eps)**2
             na2 = np.where(has, moment[axis]**2/np.where(has, norm2, 1), 0.0)
             eps = 1/(na2*inv + (1 - na2)/eps)
         return eps, sigma, frac
+
+    def _medium_ids(self, pts, media):
+        """Index into media of the medium at points (coordinate arrays)."""
+
+        ids = np.zeros(np.broadcast(*pts).shape, dtype=int)
+        for shape, medium in self.structure:
+            k = next(i for i, m in enumerate(media) if m is medium)
+            ids[shape.contains(*pts)] = k
+        return ids
 
     def setup(self):
         """Rasterize the structure, allocate the fields and set up sources and
@@ -257,7 +315,10 @@ class Simulation(object):
         self._psi = {}
         self.step_count = 0
         if self._backend == "numba":
-            self._prepare_numba()
+            if self.ndim == 3:
+                self._prepare_numba3()
+            else:
+                self._prepare_numba()
         for s in self.sources:
             s.setup(self)
         for m in self.monitors:
@@ -273,7 +334,7 @@ class Simulation(object):
                 raise ImportError("the numba backend needs numba: pip install pyoptics[fast]")
             return "numba"
         if self.backend == "auto":   # 1D grids are too small to gain from threads
-            return "numba" if _kernels_numba.available and self.ndim == 2 else "numpy"
+            return "numba" if _kernels_numba.available and self.ndim >= 2 else "numpy"
         raise ValueError("backend must be 'auto', 'numpy' or 'numba'")
 
     def _prepare_numba(self):
@@ -310,6 +371,75 @@ class Simulation(object):
         self._nb_ph = tuple(self.dtype.type(p) for p in ph)
         self._nb_cph = tuple(self.dtype.type(np.conj(p)) for p in ph)
         self._nb_dummy = np.zeros(shape2, self.dtype)
+
+    def _prepare_numba3(self):
+        """CPML coefficients, slab maps and slab-sized psi arrays per axis
+        for the 3D kernels."""
+
+        rd = self.rdtype
+        shape = self.grid.shape
+        coef, n_pml = {}, {}
+        for a in range(3):
+            N = shape[a]
+            b_ = self.boundaries[a]
+            n = b_.cells if isinstance(b_, _bnd.PML) else 0
+            n_pml[a] = n
+            for kind, off in (("h", 0.5), ("e", 0.0)):
+                m = np.full(N, -1, dtype=np.int64)
+                bb = np.zeros(N, rd)
+                cc = np.zeros(N, rd)
+                ik = np.ones(N, rd)
+                if n:
+                    (bl, cl, kl), (br, cr, kr) = b_.coefficients(N, self.grid.spacing[a], self.dt, off)
+                    bb[:n], cc[:n], ik[:n] = bl, cl, kl
+                    bb[N - n:], cc[N - n:], ik[N - n:] = br, cr, kr
+                    m[:n] = np.arange(n)
+                    m[N - n:] = np.arange(n, 2*n)
+                coef[(a, kind)] = (m, bb, cc, ik)
+        self._nb_coef = coef
+
+        def psi(a):
+            if not n_pml[a]:
+                return np.zeros((1, 1, 1), self.dtype)
+            shp = list(shape)
+            shp[a] = 2*n_pml[a]
+            return np.zeros(shp, self.dtype)
+
+        self._nb_psi = {key: psi("xyz".index(key[-1]))
+                        for key in ("hx_y", "hx_z", "hy_x", "hy_z", "hz_x", "hz_y",
+                                    "ex_y", "ex_z", "ey_x", "ey_z", "ez_x", "ez_y")}
+        self._nb_periodic = tuple(self._periodic(a) for a in range(3))
+        self._nb_spacing = tuple(rd.type(h) for h in self.grid.spacing)
+        ph = [self._phase(a) for a in range(3)]
+        self._nb_ph = tuple(self.dtype.type(p) for p in ph)
+        self._nb_cph = tuple(self.dtype.type(np.conj(p)) for p in ph)
+        self._nb_dummy = np.ones((1, 1, 1), rd)
+
+    def _numba3_h(self):
+        from . import _kernels_numba as kn
+        f = self.fields
+        p = self._nb_psi
+        c = self._nb_coef
+        kn.h_3d(f["Ex"], f["Ey"], f["Ez"], f["Hx"], f["Hy"], f["Hz"], self.rdtype.type(self.dt),
+                *self._nb_spacing, *self._nb_periodic, *self._nb_ph,
+                *c[(0, "h")], *c[(1, "h")], *c[(2, "h")],
+                p["hx_y"], p["hx_z"], p["hy_x"], p["hy_z"], p["hz_x"], p["hz_y"])
+
+    def _numba3_e(self):
+        from . import _kernels_numba as kn
+        f = self.fields
+        p = self._nb_psi
+        c = self._nb_coef
+        lossy = self._Ca["Ex"] is not None
+        Ca = {k: self._Ca[k] if lossy else self._nb_dummy for k in ("Ex", "Ey", "Ez")}
+        pa, pb, pc = (np.ascontiguousarray(self._pole_coeffs[:, i]) for i in range(3))
+        kn.e_3d(f["Ex"], f["Ey"], f["Ez"], f["Hx"], f["Hy"], f["Hz"],
+                Ca["Ex"], self._Cb["Ex"], Ca["Ey"], self._Cb["Ey"], Ca["Ez"], self._Cb["Ez"], lossy,
+                self.rdtype.type(self.dt), *self._nb_spacing, *self._nb_cph,
+                *c[(0, "e")], *c[(1, "e")], *c[(2, "e")],
+                p["ex_y"], p["ex_z"], p["ey_x"], p["ey_z"], p["ez_x"], p["ez_y"],
+                self._P["Ex"], self._Pp["Ex"], self._W["Ex"], self._P["Ey"], self._Pp["Ey"], self._W["Ey"],
+                self._P["Ez"], self._Pp["Ez"], self._W["Ez"], pa, pb, pc)
 
     def _v(self, a):
         """2D view of a field or per-component array for the kernels."""
@@ -424,7 +554,15 @@ class Simulation(object):
         f = self.fields
         dt = self.rdtype.type(self.dt)
         if self._backend == "numba":
-            self._numba_h()
+            if self.ndim == 3:
+                self._numba3_h()
+            else:
+                self._numba_h()
+        elif self.ndim == 3:
+            Ex, Ey, Ez = f["Ex"], f["Ey"], f["Ez"]
+            f["Hx"] += dt*(self._dfwd(Ey, 2, "Hx_z") - self._dfwd(Ez, 1, "Hx_y"))
+            f["Hy"] += dt*(self._dfwd(Ez, 0, "Hy_x") - self._dfwd(Ex, 2, "Hy_z"))
+            f["Hz"] += dt*(self._dfwd(Ex, 1, "Hz_y") - self._dfwd(Ey, 0, "Hz_x"))
         elif self.ndim == 1:
             f["Hy"] += dt*self._dfwd(f["Ez"], 0, "Hy_x")
         elif self.mode == "Ez":
@@ -457,7 +595,15 @@ class Simulation(object):
         if self.track_energy:
             self._e_prev = {c: f[c].copy() for c in self.e_components}
         if self._backend == "numba":
-            self._numba_e()
+            if self.ndim == 3:
+                self._numba3_e()
+            else:
+                self._numba_e()
+        elif self.ndim == 3:
+            Hx, Hy, Hz = f["Hx"], f["Hy"], f["Hz"]
+            self._e_step("Ex", self._dbwd(Hz, 1, "Ex_y") - self._dbwd(Hy, 2, "Ex_z"))
+            self._e_step("Ey", self._dbwd(Hx, 2, "Ey_z") - self._dbwd(Hz, 0, "Ey_x"))
+            self._e_step("Ez", self._dbwd(Hy, 0, "Ez_x") - self._dbwd(Hx, 1, "Ez_y"))
         elif self.ndim == 1:
             self._e_step("Ez", self._dbwd(f["Hy"], 0, "Ez_x"))
         elif self.mode == "Ez":

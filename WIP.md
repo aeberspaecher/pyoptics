@@ -27,9 +27,12 @@
 * FDTD, next milestones (done: 1D/2D core, numba kernels, dispersive media,
   waveguide modes, mode sources/monitors, S-parameters, Q extraction,
   Bloch boundaries, diffraction orders vs. RCWA, band structures,
-  photonic-crystal devices, grating coupler, metalens;
-  notebooks 57, 59, 60, 62 and 63): mode sources with dispersion-matched auxiliary
-  grids (no backward leakage away from the centre wavelength); 3D; a second-order Debye
+  photonic-crystal devices, grating coupler, metalens, 3D with the Mie
+  sphere and the nanojet; notebooks 57, 59, 60, 62, 63 and 64): the litho
+  mask model (3D mask features handed to imaging); 3D mode sources and
+  monitors (needs the mode solver on a 2D cross section) and 3D
+  diffraction orders; mode sources with dispersion-matched auxiliary
+  grids (no backward leakage away from the centre wavelength); a second-order Debye
   update; better accuracy for metal boundaries in the Hz mode (first order
   now); `analytical.cylinder_field` for H along the axis (the series is in
   notebook 57 and test_fdtd.py)

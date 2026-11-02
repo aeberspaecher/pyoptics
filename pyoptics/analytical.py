@@ -426,3 +426,162 @@ def sphere_field(rho, z, radius, n_sph, wl, n_medium=1.0, k_rho=None, amplitudes
     u[inside] = u_i
 
     return u
+
+
+def mie_coefficients(radius, n_sph, wl, n_medium=1.0, num_orders=None):
+    """Lorenz-Mie coefficients of a homogeneous sphere (vector theory, non-magnetic).
+
+    Parameters
+    ----------
+    radius : number
+        Sphere radius.
+    n_sph : number
+        Refractive index of the sphere (may be complex).
+    wl : number
+        Vacuum wavelength.
+    n_medium : number, optional
+        Refractive index of the surrounding medium.
+    num_orders : int, optional
+        Highest order n. Defaults to Wiscombe's criterion.
+
+    Returns
+    -------
+    n : array
+        Orders 1..num_orders.
+    a_n, b_n : arrays
+        Coefficients of the scattered field (electric and magnetic
+        multipoles).
+    c_n, d_n : arrays
+        Coefficients of the inner field.
+
+    Notes
+    -----
+    Bohren and Huffman [1]_, eq. (4.52) and (4.53), time dependence
+    exp(-i omega t).
+
+    References
+    ----------
+    .. [1] C. F. Bohren and D. R. Huffman, "Absorption and Scattering of Light
+       by Small Particles", Wiley (1983), chapter 4.
+    """
+
+    from scipy.special import spherical_jn, spherical_yn
+
+    k = 2*np.pi*n_medium/wl
+    m = n_sph/n_medium
+    x = k*radius
+    if num_orders is None:
+        num_orders = _num_orders(x, m)
+    n = np.arange(1, num_orders + 1)
+    j, jp = spherical_jn(n, x), spherical_jn(n, x, derivative=True)
+    h = j + 1j*spherical_yn(n, x)
+    hp = jp + 1j*spherical_yn(n, x, derivative=True)
+    ji, jip = spherical_jn(n, m*x), spherical_jn(n, m*x, derivative=True)
+    xj, xh = j + x*jp, h + x*hp              # [x j_n(x)]', [x h_n(x)]'
+    mxj = ji + m*x*jip                        # [mx j_n(mx)]'
+    den_e = m**2*ji*xh - h*mxj
+    den_m = ji*xh - h*mxj
+    a_n = (m**2*ji*xj - j*mxj)/den_e
+    b_n = (ji*xj - j*mxj)/den_m
+    c_n = (j*xh - h*xj)/den_m
+    d_n = m*(j*xh - h*xj)/den_e
+
+    return n, a_n, b_n, c_n, d_n
+
+
+def mie_efficiencies(radius, n_sph, wl, n_medium=1.0, num_orders=None):
+    """Extinction and scattering efficiencies (cross sections over the
+    geometric one, pi radius**2) of a sphere from mie_coefficients()."""
+
+    n, a, b, _, _ = mie_coefficients(radius, n_sph, wl, n_medium, num_orders)
+    x = 2*np.pi*n_medium/wl*radius
+    q_ext = 2/x**2*np.sum((2*n + 1)*np.real(a + b))
+    q_sca = 2/x**2*np.sum((2*n + 1)*(np.abs(a)**2 + np.abs(b)**2))
+
+    return q_ext, q_sca
+
+
+def mie_field(x, y, z, radius, n_sph, wl, n_medium=1.0, num_orders=None):
+    """Electric field of the Lorenz-Mie solution: a homogeneous sphere
+    (centred at the origin) illuminated by a plane wave travelling towards
+    +z, polarized along x, E_inc = exp(i k z) (time dependence
+    exp(-i omega t), k = 2 pi n_medium/wl).
+
+    The vector counterpart of sphere_field(): exact solution of Maxwell's
+    equations, which depends on the polarization.
+
+    Parameters
+    ----------
+    x, y, z : arrays
+        Coordinates (broadcastable against each other).
+    radius, n_sph, wl, n_medium, num_orders :
+        See mie_coefficients().
+
+    Returns
+    -------
+    E : complex array (3, ...)
+        Ex, Ey, Ez of the total field (incident plus scattered outside,
+        transmitted inside).
+
+    Notes
+    -----
+    Sums the vector spherical harmonics M_o1n and N_e1n of Bohren and
+    Huffman [1]_ (eq. 4.37, 4.45, 4.50).
+
+    References
+    ----------
+    .. [1] C. F. Bohren and D. R. Huffman, "Absorption and Scattering of Light
+       by Small Particles", Wiley (1983), chapter 4.
+    """
+
+    from scipy.special import spherical_jn, spherical_yn
+
+    k = 2*np.pi*n_medium/wl
+    m = n_sph/n_medium
+    n_k, a_n, b_n, c_n, d_n = mie_coefficients(radius, n_sph, wl, n_medium, num_orders)
+    x, y, z = np.broadcast_arrays(*(np.asarray(v, dtype=float) for v in (x, y, z)))
+    r = np.sqrt(x**2 + y**2 + z**2)
+    rs = np.where(r > 0, r, 1e-12*wl)
+    cos_t = np.clip(z/rs, -1, 1)
+    sin_t = np.sqrt(1 - cos_t**2)
+    phi = np.arctan2(y, x)
+    cos_p, sin_p = np.cos(phi), np.sin(phi)
+    inside = r < radius
+    rho = np.where(inside, m*k*rs, k*rs)
+    E_r = np.zeros(r.shape, dtype=complex)
+    E_t = np.zeros(r.shape, dtype=complex)
+    E_p = np.zeros(r.shape, dtype=complex)
+    pi_prev, pi_n = np.zeros(r.shape), np.ones(r.shape)       # pi_0, pi_1
+    j_prev = spherical_jn(0, rho)
+    y_prev = spherical_yn(0, np.where(inside, 1.0, rho))
+    for n, a, b, c, d in zip(n_k, a_n, b_n, c_n, d_n):
+        tau_n = n*cos_t*pi_n - (n + 1)*pi_prev
+        j = spherical_jn(n, rho)
+        # outside: the scattered field (h_n), inside: the inner field (j_n)
+        if np.any(~inside):
+            yy = spherical_yn(n, np.where(inside, 1.0, rho))
+            h = j + 1j*yy
+            dh = (j_prev + 1j*y_prev) - n*h/rho      # [rho h_n]'/rho
+            y_prev = yy
+        else:
+            h = dh = 0
+        dj = j_prev - n*j/rho                        # [rho j_n]'/rho
+        En = 1j**n*(2*n + 1)/(n*(n + 1))
+        # radial functions times coefficients: M (z_n) and N ([rho z_n]'/rho, z_n/rho)
+        zM = np.where(inside, c*j, -b*h)
+        zN = np.where(inside, -1j*d*dj, 1j*a*dh)
+        zR = np.where(inside, -1j*d*j/rho, 1j*a*h/rho)
+        E_r += En*n*(n + 1)*sin_t*pi_n*zR
+        E_t += En*(pi_n*zM + tau_n*zN)
+        E_p += En*(-tau_n*zM - pi_n*zN)
+        j_prev = j
+        pi_prev, pi_n = pi_n, ((2*n + 1)*cos_t*pi_n - (n + 1)*pi_prev)/n
+    E_r *= cos_p
+    E_t *= cos_p
+    E_p *= sin_p
+    E = np.array([sin_t*cos_p*E_r + cos_t*cos_p*E_t - sin_p*E_p,
+                  sin_t*sin_p*E_r + cos_t*sin_p*E_t + cos_p*E_p,
+                  cos_t*E_r - sin_t*E_t])
+    E[0] += np.where(inside, 0, np.exp(1j*k*z))
+
+    return E

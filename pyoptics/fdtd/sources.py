@@ -4,16 +4,18 @@
 """Sources: time profiles, soft current sources and the total-field /
 scattered-field (TFSF) plane wave.
 
-Point and line sources are soft current sources: an electric current
-density J (or magnetic M for Hz) is added to the update equation, so the
-source does not scatter the fields passing through it. A source's
-amplitude is the dipole moment (point) or the current per unit length
-(line), so the radiated field does not depend on the cell size.
+Point and line (plane in 3D) sources are soft current sources: an
+electric current density J (or magnetic M for Hz) is added to the update
+equation, so the source does not scatter the fields passing through it. A
+source's amplitude is the dipole moment (point) or the current per unit
+length or area (line, plane), so the radiated field does not depend on the
+cell size.
 """
 
 import numpy as np
 
 from .boundaries import Bloch
+from .grid import OFFSETS
 
 
 class GaussianPulse(object):
@@ -94,7 +96,7 @@ class Source(object):
 
 
 def _default_component(sim):
-    return "Ez" if sim.ndim == 1 or sim.mode == "Ez" else "Hz"
+    return sim.default_component
 
 
 class _CurrentSource(Source):
@@ -116,7 +118,8 @@ class _CurrentSource(Source):
 
 
 class PointSource(_CurrentSource):
-    """Point dipole (a line current along z in 2D, a sheet in 1D).
+    """Point dipole (a line current along z in 2D, a sheet in 1D, a point
+    dipole in 3D).
 
     Parameters
     ----------
@@ -124,9 +127,9 @@ class PointSource(_CurrentSource):
     profile : callable
         Time profile, e.g. GaussianPulse or ContinuousWave.
     component : str, optional
-        Field component the current drives: Ez (default in 1D and the Ez
-        mode), Ex or Ey (electric), Hz (magnetic current, default in the Hz
-        mode).
+        Field component the current drives: Ez (default in 1D, the Ez mode
+        and 3D), Ex or Ey (electric), Hz (magnetic current, default in the
+        Hz mode); in 3D any of the six.
     amplitude : number
     """
 
@@ -144,9 +147,10 @@ class PointSource(_CurrentSource):
 
 
 class LineSource(_CurrentSource):
-    """Current sheet across the domain at a position along an axis (2D), or
-    a sheet in 1D. With periodic boundaries along the line it launches plane
-    waves to both sides. With a Bloch boundary along the line (Bloch(k)),
+    """Current sheet across the domain at a position along an axis: a line
+    in 2D, a plane in 3D (also available as PlaneSource), a point in 1D.
+    With periodic boundaries along the line it launches plane waves to both
+    sides. With a Bloch boundary along the line (Bloch(k)),
     the current carries exp(i k s) along the line and launches plane waves
     with the transverse wave number k: oblique incidence at
     sin(theta) = k/(n k0), an angle that varies across the band of a pulse.
@@ -158,19 +162,25 @@ class LineSource(_CurrentSource):
     profile : callable
         Time profile.
     axis : int
-        Normal of the line (0: a line x = position, 1: y = position).
+        Normal of the line (0: a line x = position, 1: y = position; 2: a
+        plane z = position in 3D).
     component : str, optional
-        As for PointSource.
+        As for PointSource; in 3D the default is Ex (Ey for planes normal to
+        x).
     extent : (lo, hi), optional
-        Part of the line that radiates (default: all of it).
+        Part of the line that radiates (default: all of it); in 3D
+        ((lo, hi), (lo, hi)) along the two other axes (in the order x, y,
+        z), entries may be None.
     transverse : callable, optional
         Amplitude across the line as a function of the coordinate along it,
-        e.g. a Gaussian beam profile.
+        e.g. a Gaussian beam profile; in 3D a function of the two other
+        coordinates.
     angle : number, optional
         Tilt of the launched waves (radians, from the axis towards the
         positive coordinate along the line): each point is delayed by
         n*sin(angle)*(s - center), which launches plane waves (or a tilted
-        beam with `transverse`) at that angle in a medium of index n.
+        beam with `transverse`) at that angle in a medium of index n. 2D
+        only.
     n : number
         Refractive index at the line (for `angle`).
     center : number
@@ -194,7 +204,10 @@ class LineSource(_CurrentSource):
 
     def setup(self, sim):
         if self.component is None:
-            self.component = _default_component(sim)
+            self.component = ("Ey" if self.axis == 0 else "Ex") if sim.ndim == 3 else \
+                _default_component(sim)
+        if sim.ndim == 3:
+            return self._setup3(sim)
         grid = sim.grid
         coords = grid.coords(self.component, sim.mode)
         pos = np.zeros(grid.ndim)
@@ -221,6 +234,33 @@ class LineSource(_CurrentSource):
         if self.angle:
             self._delay = self.n*np.sin(self.angle)*(t - self.center)
 
+    def _setup3(self, sim):
+        grid = sim.grid
+        a = self.axis
+        coords = grid.coords(self.component, sim.mode)
+        pos = np.zeros(3)
+        pos[a] = self.position
+        i = grid.index(pos, self.component, sim.mode)[a]
+        others = [b for b in range(3) if b != a]
+        t = np.meshgrid(coords[others[0]], coords[others[1]], indexing="ij")
+        w = np.full(t[0].shape, self.amplitude/grid.spacing[a], dtype=complex)
+        for q, b in enumerate(others):
+            if self.extent is not None and self.extent[q] is not None:
+                lo, hi = self.extent[q]
+                w = w*((t[q] >= lo) & (t[q] <= hi))
+            if isinstance(sim.boundaries[b], Bloch):
+                w = w*np.exp(1j*sim.boundaries[b].k*t[q])
+        if self.transverse is not None:
+            w = w*self.transverse(*t)
+        if self.angle:
+            raise ValueError("LineSource(angle=...) is 2D only; use Bloch boundaries in 3D")
+        if not np.iscomplexobj(sim.fields[self.component]):
+            w = w.real
+        idx = [slice(None)]*3
+        idx[a] = i
+        self._idx = tuple(idx)
+        self._weight = w
+
     def _value(self, t):
         return self.profile(t) if self._delay is None else self.profile(t - self._delay)
 
@@ -234,8 +274,9 @@ class LineSource(_CurrentSource):
 
 
 class TFSF(Source):
-    """Plane wave travelling towards +x, injected on the boundary of a box
-    (total-field / scattered-field formulation, 2D, both modes).
+    """Plane wave injected on the boundary of a box (total-field /
+    scattered-field formulation): in 2D (both modes) travelling towards +x,
+    in 3D towards +z, polarized along x or y.
 
     Inside the box the total field is computed, outside only the scattered
     field: without scatterers the field outside the box is zero up to
@@ -245,7 +286,7 @@ class TFSF(Source):
 
     Parameters
     ----------
-    box : (xmin, xmax, ymin, ymax)
+    box : (xmin, xmax, ymin, ymax[, zmin, zmax])
         Total field region; it should lie in the background medium near
         its edges and stay clear of the PML.
     profile : callable
@@ -253,20 +294,68 @@ class TFSF(Source):
         auxiliary grid; the wave reaches x = xmin a bit later).
     n_background : number
         Refractive index of the background medium.
+    polarization : "x" or "y"
+        Direction of E in 3D (H along y or -x).
+    wavelengths : array, optional
+        Record the DFT of the incident field at these vacuum wavelengths
+        (convention as DFTField), for incident_phasor(): the reference that
+        turns DFT fields of a pulsed run into fields per unit incident
+        amplitude.
     """
 
-    def __init__(self, box, profile, n_background=1.0):
+    def __init__(self, box, profile, n_background=1.0, polarization="x", wavelengths=None):
         self.box = box
         self.profile = profile
         self.n_background = n_background
+        self.polarization = polarization
+        self.wavelengths = None if wavelengths is None else \
+            np.atleast_1d(np.asarray(wavelengths, dtype=float))
 
-    def setup(self, sim):
+    def _aux(self, sim, h, n_box):
+        """The auxiliary 1D grid; returns the aux index of the box start."""
+
         from .simulation import Simulation
         from .grid import Grid
         from .media import Medium
         from .boundaries import PML
+        pml = 20
+        k0 = pml + 8    # auxiliary index of the first main index in the box
+        n_aux = k0 + n_box + 4 + pml
+        aux_grid = Grid(n_aux*h, h, center=n_aux*h/2)
+        self.aux = Simulation(aux_grid, boundaries=PML(pml), courant=None, dt=sim.dt,
+                              background=Medium(self.n_background**2), dtype=sim.dtype,
+                              sources=[PointSource(aux_grid.axis(0)[pml + 4], self.profile)])
+        self.aux.setup()
+        if self.wavelengths is not None:
+            self._omega = 2*np.pi/self.wavelengths
+            self._acc = np.zeros((len(self._omega), n_aux), complex)
+        return k0
+
+    def _record(self):
+        if self.wavelengths is not None:
+            ph = np.exp(1j*self._omega*self.aux.time)*self.aux.dt
+            self._acc += np.outer(ph, self.aux.fields["Ez"])
+
+    def incident_phasor(self, position):
+        """DFT of the incident E (Ez in the Ez mode, Ey in the Hz mode, the
+        polarization direction in 3D) at the node nearest to a position
+        along the propagation axis, per wavelength (needs wavelengths)."""
+
+        if self.wavelengths is None:
+            raise ValueError("TFSF(wavelengths=...) records the incident field")
+        return self._acc[:, self._aux_index(position)]
+
+    def _aux_index(self, position):
+        if hasattr(self, "z0"):
+            return int(round((position - self.z0)/self.aux.grid.spacing[0])) + self.koff + \
+                self.box_indices[4]
+        return int(round((position - self.x0)/self.aux.grid.spacing[0])) + self.koff + self.i0
+
+    def setup(self, sim):
+        if sim.ndim == 3:
+            return self._setup3(sim)
         if sim.ndim != 2:
-            raise ValueError("TFSF needs a 2D simulation")
+            raise ValueError("TFSF needs a 2D or 3D simulation")
         grid = sim.grid
         ex = grid.axis(0)
         xmin, xmax, ymin, ymax = self.box
@@ -276,21 +365,78 @@ class TFSF(Source):
         self.j1 = int(np.floor((ymax - grid.origin[1])/grid.spacing[1] + 1e-9))
         if not (0 < self.i0 < self.i1 < grid.shape[0] - 1 and 0 < self.j0 < self.j1 < grid.shape[1] - 1):
             raise ValueError("TFSF box must lie inside the domain")
-        dx = grid.spacing[0]
-        pml = 20
-        k0 = pml + 8    # auxiliary index of main x index i0
-        n_aux = k0 + (self.i1 - self.i0) + 4 + pml
-        aux_grid = Grid(n_aux*dx, dx, center=n_aux*dx/2)
-        self.aux = Simulation(aux_grid, boundaries=PML(pml), courant=None, dt=sim.dt,
-                              background=Medium(self.n_background**2), dtype=sim.dtype,
-                              sources=[PointSource(aux_grid.axis(0)[pml + 4], self.profile)])
-        self.aux.setup()
+        k0 = self._aux(sim, grid.spacing[0], self.i1 - self.i0)
         self.koff = k0 - self.i0     # aux index = main x index + koff
         self.x0 = ex[self.i0]
         self.box_indices = (self.i0, self.i1, self.j0, self.j1)
 
+    def _setup3(self, sim):
+        """Plan of the corrections: for every curl term that couples an
+        incident component across the box surface, the faces where the
+        updated node and its neighbour lie on different sides."""
+
+        grid = sim.grid
+        lo = [int(np.ceil((self.box[2*a] - grid.origin[a])/grid.spacing[a] - 1e-9)) for a in range(3)]
+        hi = [int(np.floor((self.box[2*a + 1] - grid.origin[a])/grid.spacing[a] + 1e-9)) for a in range(3)]
+        if not all(0 < lo[a] < hi[a] < grid.shape[a] - 1 for a in range(3)):
+            raise ValueError("TFSF box must lie inside the domain")
+        self.box_indices = tuple(v for a in range(3) for v in (lo[a], hi[a]))
+        self.koff = self._aux(sim, grid.spacing[2], hi[2] - lo[2]) - lo[2]
+        self.z0 = grid.axis(2)[lo[2]]
+        # incident components (sign relative to the aux Ez, Hy) and the
+        # curl terms (target, source, axis, sign) that involve them
+        if self.polarization == "x":
+            inc = {"Ex": 1.0, "Hy": -1.0}
+            terms = [("Hy", "Ex", 2, -1), ("Hz", "Ex", 1, 1), ("Ex", "Hy", 2, -1), ("Ez", "Hy", 0, 1)]
+        elif self.polarization == "y":
+            inc = {"Ey": 1.0, "Hx": 1.0}
+            terms = [("Hx", "Ey", 2, 1), ("Hz", "Ey", 0, -1), ("Ey", "Hx", 2, 1), ("Ez", "Hx", 1, -1)]
+        else:
+            raise ValueError("polarization must be 'x' or 'y'")
+        off = OFFSETS[3]["3D"]
+
+        def inside(pos, a):
+            return (pos >= lo[a] - 1e-9) & (pos <= hi[a] + 1e-9)
+
+        self._plan = {"h": [], "e": []}
+        for T, S, a, sgn in terms:
+            kind = T[0].lower()
+            oT = off[T]
+            sl = []
+            for b in range(3):
+                pos = np.arange(grid.shape[b]) + oT[b]
+                sel = np.nonzero(inside(pos, b))[0]
+                sl.append(slice(sel[0], sel[-1] + 1))
+            pos = np.arange(grid.shape[a]) + oT[a]
+            inT = inside(pos, a).astype(int)
+            sp = inT - inside(pos + 0.5, a)
+            sm = inT - inside(pos - 0.5, a)
+            for i in np.nonzero((sp != 0) | (sm != 0))[0]:
+                idx = list(sl)
+                idx[a] = i
+                plus = i + 1 if kind == "h" else i       # index of the S node at +h/2
+                coef = sgn/grid.spacing[a]
+                self._plan[kind].append((T, S, inc[S], a, tuple(idx), int(sp[i]), int(sm[i]), plus,
+                                         coef, sl[2]))
+
+    def _apply3(self, sim, kind):
+        aux = {"E": self.aux.fields["Ez"], "H": self.aux.fields["Hy"]}
+        k = self.koff
+        for T, S, sS, a, idx, sp, sm, plus, coef, zsl in self._plan[kind]:
+            F = aux[S[0]]
+            if a == 2:
+                val = sp*F[plus + k] - sm*F[plus - 1 + k]
+            else:   # the incident value at the node's own z
+                val = (sp - sm)*F[zsl.start + k:zsl.stop + k]
+            c = sim.dt*coef if kind == "h" else sim._Cb[T][idx]*coef
+            sim.fields[T][idx] += (c*sS*val).astype(sim.dtype)
+
     def inject_h(self, sim, t):
         # called after the H update of the main grid (aux E at the same time)
+        if sim.ndim == 3:
+            self._apply3(sim, "h")
+            self.aux._update_h()
+            return
         Ez1 = self.aux.fields["Ez"]
         i0, i1, j0, j1 = self.box_indices
         k = self.koff
@@ -310,6 +456,12 @@ class TFSF(Source):
 
     def inject_e(self, sim, t):
         # called after the E update of the main grid (aux H half a step ahead)
+        if sim.ndim == 3:
+            self._apply3(sim, "e")
+            self.aux._update_e()
+            self.aux._advance()
+            self._record()
+            return
         Hy1 = self.aux.fields["Hy"]
         i0, i1, j0, j1 = self.box_indices
         k = self.koff
@@ -331,10 +483,16 @@ class TFSF(Source):
             Ex[i0:i1, j1] += CbX[i0:i1, j1]/dy*Hz_inc
         self.aux._update_e()
         self.aux._advance()
+        self._record()
 
     def incident(self, x, t=None):
         """Incident Ez (Ez mode) or Ey (Hz mode) of the auxiliary grid at x,
-        at the current time of the simulation (nearest node)."""
+        or in 3D the incident E (along the polarization) at z = x, at the
+        current time of the simulation (nearest node)."""
 
-        k = int(round((x - self.x0)/self.aux.grid.spacing[0])) + self.koff + self.i0
+        k = self._aux_index(x)
         return self.aux.fields["Ez"][k]
+
+
+PlaneSource = LineSource
+"""A LineSource in 3D: a current sheet on a plane."""

@@ -2,7 +2,7 @@
 #-*- coding:utf-8 -*-
 
 """Finite-difference time-domain (FDTD) solver for Maxwell's equations in
-1D and 2D.
+1D, 2D and 3D.
 
 The FDTD method (Yee 1966) samples E and H on staggered grids in space and
 time and leapfrogs them through the curl equations. It is rigorous for any
@@ -15,7 +15,8 @@ Building blocks
 - `Grid`: domain size, cell size and time step (normalized units: c = 1,
   lengths and wavelengths in the same unit, times in that unit over c).
 - Shapes (`Slab`, `Rect`, `Circle`, `Annulus`, `Polygon`, unions and
-  differences; waveguides `Path`, `SBend`, `Bend`, `Ring`; `Lattice`) and `Medium` (permittivity, conductivity and `Drude`,
+  differences; waveguides `Path`, `SBend`, `Bend`, `Ring`; `Lattice`; in
+  3D `Sphere`, `Box`, `Cylinder`, `Prism`) and `Medium` (permittivity, conductivity and `Drude`,
   `Lorentz` and `Debye` poles; `Medium.fit()` to tabulated n + ik), drawn
   on the grid with sub-cell averaging of the permittivity (anisotropic for
   E in the plane of the Hz mode).
@@ -74,15 +75,29 @@ Speed: the NumPy kernels are the reference; with numba installed
 (``Simulation(backend=...)``), with identical results and 10 to 20 times
 faster on multi-core machines.
 
-Planned (proposals/fdtd.md): 3D.
+3D
+--
+A Grid with three sizes makes a 3D simulation with all six components
+(mode "3D"). The defaults suit the larger grids: float32 fields, the numba
+kernels, CPML auxiliary fields only inside the layers, sub-cell averaging
+only in the cells a boundary crosses. 3D shapes are `Sphere`, `Box`,
+`Cylinder` and `Prism` (any 2D shape extruded); `PlaneSource` (a 3D
+LineSource) and `TFSF` (a plane wave along +z, polarized along x or y)
+excite the fields; monitor regions take a number for a single node layer
+(planes); `Flux` works on planes; plots show sections (``plane=("y",
+0.0)``). `pyoptics.analytical.mie_field` is the exact reference for a
+sphere.
+
+Planned (proposals/fdtd.md): the litho mask model.
 """
 
 from .grid import Grid
 from .geometry import (Shape, Union, Difference, Everywhere, Slab, Rect, Circle, Annulus,
-                       Polygon, Path, SBend, Bend, Ring, Lattice, sbend_points)
+                       Polygon, Path, SBend, Bend, Ring, Lattice, Sphere, Box, Prism, Cylinder,
+                       sbend_points)
 from .media import Medium, VACUUM, Drude, Lorentz, Debye, omega_from_eV
 from .boundaries import PML, PEC, PERIODIC, Bloch
-from .sources import GaussianPulse, ContinuousWave, PointSource, LineSource, TFSF
+from .sources import GaussianPulse, ContinuousWave, PointSource, LineSource, PlaneSource, TFSF
 from .monitors import (Probe, Snapshots, SnapshotStack, DFTField, DFTFieldData, Flux)
 from .modes import (Mode, waveguide_modes, find_modes, section_modes, ModeSource, ModeMonitor,
                     s_parameters)
@@ -92,9 +107,11 @@ from .simulation import Simulation
 from ._kernels_numba import available as numba_available
 
 __all__ = ["Grid", "Shape", "Union", "Difference", "Everywhere", "Slab", "Rect", "Circle",
-           "Annulus", "Polygon", "Path", "SBend", "Bend", "Ring", "Lattice", "sbend_points", "Medium",
+           "Annulus", "Polygon", "Path", "SBend", "Bend", "Ring", "Lattice", "Sphere", "Box", "Prism",
+           "Cylinder", "sbend_points", "Medium",
            "VACUUM", "Drude", "Lorentz", "Debye", "omega_from_eV", "PML", "PEC", "PERIODIC", "Bloch",
-           "GaussianPulse", "ContinuousWave", "PointSource", "LineSource", "TFSF", "Probe",
+           "GaussianPulse", "ContinuousWave", "PointSource", "LineSource",
+           "PlaneSource", "TFSF", "Probe",
            "Snapshots", "SnapshotStack", "DFTField", "DFTFieldData", "Flux", "Mode",
            "waveguide_modes", "find_modes", "section_modes", "ModeSource", "ModeMonitor",
            "s_parameters", "resonances", "Resonances", "DiffractionMonitor",
