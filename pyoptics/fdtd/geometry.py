@@ -111,13 +111,100 @@ class Polygon(Shape):
         self.vertices = np.asarray(vertices, dtype=float)
 
     def contains(self, x, y):
+        # crossing number: a ray towards -x from each point crosses the
+        # edges whose y range contains the point's y; with the points sorted
+        # by y, each edge only touches the points in its y range
         x, y = np.broadcast_arrays(x, y)
-        inside = np.zeros(x.shape, dtype=bool)
+        shape = x.shape
+        xf, yf = x.ravel(), y.ravel()
+        inside = np.zeros(xf.shape, dtype=bool)
+        order = np.argsort(yf, kind="stable")
+        ys = yf[order]
         xv, yv = self.vertices[:, 0], self.vertices[:, 1]
-        for (x0, y0), (x1, y1) in zip(zip(xv, yv), zip(np.roll(xv, -1), np.roll(yv, -1))):
+        for x0, y0, x1, y1 in zip(xv, yv, np.roll(xv, -1), np.roll(yv, -1)):
             if y0 == y1:
                 continue
-            crosses = (y0 > y) != (y1 > y)
-            x_cross = x0 + (y - y0)*(x1 - x0)/(y1 - y0)
-            inside ^= crosses & (x < x_cross)
-        return inside
+            a, b = np.searchsorted(ys, [min(y0, y1), max(y0, y1)], side="left")
+            if a == b:
+                continue
+            pts = order[a:b]
+            x_cross = x0 + (yf[pts] - y0)*(x1 - x0)/(y1 - y0)
+            inside[pts] ^= xf[pts] < x_cross
+        return inside.reshape(shape)
+
+
+class Path(Polygon):
+    """Waveguide of constant width along a polyline (2D).
+
+    Parameters
+    ----------
+    points : array (n, 2)
+        Centre line; sample curves finely enough (a few points per cell
+        along strongly curved parts).
+    width : float
+
+    The outline is the centre line offset by +-width/2 along the normals
+    (averaged at the vertices).
+    """
+
+    def __init__(self, points, width):
+        p = np.asarray(points, dtype=float)
+        if len(p) < 2:
+            raise ValueError("a path needs at least two points")
+        d = np.gradient(p, axis=0)
+        t = d/np.linalg.norm(d, axis=1)[:, None]
+        nrm = np.stack([-t[:, 1], t[:, 0]], axis=1)
+        self.points = p
+        self.width = width
+        super().__init__(np.concatenate([p + nrm*width/2, (p - nrm*width/2)[::-1]]))
+
+
+def sbend_points(start, length, offset, n=200, axis=0):
+    """Centre line of a raised-cosine S-bend from `start`, `length` along
+    `axis` and `offset` across it: y = offset*(1 - cos(pi s/length))/2."""
+
+    s = np.linspace(0, length, n)
+    q = offset*(1 - np.cos(np.pi*s/length))/2
+    pts = np.stack([s, q], axis=1) if axis == 0 else np.stack([q, s], axis=1)
+    return pts + np.asarray(start, dtype=float)
+
+
+def SBend(start, length, offset, width, n=200, axis=0):
+    """Raised-cosine S-bend waveguide (a Path), see sbend_points()."""
+
+    return Path(sbend_points(start, length, offset, n, axis), width)
+
+
+class Bend(Shape):
+    """Circular waveguide bend (2D): the part of an annulus between two
+    angles (radians, counter-clockwise from +x).
+
+    Parameters
+    ----------
+    center : (x, y)
+    radius : float
+        Radius of the centre line.
+    width : float
+    angles : (start, stop)
+        e.g. (0, pi/2) for a quarter circle in the first quadrant.
+    """
+
+    def __init__(self, center, radius, width, angles):
+        self.center = np.asarray(center, dtype=float)
+        self.radius = radius
+        self.width = width
+        self.angles = angles
+
+    def contains(self, x, y):
+        dx, dy = x - self.center[0], y - self.center[1]
+        r2 = dx**2 + dy**2
+        a0, a1 = self.angles
+        phi = np.mod(np.arctan2(dy, dx) - a0, 2*np.pi)
+        return (r2 >= (self.radius - self.width/2)**2) & (r2 < (self.radius + self.width/2)**2) & \
+               (phi <= np.mod(a1 - a0, 2*np.pi) + 1e-12)
+
+
+def Ring(center, radius, width):
+    """Ring waveguide (an Annulus) with centre-line radius `radius`."""
+
+    return Annulus(center, radius - width/2, radius + width/2)

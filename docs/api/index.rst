@@ -31,6 +31,8 @@ Rigorous electromagnetics (FDTD)
    pyoptics.fdtd.boundaries
    pyoptics.fdtd.sources
    pyoptics.fdtd.monitors
+   pyoptics.fdtd.modes
+   pyoptics.fdtd.analysis
    pyoptics.fdtd.simulation
    pyoptics.fdtd.storage
    pyoptics.fdtd.plot

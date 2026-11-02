@@ -31,8 +31,13 @@ What each module does and how mature it is. Planned work is listed in
   monitors, plots and animations (also of the steady state from one DFT);
   tilted line sources for oblique beams; checked against `thin_films`
   (Bragg mirror, lossy, Drude, Lorentz and Debye films) and the exact
-  cylinder series in both polarizations (also for a Drude metal). Planned:
-  mode sources and S-parameters, Bloch boundaries, 3D
+  cylinder series in both polarizations (also for a Drude metal);
+  waveguides: a mode solver that is exact on the Yee grid, one-way mode
+  sources (TFSF), mode monitors with forward/backward amplitudes and
+  S-parameters, waveguide shapes (paths, S-bends, bends, rings) and
+  resonance analysis by the matrix pencil method (Q factors), checked
+  against the analytic slab waveguide, supermodes of coupled waveguides and
+  the Fabry-Perot modes of a slab. Planned: Bloch boundaries, 3D
   (`proposals/fdtd.md` in the project notes)
 - `analytic_phase`: propagation with analytic handling of the wavefront
   phase after Wyrowski and coworkers, tested: fields stored as a smooth
