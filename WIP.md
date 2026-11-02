@@ -99,6 +99,10 @@
 * Lens design: Delano (y-ybar) diagrams (`delano`), a least squares lens
   optimizer (`lens_optimization`), first order layout and correction of a
   20 element KrF lens with 5 aspheres (`raytrace.delano_krf_lens`, notebook 43)
+* Lens design: classical damped least squares optimizer with variables
+  (curvatures, thicknesses, conics, aspheres, model glasses), solves,
+  operands (ray errors, spots, wavefront, Seidel, colour) and Lagrange
+  multiplier constraints (`lens_optimization.DampedLeastSquares`, notebook 58)
 
 * FFT module
 * fitting bases to scattered data

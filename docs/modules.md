@@ -236,7 +236,16 @@ What each module does and how mature it is. Planned work is listed in
   variables, solves for total length and object side NA, operands for
   transverse ray errors, distortion and telecentricity (also of the real
   chief ray through the stop centre), paraxial targets and clearances (centre and edge thicknesses at the rim of the full beam),
-  stages of growing aperture and field
+  stages of growing aperture and field;
+  `DampedLeastSquares`, the classical lens design optimizer (Levenberg-Marquardt
+  with Nielsen's damping update, Jacobian from the tolerance sensitivities):
+  variables for curvatures, thicknesses, air spaces (lens shifts), conics,
+  aspheric terms and model glasses (n_d, V_d) with a glass map constraint, a
+  small catalogue and snapping to the nearest real glass; solves for the
+  paraxial focus, the entrance pupil and a curvature for the focal length;
+  operands for polychromatic ray errors, RMS spots, wavefront (OPD), Seidel
+  sums and primary colour; constraints (focal length, colour, edge and centre
+  thickness, length) held with Lagrange multipliers (notebook 58)
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
 - `modes`: mode analysis and fibres, tested: decomposition of any field into
