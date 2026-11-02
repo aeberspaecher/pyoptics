@@ -21,6 +21,7 @@ inferno. The colours of sources and monitors are those of pyoptics.sketch.
 import numpy as np
 
 from . import sources as _src
+from . import modes as _modes
 from . import monitors as _mon
 from .boundaries import PML
 
@@ -110,6 +111,20 @@ def _overlays(ax, sim, show_pml=True, show_sources=True, show_monitors=True):
                     ax.plot([s.position]*2, [lo, hi], color=SOURCE_COLOR, lw=2)
                 else:
                     ax.plot([lo, hi], [s.position]*2, color=SOURCE_COLOR, lw=2)
+            elif isinstance(s, _modes.ModeSource):
+                lo, hi = s.extent if s.extent is not None else \
+                    ((y0, y1) if s.axis == 0 else (x0, x1))
+                L = 0.3*(hi - lo)
+                if s.axis == 0:
+                    ax.plot([s.position]*2, [lo, hi], color=SOURCE_COLOR, lw=2)
+                    tip = (s.position + s.direction*L, (lo + hi)/2)
+                    tail = (s.position, (lo + hi)/2)
+                else:
+                    ax.plot([lo, hi], [s.position]*2, color=SOURCE_COLOR, lw=2)
+                    tip = ((lo + hi)/2, s.position + s.direction*L)
+                    tail = ((lo + hi)/2, s.position)
+                ax.annotate("", xy=tip, xytext=tail,
+                            arrowprops=dict(arrowstyle="-|>", color=SOURCE_COLOR, lw=1.5))
             elif isinstance(s, _src.TFSF):
                 bx0, bx1, by0, by1 = s.box
                 ax.add_patch(plt.Rectangle((bx0, by0), bx1 - bx0, by1 - by0, fill=False,
@@ -119,7 +134,7 @@ def _overlays(ax, sim, show_pml=True, show_sources=True, show_monitors=True):
                             arrowprops=dict(arrowstyle="-|>", color=SOURCE_COLOR, lw=1.5))
     if show_monitors:
         for m in sim.monitors:
-            if isinstance(m, _mon.Flux):
+            if isinstance(m, (_mon.Flux, _modes.ModeMonitor)):
                 lo, hi = m.extent if m.extent is not None else \
                     ((y0, y1) if m.axis == 0 else (x0, x1))
                 if m.axis == 0:

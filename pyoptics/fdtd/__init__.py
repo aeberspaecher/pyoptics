@@ -15,7 +15,7 @@ Building blocks
 - `Grid`: domain size, cell size and time step (normalized units: c = 1,
   lengths and wavelengths in the same unit, times in that unit over c).
 - Shapes (`Slab`, `Rect`, `Circle`, `Annulus`, `Polygon`, unions and
-  differences) and `Medium` (permittivity, conductivity and `Drude`,
+  differences; waveguides `Path`, `SBend`, `Bend`, `Ring`) and `Medium` (permittivity, conductivity and `Drude`,
   `Lorentz` and `Debye` poles; `Medium.fit()` to tabulated n + ik), drawn
   on the grid with sub-cell averaging of the permittivity (anisotropic for
   E in the plane of the Hz mode).
@@ -24,6 +24,13 @@ Building blocks
   in a total-field / scattered-field box), with the time profiles
   `GaussianPulse` and `ContinuousWave`.
 - Monitors: `Probe`, `Snapshots`, `DFTField`, `Flux`.
+- Waveguides (`pyoptics.fdtd.modes`): a mode solver that is exact on the
+  Yee grid (`waveguide_modes`, `find_modes`, `section_modes`),
+  `ModeSource` (one-sided TFSF injection of a mode), `ModeMonitor`
+  (forward and backward mode amplitudes per wavelength) and
+  `s_parameters`.
+- `resonances` (`pyoptics.fdtd.analysis`): frequencies and Q of ring-down
+  signals by the matrix pencil method.
 - `Simulation` puts them together; `pyoptics.fdtd.plot` draws structures,
   fields and animations.
 
@@ -58,21 +65,26 @@ Speed: the NumPy kernels are the reference; with numba installed
 (``Simulation(backend=...)``), with identical results and 10 to 20 times
 faster on multi-core machines.
 
-Planned (proposals/fdtd.md): mode sources and S-parameters, Bloch
-boundaries, 3D.
+Planned (proposals/fdtd.md): Bloch boundaries, 3D.
 """
 
 from .grid import Grid
 from .geometry import (Shape, Union, Difference, Everywhere, Slab, Rect, Circle, Annulus,
-                       Polygon)
+                       Polygon, Path, SBend, Bend, Ring, sbend_points)
 from .media import Medium, VACUUM, Drude, Lorentz, Debye, omega_from_eV
 from .boundaries import PML, PEC, PERIODIC
 from .sources import GaussianPulse, ContinuousWave, PointSource, LineSource, TFSF
 from .monitors import (Probe, Snapshots, SnapshotStack, DFTField, DFTFieldData, Flux)
+from .modes import (Mode, waveguide_modes, find_modes, section_modes, ModeSource, ModeMonitor,
+                    s_parameters)
+from .analysis import resonances, Resonances
 from .simulation import Simulation
 from ._kernels_numba import available as numba_available
 
 __all__ = ["Grid", "Shape", "Union", "Difference", "Everywhere", "Slab", "Rect", "Circle",
-           "Annulus", "Polygon", "Medium", "VACUUM", "Drude", "Lorentz", "Debye", "omega_from_eV", "PML", "PEC", "PERIODIC", "GaussianPulse",
-           "ContinuousWave", "PointSource", "LineSource", "TFSF", "Probe", "Snapshots",
-           "SnapshotStack", "DFTField", "DFTFieldData", "Flux", "Simulation", "numba_available"]
+           "Annulus", "Polygon", "Path", "SBend", "Bend", "Ring", "sbend_points", "Medium",
+           "VACUUM", "Drude", "Lorentz", "Debye", "omega_from_eV", "PML", "PEC", "PERIODIC",
+           "GaussianPulse", "ContinuousWave", "PointSource", "LineSource", "TFSF", "Probe",
+           "Snapshots", "SnapshotStack", "DFTField", "DFTFieldData", "Flux", "Mode",
+           "waveguide_modes", "find_modes", "section_modes", "ModeSource", "ModeMonitor",
+           "s_parameters", "resonances", "Resonances", "Simulation", "numba_available"]
