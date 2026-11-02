@@ -29,6 +29,14 @@ vary as exp(i(**k**·**r** − ωt)). In particular:
   OPL_ray − OPL_chief on the reference sphere, so the pupil phase is
   +2π·OPD/λ: an image plane behind the focus gives OPD < 0 at the rim, as
   the propagators' exp(+ik_z z).
+- FDTD (`fdtd`) works in normalized units (c = ε₀ = μ₀ = 1, lengths and
+  wavelengths in the same unit). Its DFT monitors return amplitudes in the
+  same convention, F = Σ f(t) exp(+iωt) Δt, so a wave towards +x has the
+  phase exp(+ikx). In 2D, `mode="Ez"` has E along z (out of the plane)
+  and `mode="Hz"` has H along z. The FDTD literature calls Ez "TM";
+  waveguide, grating and scattering texts, `litho.rcwa` and
+  `analytical.cylinder_field` call the same case "TE" (E perpendicular to
+  the plane of incidence).
 - Absorbing media have the complex refractive index n + iκ with κ > 0. Under
   total internal reflection, the transmitted wave decays away from the
   interface.

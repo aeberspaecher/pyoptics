@@ -18,6 +18,18 @@ What each module does and how mature it is. Planned work is listed in
   Jacobian; carrier removal, power flux and ISO 11146 beam widths on
   inclined planes (detectors); `tilted_plane()` and
   `vectorial_tilted_plane()` are also available from `propagators`
+- `fdtd`: new, tested (first milestone): finite-difference time-domain
+  solver for Maxwell's equations in 1D and 2D (polarizations Ez and Hz,
+  with the TE/TM naming explained in the module docstring), NumPy kernels,
+  shapes with sub-cell permittivity averaging, conductive media,
+  convolutional PML, PEC and periodic boundaries, point and line current
+  sources and a total-field/scattered-field plane wave, probes, snapshots
+  (float16, ring buffer, streaming to HDF5), running DFTs and flux
+  monitors, plots and animations (also of the steady state from one DFT);
+  checked against `thin_films` (Bragg mirror, lossy slab) and the exact
+  cylinder series in both polarizations. Planned: numba kernels,
+  dispersive media, mode sources, Bloch boundaries, 3D
+  (`proposals/fdtd.md` in the project notes)
 - `analytic_phase`: propagation with analytic handling of the wavefront
   phase after Wyrowski and coworkers, tested: fields stored as a smooth
   sampled amplitude times a separable quadratic phase with carrier

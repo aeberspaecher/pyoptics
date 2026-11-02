@@ -19,6 +19,7 @@ dependencies = [
 plot = ["matplotlib"]
 fast = ["numba"]  # raytrace: compiled ray trace kernel (several times faster traces)
 nufft = ["finufft"]  # tilted: faster exact propagation onto planes tilted about a general axis
+hdf5 = ["h5py"]  # fdtd: stream large snapshot stacks to compressed HDF5 files
 tie = ["sympy"]
 notebooks = ["matplotlib", "jupyterlab", "ipywidgets"]
 docs = ["sphinx>=7", "furo", "numpydoc", "myst-nb", "sphinx-copybutton", "matplotlib"]  # matplotlib: plot modules

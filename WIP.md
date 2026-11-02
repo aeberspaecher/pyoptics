@@ -24,6 +24,13 @@
 * Documentation: user guide pages per topic, bibliography, doctests, weekly
   re-execution of the notebooks
 * Incoherence in thin films (spatial and temporal incoherence)
+* FDTD, next milestones (first one done: 1D/2D NumPy core, notebook 57):
+  numba kernels (`fast` extra), dispersive Drude/Lorentz/Debye media and pole
+  fits, anisotropic sub-cell averaging (Hz mode), waveguide mode solver,
+  mode sources/monitors and S-parameters (couplers, rings, Q extraction);
+  then Bloch boundaries (gratings vs. RCWA, photonic crystals) and 3D;
+  `analytical.cylinder_field` for H along the axis (the series is in
+  notebook 57 and test_fdtd.py)
 * Basis class factory for numbering scheme plus callable
 
 ## More challenging
