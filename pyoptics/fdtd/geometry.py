@@ -107,6 +107,61 @@ class Annulus(Shape):
         return (r2 >= self.r_inner**2) & (r2 < self.r_outer**2)
 
 
+class PolarShape(Shape):
+    """Star-shaped region (2D) bounded by a curve r(phi) in polar
+    coordinates about a centre: the points with distance < r(phi) at their
+    polar angle phi.
+
+    Parameters
+    ----------
+    center : (x, y)
+    radius : callable
+        r(phi), positive for all phi (vectorized).
+    """
+
+    def __init__(self, center, radius):
+        self.center = np.asarray(center, dtype=float)
+        self.radius = radius
+
+    def contains(self, x, y):
+        dx, dy = x - self.center[0], y - self.center[1]
+        return np.hypot(dx, dy) < self.radius(np.arctan2(dy, dx))
+
+    def boundary(self, n=721):
+        """Points (n, 2) on the boundary curve."""
+        phi = np.linspace(0, 2*np.pi, n)
+        r = self.radius(phi)
+        return np.column_stack([self.center[0] + r*np.cos(phi), self.center[1] + r*np.sin(phi)])
+
+
+class Limacon(PolarShape):
+    """Limacon of Pascal (2D): r(phi) = R (1 + eps cos(phi)) about the
+    centre, the boundary of a deformed microdisk (Wiersig and Hentschel,
+    Phys. Rev. Lett. 100, 033901 (2008)). eps = 0 is the circle; the curve is
+    convex up to eps = 1/2 (beyond, it has a dent at phi = pi) and
+    star-shaped up to eps < 1. The largest radius R (1 + eps) is at phi = 0
+    (+x); the side at phi = pi is flattened (curvature (1 - 2 eps)/(1 - eps)**2/R).
+
+    Parameters
+    ----------
+    center : (x, y)
+    radius : number
+        R.
+    eps : number
+        Deformation, 0 <= eps < 1.
+    """
+
+    def __init__(self, center, radius, eps):
+        if not 0 <= eps < 1:
+            raise ValueError("the limacon needs 0 <= eps < 1")
+        self.R, self.eps = float(radius), float(eps)
+        super(Limacon, self).__init__(center, lambda phi: self.R*(1 + self.eps*np.cos(phi)))
+
+    def area(self):
+        """Enclosed area pi R**2 (1 + eps**2/2)."""
+        return np.pi*self.R**2*(1 + self.eps**2/2)
+
+
 class Polygon(Shape):
     """Simple polygon (2D, convex or concave) given by its vertices."""
 

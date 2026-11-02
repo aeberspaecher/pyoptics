@@ -37,6 +37,9 @@ Rigorous electromagnetics (FDTD)
    pyoptics.fdtd.simulation
    pyoptics.fdtd.storage
    pyoptics.fdtd.plot
+   pyoptics.fdfd
+   pyoptics.fdfd.solver
+   pyoptics.fdfd.radiation
 
 Beams, modes and paraxial optics
 --------------------------------

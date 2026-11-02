@@ -18,6 +18,16 @@ What each module does and how mature it is. Planned work is listed in
   Jacobian; carrier removal, power flux and ISO 11146 beam widths on
   inclined planes (detectors); `tilted_plane()` and
   `vectorial_tilted_plane()` are also available from `propagators`
+- `fdfd`: new, tested: finite-difference frequency-domain solver in 2D
+  (Ez and Hz) on the Yee grid of `fdtd` with its shapes and media, a
+  stretched-coordinate PML and Bloch boundaries; driven solves (line
+  currents, plane waves injected on a total-field box without leakage),
+  resonances (quasi-normal modes and Q by shift-invert Arnoldi) and mode
+  tracing through a change of the structure by field overlap; far fields
+  from outgoing cylindrical waves and the directionality of the emission;
+  checked against the cylinder series and the exact microdisk modes
+  (`analytical.disk_resonance`), the slab under oblique incidence and the
+  FDTD (notebooks 66 and 67)
 - `fdtd`: new, tested: finite-difference time-domain
   solver for Maxwell's equations in 1D, 2D and 3D (2D polarizations Ez and Hz,
   with the TE/TM naming explained in the module docstring), NumPy kernels
