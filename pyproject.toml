@@ -32,6 +32,9 @@ Documentation = "https://aeberspaecher.github.io/pyoptics/"
 [tool.setuptools.packages.find]
 include = ["pyoptics*"]
 
+[tool.setuptools.package-data]
+"pyoptics.glasses" = ["data/*.json"]
+
 [tool.setuptools.exclude-package-data]
 "*" = ["*.pyx", "*.c"]
 

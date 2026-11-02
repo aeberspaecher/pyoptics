@@ -87,6 +87,7 @@ from collections import namedtuple
 
 import numpy as np
 
+from .glasses import Glass
 from .raytrace import CoordinateBreak, IdealLens, Rays
 
 
@@ -747,7 +748,7 @@ def _glass_coordinates(n_d, V_d):
 
 
 def nearest_glass(n_d, V_d, catalog=None):
-    """Name and (n_d, V_d) of the catalogue glass nearest to a model glass.
+    """Name and data of the catalogue glass nearest to a model glass.
 
     Distance on the glass map with an index step of 0.01 counting as much as
     a step of 1 in the Abbe number.
@@ -756,20 +757,29 @@ def nearest_glass(n_d, V_d, catalog=None):
     ----------
     n_d, V_d : number
         Model glass.
-    catalog : dict, optional
-        name -> (n_d, V_d), default `GLASSES`.
+    catalog : dict or glasses.Catalog, optional
+        name -> (n_d, V_d) (model glasses, default `GLASSES`) or a catalogue
+        of real glasses of `pyoptics.glasses` (name -> Glass), e.g.
+        ``glasses.catalog(("schott", "ohara"))``.
 
     Returns
     -------
     name : str
-    glass : tuple (n_d, V_d)
+    glass : tuple (n_d, V_d) or glasses.Glass
+        The value of the catalogue (a Glass is the material with the
+        vendor's dispersion formula).
     """
 
     catalog = GLASSES if catalog is None else catalog
     p = _glass_coordinates(n_d, V_d)
-    name = min(catalog, key=lambda k: np.sum((_glass_coordinates(*catalog[k]) - p)**2))
+    name = min(catalog, key=lambda k: np.sum((_glass_coordinates(*_nd_Vd(catalog[k])) - p)**2))
+    g = catalog[name]
 
-    return name, tuple(catalog[name])
+    return name, (g if isinstance(g, Glass) else tuple(g))
+
+
+def _nd_Vd(glass):
+    return (glass.n_d, glass.V_d) if isinstance(glass, Glass) else glass
 
 
 def glass_map_distance(n_d, V_d, outline=GLASS_MAP):
@@ -950,6 +960,21 @@ class AirSpace(Variable):
         return other
 
 
+class ObjectDistance(Variable):
+    """Distance of a finite object in front of the first vertex."""
+
+    name = "object_distance"
+
+    def get(self, system):
+        return system.object_distance
+
+    def set(self, system, value):
+        system.object_distance = value
+
+    def typical(self, system):
+        return 0.1*_length_scale(system)
+
+
 class Conic(Variable):
     """Conic constant of a surface."""
 
@@ -1006,8 +1031,10 @@ def _model_glass(surface):
         return float(surface.n_after), np.inf
     if isinstance(m, tuple):
         return float(m[0]), float(m[1])
-    raise ValueError("A glass variable needs a surface with a model glass material=(n_d, V_d) "
-                     "or n_after.")
+    if isinstance(m, Glass):  # a catalogue glass becomes its model glass
+        return m.n_d, m.V_d
+    raise ValueError("A glass variable needs a surface with a model glass material=(n_d, V_d), "
+                     "a catalogue glass or n_after.")
 
 
 class GlassIndex(Variable):
@@ -1118,6 +1145,34 @@ def solve_entrance_pupil(radius):
     def solve(system):
         A = system._ep_matrix()[0]
         system.surfaces[system.stop_index].semi_diameter = abs(radius*A)
+
+    return solve
+
+
+def solve_length(length, surface=-1):
+    """Solve: thickness behind `surface` (default: the image distance) for
+    a given distance from the object (finite objects; else from the first
+    vertex) to the image plane, as `LensOptimizer(length=...)`."""
+
+    def solve(system):
+        S = system.surfaces
+        k = surface % len(S)
+        others = sum(abs(s.thickness) for i, s in enumerate(S) if i != k)
+        start = 0.0 if system.infinite_object else system.object_distance
+        S[k].thickness = (length - start - others)*system.sigma[k + 1]
+
+    return solve
+
+
+def solve_object_na(na):
+    """Solve: semi diameter of the stop for an object side NA ``n*|u|`` of
+    the paraxial marginal ray (finite objects), as
+    `LensOptimizer(object_na=...)`."""
+
+    def solve(system):
+        u = na/system.n_object
+        ys, _ = system._paraxial_trace(u*system.object_distance, u)
+        system.surfaces[system.stop_index].semi_diameter = abs(ys[system.stop_index])
 
     return solve
 
@@ -1882,8 +1937,10 @@ class DampedLeastSquares:
 
         Parameters
         ----------
-        catalog : dict, optional
-            name -> (n_d, V_d), default `GLASSES`.
+        catalog : dict or glasses.Catalog, optional
+            name -> (n_d, V_d), default `GLASSES`, or a catalogue of real
+            glasses (`pyoptics.glasses`), whose dispersion formulas then
+            replace the Abbe model.
 
         Returns
         -------
