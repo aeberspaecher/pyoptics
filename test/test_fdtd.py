@@ -299,3 +299,152 @@ def test_plots():
     fplot.xt_diagram(sim1.monitors[0].stack(), sim=sim1)
     fplot.plot_structure(sim1)
     plt.close("all")
+
+
+# ---------------------------------------------------------------- milestone 2a
+
+DRUDE = fdtd.Medium(1.0, poles=[fdtd.Drude(2*np.pi*np.sqrt(7), 0.45)])     # eps(1) = -6 + 0.5i
+
+
+def test_pole_susceptibilities():
+    w = 2*np.pi/np.array([0.5, 1.0, 2.0])
+    d = fdtd.Drude(10.0, 0.5)
+    assert np.allclose(d.chi(w), -100/(w**2 + 0.5j*w))
+    lz = fdtd.Lorentz(2.0, 8.0, 0.3)
+    assert np.allclose(lz.chi(w), 2*64/(64 - w**2 - 0.3j*w))
+    assert np.allclose(fdtd.Debye(3.0, 0.2).chi(w), 3/(1 - 0.2j*w))
+    m = fdtd.Medium(2.0, sigma=0.1, poles=[d, lz])
+    assert np.allclose(m.complex_eps(1.0), 2 + 0.1j/(2*np.pi) + d.chi(2*np.pi) + lz.chi(2*np.pi))
+    assert np.imag(DRUDE.index(1.0)) > 0
+    assert np.isclose(fdtd.omega_from_eV(1.0), 2*np.pi/1.23984, rtol=1e-4)   # 1 eV <-> 1.2398 µm
+
+
+def test_fit_medium():
+    wl = np.linspace(0.4, 1.0, 30)
+    target = DRUDE.index(wl)
+    m = fdtd.Medium.fit(wl, target, n_lorentz=0, drude=True)
+    assert m.fit_error < 1e-3*np.max(np.abs(target)**2)
+    glass = 1.5 + 0.01/(wl - 0.2) + 0.002j/(wl - 0.25)
+    g = fdtd.Medium.fit(wl, glass, n_lorentz=2)
+    assert np.abs(g.index(wl) - glass).max() < 2e-3
+
+
+@pytest.mark.parametrize("medium,d,tol", [(DRUDE, 0.05, 2e-3),
+                                         (fdtd.Medium(1.8, poles=[fdtd.Lorentz(0.6, 2*np.pi*1.6, 0.8)]), 0.6, 5e-3),
+                                         (fdtd.Medium(2.0, poles=[fdtd.Debye(1.5, 0.1)]), 0.5, 0.03)])  # 1st order
+def test_dispersive_slab_1d(medium, d, tol):
+    """Broadband R and T of Drude, Lorentz and Debye slabs against thin films
+    with the complex index of each wavelength."""
+
+    wls = np.linspace(0.7, 1.4, 15)
+    grid = fdtd.Grid(16.0, 1/80)
+    pulse = fdtd.GaussianPulse(1.0, 0.3)
+
+    def run(st):
+        fr, ft = fdtd.Flux(-2, wls), fdtd.Flux(2, wls)
+        fdtd.Simulation(grid, st, [fdtd.PointSource(-4, pulse)], [fr, ft],
+                        boundaries=fdtd.PML(40)).run(time=60)
+        return fr.flux(), ft.flux()
+
+    inc, _ = run([])
+    refl, trans = run([(fdtd.Slab(0, d), medium)])
+    n = medium.index(wls)
+    exact = [r_t_coeffs(0, [n[i].real], [n[i].imag], [d], 1, 0, 1, 0, "s", w) for i, w in enumerate(wls)]
+    assert np.abs(1 - refl/inc - [abs(r)**2 for r, _ in exact]).max() < tol
+    assert np.abs(trans/inc - [abs(t)**2 for _, t in exact]).max() < tol
+
+
+def _cylinder_series(x, z, radius, n_cyl, wl, polarization, M=30):
+    """Exact total field of a cylinder (E or H along its axis) for a unit
+    plane wave along z; n_cyl may be complex (metals)."""
+
+    from scipy.special import jv, jvp, hankel1, h1vp
+    k = 2*np.pi/wl
+    kr, phi, xr = k*np.hypot(x, z), np.arctan2(x, z), k*radius
+    u = np.zeros(np.shape(kr), complex)
+    for m in range(-M, M + 1):
+        J, Jp, H, Hp = jv(m, xr), jvp(m, xr), hankel1(m, xr), h1vp(m, xr)
+        Ji, Jip = jv(m, n_cyl*xr), jvp(m, n_cyl*xr)
+        if polarization == "E":
+            a = (n_cyl*Jip*J - Ji*Jp)/(Ji*Hp - n_cyl*Jip*H)
+        else:
+            a = (Jip*J - n_cyl*Ji*Jp)/(n_cyl*Ji*Hp - Jip*H)
+        c = (J + a*H)/Ji
+        u += np.where(kr < xr, c*jv(m, n_cyl*kr), jv(m, kr) + a*hankel1(m, kr))*1j**m*np.exp(1j*m*phi)
+    return u
+
+
+def test_metal_cylinder_ez():
+    """A Drude cylinder (eps = -6 + 0.5i) in the Ez mode against the exact
+    series with the complex index."""
+
+    def run(st):
+        dft = fdtd.DFTField(1.0, components=["Ez"], region=((-1.4, 1.4), (-1.4, 1.4)))
+        fdtd.Simulation(fdtd.Grid((5, 5), 0.025), st, [fdtd.TFSF((-1.5, 1.5, -1.5, 1.5), fdtd.GaussianPulse(1.0, 0.15))],
+                        [dft], boundaries=fdtd.PML(12)).run(time=40)
+        return dft
+
+    d0, d1 = run([]), run([(fdtd.Circle((0, 0), 0.4), DRUDE)])
+    x, y = d1.coords("Ez")
+    F = d1.field("Ez")[0]/d0.field("Ez")[0][np.argmin(np.abs(x)), np.argmin(np.abs(y))]
+    X, Y = np.meshgrid(x, y, indexing="ij")
+    exact = _cylinder_series(Y, X, 0.4, complex(DRUDE.index(1.0)), 1.0, "E")
+    assert np.sqrt(np.mean(np.abs(F - exact)**2)) < 0.006
+
+
+def test_anisotropic_averaging_hz_converges():
+    """Hz mode, glass cylinder: anisotropic averaging beats the arithmetic
+    mean and converges with second order."""
+
+    def err(ppw, averaging):
+        def run(st):
+            dft = fdtd.DFTField(1.0, components=["Hz"], region=((-1.9, 1.9), (-1.9, 1.9)))
+            fdtd.Simulation(fdtd.Grid((6.0, 6.0), 1/1.5/ppw), st,
+                            [fdtd.TFSF((-2, 2, -2, 2), fdtd.GaussianPulse(1.0, 0.15))], [dft], mode="Hz",
+                            boundaries=fdtd.PML(12), averaging=averaging).run(time=45)
+            return dft
+        d0, d1 = run([]), run([(fdtd.Circle((0, 0), 0.8), fdtd.Medium(2.25))])
+        x, y = d0.coords("Hz")
+        i, j = np.argmin(np.abs(x)), np.argmin(np.abs(y))
+        F = d1.field("Hz")[0]/d0.field("Hz")[0][i, j]*np.exp(2j*np.pi*x[i])
+        X, Y = np.meshgrid(x, y, indexing="ij")
+        return np.sqrt(np.mean(np.abs(F - _cylinder_series(Y, X, 0.8, 1.5, 1.0, "H"))**2))
+
+    e10, e20 = err(10, "anisotropic"), err(20, "anisotropic")
+    assert e20 < 0.025 and e10/e20 > 3.5
+    assert err(20, "arithmetic") > 1.3*e20
+
+
+numba_only = pytest.mark.skipif(not fdtd.numba_available, reason="needs numba")
+
+
+@numba_only
+@pytest.mark.parametrize("ndim,mode,boundaries", [(1, "Ez", "pml"), (2, "Ez", "pml"), (2, "Hz", "pml"),
+                                                  (2, "Ez", "pec"), (2, "Hz", "periodic")])
+def test_numba_matches_numpy(ndim, mode, boundaries):
+    glass = fdtd.Medium(2.0, sigma=0.1, poles=[fdtd.Lorentz(0.5, 20.0, 1.0)])
+    out = []
+    for backend in ("numpy", "numba"):
+        if ndim == 1:
+            grid = fdtd.Grid(8.0, 1/30)
+            st = [(fdtd.Slab(0, 0.5), DRUDE), (fdtd.Slab(1, 2), glass)]
+            src = [fdtd.PointSource(-2, fdtd.GaussianPulse(1.0))]
+            bnd = fdtd.PML(10)
+        else:
+            grid = fdtd.Grid((5, 4), 1/20)
+            st = [(fdtd.Circle((0.5, 0), 0.6), DRUDE), (fdtd.Rect((-1, 0.5), (1, 1)), glass)]
+            if boundaries == "periodic":
+                src, bnd = [fdtd.LineSource(-2, fdtd.GaussianPulse(1.0))], (fdtd.PML(10), "periodic")
+            else:
+                src = [fdtd.PointSource((-1.5, -1), fdtd.GaussianPulse(1.0)),
+                       fdtd.TFSF((-2, 2, -1.5, 1.5), fdtd.GaussianPulse(1.0))]
+                bnd = fdtd.PML(10) if boundaries == "pml" else "pec"
+        sim = fdtd.Simulation(grid, st, src, mode=mode, boundaries=bnd, backend=backend)
+        sim.run(steps=200)
+        out.append(sim)
+    a, b = out
+    assert b._backend == "numba"
+    scale = max(np.abs(a.fields[c]).max() for c in a.components)
+    assert scale > 0
+    for c in a.components:
+        assert np.allclose(a.fields[c], b.fields[c], rtol=0, atol=1e-12*scale)

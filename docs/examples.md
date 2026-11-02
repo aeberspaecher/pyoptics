@@ -14,6 +14,7 @@ to run them yourself, see [Running the notebooks](#running-the-notebooks).
 - {doc}`notebooks/05_WPM`
 - {doc}`notebooks/46_analytic_phase_propagation`
 - {doc}`notebooks/57_fdtd_basics`
+- {doc}`notebooks/59_fdtd_metals_plasmons`
 
 ```{toctree}
 :hidden:
@@ -26,6 +27,7 @@ notebooks/04_chirp_z_transform
 notebooks/05_WPM
 notebooks/46_analytic_phase_propagation
 notebooks/57_fdtd_basics
+notebooks/59_fdtd_metals_plasmons
 ```
 
 ## Beams, modes and paraxial optics
@@ -78,7 +80,7 @@ notebooks/14_coated_laser_mirror
 - {doc}`notebooks/51_fresnel_lenses`
 - {doc}`notebooks/56_gaussian_beam_decomposition`
 - {doc}`notebooks/58_lens_optimization`
-- {doc}`notebooks/59_glass_catalogues`
+- {doc}`notebooks/61_glass_catalogues`
 - {doc}`notebooks/45_zernike_aberration_gallery`
 
 ```{toctree}
@@ -97,7 +99,7 @@ notebooks/49_eye_aberrometer
 notebooks/51_fresnel_lenses
 notebooks/56_gaussian_beam_decomposition
 notebooks/58_lens_optimization
-notebooks/59_glass_catalogues
+notebooks/61_glass_catalogues
 notebooks/45_zernike_aberration_gallery
 ```
 
