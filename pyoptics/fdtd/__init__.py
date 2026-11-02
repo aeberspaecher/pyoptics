@@ -15,8 +15,10 @@ Building blocks
 - `Grid`: domain size, cell size and time step (normalized units: c = 1,
   lengths and wavelengths in the same unit, times in that unit over c).
 - Shapes (`Slab`, `Rect`, `Circle`, `Annulus`, `Polygon`, unions and
-  differences) and `Medium` (permittivity, conductivity), drawn on the grid
-  with sub-cell averaging of the permittivity.
+  differences) and `Medium` (permittivity, conductivity and `Drude`,
+  `Lorentz` and `Debye` poles; `Medium.fit()` to tabulated n + ik), drawn
+  on the grid with sub-cell averaging of the permittivity (anisotropic for
+  E in the plane of the Hz mode).
 - Boundaries: `PML` (convolutional PML), "pec" walls, "periodic".
 - Sources: `PointSource`, `LineSource` (soft currents), `TFSF` (plane wave
   in a total-field / scattered-field box), with the time profiles
@@ -51,21 +53,26 @@ Example
 >>> sim.monitors.append(dft)
 >>> sim.run(time=40)  # doctest: +SKIP
 
-This is the first milestone of the design in proposals/fdtd.md: NumPy
-kernels and non-dispersive media. Planned: numba kernels, dispersive media,
-mode sources and S-parameters, Bloch boundaries, 3D.
+Speed: the NumPy kernels are the reference; with numba installed
+(``pip install pyoptics[fast]``) compiled kernels are used automatically
+(``Simulation(backend=...)``), with identical results and 10 to 20 times
+faster on multi-core machines.
+
+Planned (proposals/fdtd.md): mode sources and S-parameters, Bloch
+boundaries, 3D.
 """
 
 from .grid import Grid
 from .geometry import (Shape, Union, Difference, Everywhere, Slab, Rect, Circle, Annulus,
                        Polygon)
-from .media import Medium, VACUUM
+from .media import Medium, VACUUM, Drude, Lorentz, Debye, omega_from_eV
 from .boundaries import PML, PEC, PERIODIC
 from .sources import GaussianPulse, ContinuousWave, PointSource, LineSource, TFSF
 from .monitors import (Probe, Snapshots, SnapshotStack, DFTField, DFTFieldData, Flux)
 from .simulation import Simulation
+from ._kernels_numba import available as numba_available
 
 __all__ = ["Grid", "Shape", "Union", "Difference", "Everywhere", "Slab", "Rect", "Circle",
-           "Annulus", "Polygon", "Medium", "VACUUM", "PML", "PEC", "PERIODIC", "GaussianPulse",
+           "Annulus", "Polygon", "Medium", "VACUUM", "Drude", "Lorentz", "Debye", "omega_from_eV", "PML", "PEC", "PERIODIC", "GaussianPulse",
            "ContinuousWave", "PointSource", "LineSource", "TFSF", "Probe", "Snapshots",
-           "SnapshotStack", "DFTField", "DFTFieldData", "Flux", "Simulation"]
+           "SnapshotStack", "DFTField", "DFTFieldData", "Flux", "Simulation", "numba_available"]
