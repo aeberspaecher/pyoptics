@@ -229,3 +229,17 @@ def test_spot_and_wavefront_operands():
                       rtol=0.1)
     assert np.allclose(lo.polychromatic_ray_errors([WL], fields=(0.0,), tolerance=1e-4)(system),
                        lo.ray_errors(fields=(0.0,), tolerance=1e-4)(system))
+
+
+def test_dls_length_and_object_na_solves():
+    surfaces = [rt.Surface(80.0, 6.0, n_after=N_GLASS), rt.Surface(-80.0, 20.0, n_after=1.0),
+                rt.Surface(np.inf, 60.0, semi_diameter=5.0)]
+    system = rt.System(surfaces, 2, WL, object_distance=100.0, object_height=2.0)
+    opt = lo.DampedLeastSquares(system, [lo.Curvature(0), lo.Thickness(1), lo.ObjectDistance()],
+                                [lo.ray_errors(fields=(0.0, 1.0), tolerance=1e-3)],
+                                solves=[lo.solve_length(200.0), lo.solve_object_na(0.05)])
+    result = opt.run(max_iterations=10)
+    s = result.system
+    assert np.isclose(s.object_distance + s.image_z, 200.0)
+    p = s.paraxial()
+    assert np.isclose(p.na*abs(p.magnification), 0.05, rtol=1e-6)

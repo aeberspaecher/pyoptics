@@ -104,6 +104,8 @@
   (curvatures, thicknesses, conics, aspheres, model glasses), solves,
   operands (ray errors, spots, wavefront, Seidel, colour) and Lagrange
   multiplier constraints (`lens_optimization.DampedLeastSquares`, notebook 58)
+* Glass catalogues of SCHOTT, OHARA, HOYA, CDGM, SUMITA, HIKARI with partial
+  dispersions; snapping model glasses to real ones (`glasses`, notebook 61)
 
 * FFT module
 * fitting bases to scattered data

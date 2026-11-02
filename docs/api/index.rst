@@ -64,6 +64,7 @@ Imaging and ray tracing
    pyoptics.fresnel
    pyoptics.delano
    pyoptics.lens_optimization
+   pyoptics.glasses
 
 Lithography
 -----------
