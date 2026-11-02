@@ -313,7 +313,7 @@ class DFTField(Monitor):
         """Components moved to common nodes (the integer nodes of the Yee
         grid, by averaging the two neighbours along each axis where a
         component sits half a cell off), on the nodes all of them share:
-        for |E|**2 or vector plots. Along the normal of a plane monitor
+        for intensities or vector plots. Along the normal of a plane monitor
         (one node layer) the components are taken as they are, half a cell
         apart.
 
