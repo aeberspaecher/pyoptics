@@ -208,3 +208,96 @@ def Ring(center, radius, width):
     """Ring waveguide (an Annulus) with centre-line radius `radius`."""
 
     return Annulus(center, radius - width/2, radius + width/2)
+
+
+class Lattice(Shape):
+    """Copies of a shape on a lattice (2D): photonic crystals, gratings of
+    pillars, arrays of holes.
+
+    The sites are center + i a1 + j a2 for n1 x n2 indices i, j centred on
+    0 (i = -(n1 - 1)/2 ... (n1 - 1)/2, half-integers for even n1), minus
+    the sites listed in `remove`; `shift` moves single sites (e.g. the
+    rods next to a cavity). The shape is given relative to its site and
+    must fit into the cell around it (every point is tested against its
+    nearest site only), which makes the test independent of the number of
+    sites.
+
+    Parameters
+    ----------
+    shape : Shape
+        Centred on (0, 0), e.g. Circle((0, 0), 0.2).
+    a1, a2 : (x, y)
+        Lattice vectors, e.g. (1, 0) and (0, 1) for a square lattice, (1, 0)
+        and (0.5, sqrt(3)/2) for a triangular one.
+    n : (n1, n2)
+        Number of sites along a1 and a2; None for an unbounded axis.
+    center : (x, y)
+    remove : iterable of (i, j)
+        Sites left empty: (0, 0) for a point defect, [(i, 0) for all i] for
+        a line defect.
+    shift : dict {(i, j): (dx, dy)}
+        Displaced sites.
+
+    Examples
+    --------
+    A square lattice of rods with a line defect along x:
+
+    >>> rods = Lattice(Circle((0, 0), 0.2), (1, 0), (0, 1), (21, 11),
+    ...                remove=[(i, 0) for i in range(-10, 11)])
+    """
+
+    def __init__(self, shape, a1, a2, n, center=(0, 0), remove=(), shift=None):
+        self.shape = shape
+        self.A = np.array([a1, a2], dtype=float).T          # columns: lattice vectors
+        self.Ainv = np.linalg.inv(self.A)
+        self.n = tuple(n)
+        self.center = np.asarray(center, dtype=float)
+        self.remove = {tuple(float(v) for v in s) for s in remove}
+        self.shift = {tuple(float(v) for v in k): np.asarray(v, dtype=float)
+                      for k, v in (shift or {}).items()}
+
+    def sites(self):
+        """Positions of all sites (after removal and shifts), (N, 2)."""
+
+        idx = []
+        rng = [np.arange(n) - (n - 1)/2 for n in self.n]
+        for i in rng[0]:
+            for j in rng[1]:
+                if (float(i), float(j)) not in self.remove:
+                    idx.append((i, j))
+        pts = np.array([self.center + self.A @ np.array(ij) for ij in idx])
+        for k, (i, j) in enumerate(idx):
+            if (float(i), float(j)) in self.shift:
+                pts[k] += self.shift[(float(i), float(j))]
+        return pts
+
+    def contains(self, x, y):
+        x, y = np.broadcast_arrays(np.asarray(x, dtype=float), np.asarray(y, dtype=float))
+        dx, dy = x - self.center[0], y - self.center[1]
+        u = self.Ainv[0, 0]*dx + self.Ainv[0, 1]*dy
+        v = self.Ainv[1, 0]*dx + self.Ainv[1, 1]*dy
+        inside = np.zeros(x.shape, dtype=bool)
+        # the site of a point: the nearest one (rounding in the shifted index
+        # space, half-integer sites for even counts), and for a shifted site
+        # also its neighbours
+        offs = [(n - 1)/2 % 1 if n is not None else 0.0 for n in self.n]
+        i0 = np.round(u - offs[0]) + offs[0]
+        j0 = np.round(v - offs[1]) + offs[1]
+        cand = [(0, 0)] + ([(a, b) for a in (-1, 0, 1) for b in (-1, 0, 1) if (a, b) != (0, 0)]
+                           if self.shift else [])
+        for di, dj in cand:
+            i, j = i0 + di, j0 + dj
+            ok = np.ones(x.shape, dtype=bool)
+            for ind, n in ((i, self.n[0]), (j, self.n[1])):
+                if n is not None:
+                    ok &= np.abs(ind) <= (n - 1)/2 + 1e-9
+            sx = self.center[0] + self.A[0, 0]*i + self.A[0, 1]*j
+            sy = self.center[1] + self.A[1, 0]*i + self.A[1, 1]*j
+            for (ri, rj) in self.remove:
+                ok &= ~((np.abs(i - ri) < 1e-9) & (np.abs(j - rj) < 1e-9))
+            for (si, sj), d in self.shift.items():
+                m = (np.abs(i - si) < 1e-9) & (np.abs(j - sj) < 1e-9)
+                sx = np.where(m, sx + d[0], sx)
+                sy = np.where(m, sy + d[1], sy)
+            inside |= ok & self.shape.contains(x - sx, y - sy)
+        return inside

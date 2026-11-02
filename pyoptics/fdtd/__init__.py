@@ -15,7 +15,7 @@ Building blocks
 - `Grid`: domain size, cell size and time step (normalized units: c = 1,
   lengths and wavelengths in the same unit, times in that unit over c).
 - Shapes (`Slab`, `Rect`, `Circle`, `Annulus`, `Polygon`, unions and
-  differences; waveguides `Path`, `SBend`, `Bend`, `Ring`) and `Medium` (permittivity, conductivity and `Drude`,
+  differences; waveguides `Path`, `SBend`, `Bend`, `Ring`; `Lattice`) and `Medium` (permittivity, conductivity and `Drude`,
   `Lorentz` and `Debye` poles; `Medium.fit()` to tabulated n + ik), drawn
   on the grid with sub-cell averaging of the permittivity (anisotropic for
   E in the plane of the Hz mode).
@@ -34,8 +34,12 @@ Building blocks
 - `resonances` (`pyoptics.fdtd.analysis`): frequencies and Q of ring-down
   signals by the matrix pencil method.
 - Periodic structures (`pyoptics.fdtd.periodic`): `DiffractionMonitor`
-  (power in the diffraction orders of gratings) and `bloch_modes`
-  (frequencies of Bloch modes, for band diagrams of photonic crystals).
+  (power and complex amplitude of the diffraction orders of gratings and
+  unit cells, e.g. the phase library of a metasurface) and `bloch_modes`
+  (frequencies of Bloch modes, for band diagrams of photonic crystals and
+  of defects in supercells); `Lattice` places a shape on a lattice with
+  removed or shifted sites (photonic crystals with waveguides and
+  cavities).
 - `Simulation` puts them together; `pyoptics.fdtd.plot` draws structures,
   fields and animations.
 
@@ -70,13 +74,12 @@ Speed: the NumPy kernels are the reference; with numba installed
 (``Simulation(backend=...)``), with identical results and 10 to 20 times
 faster on multi-core machines.
 
-Planned (proposals/fdtd.md): grating couplers, photonic crystal devices,
-3D.
+Planned (proposals/fdtd.md): 3D.
 """
 
 from .grid import Grid
 from .geometry import (Shape, Union, Difference, Everywhere, Slab, Rect, Circle, Annulus,
-                       Polygon, Path, SBend, Bend, Ring, sbend_points)
+                       Polygon, Path, SBend, Bend, Ring, Lattice, sbend_points)
 from .media import Medium, VACUUM, Drude, Lorentz, Debye, omega_from_eV
 from .boundaries import PML, PEC, PERIODIC, Bloch
 from .sources import GaussianPulse, ContinuousWave, PointSource, LineSource, TFSF
@@ -89,7 +92,7 @@ from .simulation import Simulation
 from ._kernels_numba import available as numba_available
 
 __all__ = ["Grid", "Shape", "Union", "Difference", "Everywhere", "Slab", "Rect", "Circle",
-           "Annulus", "Polygon", "Path", "SBend", "Bend", "Ring", "sbend_points", "Medium",
+           "Annulus", "Polygon", "Path", "SBend", "Bend", "Ring", "Lattice", "sbend_points", "Medium",
            "VACUUM", "Drude", "Lorentz", "Debye", "omega_from_eV", "PML", "PEC", "PERIODIC", "Bloch",
            "GaussianPulse", "ContinuousWave", "PointSource", "LineSource", "TFSF", "Probe",
            "Snapshots", "SnapshotStack", "DFTField", "DFTFieldData", "Flux", "Mode",
