@@ -3,8 +3,11 @@
 
 """Shapes that make up a structure.
 
-Every shape has a method contains(x[, y]) that takes broadcastable
-coordinate arrays and returns a boolean array. Shapes are combined with a
+Every shape has a method contains(x[, y[, z]]) that takes broadcastable
+coordinate arrays and returns a boolean array. 2D shapes (Rect, Circle,
+Polygon, the waveguides, Lattice) become 3D ones by extrusion with Prism;
+Sphere, Box and Cylinder are 3D shapes; Slab and Everywhere work in any
+dimension. Shapes are combined with a
 medium in a Simulation's structure list, where later entries are drawn on
 top of earlier ones. Shapes can be added (union) and subtracted
 (difference): ``Circle((0, 0), 2) - Circle((0, 0), 1.5)`` is a ring.
@@ -57,8 +60,8 @@ class Everywhere(Shape):
 
 
 class Slab(Shape):
-    """Layer lo <= coordinate < hi along an axis (0: x, 1: y), unbounded in
-    the other directions. Works in 1D and 2D."""
+    """Layer lo <= coordinate < hi along an axis (0: x, 1: y, 2: z),
+    unbounded in the other directions. Works in 1D, 2D and 3D."""
 
     def __init__(self, lo, hi, axis=0):
         self.lo, self.hi, self.axis = lo, hi, axis
@@ -301,3 +304,62 @@ class Lattice(Shape):
                 sy = np.where(m, sy + d[1], sy)
             inside |= ok & self.shape.contains(x - sx, y - sy)
         return inside
+
+
+class Sphere(Shape):
+    """Ball (3D) given by its centre and radius."""
+
+    def __init__(self, center, radius):
+        self.center = np.asarray(center, dtype=float)
+        self.radius = radius
+
+    def contains(self, x, y, z):
+        c = self.center
+        return (x - c[0])**2 + (y - c[1])**2 + (z - c[2])**2 < self.radius**2
+
+
+class Box(Shape):
+    """Axis-parallel cuboid (3D) given by its centre and size."""
+
+    def __init__(self, center, size):
+        self.center = np.asarray(center, dtype=float)
+        self.size = np.asarray(size, dtype=float)
+
+    def contains(self, x, y, z):
+        c, h = self.center, self.size/2
+        return (np.abs(x - c[0]) <= h[0]) & (np.abs(y - c[1]) <= h[1]) & (np.abs(z - c[2]) <= h[2])
+
+
+class Prism(Shape):
+    """A 2D shape extruded along an axis (3D): the points with lo <= the
+    coordinate along `axis` < hi whose other two coordinates (in the order
+    x, y, z with `axis` left out) lie in the 2D shape. Prism(Circle(...),
+    ...) is a finite cylinder, Prism(Path(...), ...) a strip waveguide.
+
+    Parameters
+    ----------
+    shape : Shape
+        2D shape.
+    lo, hi : number
+        Extent along the axis.
+    axis : int
+        0, 1 or 2 (default: z).
+    """
+
+    def __init__(self, shape, lo, hi, axis=2):
+        self.shape, self.lo, self.hi, self.axis = shape, lo, hi, axis
+
+    def contains(self, x, y, z):
+        coords = (x, y, z)
+        c = coords[self.axis]
+        others = [v for a, v in enumerate(coords) if a != self.axis]
+        return (c >= self.lo) & (c < self.hi) & self.shape.contains(*others)
+
+
+def Cylinder(center, radius, length, axis=2):
+    """Circular cylinder (3D) with its axis along x, y or z: a Prism of a
+    Circle. center is the 3D centre of the cylinder."""
+
+    center = np.asarray(center, dtype=float)
+    c2 = [v for a, v in enumerate(center) if a != axis]
+    return Prism(Circle(c2, radius), center[axis] - length/2, center[axis] + length/2, axis)

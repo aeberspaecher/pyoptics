@@ -19,7 +19,7 @@ What each module does and how mature it is. Planned work is listed in
   inclined planes (detectors); `tilted_plane()` and
   `vectorial_tilted_plane()` are also available from `propagators`
 - `fdtd`: new, tested: finite-difference time-domain
-  solver for Maxwell's equations in 1D and 2D (polarizations Ez and Hz,
+  solver for Maxwell's equations in 1D, 2D and 3D (2D polarizations Ez and Hz,
   with the TE/TM naming explained in the module docstring), NumPy kernels
   and compiled numba kernels (optional, about ten times faster, identical
   results), shapes with sub-cell permittivity averaging (anisotropic for
@@ -46,8 +46,14 @@ What each module does and how mature it is. Planned work is listed in
   waveguides (supercell bands, transmission through a sharp bend) and
   cavities (Q against the crystal size), a fibre-to-chip grating coupler,
   complex transmission of unit cells (`DiffractionOrders.coefficient`)
-  for a metasurface phase library and a metalens. Planned: 3D
-  (`proposals/fdtd.md` in the project notes)
+  for a metasurface phase library and a metalens; 3D: all six components
+  (float32 and numba by default, CPML stored only in the layers), 3D
+  shapes (`Sphere`, `Box`, `Cylinder`, `Prism` extrusions of 2D shapes),
+  plane sources, a TFSF plane wave along z with the incident spectrum
+  recorded, plane monitors, flux through planes and section plots,
+  checked against the vector Mie series (near field and scattering cross
+  section of a sphere); the photonic nanojet. Planned: the litho mask
+  model (`proposals/fdtd.md` in the project notes)
 - `analytic_phase`: propagation with analytic handling of the wavefront
   phase after Wyrowski and coworkers, tested: fields stored as a smooth
   sampled amplitude times a separable quadratic phase with carrier
@@ -63,7 +69,9 @@ What each module does and how mature it is. Planned work is listed in
   (`utils.pad()`/`unpad()` for centered zero padding; `analytical` holds the
   Airy pattern, its encircled energy, the diffraction limited OTF and the
   exact series solutions for a dielectric cylinder (TE) and sphere (scalar),
-  also for beams: `cylinder_field()`, `sphere_field()`)
+  also for beams: `cylinder_field()`, `sphere_field()`, and the vector
+  Lorenz-Mie solution of a sphere: `mie_coefficients()`, `mie_field()`,
+  `mie_efficiencies()`)
 - `bases`: mature (Zernike, Legendre, Chebyshev bases, numerical
   orthogonalization, fits); all bases can be shifted and rotated, Legendre and
   Chebyshev derive from the abstract `TensorProductBasis`; tested

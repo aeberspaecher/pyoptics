@@ -18,6 +18,7 @@ to run them yourself, see [Running the notebooks](#running-the-notebooks).
 - {doc}`notebooks/60_fdtd_photonic_circuits`
 - {doc}`notebooks/62_fdtd_periodic_structures`
 - {doc}`notebooks/63_fdtd_devices`
+- {doc}`notebooks/64_fdtd_3d_nanojet`
 
 ```{toctree}
 :hidden:
@@ -34,6 +35,7 @@ notebooks/59_fdtd_metals_plasmons
 notebooks/60_fdtd_photonic_circuits
 notebooks/62_fdtd_periodic_structures
 notebooks/63_fdtd_devices
+notebooks/64_fdtd_3d_nanojet
 ```
 
 ## Beams, modes and paraxial optics
