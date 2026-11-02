@@ -20,6 +20,21 @@ amplitude in the direction phi is
 resonance, omega is complex and so is k; the field then grows with r
 (the light left the cavity earlier), but the angular distribution is
 that of F.
+
+References
+----------
+H. Cao and J. Wiersig, "Dielectric microcavities: Model systems for wave
+chaos and non-Hermitian physics", Rev. Mod. Phys. 87, 61-111 (2015), section
+II.
+
+J. Wiersig, "Boundary element method for resonances in dielectric
+microcavities", J. Opt. A: Pure Appl. Opt. 5, 53-60 (2003).
+
+C. F. Bohren and D. R. Huffman, "Absorption and Scattering of Light by Small
+Particles", Wiley (1983), chapter 8.
+
+M. Abramowitz and I. A. Stegun, "Handbook of Mathematical Functions", Dover
+(1972), chapter 9, eq. 9.2.3.
 """
 
 import numpy as np

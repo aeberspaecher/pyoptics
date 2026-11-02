@@ -88,7 +88,26 @@ excite the fields; monitor regions take a number for a single node layer
 0.0)``). `pyoptics.analytical.mie_field` is the exact reference for a
 sphere.
 
-Planned (proposals/fdtd.md): the litho mask model.
+References
+----------
+K. S. Yee, "Numerical solution of initial boundary value problems involving
+Maxwell's equations in isotropic media", IEEE Trans. Antennas Propag. 14,
+302-307 (1966).
+
+A. Taflove and S. C. Hagness, "Computational Electrodynamics: The
+Finite-Difference Time-Domain Method", 3rd ed., Artech House (2005).
+
+J. B. Schneider, "Understanding the Finite-Difference Time-Domain Method",
+Washington State University (2010), www.eecs.wsu.edu/~schneidj/ufdtd.
+
+A. F. Oskooi, D. Roundy, M. Ibanescu, P. Bermel, J. D. Joannopoulos and S.
+G. Johnson, "MEEP: A flexible free-software package for electromagnetic
+simulations by the FDTD method", Comput. Phys. Commun. 181, 687-702 (2010).
+
+A. Farjadpour, D. Roundy, A. Rodriguez, M. Ibanescu, P. Bermel, J. D.
+Joannopoulos, S. G. Johnson and G. W. Burr, "Improving accuracy by subpixel
+smoothing in the finite-difference time domain", Opt. Lett. 31, 2972-2974
+(2006), for the sub-cell averaging.
 """
 
 from .grid import Grid

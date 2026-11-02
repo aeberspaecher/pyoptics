@@ -15,6 +15,12 @@ along y. ``available`` tells whether numba could be imported.
 The 3D kernels keep the CPML auxiliary fields only inside the absorbing
 layers: psi along axis a has 2n cells along a (n per side), and the map
 m[i] gives the slab index of grid index i (-1 outside the layers).
+
+References
+----------
+S. K. Lam, A. Pitrou and S. Seibert, "Numba: a LLVM-based Python JIT
+compiler", Proc. Second Workshop on the LLVM Compiler Infrastructure in HPC,
+7:1-7:6 (2015).
 """
 
 try:

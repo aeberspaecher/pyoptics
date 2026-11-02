@@ -36,6 +36,22 @@ cell size is adjusted (by up to 25 %, never coarser) so that the feature
 edges and the absorber interfaces lie on grid nodes: the subpixel
 averaging of a Drude metal is poor, and edges between nodes cost several
 1e-2 for chrome in TM.
+
+References
+----------
+A. K. Wong and A. R. Neureuther, "Mask topography effects in projection
+printing of phase-shifting masks", IEEE Trans. Electron Devices 41, 895-902
+(1994).
+
+A. Erdmann, "Optical and EUV Lithography: A Modeling Perspective", SPIE
+Press (2021).
+
+A. Taflove and S. C. Hagness, "Computational Electrodynamics: The
+Finite-Difference Time-Domain Method", 3rd ed., Artech House (2005), chapter
+13.
+
+M. G. Moharam and T. K. Gaylord, "Rigorous coupled-wave analysis of
+planar-grating diffraction", J. Opt. Soc. Am. 71, 811-818 (1981).
 """
 
 import numpy as np

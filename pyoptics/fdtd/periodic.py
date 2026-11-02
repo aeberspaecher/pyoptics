@@ -42,6 +42,20 @@ axes, a few dipoles at random positions excited by a short pulse, and the
 ring-down at a few probes analysed with the matrix pencil method
 (analysis.resonances). Sweeping k along the edges of the Brillouin zone
 gives the band diagram.
+
+References
+----------
+A. Taflove and S. C. Hagness, "Computational Electrodynamics: The
+Finite-Difference Time-Domain Method", 3rd ed., Artech House (2005), chapter
+13 (periodic structures).
+
+J. D. Joannopoulos, S. G. Johnson, J. N. Winn and R. D. Meade, "Photonic
+Crystals: Molding the Flow of Light", 2nd ed., Princeton University Press
+(2008).
+
+A. F. Oskooi, D. Roundy, M. Ibanescu, P. Bermel, J. D. Joannopoulos and S.
+G. Johnson, "MEEP: A flexible free-software package for electromagnetic
+simulations by the FDTD method", Comput. Phys. Commun. 181, 687-702 (2010).
 """
 
 import numpy as np

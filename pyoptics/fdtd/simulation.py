@@ -25,6 +25,19 @@ differences; E lives at integer, H at half-integer time steps. The
 conductive term is discretized semi-implicitly,
 E <- Ca E + Cb (curl H - J) with Ca = (1 - s)/(1 + s), Cb = dt/eps/(1 + s),
 s = sigma dt/(2 eps).
+
+References
+----------
+K. S. Yee, "Numerical solution of initial boundary value problems involving
+Maxwell's equations in isotropic media", IEEE Trans. Antennas Propag. 14,
+302-307 (1966).
+
+A. Taflove and S. C. Hagness, "Computational Electrodynamics: The
+Finite-Difference Time-Domain Method", 3rd ed., Artech House (2005), chapter
+3 (lossy media) and chapter 4 (stability).
+
+J. B. Schneider, "Understanding the Finite-Difference Time-Domain Method",
+Washington State University (2010), www.eecs.wsu.edu/~schneidj/ufdtd.
 """
 
 import itertools

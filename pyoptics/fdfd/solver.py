@@ -16,6 +16,40 @@ discretized with the forward and backward differences of the Yee cell
 from u by one difference each: Hx = (1/(i omega s_y)) dEz/dy,
 Hy = -(1/(i omega s_x)) dEz/dx; Ex = -(1/(i omega eps_x s_y)) dHz/dy,
 Ey = (1/(i omega eps_y s_x)) dHz/dx.
+
+References
+----------
+W. Shin and S. Fan, "Choice of the perfectly matched layer boundary
+condition for frequency-domain Maxwell's equations solvers", J. Comput.
+Phys. 231, 3406-3431 (2012).
+
+W. C. Chew and W. H. Weedon, "A 3D perfectly matched medium from modified
+Maxwell's equations with stretched coordinates", Microw. Opt. Technol. Lett.
+7, 599-604 (1994).
+
+R. C. Rumpf, "Simple implementation of arbitrarily shaped
+total-field/scattered-field regions in finite-difference frequency-domain",
+Prog. Electromagn. Res. B 36, 221-248 (2012).
+
+A. Farjadpour, D. Roundy, A. Rodriguez, M. Ibanescu, P. Bermel, J. D.
+Joannopoulos, S. G. Johnson and G. W. Burr, "Improving accuracy by subpixel
+smoothing in the finite-difference time domain", Opt. Lett. 31, 2972-2974
+(2006).
+
+C. Kottke, A. Farjadpour and S. G. Johnson, "Perturbation theory for
+anisotropic dielectric interfaces, and application to subpixel smoothing of
+discretized numerical methods", Phys. Rev. E 77, 036611 (2008).
+
+P. Lalanne, W. Yan, K. Vynck, C. Sauvan and J.-P. Hugonin, "Light
+interaction with photonic and plasmonic resonances", Laser Photonics Rev.
+12, 1700113 (2018).
+
+R. B. Lehoucq, D. C. Sorensen and C. Yang, "ARPACK Users' Guide: Solution of
+Large-Scale Eigenvalue Problems with Implicitly Restarted Arnoldi Methods",
+SIAM (1998).
+
+X. S. Li, "An overview of SuperLU: Algorithms, implementation, and user
+interface", ACM Trans. Math. Softw. 31, 302-325 (2005).
 """
 
 import numpy as np

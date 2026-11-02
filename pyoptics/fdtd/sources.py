@@ -10,6 +10,20 @@ equation, so the source does not scatter the fields passing through it. A
 source's amplitude is the dipole moment (point) or the current per unit
 length or area (line, plane), so the radiated field does not depend on the
 cell size.
+
+References
+----------
+K. R. Umashankar and A. Taflove, "A novel method to analyze electromagnetic
+scattering of complex objects", IEEE Trans. Electromagn. Compat. 24, 397-405
+(1982).
+
+A. Taflove and S. C. Hagness, "Computational Electrodynamics: The
+Finite-Difference Time-Domain Method", 3rd ed., Artech House (2005), chapter
+5.
+
+J. B. Schneider, "Understanding the Finite-Difference Time-Domain Method",
+Washington State University (2010), www.eecs.wsu.edu/~schneidj/ufdtd,
+chapter 3 (TFSF) and chapter 5 (sources).
 """
 
 import numpy as np
