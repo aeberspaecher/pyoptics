@@ -3,7 +3,8 @@
 
 """Plots and animations of FDTD simulations (needs matplotlib).
 
-- plot_structure(): permittivity map with the PML, sources and monitors.
+- plot_structure(): permittivity map with the PML, sources and monitors;
+  a periodic unit cell can be repeated to show the structure it stands for.
 - plot_field(): a component of the current fields, of a DFT monitor or of
   a snapshot, with the outlines of the structure on top.
 - animate(): a matplotlib animation of a SnapshotStack (time domain) or of
@@ -23,7 +24,7 @@ import numpy as np
 from . import sources as _src
 from . import modes as _modes
 from . import monitors as _mon
-from .boundaries import PML
+from .boundaries import PML, PERIODIC, Bloch
 
 
 FIELD_CMAP = "RdBu_r"
@@ -134,9 +135,8 @@ def _overlays(ax, sim, show_pml=True, show_sources=True, show_monitors=True):
                             arrowprops=dict(arrowstyle="-|>", color=SOURCE_COLOR, lw=1.5))
     if show_monitors:
         for m in sim.monitors:
-            if isinstance(m, (_mon.Flux, _modes.ModeMonitor)):
-                lo, hi = m.extent if m.extent is not None else \
-                    ((y0, y1) if m.axis == 0 else (x0, x1))
+            if isinstance(m, (_mon.Flux, _modes.ModeMonitor)) or type(m).__name__ == "DiffractionMonitor":
+                lo, hi = getattr(m, "extent", None) or ((y0, y1) if m.axis == 0 else (x0, x1))
                 if m.axis == 0:
                     ax.plot([m.position]*2, [lo, hi], color=MONITOR_COLOR, lw=1.2, ls="--")
                 else:
@@ -150,13 +150,19 @@ def _overlays(ax, sim, show_pml=True, show_sources=True, show_monitors=True):
 
 
 def plot_structure(sim, ax=None, component=None, cmap="Greys", show_pml=True, show_sources=True,
-                   show_monitors=True, colorbar=False):
+                   show_monitors=True, colorbar=False, periods=1):
     """Refractive index map (2D, sqrt of the permittivity) or permittivity
     profile (1D) with PML, sources and monitors.
 
     Sources are drawn in amber (points, lines, the TFSF box with an arrow
     for the direction), monitors in blue (flux lines dashed, DFT regions
     dotted, probes as crosses), the PML hatched (2D) or shaded (1D).
+
+    periods : int
+        2D only: repeat the cell this many times (odd numbers centre the
+        simulated cell) along each periodic or Bloch-periodic axis, to show
+        the structure a unit cell stands for. The simulated cell is framed
+        with dashed lines; sources and monitors are drawn in it only.
     """
 
     ax = _ax(ax)
@@ -170,9 +176,24 @@ def plot_structure(sim, ax=None, component=None, cmap="Greys", show_pml=True, sh
         ax.set_xlim(*sim.grid.extent)
     else:
         n = np.sqrt(np.maximum(eps, 0))
-        im = ax.imshow(n.T, origin="lower", extent=_extent(coords), cmap=cmap,
+        ext = list(_extent(coords))
+        periodic = [b == PERIODIC or isinstance(b, Bloch) for b in sim.boundaries]
+        reps = [int(periods) if p else 1 for p in periodic]
+        if max(reps) > 1:
+            n_t = np.tile(n, reps)
+            for a in range(2):
+                L, k0 = sim.grid.size[a], (reps[a] - 1)//2
+                ext[2*a] -= k0*L
+                ext[2*a + 1] += (reps[a] - 1 - k0)*L
+        else:
+            n_t = n
+        im = ax.imshow(n_t.T, origin="lower", extent=ext, cmap=cmap,
                        vmin=min(1.0, n.min()), vmax=1 + 1.4*max(n.max() - 1, 0.3),
                        interpolation="nearest")
+        if max(reps) > 1:
+            gx0, gx1, gy0, gy1 = sim.grid.extent
+            ax.add_patch(_plt().Rectangle((gx0, gy0), gx1 - gx0, gy1 - gy0, fill=False, ec="k",
+                                          lw=0.8, ls="--"))
         if colorbar:
             _plt().colorbar(im, ax=ax, label="n")
         ax.set_xlabel("x")

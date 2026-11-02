@@ -298,6 +298,16 @@ def test_plots():
     sim1.run(steps=30)
     fplot.xt_diagram(sim1.monitors[0].stack(), sim=sim1)
     fplot.plot_structure(sim1)
+    # a periodic cell repeated three times along x (Bloch) but not along y (PML)
+    cell = fdtd.Simulation(fdtd.Grid((1.0, 2.0), 1/10), [(fdtd.Circle((0, 0), 0.3), fdtd.Medium(4.0))],
+                           [fdtd.LineSource(0.6, fdtd.GaussianPulse(1.0), axis=1)],
+                           [fdtd.DiffractionMonitor(0.7, [1.0])],
+                           boundaries=(fdtd.Bloch(1.0), fdtd.PML(4)))
+    ax = fplot.plot_structure(cell, plt.figure().gca(), periods=3)
+    im = ax.get_images()[0]
+    assert im.get_array().shape == (20, 30)
+    x0, x1, y0, y1 = fplot._extent(cell.coords("Ez"))
+    assert np.allclose(im.get_extent(), (x0 - 1.0, x1 + 1.0, y0, y1))
     plt.close("all")
 
 
