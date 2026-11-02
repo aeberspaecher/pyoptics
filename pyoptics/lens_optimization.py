@@ -1126,13 +1126,35 @@ def air_spaces(system, bounds=(None, None), image=False):
 
 # --- solves ----------------------------------------------------------------
 
-def solve_paraxial_focus(offset=0.0):
+def solve_paraxial_focus(offset=0.0, surface=None):
     """Solve: image plane in the paraxial focus (marginal ray height zero),
-    plus offset (a defocus)."""
+    plus offset (a defocus).
+
+    Parameters
+    ----------
+    offset : number, optional
+        Defocus.
+    surface : int, optional
+        Thickness that is solved. Default: the last one (the image
+        distance). Another surface (e.g. the air space in front of a cover
+        glass or a window, with the image distance behind it fixed) moves
+        everything behind it, so that the focus lands on the fixed image
+        plane; it has to be followed by plane parallel plates only.
+
+    Returns
+    -------
+    callable
+    """
 
     def solve(system):
-        system.surfaces[-1].thickness = 0.0
-        system.surfaces[-1].thickness = system.paraxial().image_distance + offset
+        S = system.surfaces
+        if surface is None:
+            S[-1].thickness = 0.0
+            S[-1].thickness = system.paraxial().image_distance + offset
+            return
+        for _ in range(2):
+            S[surface].thickness += (system.paraxial().image_distance + offset
+                                     - S[-1].thickness)*system.sigma[surface + 1]*system.sigma[-1]
 
     return solve
 
