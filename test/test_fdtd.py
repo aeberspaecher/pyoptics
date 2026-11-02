@@ -420,7 +420,8 @@ numba_only = pytest.mark.skipif(not fdtd.numba_available, reason="needs numba")
 
 @numba_only
 @pytest.mark.parametrize("ndim,mode,boundaries", [(1, "Ez", "pml"), (2, "Ez", "pml"), (2, "Hz", "pml"),
-                                                  (2, "Ez", "pec"), (2, "Hz", "periodic")])
+                                                  (2, "Ez", "pec"), (2, "Hz", "periodic"),
+                                                  (2, "Ez", "bloch"), (2, "Hz", "bloch")])
 def test_numba_matches_numpy(ndim, mode, boundaries):
     glass = fdtd.Medium(2.0, sigma=0.1, poles=[fdtd.Lorentz(0.5, 20.0, 1.0)])
     out = []
@@ -433,8 +434,9 @@ def test_numba_matches_numpy(ndim, mode, boundaries):
         else:
             grid = fdtd.Grid((5, 4), 1/20)
             st = [(fdtd.Circle((0.5, 0), 0.6), DRUDE), (fdtd.Rect((-1, 0.5), (1, 1)), glass)]
-            if boundaries == "periodic":
-                src, bnd = [fdtd.LineSource(-2, fdtd.GaussianPulse(1.0))], (fdtd.PML(10), "periodic")
+            if boundaries in ("periodic", "bloch"):
+                src = [fdtd.LineSource(-2, fdtd.GaussianPulse(1.0))]
+                bnd = (fdtd.PML(10), "periodic" if boundaries == "periodic" else fdtd.Bloch(1.3))
             else:
                 src = [fdtd.PointSource((-1.5, -1), fdtd.GaussianPulse(1.0)),
                        fdtd.TFSF((-2, 2, -1.5, 1.5), fdtd.GaussianPulse(1.0))]

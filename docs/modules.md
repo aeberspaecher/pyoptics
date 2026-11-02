@@ -37,7 +37,12 @@ What each module does and how mature it is. Planned work is listed in
   S-parameters, waveguide shapes (paths, S-bends, bends, rings) and
   resonance analysis by the matrix pencil method (Q factors), checked
   against the analytic slab waveguide, supermodes of coupled waveguides and
-  the Fabry-Perot modes of a slab. Planned: Bloch boundaries, 3D
+  the Fabry-Perot modes of a slab; periodic structures: Bloch boundaries
+  (oblique incidence at a fixed transverse wave number), diffraction
+  orders of gratings and band structures of photonic crystals
+  (`bloch_modes`), checked against `thin_films`, RCWA (`litho.rcwa`), the
+  analytic bands of a Bragg stack and the band gap of a rod lattice.
+  Planned: photonic-crystal devices, grating couplers, 3D
   (`proposals/fdtd.md` in the project notes)
 - `analytic_phase`: propagation with analytic handling of the wavefront
   phase after Wyrowski and coworkers, tested: fields stored as a smooth

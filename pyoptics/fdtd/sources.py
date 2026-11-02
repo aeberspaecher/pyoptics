@@ -13,6 +13,8 @@ amplitude is the dipole moment (point) or the current per unit length
 
 import numpy as np
 
+from .boundaries import Bloch
+
 
 class GaussianPulse(object):
     """Sine carrier under a Gaussian envelope (no DC component).
@@ -144,7 +146,10 @@ class PointSource(_CurrentSource):
 class LineSource(_CurrentSource):
     """Current sheet across the domain at a position along an axis (2D), or
     a sheet in 1D. With periodic boundaries along the line it launches plane
-    waves to both sides.
+    waves to both sides. With a Bloch boundary along the line (Bloch(k)),
+    the current carries exp(i k s) along the line and launches plane waves
+    with the transverse wave number k: oblique incidence at
+    sin(theta) = k/(n k0), an angle that varies across the band of a pulse.
 
     Parameters
     ----------
@@ -208,6 +213,10 @@ class LineSource(_CurrentSource):
         if self.transverse is not None:
             w = w*self.transverse(t)
         self._idx = (i, slice(None)) if self.axis == 0 else (slice(None), i)
+        b = sim.boundaries[other]
+        if isinstance(b, Bloch):
+            # Bloch-periodic along the line: the current carries exp(i k t)
+            w = w*np.exp(1j*b.k*t)
         self._weight = w
         if self.angle:
             self._delay = self.n*np.sin(self.angle)*(t - self.center)
