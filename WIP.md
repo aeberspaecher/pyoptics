@@ -24,6 +24,12 @@
 * Documentation: user guide pages per topic, bibliography, doctests, weekly
   re-execution of the notebooks
 * Incoherence in thin films (spatial and temporal incoherence)
+* FDFD, next: 3D (needs an iterative solver), dispersive media inside the
+  eigenvalue problem (nonlinear eigenproblem; now evaluated at the guess),
+  symmetry boundaries (half and quarter domains for mirror-symmetric
+  cavities), better subpixel averaging of curved boundaries (lowers the
+  numerical Q floor of whispering gallery modes, about 1e7 at 20 cells per
+  wavelength), Husimi functions and ray dynamics for deformed cavities
 * FDTD, next milestones (done: 1D/2D core, numba kernels, dispersive media,
   waveguide modes, mode sources/monitors, S-parameters, Q extraction,
   Bloch boundaries, diffraction orders vs. RCWA, band structures,
@@ -92,6 +98,8 @@
   calibration (`litho.rcwa`, notebook 36)
 * Lithography: rigorous FDTD mask model for 1D and 2D layouts
   (`litho.FDTDMask`, notebook 65)
+* FDFD solver in 2D (`fdfd`: driven solves, resonances, mode tracing, far
+  fields; notebooks 66 and 67, the limaçon microcavity)
 * Lithography: Jones pupils (Pauli-Zernike, orientation Zernikes, polar
   decomposition) and the polarization ray trace of a lens with coatings
   and CaF2 intrinsic birefringence (`litho.jones_pupil`, `litho.lens`,

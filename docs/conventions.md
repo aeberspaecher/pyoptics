@@ -37,6 +37,9 @@ vary as exp(i(**k**·**r** − ωt)). In particular:
   waveguide, grating and scattering texts, `litho.rcwa` and
   `analytical.cylinder_field` call the same case "TE" (E perpendicular to
   the plane of incidence).
+- FDFD (`fdfd`) shares the units, grid, shapes and media of the FDTD and
+  uses exp(−iωt): outgoing waves go as exp(+ikr) and resonances have
+  Im ω < 0 with Q = Re ω/(−2 Im ω), as `analytical.disk_resonance`.
 - Absorbing media have the complex refractive index n + iκ with κ > 0. Under
   total internal reflection, the transmitted wave decays away from the
   interface.

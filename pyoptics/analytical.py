@@ -165,9 +165,10 @@ def _num_orders(size_parameter, m):
     return int(x + 4.05*x**(1/3) + 10)
 
 
-def cylinder_coefficients(radius, n_cyl, wl, n_medium=1.0, num_orders=None):
+def cylinder_coefficients(radius, n_cyl, wl, n_medium=1.0, num_orders=None, polarization="E"):
     """Scattering coefficients of a circular dielectric cylinder for the scalar
-    Helmholtz equation (TE polarization: E parallel to the cylinder axis).
+    Helmholtz equation (polarization "E": E parallel to the cylinder axis, the
+    default; "H": H parallel to it).
 
     The total field is written as
 
@@ -178,8 +179,9 @@ def cylinder_coefficients(radius, n_cyl, wl, n_medium=1.0, num_orders=None):
     exp(-i omega t)), k = 2 pi n_medium/wl and m_rel = n_cyl/n_medium. B_m
     describes the incident field (B_m = 1 for a plane wave along phi = 0).
     For E parallel to the axis, u = E_axis and its radial derivative are
-    continuous at r = radius, so this is the exact solution of Maxwell's
-    equations [1]_.
+    continuous at r = radius; for H parallel to the axis, u = H_axis and its
+    radial derivative divided by n**2. Either way this is the exact solution
+    of Maxwell's equations [1]_.
 
     Parameters
     ----------
@@ -193,6 +195,8 @@ def cylinder_coefficients(radius, n_cyl, wl, n_medium=1.0, num_orders=None):
         Refractive index of the surrounding medium.
     num_orders : int, optional
         Highest order m. Defaults to Wiscombe's criterion.
+    polarization : {"E", "H"}, optional
+        Field along the cylinder axis.
 
     Returns
     -------
@@ -218,24 +222,28 @@ def cylinder_coefficients(radius, n_cyl, wl, n_medium=1.0, num_orders=None):
     J, Jp = jv(m, x), jvp(m, x)
     H, Hp = hankel1(m, x), h1vp(m, x)
     Ji, Jip = jv(m, m_rel*x), jvp(m, m_rel*x)
-    den = Ji*Hp - m_rel*Jip*H
-    a_m = (m_rel*Jip*J - Ji*Jp)/den
+    if polarization not in ("E", "H"):
+        raise ValueError("polarization must be 'E' or 'H'")
+    g = m_rel if polarization == "E" else 1/m_rel   # factor of the inner radial derivative
+    den = Ji*Hp - g*Jip*H
+    a_m = (g*Jip*J - Ji*Jp)/den
     c_m = 2j/(np.pi*x)/den   # Wronskian J H' - J' H = 2i/(pi x)
 
     return m, a_m, c_m
 
 
 def cylinder_field(x, z, radius, n_cyl, wl, n_medium=1.0, k_x=None, amplitudes=None,
-                   num_orders=None):
+                   num_orders=None, polarization="E"):
     """Exact total field of a circular dielectric cylinder (axis along y,
-    centred at x = z = 0) illuminated by plane waves travelling towards +z, TE
-    polarization (scalar Helmholtz equation).
+    centred at x = z = 0) illuminated by plane waves travelling towards +z:
+    the field component along the axis, E (TE polarization, the default) or
+    H (TM).
 
     Parameters
     ----------
     x, z : arrays
         Coordinates (broadcastable against each other).
-    radius, n_cyl, wl, n_medium, num_orders :
+    radius, n_cyl, wl, n_medium, num_orders, polarization :
         See cylinder_coefficients().
     k_x : array, optional
         Transverse wavenumbers of the incident plane waves. Defaults to a
@@ -256,7 +264,7 @@ def cylinder_field(x, z, radius, n_cyl, wl, n_medium=1.0, k_x=None, amplitudes=N
 
     k = 2*np.pi*n_medium/wl
     m_rel = n_cyl/n_medium
-    m, a_m, c_m = cylinder_coefficients(radius, n_cyl, wl, n_medium, num_orders)
+    m, a_m, c_m = cylinder_coefficients(radius, n_cyl, wl, n_medium, num_orders, polarization)
     k_x = np.zeros(1) if k_x is None else np.asarray(k_x, dtype=float)
     amplitudes = np.ones(len(k_x)) if amplitudes is None else np.asarray(amplitudes)
     k_z = np.sqrt(np.clip(k**2 - k_x**2, 0, None))
@@ -292,6 +300,72 @@ def cylinder_field(x, z, radius, n_cyl, wl, n_medium=1.0, k_x=None, amplitudes=N
     u[inside] = u_i
 
     return u
+
+
+def disk_resonance(m, radius, n_disk, wavelength, n_medium=1.0, polarization="E"):
+    """Exact resonance (quasi-normal mode) of a dielectric disk or cylinder
+    with azimuthal number m, near a guess of its wavelength.
+
+    The field along the axis is u = J_m(n_disk k r) exp(i m phi) inside and
+    proportional to H_m(n_medium k r) exp(i m phi) outside (outgoing, time
+    dependence exp(-i omega t)); matching u and its radial derivative (E
+    along the axis) or the radial derivative over n**2 (H along the axis)
+    at r = radius gives a complex vacuum wavenumber k with Im k < 0: the
+    mode decays in time. High m and low radial order are the whispering
+    gallery modes.
+
+    Parameters
+    ----------
+    m : int
+        Azimuthal number (abs(m); the modes +-m are degenerate).
+    radius : number
+    n_disk, n_medium : numbers
+        Refractive indices inside and outside.
+    wavelength : number or complex
+        Guess of the vacuum wavelength: real, the root next to the zero
+        crossing on the real axis nearest to it (whispering gallery modes);
+        complex (2 pi/k of an estimate, e.g. a numerical resonance), the
+        root Newton's method converges to from there (also strongly
+        leaking modes).
+    polarization : {"E", "H"}, optional
+        Field along the axis.
+
+    Returns
+    -------
+    k : complex
+        Vacuum wavenumber of the resonance: wavelength 2 pi/Re(k),
+        Q = Re(k)/(-2 Im(k)).
+    """
+
+    from scipy.special import jv, jvp, hankel1, h1vp
+    from scipy.optimize import newton
+
+    if polarization not in ("E", "H"):
+        raise ValueError("polarization must be 'E' or 'H'")
+    m = abs(int(m))
+    m_rel = n_disk/n_medium
+    g = m_rel if polarization == "E" else 1/m_rel
+
+    def f(x):   # x = n_medium k radius; the logarithmic derivatives match
+        return g*jvp(m, m_rel*x)/jv(m, m_rel*x) - h1vp(m, x)/hankel1(m, x)
+
+    if np.iscomplexobj(wavelength):   # a complex guess: Newton from there
+        x0 = 2*np.pi*n_medium*radius/complex(wavelength)
+        x = newton(f, x0, x1=x0*(1 + 1e-6) - 1e-6j, tol=1e-14, maxiter=200)
+        return complex(x)/(n_medium*radius)
+    # start from the zero crossing of Re f on the real axis nearest to the
+    # guess (not a pole of the Bessel ratio), then Newton in the complex plane
+    x_g = 2*np.pi*n_medium*radius/wavelength
+    xs = np.linspace(0.8*x_g, 1.2*x_g, 4001)
+    v = np.real(f(xs + 0j))
+    i = np.nonzero((np.sign(v[:-1]) != np.sign(v[1:])) & (np.abs(v[:-1]) + np.abs(v[1:]) < 5))[0]
+    if len(i) == 0:
+        raise RuntimeError("no resonance near the given wavelength")
+    i = i[np.argmin(np.abs(xs[i] - x_g))]
+    x0 = xs[i] - v[i]*(xs[i + 1] - xs[i])/(v[i + 1] - v[i]) + 0j
+    x = newton(f, x0, x1=x0*(1 + 1e-6) - 1e-6j, tol=1e-14, maxiter=200)
+
+    return complex(x)/(n_medium*radius)
 
 
 def sphere_coefficients(radius, n_sph, wl, n_medium=1.0, num_orders=None):

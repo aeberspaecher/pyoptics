@@ -13,12 +13,6 @@ to run them yourself, see [Running the notebooks](#running-the-notebooks).
 - {doc}`notebooks/04_chirp_z_transform`
 - {doc}`notebooks/05_WPM`
 - {doc}`notebooks/46_analytic_phase_propagation`
-- {doc}`notebooks/57_fdtd_basics`
-- {doc}`notebooks/59_fdtd_metals_plasmons`
-- {doc}`notebooks/60_fdtd_photonic_circuits`
-- {doc}`notebooks/62_fdtd_periodic_structures`
-- {doc}`notebooks/63_fdtd_devices`
-- {doc}`notebooks/64_fdtd_3d_nanojet`
 
 ```{toctree}
 :hidden:
@@ -30,12 +24,35 @@ notebooks/03_tilted_planes
 notebooks/04_chirp_z_transform
 notebooks/05_WPM
 notebooks/46_analytic_phase_propagation
+```
+
+## Maxwell solvers: FDTD and FDFD
+
+Full-wave solutions of Maxwell's equations on the Yee grid, in the time
+domain (`fdtd`) and one frequency at a time (`fdfd`). The FDTD mask
+model for lithography is in {doc}`notebooks/65_litho_fdtd_mask`.
+
+- {doc}`notebooks/57_fdtd_basics`
+- {doc}`notebooks/59_fdtd_metals_plasmons`
+- {doc}`notebooks/60_fdtd_photonic_circuits`
+- {doc}`notebooks/62_fdtd_periodic_structures`
+- {doc}`notebooks/63_fdtd_devices`
+- {doc}`notebooks/64_fdtd_3d_nanojet`
+- {doc}`notebooks/66_fdfd_basics`
+- {doc}`notebooks/67_fdfd_limacon_microcavity`
+
+```{toctree}
+:hidden:
+:caption: Maxwell solvers: FDTD and FDFD
+
 notebooks/57_fdtd_basics
 notebooks/59_fdtd_metals_plasmons
 notebooks/60_fdtd_photonic_circuits
 notebooks/62_fdtd_periodic_structures
 notebooks/63_fdtd_devices
 notebooks/64_fdtd_3d_nanojet
+notebooks/66_fdfd_basics
+notebooks/67_fdfd_limacon_microcavity
 ```
 
 ## Beams, modes and paraxial optics
