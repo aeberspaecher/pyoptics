@@ -161,18 +161,31 @@ class LineSource(_CurrentSource):
     transverse : callable, optional
         Amplitude across the line as a function of the coordinate along it,
         e.g. a Gaussian beam profile.
+    angle : number, optional
+        Tilt of the launched waves (radians, from the axis towards the
+        positive coordinate along the line): each point is delayed by
+        n*sin(angle)*(s - center), which launches plane waves (or a tilted
+        beam with `transverse`) at that angle in a medium of index n.
+    n : number
+        Refractive index at the line (for `angle`).
+    center : number
+        Coordinate along the line where the delay is zero.
     amplitude : number
     """
 
     def __init__(self, position, profile, axis=0, component=None, extent=None, transverse=None,
-                 amplitude=1.0):
+                 angle=0.0, n=1.0, center=0.0, amplitude=1.0):
         self.position = position
         self.profile = profile
         self.axis = axis
         self.component = component
         self.extent = extent
         self.transverse = transverse
+        self.angle = angle
+        self.n = n
+        self.center = center
         self.amplitude = amplitude
+        self._delay = None
 
     def setup(self, sim):
         if self.component is None:
@@ -196,6 +209,19 @@ class LineSource(_CurrentSource):
             w = w*self.transverse(t)
         self._idx = (i, slice(None)) if self.axis == 0 else (slice(None), i)
         self._weight = w
+        if self.angle:
+            self._delay = self.n*np.sin(self.angle)*(t - self.center)
+
+    def _value(self, t):
+        return self.profile(t) if self._delay is None else self.profile(t - self._delay)
+
+    def inject_e(self, sim, t):
+        if self.component[0] == "E":
+            self._apply(sim, self._value(t), True)
+
+    def inject_h(self, sim, t):
+        if self.component[0] == "H":
+            self._apply(sim, self._value(t), False)
 
 
 class TFSF(Source):

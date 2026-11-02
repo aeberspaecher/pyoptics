@@ -190,7 +190,8 @@ class Simulation(object):
         self._Ca, self._Cb = {}, {}
         media = self._media()
         poles = [(k, p) for k, m in enumerate(media) for p in m.poles]
-        self._pole_coeffs = np.array([p.coefficients(dt) for _, p in poles], dtype=float).reshape(-1, 3)
+        self._pole_coeffs = np.array([p.coefficients(dt) for _, p in poles],
+                                     dtype=self.dtype).reshape(-1, 3)
         self._P, self._Pp, self._W = {}, {}, {}
         for c in self.e_components:
             eps, sigma, frac = self.rasterize(c)

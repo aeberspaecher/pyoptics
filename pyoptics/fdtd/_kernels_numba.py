@@ -11,8 +11,6 @@ simulation.py exactly; 1D runs as a 2D Ez grid with one periodic cell
 along y. ``available`` tells whether numba could be imported.
 """
 
-import numpy as np
-
 try:
     import numba as nb
 except ImportError:  # pragma: no cover - depends on the installation
@@ -94,8 +92,11 @@ def e_ez(Ez, Hx, Hy, Ca, Cb, dt, dx, dy, px, py, fxe, bxe, cxe, kxe, fye, bye, c
             e = Ez[i, j]
             dP = 0.0
             for k in range(K):
+                w = W[k, i, j]
+                if w == 0.0:
+                    continue
                 p = P[k, i, j]
-                pn = pa[k]*p + pb[k]*Pp[k, i, j] + pc[k]*W[k, i, j]*e
+                pn = pa[k]*p + pb[k]*Pp[k, i, j] + pc[k]*w*e
                 dP += pn - p
                 Pp[k, i, j] = p
                 P[k, i, j] = pn
@@ -151,8 +152,11 @@ def e_hz(Ex, Ey, Hz, CaX, CbX, CaY, CbY, dt, dx, dy, px, py, fxe, bxe, cxe, kxe,
             e = Ex[i, j]
             dP = 0.0
             for k in range(K):
+                w = WX[k, i, j]
+                if w == 0.0:
+                    continue
                 p = PX[k, i, j]
-                pn = pa[k]*p + pb[k]*PpX[k, i, j] + pc[k]*WX[k, i, j]*e
+                pn = pa[k]*p + pb[k]*PpX[k, i, j] + pc[k]*w*e
                 dP += pn - p
                 PpX[k, i, j] = p
                 PX[k, i, j] = pn
@@ -169,8 +173,11 @@ def e_hz(Ex, Ey, Hz, CaX, CbX, CaY, CbY, dt, dx, dy, px, py, fxe, bxe, cxe, kxe,
             e = Ey[i, j]
             dP = 0.0
             for k in range(K):
+                w = WY[k, i, j]
+                if w == 0.0:
+                    continue
                 p = PY[k, i, j]
-                pn = pa[k]*p + pb[k]*PpY[k, i, j] + pc[k]*WY[k, i, j]*e
+                pn = pa[k]*p + pb[k]*PpY[k, i, j] + pc[k]*w*e
                 dP += pn - p
                 PpY[k, i, j] = p
                 PY[k, i, j] = pn

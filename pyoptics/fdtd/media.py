@@ -170,7 +170,7 @@ class Medium(object):
         Returns
         -------
         Medium
-            Its `fit_error` attribute is the maximum |delta eps| over the
+            Its `fit_error` attribute is the maximum absolute error of eps over the
             fitted wavelengths.
         """
 
@@ -179,7 +179,7 @@ class Medium(object):
         n = index(wl) if callable(index) else np.asarray(index)
         target = np.asarray(n, dtype=complex)**2
         w = 2*np.pi/wl
-        wmin, wmax = w.min(), w.max()
+        wmax = w.max()
         scale = np.max(np.abs(target))
 
         def build(p):
