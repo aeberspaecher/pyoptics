@@ -56,6 +56,14 @@ What each module does and how mature it is. Planned work is listed in
   the angular spectrum grid of a field)
 - `materials`: Abbe (n_d, V_d) dispersion model via a two-term Cauchy
   formula, tested
+- `glasses`: optical glass catalogues of SCHOTT, OHARA, HOYA, CDGM, SUMITA
+  and HIKARI (about 1600 glasses with the vendors' Sellmeier and power
+  series formulas, from the refractiveindex.info database, CC0), tested:
+  a `Glass` is a material n(wavelength_nm) for `raytrace.Surface`, Abbe
+  numbers and relative partial dispersions for any lines, the normal line
+  and dP_gF, catalogue search by n_d/V_d (and dP_gF), filters by status,
+  index and Abbe number, secondary spectrum of thin achromats; real glasses
+  for `lens_optimization.DampedLeastSquares.snap_glasses()` (notebook 59)
 - `polarization.mueller`, `polarization.jones`: Mueller calculus and basic
   Jones vectors and matrices, tested
 - `vectorial_imaging`: vectorial, partially coherent imaging (Abbe's method)
@@ -241,7 +249,10 @@ What each module does and how mature it is. Planned work is listed in
   paraxial focus, the entrance pupil and a curvature for the focal length;
   operands for polychromatic ray errors, RMS spots, wavefront (OPD), Seidel
   sums and primary colour; constraints (focal length, colour, edge and centre
-  thickness, length) held with Lagrange multipliers (notebook 58)
+  thickness, length) held with Lagrange multipliers (notebook 58); solves for
+  the length and the object side NA and the object distance as a variable,
+  as in `LensOptimizer` (notebook 43, section 7: clearances as constraints
+  and their prices)
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
 - `modes`: mode analysis and fibres, tested: decomposition of any field into
