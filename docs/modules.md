@@ -41,8 +41,12 @@ What each module does and how mature it is. Planned work is listed in
   (oblique incidence at a fixed transverse wave number), diffraction
   orders of gratings and band structures of photonic crystals
   (`bloch_modes`), checked against `thin_films`, RCWA (`litho.rcwa`), the
-  analytic bands of a Bragg stack and the band gap of a rod lattice.
-  Planned: photonic-crystal devices, grating couplers, 3D
+  analytic bands of a Bragg stack and the band gap of a rod lattice;
+  devices: lattices with defects (`Lattice`), photonic-crystal
+  waveguides (supercell bands, transmission through a sharp bend) and
+  cavities (Q against the crystal size), a fibre-to-chip grating coupler,
+  complex transmission of unit cells (`DiffractionOrders.coefficient`)
+  for a metasurface phase library and a metalens. Planned: 3D
   (`proposals/fdtd.md` in the project notes)
 - `analytic_phase`: propagation with analytic handling of the wavefront
   phase after Wyrowski and coworkers, tested: fields stored as a smooth

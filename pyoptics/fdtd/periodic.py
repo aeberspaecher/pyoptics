@@ -71,16 +71,28 @@ class DiffractionOrders(object):
     angle : (W, M)
         Angle from the axis (radians, nan for evanescent orders) in the
         medium at the line, sin(angle) = kt/(n k0) with the sign of kt.
+    amplitude : (W, M) complex
+        Complex amplitude of each order of the transverse E on the line
+        (the DFT of E expanded in exp(i kt t), referred to the time origin
+        of the run). Ratios of two runs with the same source give
+        transmission and reflection coefficients with their phases, e.g.
+        the phase library of a metasurface.
     """
 
-    def __init__(self, wavelengths, m, kt, power, propagating, angle):
+    def __init__(self, wavelengths, m, kt, power, propagating, angle, amplitude=None):
         self.wavelengths, self.m, self.kt = wavelengths, m, kt
         self.power, self.propagating, self.angle = power, propagating, angle
+        self.amplitude = amplitude
 
     def order(self, m):
         """Power of order m, (W,)."""
 
         return self.power[:, int(np.nonzero(self.m == m)[0][0])]
+
+    def coefficient(self, m):
+        """Complex amplitude of order m, (W,)."""
+
+        return self.amplitude[:, int(np.nonzero(self.m == m)[0][0])]
 
 
 class DiffractionMonitor(Monitor):
@@ -178,11 +190,12 @@ class DiffractionMonitor(Monitor):
         with np.errstate(invalid="ignore"):
             sin_t = kt[None, :]/(n*self._omega[:, None])
             angle = np.where(prop & (np.abs(sin_t) <= 1), np.arcsin(np.clip(sin_t, -1, 1)), np.nan)
-        return DiffractionOrders(self.wavelengths, m, kt, P, prop, angle)
+        return DiffractionOrders(self.wavelengths, m, kt, P, prop, angle, amplitude=Em)
 
 
 def bloch_modes(grid, structure, k, band, mode="Ez", background=None, time=None, n_sources=5,
-                n_probes=5, seed=1, subpixel=None, backend="auto", **resonance_options):
+                n_probes=5, seed=1, subpixel=None, backend="auto", region=None,
+                **resonance_options):
     """Frequencies of the Bloch modes of a periodic medium at one wave
     vector.
 
@@ -205,6 +218,9 @@ def bloch_modes(grid, structure, k, band, mode="Ez", background=None, time=None,
         Dipoles and probes at random positions (a mode with a node at one of
         them still shows at the others).
     seed : int
+    region : ((x0, x1), (y0, y1)), optional
+        Where the dipoles and probes go (default: the whole cell); in a
+        supercell with a defect, the defect region picks out its modes.
     resonance_options
         Passed to analysis.resonances (e.g. min_q, max_poles).
 
@@ -227,8 +243,12 @@ def bloch_modes(grid, structure, k, band, mode="Ez", background=None, time=None,
     lo, hi = min(band), max(band)
     f0 = 0.5*(1/lo + 1/hi)
     pulse = GaussianPulse(1/f0, bandwidth=0.5*(1/lo - 1/hi)/f0)
-    lo_c = np.asarray(grid.origin)
-    pos = lambda: tuple(lo_c + rng.random(grid.ndim)*np.asarray(grid.size))
+    if region is None:
+        lo_c, size = np.asarray(grid.origin, float), np.asarray(grid.size, float)
+    else:
+        reg = np.atleast_2d(np.asarray(region, dtype=float))
+        lo_c, size = reg[:, 0], reg[:, 1] - reg[:, 0]
+    pos = lambda: tuple(lo_c + rng.random(grid.ndim)*size)
     pts = [pos() for _ in range(n_sources)]
     sources = [PointSource(p if grid.ndim == 2 else p[0], pulse,
                            amplitude=np.exp(2j*np.pi*rng.random())) for p in pts]
