@@ -52,8 +52,9 @@ What each module does and how mature it is. Planned work is listed in
   plane sources, a TFSF plane wave along z with the incident spectrum
   recorded, plane monitors, flux through planes and section plots,
   checked against the vector Mie series (near field and scattering cross
-  section of a sphere); the photonic nanojet. Planned: the litho mask
-  model (`proposals/fdtd.md` in the project notes)
+  section of a sphere); the photonic nanojet; diffraction orders (m, n) of 3D periodic cells;
+  `Medium.from_index` for metals at one wavelength (an exact Drude match);
+  the rigorous FDTD mask model `litho.FDTDMask`
 - `analytic_phase`: propagation with analytic handling of the wavefront
   phase after Wyrowski and coworkers, tested: fields stored as a smooth
   sampled amplitude times a separable quadratic phase with carrier
@@ -131,6 +132,9 @@ What each module does and how mature it is. Planned work is listed in
   factorization, conical incidence, enhanced transmittance matrices; exact
   against `thin_films`, energy conserving), `RigorousMask` for Abbe and
   Hopkins imaging and a calibration of the boundary layer model;
+  `litho.FDTDMask`: rigorous mask diffraction of any 1D or 2D layout
+  (contact holes, line ends) with the 3D FDTD, the same interface as
+  `RigorousMask`, checked against RCWA for lines (orders, images, CD);
   `litho.jones_pupil`: polarization of the lens as Jones pupils in the
   representations of the literature (Pauli-Zernike, polar decomposition,
   retardance and diattenuation in orientation Zernike polynomials) with
