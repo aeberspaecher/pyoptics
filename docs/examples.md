@@ -167,6 +167,7 @@ notebooks/55_fourier_ptychography
 - {doc}`notebooks/35_litho_resist_swing`
 - {doc}`notebooks/36_litho_rigorous_mask`
 - {doc}`notebooks/37_litho_mask_models`
+- {doc}`notebooks/65_litho_fdtd_mask`
 - {doc}`notebooks/38_litho_jones_pupil`
 - {doc}`notebooks/39_litho_source_optimization`
 - {doc}`notebooks/40_litho_opc`
@@ -187,6 +188,7 @@ notebooks/34_hopkins_socs
 notebooks/35_litho_resist_swing
 notebooks/36_litho_rigorous_mask
 notebooks/37_litho_mask_models
+notebooks/65_litho_fdtd_mask
 notebooks/38_litho_jones_pupil
 notebooks/39_litho_source_optimization
 notebooks/40_litho_opc

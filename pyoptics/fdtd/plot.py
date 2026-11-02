@@ -36,6 +36,7 @@ INTENSITY_CMAP = "inferno"
 SOURCE_COLOR = "#e0a000"   # sketch.ILLUMINATION
 MONITOR_COLOR = "#2a7ab9"  # sketch.IMAGING
 PML_COLOR = "0.5"
+METAL_COLOR = "#b5893c"    # media with poles (metals): their eps_inf says little
 
 
 def _plt():
@@ -99,22 +100,40 @@ def _structure_outline(ax, sim, color="k", lw=0.6, alpha=0.6, plane=None):
 
     if not sim.structure or sim.ndim == 1:
         return
-    c = sim.e_components[0]
-    if sim.ndim == 3:
-        a, pos = _plane(plane)
-        keep = [b for b in range(3) if b != a]
-        x, y = (sim.coords(c)[b] for b in keep)
-        X, Y = np.meshgrid(x, y, indexing="ij")
-        pts = [None]*3
-        pts[keep[0]], pts[keep[1]], pts[a] = X, Y, np.full(X.shape, pos)
-    else:
-        x, y = sim.coords(c)
-        X, Y = np.meshgrid(x, y, indexing="ij")
-        pts = (X, Y)
+    x, y, pts = _section_points(sim, sim.e_components[0], plane)
     for shape, _ in sim.structure:
         inside = shape.contains(*pts).astype(float)
         if 0 < inside.mean() < 1:
             ax.contour(x, y, inside.T, levels=[0.5], colors=color, linewidths=lw, alpha=alpha)
+
+
+def _section_points(sim, component, plane=None):
+    """Coordinates of the nodes of a component on the plot plane (2D: all of
+    them; 3D: the section) and the points to test shapes at."""
+
+    if sim.ndim == 3:
+        a, pos = _plane(plane)
+        keep = [b for b in range(3) if b != a]
+        x, y = (sim.coords(component)[b] for b in keep)
+        X, Y = np.meshgrid(x, y, indexing="ij")
+        pts = [None]*3
+        pts[keep[0]], pts[keep[1]], pts[a] = X, Y, np.full(X.shape, pos)
+        return x, y, pts
+    x, y = sim.coords(component)
+    X, Y = np.meshgrid(x, y, indexing="ij")
+    return x, y, (X, Y)
+
+
+def _dispersive_mask(sim, component, plane=None):
+    """Nodes of the plot plane in a medium with poles (Drude, Lorentz,
+    Debye), whose eps_inf alone would show them like vacuum."""
+
+    x, y, pts = _section_points(sim, component, plane)
+    medium = np.full(pts[0].shape, -1)
+    for i, (shape, _) in enumerate(sim.structure):
+        medium[np.asarray(shape.contains(*pts), dtype=bool)] = i
+    poles = np.array([bool(m.poles) for _, m in sim.structure] + [bool(sim.background.poles)])
+    return poles[medium]
 
 
 def _overlays3(ax, sim, plane, show_pml=True, show_sources=True, show_monitors=True):
@@ -175,7 +194,7 @@ def _overlays3(ax, sim, plane, show_pml=True, show_sources=True, show_monitors=T
                                 arrowprops=dict(arrowstyle="-|>", color=SOURCE_COLOR, lw=1.5))
     if show_monitors:
         for m in sim.monitors:
-            if isinstance(m, _mon.Flux):
+            if isinstance(m, _mon.Flux) or type(m).__name__ == "DiffractionMonitor":
                 line(m.axis, m.position, MONITOR_COLOR, lw=1.2, ls="--")
             elif isinstance(m, _mon.Probe):
                 p = np.asarray(m.position, dtype=float)
@@ -268,7 +287,8 @@ def _overlays(ax, sim, show_pml=True, show_sources=True, show_monitors=True, pla
 def plot_structure(sim, ax=None, component=None, cmap="Greys", show_pml=True, show_sources=True,
                    show_monitors=True, colorbar=False, periods=1, plane=None):
     """Refractive index map (2D, a section in 3D, sqrt of the permittivity)
-    or permittivity profile (1D) with PML, sources and monitors.
+    or permittivity profile (1D) with PML, sources and monitors. Media with
+    poles (metals) are filled in a metallic colour.
 
     Sources are drawn in amber (points, lines, the TFSF box with an arrow
     for the direction), monitors in blue (flux lines dashed, DFT regions
@@ -316,6 +336,12 @@ def plot_structure(sim, ax=None, component=None, cmap="Greys", show_pml=True, sh
         im = ax.imshow(n_t.T, origin="lower", extent=ext, cmap=cmap,
                        vmin=min(1.0, n.min()), vmax=1 + 1.4*max(n.max() - 1, 0.3),
                        interpolation="nearest")
+        metal = _dispersive_mask(sim, c, plane if sim.ndim == 3 else None)
+        if metal.any():
+            m_t = np.tile(metal, reps).astype(float)
+            from matplotlib.colors import ListedColormap
+            ax.imshow(np.ma.masked_less(m_t.T, 0.5), origin="lower", extent=ext, interpolation="nearest",
+                      cmap=ListedColormap([METAL_COLOR]), vmin=0, vmax=1)
         if max(reps) > 1:
             gext = sim.grid.extent
             gx0, gx1, gy0, gy1 = (gext[2*b + e] for b in shown for e in (0, 1))
