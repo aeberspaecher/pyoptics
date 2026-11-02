@@ -11,6 +11,23 @@ the inner edge (d = 0) to the outer wall (d = 1). Each spatial derivative
 inside the layer becomes dF/dx/kappa + psi, with the recursive convolution
 psi <- b*psi + c*dF/dx. The layer is matched for any medium that extends
 into it, and its outer wall is a PEC.
+
+References
+----------
+J.-P. Berenger, "A perfectly matched layer for the absorption of
+electromagnetic waves", J. Comput. Phys. 114, 185-200 (1994).
+
+W. C. Chew and W. H. Weedon, "A 3D perfectly matched medium from modified
+Maxwell's equations with stretched coordinates", Microw. Opt. Technol. Lett.
+7, 599-604 (1994).
+
+J. A. Roden and S. D. Gedney, "Convolution PML (CPML): An efficient FDTD
+implementation of the CFS-PML for arbitrary media", Microw. Opt. Technol.
+Lett. 27, 334-339 (2000).
+
+A. Taflove and S. C. Hagness, "Computational Electrodynamics: The
+Finite-Difference Time-Domain Method", 3rd ed., Artech House (2005), chapter
+7.
 """
 
 import numpy as np

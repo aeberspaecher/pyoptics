@@ -11,6 +11,21 @@ dimension. Shapes are combined with a
 medium in a Simulation's structure list, where later entries are drawn on
 top of earlier ones. Shapes can be added (union) and subtracted
 (difference): ``Circle((0, 0), 2) - Circle((0, 0), 1.5)`` is a ring.
+
+References
+----------
+A. Farjadpour, D. Roundy, A. Rodriguez, M. Ibanescu, P. Bermel, J. D.
+Joannopoulos, S. G. Johnson and G. W. Burr, "Improving accuracy by subpixel
+smoothing in the finite-difference time domain", Opt. Lett. 31, 2972-2974
+(2006).
+
+C. Kottke, A. Farjadpour and S. G. Johnson, "Perturbation theory for
+anisotropic dielectric interfaces, and application to subpixel smoothing of
+discretized numerical methods", Phys. Rev. E 77, 036611 (2008).
+
+A. F. Oskooi, C. Kottke and S. G. Johnson, "Accurate finite-difference
+time-domain simulation of anisotropic media by subpixel smoothing", Opt.
+Lett. 34, 2778-2780 (2009).
 """
 
 import numpy as np

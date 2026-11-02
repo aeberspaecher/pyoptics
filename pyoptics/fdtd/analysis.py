@@ -20,6 +20,20 @@ above the noise (round-off for FDTD).
 The signal is decimated before the analysis, so the FDTD time step does not
 set the matrix size; the sampling must stay above twice the highest
 frequency in the signal (with a pulse source: the upper band edge).
+
+References
+----------
+Y. Hua and T. K. Sarkar, "Matrix pencil method for estimating parameters of
+exponentially damped/undamped sinusoids in noise", IEEE Trans. Acoust.
+Speech Signal Process. 38, 814-824 (1990).
+
+T. K. Sarkar and O. Pereira, "Using the matrix pencil method to estimate the
+parameters of a sum of complex exponentials", IEEE Antennas Propag. Mag. 37,
+48-55 (1995).
+
+V. A. Mandelshtam and H. S. Taylor, "Harmonic inversion of time signals and
+its applications", J. Chem. Phys. 107, 6756-6769 (1997), the related filter
+diagonalization used by MEEP's Harminv.
 """
 
 import numpy as np

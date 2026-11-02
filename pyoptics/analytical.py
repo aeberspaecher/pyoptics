@@ -335,6 +335,12 @@ def disk_resonance(m, radius, n_disk, wavelength, n_medium=1.0, polarization="E"
     k : complex
         Vacuum wavenumber of the resonance: wavelength 2 pi/Re(k),
         Q = Re(k)/(-2 Im(k)).
+
+    References
+    ----------
+    .. [1] H. Cao and J. Wiersig, "Dielectric microcavities: Model systems for
+       wave chaos and non-Hermitian physics", Rev. Mod. Phys. 87, 61-111
+       (2015), section II.
     """
 
     from scipy.special import jv, jvp, hankel1, h1vp

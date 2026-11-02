@@ -51,6 +51,27 @@ Example
 >>> sim = fdfd.Simulation(grid, [(fdtd.Circle((0, 0), 1.0), fdtd.Medium.from_index(3.3))])
 >>> modes = sim.resonances(1.55, n=2)          # the WGM pair near 1.55
 >>> modes[0].wavelength, modes[0].Q            # doctest: +SKIP
+
+References
+----------
+R. C. Rumpf, "Electromagnetic and Photonic Simulation for the Beginner:
+Finite-Difference Frequency-Domain in MATLAB", Artech House (2022).
+
+R. C. Rumpf, "Simple implementation of arbitrarily shaped
+total-field/scattered-field regions in finite-difference frequency-domain",
+Prog. Electromagn. Res. B 36, 221-248 (2012).
+
+W. Shin and S. Fan, "Choice of the perfectly matched layer boundary
+condition for frequency-domain Maxwell's equations solvers", J. Comput.
+Phys. 231, 3406-3431 (2012).
+
+P. Lalanne, W. Yan, K. Vynck, C. Sauvan and J.-P. Hugonin, "Light
+interaction with photonic and plasmonic resonances", Laser Photonics Rev.
+12, 1700113 (2018).
+
+H. Cao and J. Wiersig, "Dielectric microcavities: Model systems for wave
+chaos and non-Hermitian physics", Rev. Mod. Phys. 87, 61-111 (2015), for
+microcavity resonances.
 """
 
 from .solver import Simulation, PointSource, PlaneWave, Resonance

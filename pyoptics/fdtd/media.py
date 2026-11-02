@@ -27,6 +27,22 @@ Debye update (an exponential integrator) first order.
 
 Photon energies convert with omega = E/(hbar c) per length unit:
 `omega_from_eV()` (1.2398/E µm for E in eV).
+
+References
+----------
+A. Taflove and S. C. Hagness, "Computational Electrodynamics: The
+Finite-Difference Time-Domain Method", 3rd ed., Artech House (2005), chapter
+9.
+
+R. M. Joseph, S. C. Hagness and A. Taflove, "Direct time integration of
+Maxwell's equations in linear dispersive media with absorption for
+scattering and propagation of femtosecond electromagnetic pulses", Opt.
+Lett. 16, 1412-1414 (1991).
+
+A. Vial, A.-S. Grimault, D. Macias, D. Barchiesi and M. Lamy de la Chapelle,
+"Improved analytical fit of gold dispersion: Application to the modeling of
+extinction spectra with a finite-difference time-domain method", Phys. Rev.
+B 71, 085416 (2005).
 """
 
 import numpy as np

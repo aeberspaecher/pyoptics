@@ -66,6 +66,21 @@ so nothing leaks backwards; away from the centre wavelength the mode
 dispersion differs slightly from that of the uniform 1D medium and a small
 fraction leaks (about 1e-6 in the Ez and 2e-4 in the Hz mode of a
 high-index waveguide at +-6 % of the centre frequency).
+
+References
+----------
+A. W. Snyder and J. D. Love, "Optical Waveguide Theory", Chapman and Hall
+(1983).
+
+K. Okamoto, "Fundamentals of Optical Waveguides", 2nd ed., Academic Press
+(2006).
+
+A. Taflove and S. C. Hagness, "Computational Electrodynamics: The
+Finite-Difference Time-Domain Method", 3rd ed., Artech House (2005), chapter
+5 (TFSF injection).
+
+D. M. Pozar, "Microwave Engineering", 4th ed., Wiley (2012), chapter 4
+(S-parameters).
 """
 
 import numpy as np

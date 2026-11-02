@@ -22,6 +22,16 @@ Monitor regions are given as ((xmin, xmax), (ymin, ymax)[, (zmin, zmax)])
 inside. A number instead of a range picks the single node layer nearest
 to it, e.g. ((-1, 1), 0.0, (-2, 2)) for the plane y = 0 in 3D (the arrays
 keep a length-1 axis there).
+
+References
+----------
+A. Taflove and S. C. Hagness, "Computational Electrodynamics: The
+Finite-Difference Time-Domain Method", 3rd ed., Artech House (2005), chapter
+5 (DFT and flux).
+
+A. F. Oskooi, D. Roundy, M. Ibanescu, P. Bermel, J. D. Joannopoulos and S.
+G. Johnson, "MEEP: A flexible free-software package for electromagnetic
+simulations by the FDTD method", Comput. Phys. Commun. 181, 687-702 (2010).
 """
 
 import collections

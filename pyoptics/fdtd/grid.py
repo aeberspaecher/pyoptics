@@ -13,6 +13,16 @@ first). The grid has shape[a] cells along axis a, with origin + i*spacing
 (i = 0..shape[a] - 1) for the integer nodes and origin + (i + 1/2)*spacing
 for the half nodes.
 The outer walls lie at origin and origin + shape*spacing.
+
+References
+----------
+K. S. Yee, "Numerical solution of initial boundary value problems involving
+Maxwell's equations in isotropic media", IEEE Trans. Antennas Propag. 14,
+302-307 (1966).
+
+A. Taflove and S. C. Hagness, "Computational Electrodynamics: The
+Finite-Difference Time-Domain Method", 3rd ed., Artech House (2005),
+chapters 3 and 4 (Yee cell, numerical dispersion and stability).
 """
 
 import numpy as np
