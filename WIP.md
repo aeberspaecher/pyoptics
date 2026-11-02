@@ -103,7 +103,8 @@
 * Lens design: classical damped least squares optimizer with variables
   (curvatures, thicknesses, conics, aspheres, model glasses), solves,
   operands (ray errors, spots, wavefront, Seidel, colour) and Lagrange
-  multiplier constraints (`lens_optimization.DampedLeastSquares`, notebook 58)
+  multiplier constraints (`lens_optimization.DampedLeastSquares`, notebook 58:
+  achromat, Cooke triplet, Lister and plan microscope objectives)
 * Glass catalogues of SCHOTT, OHARA, HOYA, CDGM, SUMITA, HIKARI with partial
   dispersions; snapping model glasses to real ones (`glasses`, notebook 61)
 

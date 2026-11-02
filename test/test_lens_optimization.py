@@ -243,3 +243,20 @@ def test_dls_length_and_object_na_solves():
     assert np.isclose(s.object_distance + s.image_z, 200.0)
     p = s.paraxial()
     assert np.isclose(p.na*abs(p.magnification), 0.05, rtol=1e-6)
+
+
+def test_paraxial_focus_solve_in_front_of_a_cover_glass():
+    surfaces = [rt.Surface(50.0, 5.0, n_after=N_GLASS), rt.Surface(-50.0, 30.0, n_after=1.0),
+                rt.Surface(np.inf, 0.17, n_after=1.523), rt.Surface(np.inf, 0.0, n_after=1.0)]
+    system = rt.System(surfaces, 0, WL, entrance_pupil_radius=5.0)
+    lo.solve_paraxial_focus(surface=1)(system)
+    assert abs(system.paraxial().image_distance) < 1e-9
+    assert system.surfaces[-1].thickness == 0.0
+    # the cover glass moves the focus away by t (1 - 1/n)
+    plain = rt.System([rt.Surface(50.0, 5.0, n_after=N_GLASS), rt.Surface(-50.0, 0.0, n_after=1.0)],
+                      0, WL, entrance_pupil_radius=5.0)
+    bfd = plain.paraxial().image_distance
+    assert np.isclose(system.surfaces[1].thickness, bfd - 0.17/1.523, atol=1e-6)
+    # an offset puts the image plane behind the focus, as for the image distance solve
+    lo.solve_paraxial_focus(offset=0.01, surface=1)(system)
+    assert np.isclose(system.paraxial().image_distance, -0.01, atol=1e-9)
