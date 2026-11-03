@@ -61,6 +61,11 @@ Setup sketches for the other example notebooks:
   short shadow (notebook 68).
 - cubic_phase_airy(): a cubic phase plate and a lens make an Airy beam,
   whose rays touch a parabolic caustic (notebook 68).
+- young_extended_source(), vcz_setup(), stellar_interferometer(),
+  michelson_interferometer(), hbt_interferometer(): Young's double pinhole
+  with an extended source, the van Cittert-Zernike theorem, Michelson's
+  stellar interferometer, a Michelson interferometer for temporal coherence
+  and a Hanbury Brown-Twiss intensity interferometer (notebook 74).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -101,7 +106,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "twyman_green", "fizeau_interferometer", "shack_hartmann_sensor",
            "phase_diversity_setup", "holography_setup", "fold_mirror", "krf_illuminator",
            "spatial_filter", "vortex_interferometer", "mode_converter",
-           "axicon_bessel", "cubic_phase_airy"]
+           "axicon_bessel", "cubic_phase_airy", "young_extended_source", "vcz_setup",
+           "stellar_interferometer", "michelson_interferometer", "hbt_interferometer"]
 
 
 GLASS = "#cfe3f3"
@@ -1966,3 +1972,268 @@ def cubic_phase_airy(ax, title=None):
     label(ax, zc[-1] - 0.05, yc[-1] + 0.12, "caustic: the main lobe\nof the Airy beam",
           fontsize=8, ha="right", va="bottom")
     _finish(ax, (-1.4, z_end + 0.1), (-1.35, 1.25), title)
+
+
+STAR = "#e0a000"
+STAR2 = "#8e5ba8"
+
+
+def _fringe_curve(ax, z0, y, phase, period, amplitude, visibility=1.0, color="0.3", lw=1.0,
+                  ls="-"):
+    """A fringe profile drawn sideways: z = z0 + amplitude*(1 + V cos(2 pi y/period + phase))."""
+    ax.plot(z0 + amplitude*(1 + visibility*np.cos(2*np.pi*y/period + phase)), y, color=color,
+            lw=lw, ls=ls, zorder=5)
+
+
+def young_extended_source(ax, title=None):
+    """Sketch of Young's double pinhole lit by an extended incoherent source
+    (section 1 of notebook 74).
+
+    The source sits in the front focal plane of a collimator. Each source
+    point sends a plane wave onto the pinholes, tilted by its height over
+    the focal length, and makes complete fringes on the screen behind a
+    second lens, shifted by its tilt. The points are mutually incoherent, so
+    their fringe intensities add up and wash out (black curve) once the
+    shifts reach half a period.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    f_c, z_ph, f2 = 2.0, 3.0, 1.6
+    z_l2 = z_ph + 0.8
+    z_scr = z_l2 + f2
+    y_p = 0.45
+    lenses = [(f_c, f_c), (z_l2, f2)]
+    colours = [STAR, IMAGING, STAR2]
+    y_src = [0.3, 0.0, -0.3]
+    # the extended source
+    ax.add_patch(_patches().Rectangle((-0.06, -0.38), 0.12, 0.76, facecolor="#fbe7b0",
+                                      edgecolor=ILLUMINATION, lw=1, zorder=3))
+    for ys, col in zip(y_src, colours):
+        point_source(ax, 0.0, ys, color=col, size=55)
+        for yp in (y_p, -y_p):
+            h = yp + ys/f_c*(z_ph - f_c)           # height on the collimator
+            draw_ray(ax, lenses, 0.0, ys, (h - ys)/f_c, z_scr, color=col, lw=0.9, alpha=0.8,
+                     arrow=False)
+    lens(ax, f_c, 1.0, text="collimator f$_c$")
+    stop(ax, z_ph, 1.0, openings=((y_p - 0.04, y_p + 0.04),), width=0.05,
+         text="two pinholes\nd apart", text_y=-1.45)
+    lens(ax, z_l2, 1.0, text="lens f")
+    ax.plot([z_scr, z_scr], [-1.0, 1.0], color="0.35", lw=2.5, zorder=4)
+    label(ax, z_scr, -1.15, "screen", va="top")
+    label(ax, 0.0, -0.5, "incoherent source,\ndiameter D", va="top")
+    # fringes of each source point and their sum
+    y = np.linspace(-0.95, 0.95, 300)
+    period = 0.5
+    for ys, col in zip(y_src, colours):
+        _fringe_curve(ax, z_scr + 0.15, y, 2*np.pi*ys/0.75, period, 0.22, color=col, lw=0.9)
+    phases = np.linspace(-0.3, 0.3, 21)*2*np.pi/0.75
+    total = np.mean([1 + np.cos(2*np.pi*y/period + p) for p in phases], axis=0)
+    ax.plot(z_scr + 0.15 + 0.22*total, y, color="k", lw=1.8, zorder=6)
+    label(ax, z_scr + 0.4, 1.05, "fringes of each point\nand their sum (black)", va="bottom",
+          fontsize=8)
+    label(ax, z_ph + 0.4, 0.95, "each point: a plane wave\ntilted by ξ/f$_c$", fontsize=8,
+          va="bottom")
+    _finish(ax, (-0.6, z_scr + 0.9), (-1.55, 1.45), title)
+
+
+def vcz_setup(ax, title=None):
+    """Sketch of the van Cittert-Zernike theorem (section 2 of notebook 74).
+
+    An incoherent source of diameter D: every point radiates a spherical
+    wave with its own random phase (drawn in different colours). A distance
+    z away the fields at two points P1 and P2 are correlated as long as
+    their separation is small compared with lambda*z/D; the degree of
+    coherence is the Fourier transform of the source intensity.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    from matplotlib.patches import Arc
+
+    z_obs = 4.2
+    ys = [0.32, 0.12, -0.08, -0.28]
+    colours = [STAR, IMAGING, STAR2, EMISSION]
+    ax.add_patch(_patches().Rectangle((-0.06, -0.4), 0.12, 0.8, facecolor="#fbe7b0",
+                                      edgecolor=ILLUMINATION, lw=1, zorder=3))
+    for i, (y0, col) in enumerate(zip(ys, colours)):
+        point_source(ax, 0.0, y0, color=col, size=45)
+        for r in np.arange(0.6 + 0.2*i, z_obs - 0.1, 0.9):
+            theta = np.degrees(np.arcsin(min(1.1/r, 1.0)))
+            ax.add_patch(Arc((0.0, y0), 2*r, 2*r, theta1=-theta, theta2=theta, color=col,
+                             lw=0.7, alpha=0.6, zorder=2))
+    ax.plot([z_obs, z_obs], [-1.3, 1.3], color="0.55", ls=":", lw=1)
+    for y0, name in [(0.55, "P$_1$"), (0.15, "P$_2$")]:
+        ax.plot([z_obs], [y0], "o", color="k", ms=5, zorder=6)
+        label(ax, z_obs + 0.12, y0, name, ha="left")
+    arrow(ax, z_obs + 0.5, 0.15, z_obs + 0.5, 0.55, style="<|-|>", color="0.3")
+    label(ax, z_obs + 0.6, 0.35, "Δr", ha="left", fontsize=9)
+    arrow(ax, z_obs + 0.25, -0.75, z_obs + 0.25, 0.75, style="<|-|>", color=STRAY, lw=0.8)
+    label(ax, z_obs + 0.35, -0.6, "coherence width\n≈ λz/D", fontsize=8, color=STRAY,
+          va="center", ha="left")
+    arrow(ax, 0.0, -1.0, z_obs, -1.0, style="<|-|>", color="0.4", text="z",
+          text_pos=(z_obs/2, -1.08), va="top")
+    label(ax, 0.0, -0.5, "incoherent source,\ndiameter D,\nrandom phases", va="top", fontsize=8)
+    label(ax, z_obs, 1.35, "observation plane:\nμ(Δr) = FT{I(ξ)} at Δr/λz", va="bottom",
+          fontsize=8)
+    _finish(ax, (-0.8, z_obs + 1.6), (-1.4, 1.75), title)
+
+
+def stellar_interferometer(ax, title=None):
+    """Sketch of Michelson's stellar interferometer (section 3 of notebook 74).
+
+    Light of a star falls on two outer mirrors a baseline B apart. They and
+    two inner mirrors a fixed distance h apart send it into a telescope,
+    which focuses both beams into one image with fringes of period
+    lambda*f/h. Light from a second point of the stellar disk, at the angle
+    alpha, arrives at one outer mirror with the extra path B*alpha and
+    shifts its fringes by the phase k*B*alpha; the baseline sets the
+    visibility.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    B, hh = 4.4, 1.6
+    y_m, y_tel, y_foc = 3.0, 1.9, -0.1
+    w = 0.12
+    f = y_tel - y_foc
+    # starlight onto the outer mirrors
+    for zc in (-B/2, B/2):
+        band(ax, [zc - w, zc - w], [4.3, y_m], [zc + w, zc + w], [4.3, y_m], color=STAR,
+             alpha=0.3)
+    # the folded paths to the telescope
+    for s in (-1, 1):
+        band(ax, [s*B/2, s*hh/2], [y_m + w, y_m + w], [s*B/2, s*hh/2], [y_m - w, y_m - w],
+             color=STAR, alpha=0.3)
+        band(ax, [s*hh/2 - w, s*hh/2 - w, 0.0], [y_m, y_tel, y_foc],
+             [s*hh/2 + w, s*hh/2 + w, 0.0], [y_m, y_tel, y_foc], color=STAR, alpha=0.3)
+        mirror(ax, s*B/2, y_m, 0.55, s*np.pi/4)
+        mirror(ax, s*hh/2, y_m, 0.55, s*np.pi/4)
+    rotated_lens(ax, 0.0, y_tel, 1.25, rotate=90)
+    label(ax, 1.4, y_tel, "telescope, focal length f", ha="left")
+    # wavefront of the tilted star across the baseline
+    ax.plot([-B/2 - 0.2, B/2 + 0.2], [4.0 + 0.06*(-B/2 - 0.2), 4.0 + 0.06*(B/2 + 0.2)],
+            color=STAR2, lw=1.2)
+    label(ax, B/2 + 0.3, 4.3, "star point at angle α:\nextra path B·α", ha="left", fontsize=8,
+          color=STAR2)
+    label(ax, -B/2 - 0.1, 4.45, "starlight", fontsize=8, va="bottom")
+    arrow(ax, -B/2, 2.4, B/2, 2.4, style="<|-|>", color="0.3")
+    label(ax, 0.0, 2.47, "baseline B: sets the visibility", va="bottom", fontsize=9)
+    arrow(ax, -hh/2, 3.4, hh/2, 3.4, style="<|-|>", color="0.3")
+    label(ax, 0.0, 3.47, "h", va="bottom", fontsize=9)
+    label(ax, -B/2 - 0.35, y_m, "outer\nmirror", ha="right", fontsize=8)
+    label(ax, 0.0, y_m, "inner mirrors", fontsize=8)
+    # fringes in the focal plane
+    zz = np.linspace(-0.6, 0.6, 400)
+    env = np.exp(-(zz/0.3)**2)
+    ax.plot(zz, y_foc - 0.65 + 0.45*env*(1 + np.cos(2*np.pi*zz/0.1))/2, color=STAR, lw=1.2)
+    ax.plot([-0.65, 0.65], [y_foc - 0.65]*2, color="0.6", lw=0.6)
+    label(ax, 0.75, y_foc - 0.5, "fringes in the focus,\nperiod λf/h (set by h)", ha="left",
+          fontsize=8)
+    _finish(ax, (-B/2 - 1.0, B/2 + 2.2), (-0.9, 4.8), title)
+
+
+def michelson_interferometer(ax, title=None):
+    """Sketch of a Michelson interferometer measuring temporal coherence
+    (section 4 of notebook 74).
+
+    A collimated beam from a broadband source is split; one mirror is fixed,
+    the other moves by Delta/2, which gives the optical path difference
+    Delta between the arms. The detector sees I(Delta) = 1 + Re gamma(Delta/c):
+    fringes under the envelope abs(gamma), the Fourier transform of the
+    spectrum.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    w = 0.3
+    z_bs = 2.4
+    point_source(ax, -0.6, 0.0, color=ILLUMINATION, size=90, text="LED, lamp\nor star")
+    for y0 in (w, -w):
+        ax.plot([-0.6, 0.4], [0.0, y0], color=ILLUMINATION, lw=0.8)
+    band(ax, [0.4, z_bs], [w, w], [0.4, z_bs], [-w, -w], color=ILLUMINATION)
+    lens(ax, 0.4, 0.45, text="collimator")
+    # fixed arm up, moving arm to the right, output down
+    band(ax, [z_bs - w, z_bs - w], [0.0, 2.0], [z_bs + w, z_bs + w], [0.0, 2.0],
+         color=ILLUMINATION)
+    band(ax, [z_bs, 4.6], [w, w], [z_bs, 4.6], [-w, -w], color=ILLUMINATION)
+    band(ax, [z_bs - w, z_bs - w], [0.0, -1.6], [z_bs + w, z_bs + w], [0.0, -1.6],
+         color="#8e5ba8")
+    mirror(ax, z_bs, 2.05, 0.9, np.pi/2, text="fixed mirror", text_dy=0.35)
+    mirror(ax, 4.65, 0.0, 0.9, 0.0)
+    label(ax, 4.65, -0.6, "moving mirror", va="top")
+    arrow(ax, 4.85, 0.6, 5.35, 0.6, style="<|-|>", color="0.3")
+    label(ax, 5.1, 0.68, "Δ/2", va="bottom")
+    beam_splitter(ax, z_bs, 0.0, 0.9, "/", text="beam\nsplitter", text_dy=-0.4)
+    rotated_detector(ax, z_bs, -1.7, 0.35)
+    label(ax, z_bs - 0.5, -1.75, "detector:\nI(Δ) = 1 + Re γ(Δ/c)", ha="right", fontsize=8)
+    # a sketch of the interferogram
+    d = np.linspace(-1.1, 1.1, 500)
+    ax.plot(4.0 + 0.9*d, -1.5 + 0.35*np.exp(-(d/0.4)**2)*np.cos(2*np.pi*d/0.09), color="#8e5ba8",
+            lw=0.8)
+    label(ax, 4.0, -1.95, "interferogram vs. Δ:\nenvelope = abs(γ), width ~ λ²/Δλ", fontsize=8,
+          va="top")
+    _finish(ax, (-1.1, 5.7), (-2.5, 2.6), title)
+
+
+def hbt_interferometer(ax, title=None):
+    """Sketch of a Hanbury Brown-Twiss intensity interferometer (section 5
+    of notebook 74).
+
+    Two light collectors a baseline B apart focus starlight onto
+    photodetectors. Their photocurrents are band-pass filtered (electronic
+    bandwidth Delta f), one is delayed to equalize the paths, and the
+    product of the fluctuations is averaged. The normalized correlation is
+    abs(mu(B))**2, reduced by the ratio of the optical coherence time to the
+    detector response time. Only paths good to about c/Delta f (centimetres)
+    are needed, and atmospheric phases drop out.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    B = 4.4
+    y_col, y_det = 2.4, 1.2
+    for s in (-1, 1):
+        zc = s*B/2
+        band(ax, [zc - 0.55, zc - 0.55, zc], [4.0, y_col, y_det], [zc + 0.55, zc + 0.55, zc],
+             [4.0, y_col, y_det], color=STAR, alpha=0.3)
+        sphere_pts = np.linspace(-0.6, 0.6, 50)
+        ax.plot(zc + sphere_pts, y_col - 0.12 + 0.25*sphere_pts**2, color="0.3", lw=3)
+        rotated_detector(ax, zc, y_det - 0.05, 0.18, rotate=90)
+        label(ax, zc + s*0.7, y_col + 0.1, "light\ncollector", ha="left" if s > 0 else "right",
+              fontsize=8)
+        label(ax, zc + s*0.3, y_det - 0.05, "photo-\ndetector", ha="left" if s > 0 else "right",
+              fontsize=8)
+        ax.plot([zc, zc, s*0.35], [y_det - 0.15, 0.2, 0.2], color="0.3", lw=1)
+        ax.add_patch(mpatches.FancyBboxPatch((zc - 0.45, 0.5), 0.9, 0.35,
+                                             boxstyle="round,pad=0.02", facecolor="white",
+                                             edgecolor="0.3", zorder=4))
+        label(ax, zc, 0.675, "filter Δf" if s < 0 else "filter Δf, delay", fontsize=8, zorder=5)
+    ax.add_patch(mpatches.Circle((0.0, 0.2), 0.3, facecolor="white", edgecolor="0.3",
+                                 zorder=4))
+    label(ax, 0.0, 0.2, "×", fontsize=14, zorder=5)
+    ax.plot([0.0, 0.0], [-0.1, -0.5], color="0.3", lw=1)
+    ax.add_patch(mpatches.FancyBboxPatch((-1.3, -1.05), 2.6, 0.5, boxstyle="round,pad=0.02",
+                                         facecolor="white", edgecolor="0.3", zorder=4))
+    label(ax, 0.0, -0.8, "average ⟨ΔI₁ΔI₂⟩ / ⟨I₁⟩⟨I₂⟩ ∝ abs(μ(B))²", fontsize=8, zorder=5)
+    arrow(ax, -B/2, 4.25, B/2, 4.25, style="<|-|>", color="0.3")
+    label(ax, 0.0, 4.32, "baseline B", va="bottom")
+    label(ax, 0.0, 3.3, "no beam combination:\npaths need only match\nto ~ c/Δf (cm)",
+          fontsize=8)
+    _finish(ax, (-B/2 - 1.6, B/2 + 1.6), (-1.3, 4.7), title)
