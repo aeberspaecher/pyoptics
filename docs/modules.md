@@ -291,8 +291,10 @@ What each module does and how mature it is. Planned work is listed in
   sums and primary colour; constraints (focal length, colour, edge and centre
   thickness, length) held with Lagrange multipliers (notebook 58); solves for
   the length and the object side NA and the object distance as a variable,
-  as in `LensOptimizer` (notebook 43, section 7: clearances as constraints
-  and their prices)
+  as in `LensOptimizer` (notebook 43, section 8: clearances as constraints
+  and their prices); `predicted_gain()` ranks candidate variables (e.g. an
+  asphere on each surface) by the linearized decrease of the merit function
+  (notebook 43, section 7)
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
 - `modes`: mode analysis and fibres, tested: decomposition of any field into
