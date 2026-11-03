@@ -61,6 +61,10 @@ def test_paraxial_ray_imaging():
     sketch.krf_illuminator,
     sketch.spatial_filter,
     lambda ax: sketch.spatial_filter(ax, pinhole=False),
+    sketch.vortex_interferometer,
+    lambda ax: sketch.vortex_interferometer(ax, reference="spherical"),
+    sketch.mode_converter,
+    lambda ax: sketch.mode_converter(ax, images=(np.eye(8), np.ones((8, 8)))),
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()

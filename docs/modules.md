@@ -304,6 +304,16 @@ What each module does and how mature it is. Planned work is listed in
   Gaussian approximation); coupling efficiency of any field into any mode
   (generalizes `abcd.coupling_efficiency()`), sweeps over offset, tilt and
   defocus, power per fibre mode
+- `vortices`: new, tested: optical vortices and orbital angular momentum of
+  scalar beams; spiral phase plates (continuous, multilevel, fractional
+  charge) and their height profiles, fork gratings (binary and sinusoidal
+  amplitude, blazed and binary phase); the topological charge on a circle,
+  all phase singularities of a sampled field with their signs, the spiral
+  (OAM) spectrum about any axis, the mean OAM per photon and the orbital
+  current density; checked against LG modes, the sinc² spectrum of
+  multilevel plates, the spectrum of fractional plates, the analytic
+  splitting of a charge-3 vortex and the order efficiencies of gratings
+  (notebook 69)
 - `TIE`: basic transport of intensity solver, partly tested
 - `ifta`: basic Gerchberg-Saxton and variants for beam shaping, tested
   (convergence of GS, HIO-HOO and over-compensation on a reachable target,
