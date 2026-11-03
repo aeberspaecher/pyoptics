@@ -54,6 +54,9 @@ Setup sketches for the other example notebooks:
   (notebook 42).
 - spatial_filter(): beam expander with a pinhole that removes a ghost
   (notebook 56).
+- vortex_interferometer(): Mach-Zehnder with a spiral phase plate, with a
+  tilted or a spherical reference wave; mode_converter(): the pi/2
+  cylindrical lens converter between HG and LG modes (notebook 69).
 - axicon_bessel(): an axicon makes a Bessel zone, an obstacle in it casts a
   short shadow (notebook 68).
 - cubic_phase_airy(): a cubic phase plate and a lens make an Airy beam,
@@ -97,7 +100,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "beam_splitter", "laser", "sphere", "lenslet_array", "band", "arrow", "wavefront",
            "twyman_green", "fizeau_interferometer", "shack_hartmann_sensor",
            "phase_diversity_setup", "holography_setup", "fold_mirror", "krf_illuminator",
-           "spatial_filter", "axicon_bessel", "cubic_phase_airy"]
+           "spatial_filter", "vortex_interferometer", "mode_converter",
+           "axicon_bessel", "cubic_phase_airy"]
 
 
 GLASS = "#cfe3f3"
@@ -1705,6 +1709,140 @@ def spatial_filter(ax, pinhole=True, title=None):
     _finish(ax, (z1 - 1.6, z_end + 0.1), (-1.6, 1.4), title)
 
 
+def _spiral_plate(ax, z, h, step=0.24, base=0.06, text=None, text_y=None, fontsize=9):
+    # meridional section of a spiral phase plate: the azimuths pi/2 (top) and
+    # 3*pi/2 (bottom) have a quarter and three quarters of the full step, and
+    # the step of the plate edge runs through the axis
+    mpatches = _patches()
+    for y0, y1, t in ((0.0, h, base + step/4), (-h, 0.0, base + 3*step/4)):
+        ax.add_patch(mpatches.Rectangle((z - base/2, y0), t, y1 - y0, facecolor=GLASS,
+                                        edgecolor=EDGE, lw=1, zorder=3))
+    ax.plot([z - base/2 - 0.05, z + base/2 + step + 0.05], [0, 0], color="0.4", lw=0.6, ls=":",
+            zorder=4)
+    if text:
+        label(ax, z + step/2, -1.15*h if text_y is None else text_y, text, fontsize=fontsize,
+              va="top")
+
+
+def _profile_image(ax, z, y, size, image, cmap=None):
+    # a small intensity pattern drawn into the sketch, centred at (z, y), on
+    # a white background (magma_r fading to white at zero, as in the notebooks)
+    if cmap is None:
+        from matplotlib import colormaps
+        from matplotlib.colors import ListedColormap
+        t = np.linspace(0, 1, 256)[:, None]
+        cmap = ListedColormap(1 - (1 - colormaps["magma_r"](t[:, 0])[:, :3])*np.clip(t/0.15, 0, 1))
+    ax.imshow(image/image.max(), extent=[z - size/2, z + size/2, y - size/2, y + size/2],
+              origin="lower", cmap=cmap, zorder=6, interpolation="bilinear")
+    ax.add_patch(_patches().Rectangle((z - size/2, y - size/2), size, size, facecolor="none",
+                                      edgecolor="0.4", lw=0.8, zorder=7))
+
+
+def vortex_interferometer(ax, reference="tilted", title=None):
+    """Sketch of a Mach-Zehnder interferometer that measures the charge of an
+    optical vortex (notebook 69).
+
+    The expanded laser beam is split. In one arm a spiral phase plate makes
+    the vortex beam, the other arm is the reference. A second beam splitter
+    superposes both on a camera. A tilted plane reference gives straight
+    fringes with a fork of ``|l|`` extra fringes at the vortex; a spherical
+    reference (a lens in the reference arm) gives l spiral arms whose sense
+    of rotation is the sign of l.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    reference : {"tilted", "spherical"}, optional
+        Kind of reference wave. Defaults to "tilted".
+    title : str, optional
+    """
+
+    w = 0.1
+    z_bs1, z_bs2, z_cam = 1.0, 3.5, 4.2
+    h = _expander(ax, -1.0, -0.7, 0.25, 0.05, 0.75, w, z_bs1)
+    laser(ax, -1.0, 0.0, length=1.2, height=0.28, text="laser")
+    y_ref = 2.0
+    z_spp = 2.0
+    # vortex arm
+    band(ax, [z_bs1, z_bs2], [h, h], [z_bs1, z_bs2], [-h, -h], color=LASER)
+    band(ax, [z_bs2, z_cam], [h, h], [z_bs2, z_cam], [-h, -h], color=LASER)
+    _spiral_plate(ax, z_spp, 0.45, text="spiral phase plate\nexp(i l φ)", text_y=-0.55)
+    label(ax, (z_spp + z_bs2)/2 + 0.1, 0.42, "vortex beam", color=TEST, fontsize=8, va="bottom")
+    # reference arm: up, along, down
+    band(ax, [z_bs1 - h, z_bs1 - h, z_bs2 + h, z_bs2 + h], [0.0, y_ref + h, y_ref + h, 0.0],
+         [z_bs1 + h, z_bs1 + h, z_bs2 - h, z_bs2 - h], [0.0, y_ref - h, y_ref - h, 0.0],
+         color=REFERENCE, alpha=0.15)
+    mirror(ax, z_bs1, y_ref, 0.6, np.pi/4)
+    mirror(ax, z_bs2, y_ref, 0.6, -np.pi/4)
+    d = z_cam - z_bs2
+    if reference == "spherical":
+        z_l = (z_bs1 + z_bs2)/2
+        rotated_lens(ax, z_l, y_ref, 1.8*h, rotate=0)
+        label(ax, z_l, y_ref + 1.8*h + 0.06, "lens: spherical reference wave", color=REFERENCE,
+              va="bottom", fontsize=9)
+        band(ax, [z_bs2, z_cam], [h, 1.6*h], [z_bs2, z_cam], [-h, -1.6*h], color=REFERENCE,
+             alpha=0.15)
+        cam_text = "camera: spiral with\n|l| arms"
+    else:
+        theta = np.radians(12)
+        band(ax, [z_bs2, z_cam], [h, d*np.tan(theta) + h], [z_bs2, z_cam],
+             [-h, d*np.tan(theta) - h], color=REFERENCE, alpha=0.15)
+        label(ax, (z_bs1 + z_bs2)/2, y_ref + h + 0.08, "tilted plane reference wave",
+              color=REFERENCE, va="bottom", fontsize=9)
+        cam_text = "camera: fork with\n|l| extra fringes"
+    beam_splitter(ax, z_bs1, 0.0, 0.6, "/")
+    beam_splitter(ax, z_bs2, 0.0, 0.6, "\\")
+    detector(ax, z_cam, 0.5, width=0.08)
+    label(ax, z_cam + 0.15, -0.55, cam_text, va="top", ha="left")
+    label(ax, -0.4, -0.45, "beam expander", va="top", fontsize=8)
+    _finish(ax, (-2.3, z_cam + 1.4), (-1.2, y_ref + 0.75), title)
+
+
+def mode_converter(ax, title=None, images=None):
+    """Sketch of the pi/2 cylindrical lens mode converter of Beijersbergen et
+    al. (notebook 69).
+
+    Two cylindrical lenses of focal length f (power in the plane of the
+    drawing) a distance d = sqrt(2)*f apart turn a Hermite-Gaussian mode
+    HG_n0 whose axes are at 45° to the cylinder axes into the
+    Laguerre-Gaussian mode LG_0n, and back. The beam has its waist in the
+    middle between the lenses with the Rayleigh length (1 + 1/sqrt(2))*f.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    images : tuple of two 2d arrays, optional
+        Intensity patterns drawn before and behind the converter (e.g. an
+        HG mode at 45° and the LG mode).
+    """
+
+    f = 1.4
+    d = np.sqrt(2)*f
+    z1, z2 = 0.0, d
+    zc = d/2
+    zR = (1 + 1/np.sqrt(2))*f
+    w0 = 0.28
+    zz = np.linspace(z1 - 1.6, z2 + 1.6, 200)
+    # the Gaussian envelope in the plane of the lenses (the waist between them)
+    ww = w0*np.sqrt(1 + ((zz - zc)/zR)**2)
+    band(ax, zz, ww, zz, -ww, color=LASER)
+    for z_ in (z1, z2):
+        ax.add_patch(_patches().Rectangle((z_ - 0.05, -0.6), 0.1, 1.2, facecolor=GLASS,
+                                          edgecolor=EDGE, lw=1, zorder=3))
+        label(ax, z_, -0.68, "cylindrical\nlens f", va="top", fontsize=8)
+    plane(ax, zc, 0.5, text="waist", text_y=0.55)
+    arrow(ax, z1, 0.85, z2, 0.85, style="<->", text="d = √2 f", text_pos=(zc, 0.92), va="bottom")
+    label(ax, zc, -1.15, "Rayleigh length of the beam: z_R = (1 + 1/√2) f", fontsize=8,
+          color="0.3")
+    if images is not None:
+        _profile_image(ax, z1 - 1.0, 0.0, 0.9, images[0])
+        _profile_image(ax, z2 + 1.0, 0.0, 0.9, images[1])
+        label(ax, z1 - 1.0, -0.6, "HG$_{n0}$ at 45°", fontsize=8, va="top")
+        label(ax, z2 + 1.0, -0.6, "LG$_{0n}$", fontsize=8, va="top")
+    _finish(ax, (z1 - 1.6, z2 + 1.6), (-1.3, 1.25), title)
+
+
 def axicon_bessel(ax, obstacle=True, title=None):
     """Sketch of a Bessel beam made by an axicon, optionally with an
     obstacle in the Bessel zone (the setup of notebook 68).
@@ -1828,4 +1966,3 @@ def cubic_phase_airy(ax, title=None):
     label(ax, zc[-1] - 0.05, yc[-1] + 0.12, "caustic: the main lobe\nof the Airy beam",
           fontsize=8, ha="right", va="bottom")
     _finish(ax, (-1.4, z_end + 0.1), (-1.35, 1.25), title)
-

@@ -64,6 +64,10 @@ def test_paraxial_ray_imaging():
     sketch.axicon_bessel,
     lambda ax: sketch.axicon_bessel(ax, obstacle=False),
     sketch.cubic_phase_airy,
+    sketch.vortex_interferometer,
+    lambda ax: sketch.vortex_interferometer(ax, reference="spherical"),
+    sketch.mode_converter,
+    lambda ax: sketch.mode_converter(ax, images=(np.eye(8), np.ones((8, 8)))),
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()
