@@ -57,6 +57,10 @@ Setup sketches for the other example notebooks:
 - vortex_interferometer(): Mach-Zehnder with a spiral phase plate, with a
   tilted or a spherical reference wave; mode_converter(): the pi/2
   cylindrical lens converter between HG and LG modes (notebook 69).
+- axicon_bessel(): an axicon makes a Bessel zone, an obstacle in it casts a
+  short shadow (notebook 68).
+- cubic_phase_airy(): a cubic phase plate and a lens make an Airy beam,
+  whose rays touch a parabolic caustic (notebook 68).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -71,6 +75,13 @@ Press (1999), section 8.6 (phase contrast).
 
 D. Malacara (ed.), "Optical Shop Testing", 3rd ed., Wiley (2007), chapters 2
 (Fizeau) and 14 (phase shifting).
+
+J. Durnin, J. J. Miceli and J. H. Eberly, "Diffraction-free beams", Phys.
+Rev. Lett. 58, 1499-1501 (1987).
+
+G. A. Siviloglou, J. Broky, A. Dogariu and D. N. Christodoulides,
+"Observation of accelerating Airy beams", Phys. Rev. Lett. 99, 213901
+(2007).
 
 J. Mertz, "Introduction to Optical Microscopy", 2nd ed., Cambridge
 University Press (2019).
@@ -89,7 +100,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "beam_splitter", "laser", "sphere", "lenslet_array", "band", "arrow", "wavefront",
            "twyman_green", "fizeau_interferometer", "shack_hartmann_sensor",
            "phase_diversity_setup", "holography_setup", "fold_mirror", "krf_illuminator",
-           "spatial_filter", "vortex_interferometer", "mode_converter"]
+           "spatial_filter", "vortex_interferometer", "mode_converter",
+           "axicon_bessel", "cubic_phase_airy"]
 
 
 GLASS = "#cfe3f3"
@@ -1829,3 +1841,128 @@ def mode_converter(ax, title=None, images=None):
         label(ax, z1 - 1.0, -0.6, "HG$_{n0}$ at 45°", fontsize=8, va="top")
         label(ax, z2 + 1.0, -0.6, "LG$_{0n}$", fontsize=8, va="top")
     _finish(ax, (z1 - 1.6, z2 + 1.6), (-1.3, 1.25), title)
+
+
+def axicon_bessel(ax, obstacle=True, title=None):
+    """Sketch of a Bessel beam made by an axicon, optionally with an
+    obstacle in the Bessel zone (the setup of notebook 68).
+
+    A collimated beam of radius w falls on an axicon (a glass cone), which
+    tilts all rays towards the axis by the same angle θ. The two halves of
+    the beam cross in a diamond, the Bessel zone, which ends at
+    z_max = w/tan θ. An opaque disk of radius a in the zone blocks the rays
+    that would have crossed the axis behind it; they are missing only in a
+    triangle of length a/tan θ (the shadow, white), and the rays that pass
+    beside the obstacle fill the axis again behind it.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    obstacle : bool, optional
+        Draw the obstacle and its shadow. Defaults to True.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    w, u = 0.6, 0.16           # beam radius, deflection angle (exaggerated)
+    z_max = w/u
+    z_end = 1.25*z_max
+    # input beam
+    band(ax, [-1.4, 0.0], [w, w], [-1.4, 0.0], [-w, -w], color=LASER)
+    # the two halves of the cone: rays of the upper half go down and vice versa
+    for sgn in (1, -1):
+        band(ax, [0.0, z_end], [sgn*w, sgn*(w - u*z_end)], [0.0, z_end], [0.0, -sgn*u*z_end],
+             color=LASER, alpha=0.18)
+    zone = mpatches.Polygon([(0.0, 0.0), (z_max/2, w/2), (z_max, 0.0), (z_max/2, -w/2)],
+                            closed=True, facecolor=LASER, edgecolor="none", alpha=0.25, zorder=1.2)
+    ax.add_patch(zone)
+    z_shadow = (0.38*z_max, 0.38*z_max + 0.14/u) if obstacle else (z_max, z_max)
+    ax.plot([0.0, z_shadow[0]], [0.0, 0.0], color=LASER, lw=2.2, zorder=2)
+    ax.plot([z_shadow[1], z_max], [0.0, 0.0], color=LASER, lw=2.2, zorder=2)
+    # the axicon: flat entrance face, conical exit face
+    ha, t0, t1 = 1.25*w, 0.06, 0.22
+    ax.add_patch(mpatches.Polygon([(-t0, -ha), (-t0, ha), (t0, ha), (t1, 0.0), (t0, -ha)],
+                                  closed=True, facecolor=GLASS, edgecolor=EDGE, lw=1, zorder=3))
+    label(ax, 0.0, -1.15*ha, "axicon", va="top")
+    label(ax, -0.7, w + 0.12, "collimated beam,\nradius w", fontsize=8, va="bottom")
+    arrow(ax, 0.55, 0.62, 0.36, w - 0.36*u - 0.01, text="θ", text_pos=(0.62, 0.66),
+          ha="left", va="bottom")
+    label(ax, z_max, -0.12, "z_max = w / tan θ", fontsize=8, va="top", ha="left")
+    if obstacle:
+        z0, a = 0.38*z_max, 0.14
+        for sgn in (1, -1):  # rays blocked by the obstacle: a missing strip in each half
+            dz = z_end - z0
+            ax.add_patch(mpatches.Polygon([(z0, a), (z_end, a - sgn*u*dz), (z_end, -a - sgn*u*dz),
+                                           (z0, -a)], closed=True, facecolor="white",
+                                          edgecolor="none", alpha=0.55, zorder=1.6))
+        ax.add_patch(mpatches.Polygon([(z0, a), (z0 + a/u, 0.0), (z0, -a)], closed=True,
+                                      facecolor="white", edgecolor="0.4", ls="--", lw=0.8,
+                                      zorder=1.7))
+        ax.add_patch(mpatches.Rectangle((z0 - 0.03, -a), 0.06, 2*a, facecolor=METAL,
+                                        edgecolor="none", zorder=4))
+        label(ax, z0, 0.95*w, "obstacle,\nradius a", fontsize=8, va="bottom")
+        ax.plot([z0, z0], [a + 0.03, 0.93*w], color="0.5", lw=0.6)
+        arrow(ax, z0, -0.5*w, z0 + a/u, -0.5*w, style="<|-|>", color="0.3")
+        label(ax, z0 + a/(2*u), -0.5*w - 0.06, "shadow\na / tan θ", fontsize=8, va="top",
+              color="0.3")
+        label(ax, z0 + a/u + 0.9, 0.12, "healed", fontsize=8, va="bottom")
+    else:
+        label(ax, z_max/2, 0.08, "Bessel zone", fontsize=8, va="bottom")
+    _finish(ax, (-1.5, z_end + 0.1), (-1.0, 1.05), title)
+
+
+def cubic_phase_airy(ax, title=None):
+    """Sketch of an Airy beam made by a cubic phase plate and a lens (the
+    setup of notebook 68).
+
+    The cubic phase φ ∝ y³ tilts the rays by an angle ∝ y², the same for
+    both halves of the beam. Behind the lens they no longer meet in a focus
+    but touch a parabola, the caustic, on which the main lobe of the Airy
+    beam travels. The outer rays reach the caustic last: they carry the
+    light that builds the main lobe further down the line, which is why an
+    Airy beam heals.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    f, w, c = 2.0, 0.7, -0.18  # focal length, beam radius, strength of the cubic phase
+    z_plate, z_lens = 0.0, 0.8
+    z_f = z_lens + f
+    z_end = z_f + 2.0
+    band(ax, [-1.3, z_plate], [w, w], [-1.3, z_plate], [-w, -w], color=LASER)
+    for y0 in np.linspace(-w, w, 13):
+        u = c*y0**2                # tilt from the cubic phase
+        y1 = y0 + u*(z_lens - z_plate)
+        u2 = u - y1/f              # thin lens
+        zz = np.array([z_plate, z_lens, z_end])
+        yy = np.array([y0, y1, y1 + u2*(z_end - z_lens)])
+        ax.plot(zz, yy, color=LASER, lw=0.8, alpha=0.8, zorder=2)
+    # the caustic: envelope of the ray family behind the lens, where d/dt of
+    # y(z; t) = y1(t) + slope(t) (z - z_lens) vanishes
+    d = z_lens - z_plate
+    t = np.linspace(-w, w, 801)
+    y1 = t + c*t**2*d
+    slope = c*t**2 - y1/f
+    dz = -(1 + 2*c*t*d)/(2*c*t - (1 + 2*c*t*d)/f)
+    zc, yc = z_lens + dz, y1 + slope*dz
+    keep = (zc > z_lens + 0.3) & (zc < z_end)
+    zc, yc = zc[keep], yc[keep]
+    order = np.argsort(zc)
+    zc, yc = zc[order], yc[order]
+    ax.plot(zc, yc, color="0.15", lw=1.6, ls="--", zorder=3)
+    # plate with a cubic surface
+    mpatches = _patches()
+    yy = np.linspace(-1.2*w, 1.2*w, 61)
+    face = z_plate + 0.08 + 0.05*(yy/w)**3
+    pts = np.r_[np.c_[np.full_like(yy, z_plate - 0.08), yy], np.c_[face, yy][::-1]]
+    ax.add_patch(mpatches.Polygon(pts, closed=True, facecolor=GLASS, edgecolor=EDGE, lw=1,
+                                  zorder=3))
+    label(ax, z_plate, -1.38*w, "cubic phase\nplate (or SLM)", va="top")
+    lens(ax, z_lens, 1.25*w, text="lens, focal\nlength f", text_y=-1.38*w)
+    plane(ax, z_f, 1.2*w, text="back focal plane")
+    label(ax, zc[-1] - 0.05, yc[-1] + 0.12, "caustic: the main lobe\nof the Airy beam",
+          fontsize=8, ha="right", va="bottom")
+    _finish(ax, (-1.4, z_end + 0.1), (-1.35, 1.25), title)
