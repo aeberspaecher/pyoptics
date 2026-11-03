@@ -61,6 +61,9 @@ def test_paraxial_ray_imaging():
     sketch.krf_illuminator,
     sketch.spatial_filter,
     lambda ax: sketch.spatial_filter(ax, pinhole=False),
+    sketch.axicon_bessel,
+    lambda ax: sketch.axicon_bessel(ax, obstacle=False),
+    sketch.cubic_phase_airy,
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()

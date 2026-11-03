@@ -61,6 +61,7 @@ notebooks/67_fdfd_limacon_microcavity
 - {doc}`notebooks/07_beam_quality`
 - {doc}`notebooks/08_abcd_matrices`
 - {doc}`notebooks/09_mode_analysis`
+- {doc}`notebooks/68_bessel_airy_self_healing`
 
 ```{toctree}
 :hidden:
@@ -70,6 +71,7 @@ notebooks/06_gaussian_beams
 notebooks/07_beam_quality
 notebooks/08_abcd_matrices
 notebooks/09_mode_analysis
+notebooks/68_bessel_airy_self_healing
 ```
 
 ## Interfaces, thin films and polarization
