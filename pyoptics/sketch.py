@@ -61,6 +61,10 @@ Setup sketches for the other example notebooks:
   short shadow (notebook 68).
 - cubic_phase_airy(): a cubic phase plate and a lens make an Airy beam,
   whose rays touch a parabolic caustic (notebook 68).
+- twinkling_star(): starlight through turbulent layers, shadow bands at
+  the ground, an eye and a telescope; adaptive_optics_system(): telescope,
+  deformable mirror, dichroic, Shack-Hartmann sensor, science camera and
+  the real-time loop (notebook 72).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -101,7 +105,7 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "twyman_green", "fizeau_interferometer", "shack_hartmann_sensor",
            "phase_diversity_setup", "holography_setup", "fold_mirror", "krf_illuminator",
            "spatial_filter", "vortex_interferometer", "mode_converter",
-           "axicon_bessel", "cubic_phase_airy"]
+           "axicon_bessel", "cubic_phase_airy", "twinkling_star", "adaptive_optics_system"]
 
 
 GLASS = "#cfe3f3"
@@ -1966,3 +1970,179 @@ def cubic_phase_airy(ax, title=None):
     label(ax, zc[-1] - 0.05, yc[-1] + 0.12, "caustic: the main lobe\nof the Airy beam",
           fontsize=8, ha="right", va="bottom")
     _finish(ax, (-1.4, z_end + 0.1), (-1.35, 1.25), title)
+
+
+def _wavy(s, amplitude, n_waves, phase=0.0):
+    """A smooth random-looking undulation along s (for turbulent wavefronts)."""
+
+    s = np.asarray(s, dtype=float)
+    span = np.ptp(s) if np.ptp(s) > 0 else 1.0
+    u = (s - s.min())/span
+    return amplitude*(np.sin(2*np.pi*n_waves*u + phase) + 0.5*np.sin(2*np.pi*2.3*n_waves*u + 1.7*phase + 0.9)
+                      + 0.3*np.sin(2*np.pi*0.45*n_waves*u + 2.1))/1.8
+
+
+def twinkling_star(ax, title=None):
+    """Sketch of starlight passing turbulent layers (the setup of notebook 72).
+
+    A plane wave from a star (at the top) crosses a few thin turbulent layers
+    at different heights, each moving with its own wind. Every layer
+    corrugates the wavefront; over the kilometres down to the ground the
+    corrugations focus and defocus the light into a moving pattern of
+    shadow bands with a typical size of the Fresnel scale sqrt(λh) (a few
+    centimetres). A small pupil (the eye) sees the intensity fluctuate, the
+    star twinkles; a large telescope averages over many bands but sees a
+    wavefront corrugated on the scale r0, which spreads the image into a
+    speckle cloud (seeing).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    x = np.linspace(-2.6, 2.6, 300)
+    point_source(ax, 0.0, 5.1, color=ILLUMINATION, size=260)
+    label(ax, 0.35, 5.1, "star", ha="left", fontsize=9)
+    # plane wavefronts above the atmosphere
+    for y0 in (4.45, 4.15):
+        ax.plot(x, np.full_like(x, y0), color="0.2", lw=1.2)
+    label(ax, 2.7, 4.3, "plane\nwavefronts", ha="left", fontsize=8)
+    layers = [(3.4, "jet stream, ~10 km", 25, 0.0), (2.2, "~4 km", 10, 1.3),
+              (1.05, "boundary layer", 5, 2.6)]
+    amp = 0.0
+    for i, (y0, text, v, ph) in enumerate(layers):
+        band(ax, x, y0 + 0.13 + _wavy(x, 0.05, 5, ph), x, y0 - 0.13 + _wavy(x, 0.05, 5, ph + 1),
+             color=IMAGING, alpha=0.18, edges=False)
+        label(ax, -2.75, y0, text, ha="right", fontsize=8)
+        arrow(ax, 1.7, y0 + 0.27, 1.7 + 0.025*v, y0 + 0.27, color=IMAGING, lw=1.0)
+        label(ax, 1.7 + 0.025*v + 0.08, y0 + 0.27, "wind", fontsize=7, ha="left",
+              color=IMAGING)
+        # the wavefront below the layer gets more and more corrugated
+        amp += 0.05
+        y_w = y0 - 0.5
+        ax.plot(x, y_w + _wavy(x, amp, 6 + 2*i, 0.7*i), color="0.2", lw=1.1)
+    # focused and defocused light near the ground: shadow bands
+    xs = np.linspace(-2.6, 2.6, 400)
+    pattern = 0.5 + 0.5*np.tanh(2.5*(_wavy(xs, 1.0, 14, 0.4) + 0.3*_wavy(xs, 1.0, 31, 1.1)))
+    for x0, x1, p in zip(xs[:-1], xs[1:], pattern[:-1]):
+        ax.add_patch(mpatches.Rectangle((x0, -0.1), x1 - x0, 0.22,
+                                        facecolor=(1, 0.85 - 0.25*p, 0.35 + 0.5*(1 - p)),
+                                        edgecolor="none", alpha=0.3 + 0.7*p, zorder=2))
+    label(ax, 2.7, 0.0, "shadow bands\n(size ~ √(λh))", ha="left", fontsize=8)
+    ax.plot([-2.8, 2.8], [-0.18, -0.18], color="0.35", lw=1.5)
+    # an eye and a telescope at the ground
+    ax.add_patch(mpatches.Ellipse((-1.6, -0.48), 0.42, 0.22, facecolor="white", edgecolor="0.2",
+                                  lw=1, zorder=4))
+    ax.add_patch(mpatches.Circle((-1.6, -0.48), 0.07, facecolor="0.15", zorder=5))
+    label(ax, -1.6, -0.7, "eye: small pupil,\nthe star twinkles", fontsize=8, va="top")
+    ax.add_patch(mpatches.Polygon([(0.55, -0.25), (1.75, -0.25), (1.35, -0.85), (0.95, -0.85)],
+                                  closed=True, facecolor="0.85", edgecolor="0.3", lw=1, zorder=4))
+    ax.plot([0.55, 1.75], [-0.25, -0.25], color=METAL, lw=3, zorder=5)
+    label(ax, 1.15, -0.95, "telescope: averages the bands,\nbut images a speckle cloud",
+          fontsize=8, va="top")
+    _finish(ax, (-4.2, 3.9), (-1.5, 5.5), title)
+
+
+def adaptive_optics_system(ax, title=None):
+    """Sketch of an adaptive optics system (the setup of notebook 72).
+
+    The telescope (drawn as a lens) images the star; a collimator makes the
+    beam parallel and images the pupil onto the deformable mirror (DM). A
+    dichroic beam splitter sends the visible light to a Shack-Hartmann
+    wavefront sensor and passes the infrared light to the science camera.
+    A real-time computer turns the spot shifts into actuator commands
+    (reconstructor and integrator) and pushes the DM to the conjugate of
+    the measured wavefront, closing the loop: the sensor sees the residual
+    behind the DM.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    h_t, f_t = 1.0, 2.4
+    z_col, f_col = f_t + 0.8, 0.8
+    w = h_t*f_col/f_t
+    z_dm = z_col + 1.1
+    y_bs = -1.6
+    # turbulent input wavefronts
+    for z0 in (-1.3, -0.95, -0.6):
+        s = np.linspace(-h_t, h_t, 61)
+        ax.plot(z0 + _wavy(s, 0.07, 2.5, 3*z0), s, color="0.2", lw=1.1)
+    label(ax, -0.95, 1.2, "distorted\nwavefront", fontsize=8, va="bottom")
+    # telescope focus and collimator
+    z, yt = paraxial_ray([(0.0, f_t), (z_col, f_col)], -1.4, h_t, 0.0, z_dm - w)
+    z, yb = paraxial_ray([(0.0, f_t), (z_col, f_col)], -1.4, -h_t, 0.0, z_dm - w)
+    band(ax, z, yt, z, yb, color=LASER)
+    lens(ax, 0.0, 1.1*h_t, text="telescope")
+    lens(ax, z_col, 1.25*w, text="collimator", text_y=-0.75)
+    # beam from the DM down to the dichroic
+    band(ax, [z_dm - w, z_dm - w], [-w + 2*w, y_bs + w], [z_dm + w, z_dm + w], [w, y_bs - w],
+         color=LASER, edges=False)
+    ax.add_patch(mpatches.Polygon([(z_dm - w, w), (z_dm + w, -w), (z_dm + w, w)], closed=True,
+                                  facecolor=LASER, edgecolor="none", alpha=0.22, zorder=1))
+    # deformable mirror: a wavy face at 45° with actuators behind
+    s = np.linspace(-1.25*w, 1.25*w, 61)
+    d = _wavy(s, 0.035, 2.0, 0.8)
+    e = np.array([1, -1])/np.sqrt(2)
+    n = np.array([1, 1])/np.sqrt(2)
+    ax.plot(z_dm + s*e[0] + d*n[0], s*e[1] + d*n[1], color=METAL, lw=3, zorder=4)
+    for si in np.linspace(-1.0*w, 1.0*w, 6):
+        p0 = np.array([z_dm, 0.0]) + si*e + 0.06*n
+        p1 = p0 + 0.28*n
+        ax.plot([p0[0], p1[0]], [p0[1], p1[1]], color="0.45", lw=1.6, zorder=4)
+    label(ax, z_dm - 0.1, 0.78, "deformable\nmirror (DM)", ha="right", fontsize=9)
+    # dichroic: visible to the Shack-Hartmann (along +z), infrared down to the camera
+    beam_splitter(ax, z_dm, y_bs, 2.6*w, orientation="\\")
+    label(ax, z_dm - 0.5, y_bs - 0.05, "dichroic", ha="right", fontsize=9)
+    z_la = z_dm + 1.3
+    band(ax, [z_dm - w, z_la], [y_bs + w, y_bs + w], [z_dm + w, z_la], [y_bs - w, y_bs - w],
+         color="#e0a000", edges=False, alpha=0.25)
+    ax.add_patch(mpatches.Polygon([(z_dm - w, y_bs + w), (z_dm + w, y_bs + w), (z_dm + w, y_bs - w)],
+                                  closed=True, facecolor="#e0a000", edgecolor="none", alpha=0.25,
+                                  zorder=1))
+    hl = 1.1*w
+    p = 2*hl/6
+    c = np.linspace(-hl + p/2, hl - p/2, 6)
+    ax.add_patch(mpatches.Rectangle((z_la - 0.02, y_bs - hl), 0.04, 2*hl, facecolor=GLASS,
+                                    edgecolor=EDGE, lw=0.8, zorder=3))
+    for ci in c:
+        yy = np.linspace(-p/2, p/2, 15)
+        ax.plot(z_la + 0.02 + 0.35*p*(1 - (2*yy/p)**2)/2, y_bs + ci + yy, color=EDGE, lw=0.8,
+                zorder=3)
+        ax.plot([z_la, z_la + 0.45], [y_bs + ci + p/2.5, y_bs + ci + 0.02*np.sin(5*ci)],
+                color="#e0a000", lw=0.7)
+        ax.plot([z_la, z_la + 0.45], [y_bs + ci - p/2.5, y_bs + ci + 0.02*np.sin(5*ci)],
+                color="#e0a000", lw=0.7)
+    ax.add_patch(mpatches.Rectangle((z_la + 0.45, y_bs - hl), 0.06, 2*hl, facecolor="0.35",
+                                    edgecolor="none", zorder=4))
+    label(ax, z_la + 0.25, y_bs - hl - 0.1, "Shack-Hartmann\n(visible)", fontsize=9, va="top")
+    # science path: infrared down to a camera lens and the camera
+    y_cam_lens, y_cam = y_bs - 1.0, y_bs - 2.0
+    ax.add_patch(mpatches.Polygon([(z_dm - w, y_bs - w), (z_dm - w, y_cam_lens), (z_dm, y_cam),
+                                   (z_dm + w, y_cam_lens), (z_dm + w, y_bs + w)],
+                                  closed=True, facecolor=LASER, edgecolor="none", alpha=0.22,
+                                  zorder=1))
+    ax.plot([z_dm - w, z_dm, z_dm + w], [y_cam_lens, y_cam, y_cam_lens], color=LASER, lw=0.8)
+    wavefront(ax, z_dm, -0.75, w, vertical=False)
+    label(ax, z_dm + w + 0.08, -0.75, "corrected", fontsize=8, ha="left")
+    rotated_lens(ax, z_dm, y_cam_lens, 1.2*w, text="camera lens", text_offset=-1.5*w)
+    rotated_detector(ax, z_dm, y_cam, 0.5*w, width=0.07)
+    label(ax, z_dm, y_cam - 0.12, "science camera (infrared):\nsharp image", fontsize=9, va="top")
+    # loop: computer from the sensor to the DM
+    zc, yc = z_la + 1.75, 0.75
+    ax.add_patch(mpatches.FancyBboxPatch((zc - 0.75, yc - 0.32), 1.5, 0.64,
+                                         boxstyle="round,pad=0.03", facecolor="#eef3e8",
+                                         edgecolor="0.35", lw=1, zorder=4))
+    label(ax, zc, yc, "real-time computer\nslopes → commands\n(integrator)", fontsize=8,
+          zorder=5)
+    arrow(ax, z_la + 0.55, y_bs + 0.2, zc, yc - 0.34, color=EMISSION, lw=1.3)
+    arrow(ax, zc - 0.77, yc, z_dm + 0.42, 0.42, color=EMISSION, lw=1.3)
+    label(ax, z_la + 1.25, y_bs + 0.9, "spot\nshifts", fontsize=8, color=EMISSION, ha="left")
+    label(ax, (zc - 0.77 + z_dm + 0.42)/2, 0.68, "actuator\ncommands", fontsize=8,
+          color=EMISSION, va="bottom")
+    _finish(ax, (-1.6, zc + 0.9), (y_cam - 0.6, 1.6), title)
