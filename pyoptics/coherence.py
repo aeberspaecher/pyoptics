@@ -7,11 +7,11 @@ correlations.
 Conventions: fields vary as exp(-i*omega*t) (see the conventions page). The
 complex degree of (temporal) coherence of a stationary field u(t) is ::
 
-    gamma(tau) = <conj(u(t))*u(t + tau)>/<|u|**2>
+    gamma(tau) = <conj(u(t))*u(t + tau)>/<abs(u)**2>
                = int S(nu)*exp(-2*pi*i*nu*tau) dnu/int S(nu) dnu
 
 (Wiener-Khinchin), and the complex degree of spatial coherence of two points
-x1, x2 is mu_12 = <u(x1)*conj(u(x2))>/sqrt(<|u(x1)|**2><|u(x2)|**2>).
+x1, x2 is mu_12 = <u(x1)*conj(u(x2))>/sqrt(<abs(u(x1))**2><abs(u(x2))**2>).
 
 Spatial coherence:
 
@@ -32,9 +32,9 @@ Temporal coherence:
 
 - degree_of_coherence(): gamma(tau) of a sampled spectrum (Wiener-Khinchin).
 - line_spectrum(), line_coherence(), coherence_time_analytic(): the
-  spectrum, |gamma| and the coherence time of Gaussian, Lorentzian and
+  spectrum, abs(gamma) and the coherence time of Gaussian, Lorentzian and
   rectangular lines.
-- coherence_time(): Mandel's coherence time int |gamma|**2 dtau of a sampled
+- coherence_time(): Mandel's coherence time int abs(gamma)**2 dtau of a sampled
   gamma.
 - fit_fringes(): visibility and phase of a fringe pattern of known period
   by a linear least squares fit.
@@ -45,8 +45,8 @@ Intensity interferometry (Hanbury Brown and Twiss):
   (chaotic) light with a given line shape, two of them with a given mu.
 - g1(), g2(): first and second order correlation functions of time series
   (circular, via FFTs). For chaotic light the Siegert relation
-  g2 = 1 + |g1|**2 holds.
-- intensity_correlation(): <dI1*dI2>/(<I1><I2>), which equals |mu_12|**2
+  g2 = 1 + abs(g1)**2 holds.
+- intensity_correlation(): <dI1*dI2>/(<I1><I2>), which equals abs(mu_12)**2
   for chaotic light.
 
 References
@@ -168,7 +168,7 @@ def binary_visibility(baseline, separation, brightness_ratio, wavelength):
 
         mu = (1 + r*exp(-2*pi*i*s*B/wavelength))/(1 + r)
 
-    |mu| oscillates between 1 and |1 - r|/(1 + r) with the period
+    abs(mu) oscillates between 1 and abs(1 - r)/(1 + r) with the period
     wavelength/s in the baseline.
 
     Parameters
@@ -300,7 +300,7 @@ def degree_of_coherence(nu, spectrum, tau):
 
     gamma(tau) = sum S(nu)*exp(-2*pi*i*nu*tau)/sum S(nu), evaluated
     directly. For a spectrum centered at nu_0, gamma is a carrier
-    exp(-2*pi*i*nu_0*tau) under the envelope |gamma|; pass nu - nu_0 to get
+    exp(-2*pi*i*nu_0*tau) under the envelope abs(gamma); pass nu - nu_0 to get
     the envelope alone (the fringe visibility of a Michelson interferometer
     at the optical path difference c*tau).
 
@@ -329,11 +329,11 @@ def degree_of_coherence(nu, spectrum, tau):
 
 
 def line_coherence(tau, delta_nu, shape="gaussian"):
-    """Envelope |gamma(tau)| of a spectral line of FWHM delta_nu.
+    """Envelope abs(gamma(tau)) of a spectral line of FWHM delta_nu.
 
     - gaussian: exp(-(pi*delta_nu*tau)**2/(4*ln 2))
-    - lorentzian: exp(-pi*delta_nu*|tau|)
-    - rectangular: |sinc(delta_nu*tau)|
+    - lorentzian: exp(-pi*delta_nu*abs(tau))
+    - rectangular: abs(sinc(delta_nu*tau))
 
     Parameters
     ----------
@@ -348,7 +348,7 @@ def line_coherence(tau, delta_nu, shape="gaussian"):
     Returns
     -------
     gamma : float or array
-        |gamma(tau)|.
+        abs(gamma(tau)).
     """
 
     _check_shape(shape)
@@ -362,7 +362,7 @@ def line_coherence(tau, delta_nu, shape="gaussian"):
 
 
 def coherence_time_analytic(delta_nu, shape="gaussian"):
-    """Mandel's coherence time int |gamma|**2 dtau of a spectral line.
+    """Mandel's coherence time int abs(gamma)**2 dtau of a spectral line.
 
     gaussian: sqrt(2*ln 2/pi)/delta_nu = 0.664/delta_nu, lorentzian:
     1/(pi*delta_nu) = 0.318/delta_nu, rectangular: 1/delta_nu. The coherence
@@ -390,10 +390,10 @@ def coherence_time_analytic(delta_nu, shape="gaussian"):
 
 
 def coherence_time(tau, gamma):
-    """Mandel's coherence time int |gamma|**2 dtau of a sampled gamma.
+    """Mandel's coherence time int abs(gamma)**2 dtau of a sampled gamma.
 
     The integral runs over the samples given (trapezoidal rule). Pass delays
-    from -T to T, or delays >= 0 and double the result (|gamma| is even).
+    from -T to T, or delays >= 0 and double the result (abs(gamma) is even).
 
     Parameters
     ----------
@@ -485,7 +485,7 @@ def chaotic_light(n, dt, delta_nu, shape="gaussian", rng=None, size=None):
     frequency, i.e. the slowly varying envelope of the optical field) and
     normalizes it to a mean intensity of 1. The field is a circular complex
     Gaussian process: its intensity is exponentially distributed and
-    g2(tau) = 1 + |g1(tau)|**2. The series is periodic (circular filter).
+    g2(tau) = 1 + abs(g1(tau))**2. The series is periodic (circular filter).
 
     Parameters
     ----------
@@ -505,7 +505,7 @@ def chaotic_light(n, dt, delta_nu, shape="gaussian", rng=None, size=None):
     Returns
     -------
     u : array
-        Complex field of shape (n,) or (size, n) with <|u|**2> = 1.
+        Complex field of shape (n,) or (size, n) with <abs(u)**2> = 1.
     """
 
     rng = np.random.default_rng() if rng is None else rng
@@ -521,7 +521,7 @@ def chaotic_light(n, dt, delta_nu, shape="gaussian", rng=None, size=None):
 def correlated_chaotic_pair(n, dt, delta_nu, mu, shape="gaussian", rng=None):
     """Fields of chaotic light at two points with the degree of coherence mu.
 
-    u2 = conj(mu)*u1 + sqrt(1 - |mu|**2)*w with u1, w independent series from
+    u2 = conj(mu)*u1 + sqrt(1 - abs(mu)**2)*w with u1, w independent series from
     chaotic_light(), so that <u1*conj(u2)> = mu and both have unit mean
     intensity. This is the light of a star seen by two telescopes whose
     baseline gives mu (without delay between them).
@@ -535,7 +535,7 @@ def correlated_chaotic_pair(n, dt, delta_nu, mu, shape="gaussian", rng=None):
     delta_nu : float
         FWHM of the line.
     mu : complex
-        Degree of spatial coherence, |mu| <= 1.
+        Degree of spatial coherence, abs(mu) <= 1.
     shape : str, optional
         Line shape, see chaotic_light().
     rng : numpy.random.Generator, optional
@@ -562,7 +562,7 @@ def _circular_correlation(a, b, max_lag):
 
 
 def g1(u, max_lag):
-    """First order correlation <conj(u(t))*u(t + tau)>/<|u|**2>.
+    """First order correlation <conj(u(t))*u(t + tau)>/<abs(u)**2>.
 
     Circular estimate over the series (or averaged over the rows of a 2d
     array of independent series).
@@ -614,7 +614,7 @@ def intensity_correlation(I1, I2, axis=None):
     """Normalized correlation of intensity fluctuations.
 
     c = <(I1 - <I1>)*(I2 - <I2>)>/(<I1>*<I2>). For chaotic light at two
-    points, c = |mu_12|**2 (if the detectors resolve the coherence time;
+    points, c = abs(mu_12)**2 (if the detectors resolve the coherence time;
     slower detectors reduce c by about tau_c/T_detector).
 
     Parameters
