@@ -50,6 +50,7 @@ Beams, modes and paraxial optics
    pyoptics.beams
    pyoptics.beam_quality
    pyoptics.modes
+   pyoptics.vortices
    pyoptics.abcd
 
 Imaging and ray tracing

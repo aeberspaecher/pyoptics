@@ -19,3 +19,4 @@ from . import microscopy
 from . import phase_retrieval
 from . import shack_hartmann
 from . import modes
+from . import vortices
