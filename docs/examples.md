@@ -110,6 +110,7 @@ notebooks/14_coated_laser_mirror
 - {doc}`notebooks/56_gaussian_beam_decomposition`
 - {doc}`notebooks/58_lens_optimization`
 - {doc}`notebooks/61_glass_catalogues`
+- {doc}`notebooks/70_monte_carlo_tolerancing`
 - {doc}`notebooks/45_zernike_aberration_gallery`
 
 ```{toctree}
@@ -129,6 +130,7 @@ notebooks/51_fresnel_lenses
 notebooks/56_gaussian_beam_decomposition
 notebooks/58_lens_optimization
 notebooks/61_glass_catalogues
+notebooks/70_monte_carlo_tolerancing
 notebooks/45_zernike_aberration_gallery
 ```
 

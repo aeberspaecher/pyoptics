@@ -293,6 +293,15 @@ What each module does and how mature it is. Planned work is listed in
   the length and the object side NA and the object distance as a variable,
   as in `LensOptimizer` (notebook 43, section 7: clearances as constraints
   and their prices)
+- `tolerancing`: Monte Carlo tolerancing, tested: tolerances (power in
+  fringes, radius, thickness and air space, axial position of an element,
+  image plane, index, Abbe number, element decentre) with Gaussian, uniform
+  or end point distributions, applied before or after the compensators;
+  performance vectors of the polychromatic RMS spot and the RMS wavefront per
+  field (full pupil, valid for decentred lenses); compensators from
+  `lens_optimization` variables (focus, axial manipulators) and lateral
+  manipulators; sensitivity tables, variance budgets, full Monte Carlo runs and
+  the linear model (exact quadratic merit), compensator choice (notebook 70)
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
 - `modes`: mode analysis and fibres, tested: decomposition of any field into
