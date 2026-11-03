@@ -1071,7 +1071,7 @@ class LinearModel:
 
     def mean_square(self, tolerances=None):
         """Expected mean square merit (all fields together) of the linear
-        model: |a|^2 + sum_k sigma_k^2 |B_k|^2.
+        model: ``|a|**2 + sum_k sigma_k**2 |B_k|**2``.
 
         Parameters
         ----------
