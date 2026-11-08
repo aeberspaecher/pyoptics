@@ -82,6 +82,8 @@ def test_paraxial_ray_imaging():
     sketch.rainbow_observer,
     lambda ax: sketch.rainbow_observer(ax, sun_elevation=10.0),
     sketch.glory_aircraft,
+    sketch.grin_rod_imaging,
+    sketch.road_mirage,
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()

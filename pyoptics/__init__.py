@@ -24,4 +24,5 @@ from . import wavefront_shaping
 from . import turbulence
 from . import coherence
 from . import rainbow
+from . import grin
 from . import colour
