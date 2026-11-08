@@ -89,6 +89,9 @@ def test_paraxial_ray_imaging():
     lambda ax: sketch.schlieren_system(ax, method="shadowgraph"),
     sketch.grin_rod_imaging,
     sketch.road_mirage,
+    sketch.sim_microscope,
+    sketch.sted_microscope,
+    lambda ax: sketch.sted_microscope(ax, images=(np.ones((8, 8)), np.eye(8), np.eye(8))),
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()

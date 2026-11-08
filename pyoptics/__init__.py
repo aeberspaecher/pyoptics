@@ -16,6 +16,7 @@ from . import raytrace
 from . import raywave
 from . import fresnel
 from . import microscopy
+from . import superresolution
 from . import phase_retrieval
 from . import shack_hartmann
 from . import modes

@@ -207,6 +207,15 @@ What each module does and how mature it is. Planned work is listed in
   ptychography: LED array illumination, the low resolution forward model
   and the reconstruction by alternating projections with embedded pupil
   recovery (quasi-Newton or EPRY step), pupil overlap in k-space
+- `superresolution`: new, tested: super-resolution fluorescence microscopy;
+  SIM patterns and raw images, band separation from the pattern phases
+  (`sim_bands()`), band shifts by any wave vector, the generalized Wiener
+  reconstruction and the OTF support for several angles; vectorial vortex
+  foci with any polarization (`vortex_focus()`, the true zero needs spin
+  parallel to the orbital angular momentum), the effective STED PSF and the
+  square root law; pixelated Gaussian spots, centroid, least squares and
+  Poisson maximum likelihood localization, Mortensen's precision formulas
+  (notebook 78)
 - `abcd`: ABCD (ray transfer) matrices, tested: thin and thick lenses,
   spherical interfaces, tilted mirrors (tangential/sagittal), GRIN media;
   `OpticalSystem` builds systems element by element and traces rays and
