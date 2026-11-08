@@ -85,6 +85,9 @@ Setup sketches for the other example notebooks:
 - sim_microscope(), sted_microscope(): structured illumination with a
   grating and an order mask, and a STED microscope with a vortex plate,
   dichroic mirrors and a pinhole (notebook 78).
+- grin_rod_imaging(): sine rays in a GRIN rod, inverted and upright
+  images at half and full pitch; road_mirage(): direct and bent rays from
+  a car to the eye over a hot road, the inverted image (notebook 77).
 - lensless_camera(): a pinhole camera, a coded aperture camera and a
   diffuser camera (notebook 79).
 
@@ -136,7 +139,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "stellar_interferometer", "michelson_interferometer", "hbt_interferometer",
            "rainbow_observer", "glory_aircraft", "twinkling_star", "adaptive_optics_system",
            "wavefront_shaping_setup", "foucault_tester", "schlieren_system",
-           "sim_microscope", "sted_microscope", "lensless_camera"]
+           "sim_microscope", "sted_microscope",
+           "grin_rod_imaging", "road_mirage", "lensless_camera"]
 
 
 GLASS = "#cfe3f3"
@@ -3106,6 +3110,124 @@ def sted_microscope(ax, images=None, title=None):
     ax.plot([], [], color=EMISSION, label="fluorescence")
     ax.legend(loc="lower left", fontsize=8, frameon=False)
     _finish(ax, (-1.7, z_foc + 0.8), (-2.2, 2.4), title)
+
+
+ROAD = "#5b5b5b"
+HOT_AIR = "#f4c99a"
+
+
+def grin_rod_imaging(ax, title=None):
+    """Sketch of a GRIN rod lens: an object in contact with the front face,
+    rays that run on sine curves about the axis, an inverted image at half a
+    pitch and an upright one after a full pitch (notebook 77).
+
+    The index falls from the axis outwards (shaded); a point on the axis is
+    focused again every half pitch, a parallel bundle at a quarter pitch.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    P, h = 8.0, 1.0
+    zz = np.linspace(0, P, 400)
+    # the index profile as horizontal bands, darker on the axis
+    for k, yy in enumerate(np.linspace(h, 0.0, 9)[:-1]):
+        ax.add_patch(mpatches.Rectangle((0, -yy), P, 2*yy, facecolor=GLASS, alpha=0.35,
+                                        edgecolor="none", zorder=0.5 + 0.01*k))
+    ax.add_patch(mpatches.Rectangle((0, -h), P, 2*h, facecolor="none", edgecolor=EDGE, lw=1.2,
+                                    zorder=3))
+    ax.plot([-0.9, P + 0.9], [0, 0], color="0.55", lw=0.7, ls="-.", zorder=1)
+    # rays from an axial point (blue) and an off-axis point (orange)
+    for slope in (-0.55, -0.3, 0.3, 0.55):
+        ax.plot(zz, slope/(2*np.pi/P)*np.sin(2*np.pi*zz/P), color=IMAGING, lw=1.1, zorder=2)
+    y0 = 0.45
+    for slope in (-0.5, 0.0, 0.5):
+        ax.plot(zz, y0*np.cos(2*np.pi*zz/P) + slope/(2*np.pi/P)*np.sin(2*np.pi*zz/P),
+                color=ILLUMINATION, lw=1.1, zorder=2)
+    ax.annotate("", xy=(0, y0), xytext=(0, 0),
+                arrowprops=dict(arrowstyle="-|>", color="0.15", lw=1.6), zorder=4)
+    ax.annotate("", xy=(P/2, -y0), xytext=(P/2, 0),
+                arrowprops=dict(arrowstyle="-|>", color="0.15", lw=1.6), zorder=4)
+    ax.annotate("", xy=(P, y0), xytext=(P, 0),
+                arrowprops=dict(arrowstyle="-|>", color="0.15", lw=1.6), zorder=4)
+    for z, txt in ((0, "object"), (P/4, "P/4"), (P/2, "P/2: inverted"), (3*P/4, "3P/4"),
+                   (P, "P: upright")):
+        ax.plot([z, z], [-h - 0.1, h + 0.1], color="0.4", lw=0.8, ls=":", zorder=1)
+        label(ax, z, -h - 0.3, txt, fontsize=8, va="top")
+    label(ax, P/2, h + 0.35, r"$n(\rho)$ highest on the axis", fontsize=8, va="bottom",
+          color=EDGE)
+    # index profile to the right
+    rr = np.linspace(-h, h, 80)
+    ax.plot(P + 1.3 + 0.7*(1 - rr**2), rr, color=EDGE, lw=1.2)
+    ax.plot([P + 1.3, P + 1.3], [-h, h], color="0.6", lw=0.7)
+    label(ax, P + 1.65, -h - 0.3, r"$n$", fontsize=9, va="top")
+    _finish(ax, (-1.0, P + 2.4), (-h - 0.9, h + 0.9), title)
+
+
+def road_mirage(ax, title=None):
+    """Sketch of the inferior mirage over a hot road (notebook 77).
+
+    The air just above the road is hotter and has a lower index. Rays from
+    the top of a distant car reach the eye on a direct, nearly straight
+    path, and on a path that dips into the hot layer and is bent back
+    upwards; the second arrives from below the horizon, so the eye sees an
+    inverted image of the car (and of the sky) apparently lying on the
+    road, like a reflection in water. Vertical scale strongly exaggerated.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    L, y_eye = 10.0, 1.6
+    ax.add_patch(mpatches.Rectangle((-0.8, -1.0), L + 1.6, 1.0, facecolor=ROAD, edgecolor="none",
+                                    zorder=1))
+    for k, a in enumerate(np.linspace(0.45, 0.08, 6)):
+        ax.add_patch(mpatches.Rectangle((-0.8, 0.06*k), L + 1.6, 0.06, facecolor=HOT_AIR, alpha=a,
+                                        edgecolor="none", zorder=0.8))
+    for z in np.arange(-0.4, L + 0.8, 1.2):
+        ax.plot([z, z + 0.5], [-0.12, -0.12], color="w", lw=2, zorder=1.5)
+    label(ax, 0.3*L, 0.55, "hot air: lower index", fontsize=8, color="#b5651d")
+    eye = _person(ax, 0.0, 0.0, height=y_eye/0.86*0.95)
+    # the car at the far end
+    zc = L
+    ax.add_patch(mpatches.FancyBboxPatch((zc - 0.5, 0.12), 1.0, 0.45, boxstyle="round,pad=0.02",
+                                         facecolor="#c0392b", edgecolor="0.2", lw=0.8, zorder=4))
+    ax.add_patch(mpatches.Polygon([(zc - 0.3, 0.57), (zc - 0.15, 0.85), (zc + 0.25, 0.85),
+                                   (zc + 0.4, 0.57)], facecolor="#c0392b", edgecolor="0.2",
+                                  lw=0.8, zorder=4))
+    for dz in (-0.28, 0.28):
+        ax.add_patch(mpatches.Circle((zc + dz, 0.12), 0.11, facecolor="0.15", zorder=5))
+    top = np.array([zc + 0.05, 0.85])
+    # direct ray
+    ax.plot([eye[0], top[0]], [eye[1], top[1]], color=IMAGING, lw=1.3, zorder=3)
+    # bent ray: a hyperbola with straight asymptotes, turning in the hot layer
+    s1 = (-top[1] - eye[1])/(zc - eye[0])           # towards the mirror image of the car top
+    z1 = eye[0] + (0.0 - eye[1])/s1
+    s2 = top[1]/(top[0] - z1)
+    zz = np.linspace(eye[0], top[0], 300)
+    yy = 0.5*(s1 + s2)*(zz - z1) + 0.5*(s2 - s1)*np.sqrt((zz - z1)**2 + 0.5**2)
+    ax.plot(zz, yy, color=LASER, lw=1.3, zorder=3)
+    z_t, y_t = zz[np.argmin(yy)], yy.min()
+    # the apparent direction of the bent ray and the inverted image (the car mirrored)
+    ax.plot([eye[0], top[0]], [eye[1], -top[1]], color=LASER, lw=0.9, ls="--", zorder=2)
+    ghost = dict(facecolor="#e8a09a", edgecolor="none", alpha=0.85, zorder=2)
+    ax.add_patch(mpatches.Rectangle((zc - 0.5, -0.57), 1.0, 0.45, **ghost))
+    ax.add_patch(mpatches.Polygon([(zc - 0.3, -0.57), (zc - 0.15, -0.85), (zc + 0.25, -0.85),
+                                   (zc + 0.4, -0.57)], **ghost))
+    z_img, y_img = zc, -0.85
+    label(ax, z_img - 0.75, y_img + 0.45, "inverted image\n(seen on the road)", fontsize=8,
+          ha="right", color="w")
+    label(ax, 0.45*L, 1.45, "direct ray", fontsize=8, color=IMAGING)
+    label(ax, z_t + 0.3, y_t + 0.3, "turning point", fontsize=8, color=LASER, ha="left")
+    ax.plot([eye[0], L + 0.8], [eye[1], eye[1]], color="0.6", lw=0.7, ls=":", zorder=1)
+    label(ax, L + 0.8, eye[1] + 0.12, "horizon", fontsize=8, ha="right", va="bottom", color="0.4")
+    _finish(ax, (-0.8, L + 0.8), (-1.0, 2.2), title)
 
 
 def lensless_camera(ax, kind="pinhole", title=None):
