@@ -140,6 +140,7 @@ notebooks/45_zernike_aberration_gallery
 - {doc}`notebooks/22_phase_unwrapping`
 - {doc}`notebooks/23_interferometry`
 - {doc}`notebooks/24_radius_interferometer`
+- {doc}`notebooks/74_coherence_stellar_interferometry`
 - {doc}`notebooks/25_shack_hartmann_vs_phase_diversity`
 - {doc}`notebooks/26_holography`
 - {doc}`notebooks/27_holographic_microscopy`
@@ -156,6 +157,7 @@ notebooks/18_image_processing
 notebooks/22_phase_unwrapping
 notebooks/23_interferometry
 notebooks/24_radius_interferometer
+notebooks/74_coherence_stellar_interferometry
 notebooks/25_shack_hartmann_vs_phase_diversity
 notebooks/26_holography
 notebooks/27_holographic_microscopy

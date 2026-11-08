@@ -21,3 +21,4 @@ from . import shack_hartmann
 from . import modes
 from . import vortices
 from . import turbulence
+from . import coherence
