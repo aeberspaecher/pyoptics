@@ -15,7 +15,16 @@ Pupil masks may be given as arrays sampled on the frequency grid or as
 callables mask(P_x, P_y); the mask may be real-valued (apodization) or
 complex. Phases (in radians, i.e. 2*pi*W for a wavefront error W in waves)
 may be given in the same two ways. With the convention exp(i(k.r - omega*t)),
-a positive phase corresponds to a wavefront that runs ahead.
+a positive phase is a delay: a longer optical path (phase = +2*pi*OPD/wavelength
+as in pyoptics.raytrace), i.e. a wavefront that lags behind. A positive
+phase gradient along P_x delays the plane waves travelling towards +x and
+moves the image towards -x.
+
+The pupil coordinates are directions of the image space plane waves. In the
+real exit pupil of a lens that forms a real image they are point-mirrored
+(a ray through the top of the pupil travels downwards), so Zernikes that
+are odd in the azimuth have opposite signs in the two; raytrace.System.pupil()
+maps a traced OPD onto these coordinates.
 
 Sampling: the PSF is band limited to ``|k_perp|`` <= k*NA, the intensity PSF and
 hence the OTF to 2*k*NA. The grid spacing should thus fulfil

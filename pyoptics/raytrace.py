@@ -2464,7 +2464,13 @@ class System:
         """Fringe Zernike fit to the OPD map.
 
         Least squares fit of Z_1...Z_n_terms on the unit disk of pupil
-        coordinates.
+        coordinates, i.e. normalized positions in the entrance pupil. Note
+        that `imaging` (and `litho`) parametrize the pupil by the image space
+        ray directions instead (see `pupil()`); for a lens that forms a real
+        image the two are point-mirrored, and the coefficients of Zernikes
+        that are odd in the azimuth (Z2, Z3, Z7, Z8, Z10, Z11, ...) change
+        sign. Fit `pupil().phase` (or use `litho.lens.lens_aberrations()`)
+        for coefficients to hand to `imaging`.
 
         Parameters
         ----------
