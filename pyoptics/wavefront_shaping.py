@@ -269,7 +269,7 @@ def phase_conjugation(t, modulation="phase", levels=None):
     modulation : {"phase", "full", "binary_amplitude"}, optional
         "phase": unit amplitudes, phases -arg(t_n) (optionally quantized to
         `levels` equidistant values). "full": amplitude and phase,
-        conj(t)/|t|*sqrt(N), the same input power as N unit segments.
+        ``conj(t)/|t|*sqrt(N)``, the same input power as N unit segments.
         "binary_amplitude": segments on (1) or off (0), on where
         Re(t_n exp(-i theta)) > 0, with the reference phase theta that
         gives the largest focus (as with a digital micromirror device).
@@ -311,9 +311,9 @@ def enhancement(t, values):
 
     The mean speckle intensity is the ensemble average over random SLM phases
     for the same input power spread evenly over the segments,
-    sum_n |t_n|**2 * sum_n |A_n|**2/N, i.e. the intensity this output sample
+    ``sum_n |t_n|**2 * sum_n |A_n|**2/N``, i.e. the intensity this output sample
     gets on average without shaping (Vellekoop and Mosk 2007). For
-    phase-only settings this is sum_n |t_n|**2.
+    phase-only settings this is ``sum_n |t_n|**2``.
 
     Parameters
     ----------
@@ -336,10 +336,10 @@ def enhancement(t, values):
 def expected_enhancement(N, modulation="phase", levels=None):
     """Expected enhancement for a TM with independent circular Gaussian elements.
 
-    With E|t|^2 = 1 and Rayleigh distributed |t_n|:
+    With ``E|t|^2 = 1`` and Rayleigh distributed ``|t_n|``:
 
     - full (amplitude and phase) control: eta = N,
-    - phase only: eta = 1 + (N - 1) pi/4, because (E|t|)^2 = pi/4,
+    - phase only: eta = 1 + (N - 1) pi/4, because ``(E|t|)^2 = pi/4``,
     - P phase levels: eta = 1 + (N - 1) pi/4 sinc^2(pi/P), with
       sinc(x) = sin(x)/x (1 + (N - 1)/pi for binary phase),
     - binary amplitude: eta = 1 + (N - 1)/(2 pi), relative to the mean
@@ -590,7 +590,7 @@ def measure_transmission_matrix(measure, n_segments, n_steps=4, basis="canonical
 
     For every input pattern b_j (a column of the basis) the phase of the
     pattern is stepped, phi_k = 2 pi k/n_steps, and the camera measures
-    I_k = |r + exp(i phi_k) T b_j|**2 with a reference field r that the
+    ``I_k = |r + exp(i phi_k) T b_j|**2`` with a reference field r that the
     experiment adds (e.g. light from an unmodulated part of the SLM, as in
     Popoff et al. 2010). Then sum_k I_k exp(-i phi_k)/n_steps = conj(r) T b_j
     in every pixel at once, and the TM follows by inverting the basis. The
@@ -656,8 +656,8 @@ def marchenko_pastur_pdf(s, ratio=1.0):
     For an M x N matrix (N <= M) with independent elements of zero mean and
     variance 1/M, the eigenvalues lambda = s**2 of T^H T follow the
     Marchenko-Pastur law with gamma = N/M,
-    p(lambda) = sqrt((lambda_+ - lambda)(lambda - lambda_-))/(2 pi gamma lambda),
-    lambda_+- = (1 +- sqrt(gamma))**2; this function returns the density of
+    ``p(lambda) = sqrt((l_+ - lambda)(lambda - l_-))/(2 pi gamma lambda)``,
+    ``l_+- = (1 +- sqrt(gamma))**2``; this function returns the density of
     the singular values, 2 s p(s**2). For a square matrix it is the quarter
     circle sqrt(4 - s**2)/pi on [0, 2].
 
