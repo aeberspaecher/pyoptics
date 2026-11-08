@@ -276,3 +276,50 @@ def test_backward_irradiance_of_a_uniform_source_behind_a_stop():
     E2 = il.backward_irradiance(S, np.zeros((1, 2)), 0.6, lambda x, y: x > 0,
                                 n_directions=200000, rng=4)
     assert np.isclose(E2[0], E[0]/2, rtol=0.02)
+
+
+def test_thin_lens_focuses_parallel_rays():
+    rng = np.random.default_rng(0)
+    P = np.column_stack([rng.uniform(-2, 2, 100), rng.uniform(-2, 2, 100), np.zeros(100)])
+    t = 0.03
+    d = np.tile([np.sin(t), 0.0, np.cos(t)], (100, 1))
+    d2 = il.thin_lens(P, d, 50.0)
+    Q = il.propagate(P, d2, 50.0)
+    assert np.allclose(Q[:, 0], 50*np.tan(t)) and np.allclose(Q[:, 1], 0, atol=1e-12)
+
+
+def test_imaging_fly_eye_makes_a_flat_top_that_ignores_tilt():
+    rng = np.random.default_rng(1)
+    n, p, f, F, n_l = 200000, 0.5, 5.0, 100.0, 15
+    P = np.column_stack([rng.normal(0, 1.5, n), rng.normal(0, 1.5, n), np.zeros(n)])
+    for tilt in (0.0, 0.03):
+        d = np.tile([np.sin(tilt), 0.0, np.cos(tilt)], (n, 1))
+        d1, idx = il.lenslet_array(P, d, p, f, n_lenslets=n_l)
+        P2 = il.propagate(P, d1, f)
+        d2, idx2 = il.lenslet_array(P2, d1, p, f, n_lenslets=n_l)
+        Q = il.propagate(P2, il.thin_lens(P2, d2, F), F)
+        ok = np.isfinite(Q[:, 0])
+        assert np.all(idx[ok] == idx2[ok])                       # no crosstalk below p/2f
+        assert np.allclose(np.abs(Q[ok, :2]).max(axis=0), p*F/f/2, rtol=1e-3)
+        h, _ = np.histogram(Q[ok, 0], bins=10, range=(-4, 4))
+        assert h.std()/h.mean() < 0.02
+    # rays outside the array are lost
+    assert np.all(np.isnan(d1[np.abs(P[:, 0]) > n_l*p/2 + 1e-9, 0]))
+
+
+def test_fly_eye_field_coherent_comb():
+    x = np.linspace(-10, 10, 2**14, endpoint=False)
+    E = np.exp(-x**2/(2*3.0**2))
+    wl, p, f, F = 0.5e-3, 0.5, 5.0, 100.0
+    u, U = il.fly_eye_field_1d(E, x, wl, p, f, f, focal_length=F, n_lenslets=15)
+    I = np.abs(U)**2
+    du = u[1] - u[0]
+    assert np.isclose(np.sum(I)*du, np.sum(np.abs(E[np.abs(x) <= 15*p/2])**2)*(x[1] - x[0]), rtol=1e-3)
+    # light in the field |u| <= p F/2f, modulated with the period lambda F/p
+    assert np.sum(I[np.abs(u) <= p*F/f/2 + 0.05])/np.sum(I) > 0.97
+    c = np.abs(u) < 3
+    spec = np.abs(np.fft.rfft(I[c] - I[c].mean()))
+    freq = np.fft.rfftfreq(c.sum(), du)
+    assert np.isclose(freq[np.argmax(spec)], p/(wl*F), rtol=0.02)
+    with pytest.raises(ValueError):
+        il.fly_eye_field_1d(E, x, wl, p, f, gap=5.0)

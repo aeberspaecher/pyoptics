@@ -120,6 +120,9 @@ Setup sketches for the other example notebooks:
 - koehler_critical(): a microscope illuminator, the filament imaged into
   the aperture diaphragm (Köhler) or the field diaphragm (critical)
   (notebook 85).
+- fly_eye_homogenizer(): one or two lenslet arrays and a condenser that
+  overlap the channels into a flat field, with a tilted input (notebook
+  86); the rod integrator is light_pipe_images().
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -174,7 +177,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "momentum_balance", "pulse_through_lens", "pulse_front_tilt",
            "approximation_map", "sign_conventions", "diffraction_geometry", "eikonal_wavefronts",
            "phase_space_portraits", "liouville_lens", "burning_glass", "etendue_diffuser",
-           "light_pipe_images", "cpc_edge_rays", "cpc_skew_ray", "cpc_secondary", "koehler_critical"]
+           "light_pipe_images", "cpc_edge_rays", "cpc_skew_ray", "cpc_secondary", "koehler_critical",
+           "fly_eye_homogenizer"]
 
 
 GLASS = "#cfe3f3"
@@ -4924,3 +4928,88 @@ def koehler_critical(ax, mode="koehler", title=None):
     label(ax, z_img, h + 0.12, "filament\nimage", fontsize=8, va="bottom", color="#9a6b00")
     label(ax, (z_lamp + z_E)/2, -1.55, text, fontsize=9, va="top")
     _finish(ax, (z_col - 1.95, z_E + 0.8), (-2.05, h + 0.6), title)
+
+
+def _lens_at(ax, z, y, h, thickness=None, zorder=3):
+    patch = lens(ax, z, h, thickness=thickness, zorder=zorder)
+    patch.set_xy(patch.get_xy() + [0, y])
+    return patch
+
+
+def fly_eye_homogenizer(ax, imaging=True, tilt=0.0, title=None):
+    """Sketch of a fly's eye (lenslet array) homogenizer (notebook 86).
+
+    A beam with a bell-shaped profile meets an array of lenslets of pitch p
+    and focal length f; with imaging=True a second array sits in the focal
+    plane of the first, and a condenser of focal length F follows. Each
+    channel sends its part of the beam over the whole field in the focal
+    plane of the condenser, where the parts overlap into a flat top of
+    width p F/f. In the imaging homogenizer the second array images the
+    apertures of the first onto the field, which then stays in place when
+    the input beam tilts (as long as the foci stay inside their lenslets);
+    with one array the field moves by F times the tilt.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    imaging : bool, optional
+        Two arrays (imaging) or one (non-imaging).
+    tilt : number, optional
+        Tilt of the input beam in radians (sketch scale, try 0.1).
+    title : str, optional
+    """
+
+    p, n_l, f = 0.5, 5, 1.0
+    z1, z2 = 0.0, f
+    z_c = (z2 if imaging else z1) + 0.6
+    F = 3.2
+    z_fp = z_c + F
+    half = n_l*p/2
+    centers = (np.arange(n_l) - (n_l - 1)/2)*p
+    # input profile
+    yy = np.linspace(-half, half, 100)
+    ax.plot(-1.6 - 0.5*np.exp(-yy**2/(2*0.5**2)), yy, color=ILLUMINATION, lw=1.4)
+    label(ax, -1.85, half + 0.15, "input beam\nprofile", fontsize=8, va="bottom")
+    for c in centers:
+        _lens_at(ax, z1, c, p/2*0.96, thickness=0.12)
+        if imaging:
+            _lens_at(ax, z2, c, p/2*0.96, thickness=0.12)
+    lens(ax, z_c, half + 0.5, thickness=0.25)
+    ax.plot([z_fp, z_fp], [-half - 0.5, half + 0.5], color="0.55", ls=":", lw=1)
+    cols = {0: SOURCE_COLORS[2], n_l//2: SOURCE_COLORS[1], n_l - 1: SOURCE_COLORS[0]}
+    t0 = np.tan(tilt)
+    W = p*F/(2*f)
+    for k, col in cols.items():
+        c = centers[k]
+        for y in c + np.array([-0.45, 0.0, 0.45])*p:
+            zs, ys = [-1.2, z1], [y - 1.2*t0, y]
+            t = t0 - (y - c)/f
+            if imaging:
+                y2 = y + f*t
+                zs.append(z2)
+                ys.append(y2)
+                t = t - (y2 - c)/f
+                y_c = y2 + t*(z_c - z2)
+            else:
+                y_c = y + t*(z_c - z1)
+            zs.append(z_c)
+            ys.append(y_c)
+            t = t - y_c/F
+            zs.append(z_fp)
+            ys.append(y_c + t*F)
+            ax.plot(zs, ys, color=col, lw=0.9, alpha=0.9, zorder=2)
+    # field profile
+    shift = 0.0 if imaging else F*t0
+    yy = np.linspace(-W - 0.3, W + 0.3, 200)
+    E = (np.abs(yy - shift) <= W).astype(float)
+    ax.plot(z_fp + 0.25 + 0.5*E, yy, color="#b40426", lw=1.4)
+    label(ax, z_fp + 0.5, W + 0.45, "field: flat top,\nwidth p F/f", fontsize=8, va="bottom",
+          color="#b40426")
+    label(ax, z1 if not imaging else (z1 + z2)/2, -half - 0.12,
+          "two lenslet arrays,\nf apart" if imaging else "one lenslet\narray", va="top",
+          fontsize=8)
+    label(ax, z_c, -half - 0.62, "condenser F", va="top", fontsize=8)
+    label(ax, z_fp, -half - 0.62, "field plane", va="top", fontsize=8, color="0.4")
+    if tilt:
+        label(ax, -0.6, half + 0.15, "tilted input", fontsize=8, va="bottom", color="0.3")
+    _finish(ax, (-2.3, z_fp + 1.6), (-half - 1.1, half + 0.9), title)
