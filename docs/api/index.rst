@@ -74,6 +74,7 @@ Imaging and ray tracing
    pyoptics.grin
    pyoptics.cloak
    pyoptics.fresnel
+   pyoptics.illumination
    pyoptics.delano
    pyoptics.lens_optimization
    pyoptics.tolerancing
