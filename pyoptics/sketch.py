@@ -107,6 +107,16 @@ Setup sketches for the other example notebooks:
   the two mirror conventions; diffraction_geometry(): the Rayleigh-Sommerfeld
   integral; eikonal_wavefronts(): wavefronts of constant optical path and
   the rays normal to them (notebook 00).
+- phase_space_portraits(): a strip source through free space, a singlet
+  and a glass rod, and the phase space behind each; liouville_lens(): field
+  and NA through a reducing lens; burning_glass(): the paraxial ideal lens
+  and a hyperbolic lens in sunlight; etendue_diffuser(): a diffuser at and
+  behind the waist of a Gaussian beam; light_pipe_images(): a light pipe
+  unfolded into mirror copies (notebook 83).
+- cpc_edge_rays(): the compound parabolic concentrator, its tilted
+  parabolas, foci and edge rays, also truncated or dielectric;
+  cpc_skew_ray(): a skew ray in a 3D CPC seen along the axis;
+  cpc_secondary(): a CPC secondary in the focus of a lens (notebook 84).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -159,7 +169,9 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "sim_microscope", "sted_microscope",
            "grin_rod_imaging", "road_mirage", "lensless_camera", "oct_setup", "optical_tweezers", "ashkin_rays",
            "momentum_balance", "pulse_through_lens", "pulse_front_tilt",
-           "approximation_map", "sign_conventions", "diffraction_geometry", "eikonal_wavefronts"]
+           "approximation_map", "sign_conventions", "diffraction_geometry", "eikonal_wavefronts",
+           "phase_space_portraits", "liouville_lens", "burning_glass", "etendue_diffuser",
+           "light_pipe_images", "cpc_edge_rays", "cpc_skew_ray", "cpc_secondary"]
 
 
 GLASS = "#cfe3f3"
@@ -4123,3 +4135,711 @@ def eikonal_wavefronts(ax, n2=1.5, title=None):
     label(ax, 4.0, 1.95, "n = %.1f: wavefronts closer by 1/n" % n2, fontsize=9, va="bottom")
     label(ax, 4.0, -1.95, "rays ⊥ wavefronts:  ∇S = n ŝ,  |∇S| = n", fontsize=9, va="top")
     _finish(ax, (-0.5, 6.3), (-2.6, 2.5), title)
+
+
+# ---------------------------------------------------------------------------
+# illumination optics: étendue and nonimaging concentrators (notebooks 83, 84)
+
+SOURCE_COLORS = ("#3b4cc0", "0.45", "#b40426")   # bottom, centre and top of a source
+ABSORBER = "0.12"
+
+
+def _clip_x(poly, lo, hi):
+    """Clip a polygon (N, 2) to lo <= x <= hi (Sutherland-Hodgman)."""
+
+    def clip(pts, keep, x0):
+        out = []
+        for i in range(len(pts)):
+            p, q = pts[i - 1], pts[i]
+            cut = p + (x0 - p[0])/(q[0] - p[0])*(q - p) if q[0] != p[0] else q
+            if keep(q):
+                if not keep(p):
+                    out.append(cut)
+                out.append(q)
+            elif keep(p):
+                out.append(cut)
+        return out
+
+    pts = [np.asarray(p, float) for p in poly]
+    pts = clip(pts, lambda p: p[0] >= lo, lo)
+    if pts:
+        pts = clip(pts, lambda p: p[0] <= hi, hi)
+    return np.array(pts).reshape(-1, 2)
+
+
+def _mirror_trace(p, d, walls, z_min, z_max, max_bounces=60):
+    """Trace a ray in the (z, y) plane from p along d, reflected at the
+    polyline mirrors walls, until it crosses z_min or z_max.
+
+    Returns the vertices (M, 2) and the number of reflections.
+    """
+
+    p = np.asarray(p, float)
+    d = np.asarray(d, float)/np.hypot(*d)
+    segs = np.concatenate([np.stack([w[:-1], w[1:]], axis=1) for w in walls])
+    A, E = segs[:, 0], segs[:, 1] - segs[:, 0]
+    pts = [p]
+    for k in range(max_bounces + 1):
+        den = d[0]*E[:, 1] - d[1]*E[:, 0]
+        AP = A - p
+        with np.errstate(divide="ignore", invalid="ignore"):
+            t = (AP[:, 0]*E[:, 1] - AP[:, 1]*E[:, 0])/den
+            s = (AP[:, 0]*d[1] - AP[:, 1]*d[0])/den
+        ok = (np.abs(den) > 1e-14) & (t > 1e-7) & (s >= 0) & (s <= 1)
+        if d[0] > 0:
+            t_end = (z_max - p[0])/d[0]
+        elif d[0] < 0:
+            t_end = (z_min - p[0])/d[0]
+        else:
+            t_end = 1e3
+        if not ok.any() or t[ok].min() >= t_end*(1 - 5e-3) or k == max_bounces:
+            pts.append(p + t_end*d)
+            break
+        i = np.flatnonzero(ok)[np.argmin(t[ok])]
+        p = p + t[i]*d
+        nrm = np.array([-E[i, 1], E[i, 0]])/np.hypot(*E[i])
+        d = d - 2*(d @ nrm)*nrm
+        pts.append(p)
+    return np.array(pts), k
+
+
+def _cpc_wall(theta, a_exit, n=300, phi=None):
+    """Upper wall of a 2D CPC with the entrance at z = 0 and the exit at z = L.
+
+    The wall is a parabola with its focus on the lower exit rim and its axis
+    tilted by theta, r = 2f/(1 - cos(phi)) with f = (1 + sin(theta)) a_exit,
+    from phi = 2 theta (entrance) to theta + pi/2 (exit); other phi continue
+    the parabola. Returns z, y, the entrance half width a and the length L.
+    """
+
+    f = a_exit*(1 + np.sin(theta))
+    a = a_exit/np.sin(theta)
+    L = (a + a_exit)/np.tan(theta)
+    if phi is None:
+        phi = np.linspace(2*theta, theta + np.pi/2, n)
+    r = 2*f/(1 - np.cos(phi))
+    return L - r*np.cos(phi - theta), r*np.sin(phi - theta) - a_exit, a, L
+
+
+def _hyperbolic_lens(a, f, n=1.5, edge=0.04):
+    """Plano-convex lens, flat front at z = 0, hyperbolic back (K = -n^2).
+
+    Returns the sag function, its derivative and the back vertex z_v; the
+    axial focus is at z_v + f.
+    """
+
+    c, K = -1/((n - 1)*f), -n**2
+
+    def sag(y):
+        return c*y**2/(1 + np.sqrt(1 - (1 + K)*c**2*y**2))
+
+    def dsag(y):
+        return c*y/np.sqrt(1 - (1 + K)*c**2*y**2)
+
+    return sag, dsag, edge - sag(a)
+
+
+def _lens_ray(y0, angle, a, f, n=1.5, z_start=-1.0):
+    """A meridional ray through the hyperbolic lens of _hyperbolic_lens():
+    it meets the flat front at the height y0 with the angle (radians) to the
+    axis. Returns the vertices (start, front, back) and the exit direction."""
+
+    sag, dsag, z_v = _hyperbolic_lens(a, f, n)
+    sb = np.sin(angle)/n
+    d = np.array([np.sqrt(1 - sb**2), sb])
+    lo, hi = 0.0, 4*(z_v + a)
+    for _ in range(80):
+        t = 0.5*(lo + hi)
+        if t*d[0] - z_v - sag(y0 + t*d[1]) < 0:
+            lo = t
+        else:
+            hi = t
+    q = np.array([0.0, y0]) + lo*d
+    N = np.array([1.0, -dsag(q[1])])
+    N /= np.hypot(*N)
+    ci = d @ N
+    st2 = n**2*(1 - ci**2)
+    e = n*d + (np.sqrt(max(1 - st2, 0.0)) - n*ci)*N
+    p0 = np.array([z_start, y0 + z_start*np.tan(angle)])
+    return np.array([p0, [0.0, y0], q]), e/np.hypot(*e)
+
+
+def _draw_hyperbolic_lens(ax, a, f, n=1.5, z=0.0, y=0.0, text=None, fontsize=9):
+    sag, _, z_v = _hyperbolic_lens(a, f, n)
+    yy = np.linspace(-a, a, 81)
+    pts = np.r_[np.c_[np.zeros(2), [-a, a]], np.c_[z_v + sag(yy[::-1]), yy[::-1]]]
+    ax.add_patch(_patches().Polygon(pts + [z, y], closed=True, facecolor=GLASS,
+                                    edgecolor=EDGE, lw=1, zorder=3))
+    if text:
+        label(ax, z + z_v/2, y - a - 0.12, text, va="top", fontsize=fontsize)
+    return z_v
+
+
+def _phase_axes(ax, z0, y0, ex, ey, xlabel="x", ylabel="p"):
+    arrow(ax, z0 - ex, y0, z0 + ex, y0, color="0.45", lw=0.8)
+    arrow(ax, z0, y0 - ey, z0, y0 + ey, color="0.45", lw=0.8)
+    label(ax, z0 + ex + 0.06, y0, xlabel, ha="left", fontsize=8, color="0.3")
+    label(ax, z0, y0 + ey + 0.04, ylabel, va="bottom", fontsize=8, color="0.3")
+
+
+def _phase_poly(ax, z0, y0, sx, sy, xp, color, filled=True, zorder=4):
+    pts = np.c_[z0 + sx*xp[:, 0], y0 + sy*xp[:, 1]]
+    if filled:
+        ax.add_patch(_patches().Polygon(pts, closed=True, facecolor=color, edgecolor=color,
+                                        alpha=0.55, lw=0.6, zorder=zorder))
+    else:
+        ax.add_patch(_patches().Polygon(pts, closed=True, facecolor="none", edgecolor="0.4",
+                                        ls="--", lw=0.8, zorder=zorder))
+
+
+def phase_space_portraits(ax, title=None):
+    """Sketch of the three systems of notebook 83, section 1, and what they
+    do to the phase space of a strip source.
+
+    A strip source (width w, every point emitting into abs(p) <= NA, the
+    colours mark its bottom, centre and top) followed by free space, by a
+    singlet observed in its back focal plane, and by a glass rod. Next to
+    each the phase space (x, p) at the end, over the source rectangle
+    (dashed): free space shears it, the lens turns it by 90 degrees, the rod
+    cuts the sheared strip into pieces and folds them back into its width.
+    Paraxial and not to scale.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    h, na, n_rod = 0.5, 0.3, 1.5
+    t_air, t_rod = np.tan(np.arcsin(na)), np.tan(np.arcsin(na/n_rod))
+    D, F, L_rod = 2.5, 3.2, 6.4
+    rows = [(0.0, "free space"), (-3.5, "singlet, observed in its back focal plane"),
+            (-6.8, "glass rod (n = 1.5), as wide as the source")]
+    z_ps, sx, sy = 8.4, 0.62, 2.0
+    pp = np.linspace(-na, na, 41)
+    src = np.array([[-h, -na], [h, -na], [h, na], [-h, na]])
+    for k, (y0, name) in enumerate(rows):
+        ax.plot([0, 0], [y0 - h, y0 + h], color=ILLUMINATION, lw=5, solid_capstyle="butt",
+                zorder=4)
+        label(ax, -0.3, y0 + 1.55, name, ha="left", fontsize=9)
+        ys = (-h, 0.0, h)
+        if k == 0:
+            for y_s, col in zip(ys, SOURCE_COLORS):
+                for u in np.linspace(-t_air, t_air, 5):
+                    ax.plot([0, D], [y0 + y_s, y0 + y_s + D*u], color=col, lw=0.9, zorder=2)
+            plane(ax, D, 1.4, color="0.5")
+            ax.plot([D, D], [y0 - 1.4, y0 + 1.4], color="0.55", ls=":", lw=1)
+            shape = np.r_[np.c_[-h + D*pp/np.sqrt(1 - pp**2), pp],
+                          np.c_[h + D*pp[::-1]/np.sqrt(1 - pp[::-1]**2), pp[::-1]]]
+            shapes = [shape]
+        elif k == 1:
+            lens(ax, F, 1.3, thickness=0.3)
+            ax.patches[-1].set_xy(ax.patches[-1].get_xy() + [0, y0])
+            for y_s, col in zip(ys, SOURCE_COLORS):
+                for u in np.linspace(-t_air, t_air, 5):
+                    zz, yy = paraxial_ray([(F, F)], 0.0, y_s, u, 2*F)
+                    ax.plot(zz, y0 + yy, color=col, lw=0.9, zorder=2)
+            ax.plot([2*F]*2, [y0 - 1.4, y0 + 1.4], color="0.55", ls=":", lw=1)
+            label(ax, 2*F, y0 - 1.5, "back focal plane", va="top", fontsize=8, color="0.4")
+            shapes = [np.array([[-F*na, -h/F], [F*na, -h/F], [F*na, h/F], [-F*na, h/F]])]
+        else:
+            ax.add_patch(mpatches.Rectangle((0, y0 - h), L_rod, 2*h, facecolor=GLASS,
+                                            edgecolor=EDGE, lw=1, zorder=1))
+            zz = np.linspace(0, L_rod, 300)
+            for y_s, col in zip(ys, SOURCE_COLORS):
+                for u in np.linspace(-t_rod, t_rod, 5):
+                    ax.plot(zz, y0 + _fold(0.999*y_s + u*zz, h), color=col, lw=0.9, zorder=2)
+            unf = np.r_[np.c_[-h + L_rod*np.tan(np.arcsin(pp/n_rod)), pp],
+                        np.c_[h + L_rod*np.tan(np.arcsin(pp[::-1]/n_rod)), pp[::-1]]]
+            shapes = []
+            for m in range(-6, 7):
+                piece = _clip_x(unf, (2*m - 1)*h, (2*m + 1)*h)
+                if len(piece) > 2:
+                    sgn = (-1)**m
+                    shapes.append((np.c_[sgn*(piece[:, 0] - 2*m*h), sgn*piece[:, 1]],
+                                   "#7aa6c8" if m % 2 == 0 else "#c9a64a"))
+        _phase_axes(ax, z_ps, y0, 1.25, 0.8)
+        _phase_poly(ax, z_ps, y0, sx, sy, src, None, filled=False)
+        for s in shapes:
+            s, col = s if isinstance(s, tuple) else (s, "#7aa6c8")
+            _phase_poly(ax, z_ps, y0, sx, sy, s, col)
+    label(ax, z_ps, rows[0][0] + 1.55, "phase space at the end\n(dashed: the source)",
+          fontsize=8, va="bottom", color="0.3")
+    label(ax, z_ps, rows[0][0] - 1.0, "sheared", fontsize=8, va="top", color="0.3")
+    label(ax, z_ps, rows[1][0] - 1.0, "turned by 90°", fontsize=8, va="top", color="0.3")
+    label(ax, z_ps, rows[2][0] - 1.0, "cut and folded\n(brown: pieces flipped)", fontsize=8,
+          va="top", color="0.3")
+    label(ax, -0.15, rows[2][0] - 0.75, "source: width w, |p| ≤ NA", ha="left", va="top",
+          fontsize=8, color="0.3")
+    _finish(ax, (-0.5, z_ps + 1.6), (rows[2][0] - 1.7, 2.4), title)
+
+
+def liouville_lens(ax, text="reduction lens (Caldwell's KrF lens, 4×)", title=None):
+    """Sketch of Liouville's theorem in a reducing lens (notebook 83, section 2).
+
+    Three points of an object field of radius h each emit into a cone of
+    numerical aperture NA; the lens images the field 4x reduced, and the
+    image cones have 4x the NA, so h NA = h' NA' and the étendue
+    pi^2 (h NA)^2 is the same on both sides.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    text : str, optional
+        Label of the lens.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    h, m = 1.6, 0.25
+    u = np.arcsin(0.16)
+    up = np.arcsin(0.16/m)
+    z_obj, z1, z2, z_img = 0.0, 2.4, 5.4, 7.6
+    ax.plot([z_obj]*2, [-h, h], color="0.3", lw=1.5, zorder=4)
+    ax.plot([z_img]*2, [-m*h, m*h], color="0.3", lw=1.5, zorder=4)
+    for y, col in zip((-h, 0.0, h), SOURCE_COLORS):
+        L1 = 1.7
+        band(ax, [z_obj, z_obj + L1], [y, y + L1*np.tan(u)], [z_obj, z_obj + L1],
+             [y, y - L1*np.tan(u)], color=col, alpha=0.25)
+        L2 = 1.25
+        yi = -m*y
+        band(ax, [z_img - L2, z_img], [yi + L2*np.tan(up), yi], [z_img - L2, z_img],
+             [yi - L2*np.tan(up), yi], color=col, alpha=0.25)
+        ax.plot(z_obj, y, "o", color=col, ms=4, zorder=5)
+        ax.plot(z_img, yi, "o", color=col, ms=4, zorder=5)
+    zs = np.linspace(z1 + 0.25, z2 - 0.25, 6)
+    hs = np.interp(zs, [z1, z2], [1.7, 1.0])
+    for z_, h_ in zip(zs, hs):
+        lens(ax, z_, h_, thickness=0.28)
+    ax.add_patch(mpatches.FancyBboxPatch((z1, -1.9), z2 - z1, 3.8, boxstyle="round,pad=0.02",
+                                         facecolor="none", edgecolor="0.6", ls="--", lw=0.8))
+    label(ax, (z1 + z2)/2, -2.0, text, va="top", fontsize=8)
+    label(ax, z_obj, -h - 0.15, "object field\nradius h, NA", va="top", fontsize=8)
+    label(ax, z_img, -m*h - 0.9, "image: h′ = h/4,\nNA′ = 4 NA", va="top", fontsize=8)
+    label(ax, (z_obj + z_img)/2, 2.25, "h NA = h′ NA′: the étendue π²(h NA)² is the same on "
+          "both sides", fontsize=9, va="bottom")
+    label(ax, (z_obj + z_img)/2, -2.75, "conserved ray by ray: the 4D phase space volume "
+          "(det J = 1) and the skew invariant n(xM − yL)", fontsize=8, va="top", color="0.3")
+    _finish(ax, (-0.8, z_img + 0.8), (-3.2, 2.7), title)
+
+
+def burning_glass(ax, lens="hyperbolic", title=None):
+    """Sketch of a lens as a burning glass (notebook 83, sections 3 and 4).
+
+    lens="ideal": the paraxial ideal lens of lens design programs sends
+    every parallel bundle to the point where its chief ray meets the focal
+    plane, x' = f tan(theta); the map from the lens to the focal plane
+    compresses phase space by det J = cos^4 theta'.
+
+    lens="hyperbolic": sunlight (the cone of the solar disk, half angle
+    alpha, exaggerated) through a plano-convex lens with a hyperbolic back
+    at f/0.5. The axial bundle meets in a perfect focus; the bundle from the
+    edge of the Sun is smeared by coma because the lens does not obey the
+    sine condition. A round absorber sits in the focal plane on the image of
+    the Sun (radius f alpha); the converging cone has the NA' of the
+    marginal ray. The rays are traced exactly through the hyperbola.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    lens : {"hyperbolic", "ideal"}, optional
+    title : str, optional
+    """
+
+    if lens == "ideal":
+        f, hl, th = 2.4, 1.5, np.radians(16)
+        ax.plot([0, 0], [-hl, hl], color=EDGE, lw=1.5, zorder=4)
+        for s in (1, -1):
+            arrow(ax, 0, s*(hl - 0.2), 0, s*hl, color=EDGE, lw=1.5)
+        for ang, col in ((0.0, ILLUMINATION), (th, "#b40426")):
+            yf = f*np.tan(ang)
+            for y in np.linspace(-0.92*hl, 0.92*hl, 7):
+                ax.plot([-1.4, 0, f], [y - 1.4*np.tan(ang), y, yf], color=col, lw=0.9,
+                        zorder=2)
+        ax.plot([f, f], [-hl, hl + 0.2], color="0.55", ls=":", lw=1)
+        label(ax, f + 0.08, f*np.tan(th), "x′ = f tan θ", ha="left", fontsize=9)
+        ax.plot([0, f], [0, 0], color="0.5", lw=0.6, ls="-.")
+        aa = np.linspace(0, th, 20)
+        z_a, y_a = -1.4, -1.4*np.tan(th)
+        ax.plot(z_a + 0.8*np.cos(aa), y_a + 0.8*np.sin(aa), color="0.3", lw=0.8)
+        ax.plot([z_a, z_a + 1.0], [y_a, y_a], color="0.3", lw=0.6)
+        label(ax, z_a + 0.95, y_a + 0.12, "θ", fontsize=9, ha="left")
+        label(ax, 0, -hl - 0.12, "ideal (paraxial) lens", va="top", fontsize=8)
+        label(ax, f, -hl - 0.12, "focal plane", va="top", fontsize=8, color="0.4")
+        label(ax, f/2, hl + 0.55, "every bundle to a perfect point, but\n"
+              "det J = cos⁴θ′ < 1: phase space compressed", fontsize=8, va="bottom",
+              color="0.3")
+        _finish(ax, (-1.6, f + 1.3), (-hl - 0.5, hl + 1.3), title)
+        return
+
+    a, f, n = 1.0, 1.0, 1.5
+    alpha = np.radians(2.5)
+    z_v = _draw_hyperbolic_lens(ax, a, f, n, text="hyperbolic lens, f/0.5")
+    z_f = z_v + f
+    for ang, col in ((0.0, ILLUMINATION), (alpha, "#b40426")):
+        for y0 in np.linspace(-0.95*a, 0.95*a, 9):
+            V, e = _lens_ray(y0, -ang, a, f, n, z_start=-1.6)
+            t = (z_f + 0.35 - V[-1, 0])/e[0]
+            V = np.r_[V, [V[-1] + t*e]]
+            ax.plot(V[:, 0], V[:, 1], color=col, lw=0.8, zorder=2)
+    _sun(ax, -2.1, 0.0, r=0.22)
+    ax.plot([z_f, z_f], [-0.65, 0.65], color="0.55", ls=":", lw=1)
+    r_sun = f*alpha
+    ax.plot([z_f, z_f], [-r_sun, r_sun], color=ABSORBER, lw=4, solid_capstyle="butt",
+            zorder=5)
+    label(ax, z_f + 0.1, -0.35, "absorber on the\nimage of the Sun,\nradius f α", ha="left",
+          va="top", fontsize=8)
+    V, e = _lens_ray(0.999*a, 0.0, a, f, n)
+    na = abs(e[1])
+    label(ax, z_f + 0.1, 0.32, "NA′ = {:.2f}".format(na), ha="left", fontsize=8)
+    label(ax, -1.0, 1.15, "sunlight: cone of half\nangle α (exaggerated)", fontsize=8,
+          va="bottom")
+    label(ax, z_f - 0.2, 0.75, "edge of the Sun:\ncoma", fontsize=8, va="bottom",
+          color="#b40426")
+    _finish(ax, (-2.5, z_f + 1.1), (-1.35, 1.6), title)
+
+
+def etendue_diffuser(ax, title=None):
+    """Sketch of a diffuser in a Gaussian beam (notebook 83, section 5).
+
+    Two cases: the diffuser at the waist, and further on where the beam is
+    wider. A diffuser adds the rms spread sigma_d to the direction sines;
+    the phase space ellipse (right; dashed: before the diffuser) grows in p
+    by the same amount in both cases, but its area, the étendue
+    4 pi sqrt(det Sigma), grows with the beam width at the diffuser.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    sx, sp, sd = 0.45, 0.08, 0.08
+    z_end, z_ps = 6.0, 8.2
+    y_2 = -4.2
+    for y0, z_d, name in ((0.0, 0.0, r"Gaussian beam (waist $\sigma_x$, spread $\sigma_p$), "
+                                     "diffuser at the waist"),
+                          (y_2, 4.6, "diffuser further on, where the beam is wider")):
+        zz = np.linspace(-0.6, z_end, 200)
+        Sxx = sx**2 + sp**2*zz**2
+        S0 = np.array([[sx**2 + sp**2*z_d**2, sp**2*z_d], [sp**2*z_d, sp**2]])
+        S1 = S0 + np.diag([0.0, sd**2])
+        dz = zz - z_d
+        Sxx1 = S1[0, 0] + 2*S1[0, 1]*dz + S1[1, 1]*dz**2
+        w = 2*np.sqrt(np.where(zz < z_d, Sxx, Sxx1))
+        band(ax, zz, y0 + w, zz, y0 - w, color=ILLUMINATION, alpha=0.25)
+        wd = 2*np.sqrt(S0[0, 0])
+        ax.add_patch(_patches().Rectangle((z_d - 0.05, y0 - 1.25*wd), 0.1, 2.5*wd,
+                                          facecolor="0.85", edgecolor="0.4", lw=0.8,
+                                          hatch="....", zorder=4))
+        for yy in np.linspace(-wd, wd, 5):
+            slope = S0[0, 1]/S0[0, 0]*yy
+            for ang in np.linspace(-2*sd, 2*sd, 5):
+                ax.plot([z_d, z_d + 0.9], [y0 + yy, y0 + yy + 0.9*(slope + ang)],
+                        color="#b40426", lw=0.6, alpha=0.8, zorder=3)
+        label(ax, -0.6, y0 + 1.75, name, ha="left", fontsize=9)
+        label(ax, z_d, y0 - 1.25*wd - 0.1, "diffuser", va="top", fontsize=8)
+        _phase_axes(ax, z_ps, y0, 1.25, 1.25)
+        t = np.linspace(0, 2*np.pi, 100)
+        for S, filled in ((S0, False), (S1, True)):
+            Lc = np.linalg.cholesky(S)
+            xp = 2*(Lc @ np.array([np.cos(t), np.sin(t)])).T
+            _phase_poly(ax, z_ps, y0, 1.0, 4.0, xp, "#7aa6c8", filled=filled)
+    label(ax, z_ps, 1.45, "phase space behind\nthe diffuser", fontsize=8, va="bottom",
+          color="0.3")
+    label(ax, z_ps, y_2 - 1.45, r"$G = 4\pi\sqrt{\det\Sigma}$ grows by" "\n"
+          r"$\sigma_d^2\,\sigma_x^2$ at the diffuser", va="top", fontsize=8, color="0.3")
+    _finish(ax, (-0.8, z_ps + 1.6), (y_2 - 2.3, 2.4), title)
+
+
+def light_pipe_images(ax, title=None):
+    """Sketch of a light pipe and its mirror images (notebook 83, section 6).
+
+    A lens focuses a small spot on the entrance of a glass rod. Inside, the
+    rays are reflected at the walls (solid); unfolded (dashed), they run
+    straight through mirror copies of the rod and come from virtual images
+    of the spot, spaced by the rod width. The exit face is filled evenly,
+    but the directions there form a comb, one per virtual source, which a
+    lens behind the rod turns into a grid of spots in its pupil.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    h, L, n_rod = 0.4, 8.0, 1.5
+    t_in = np.tan(np.arcsin(0.3/n_rod))
+    z_l = -1.4
+    lens(ax, z_l, 0.75, text="lens", text_y=-0.95, fontsize=8)
+    for u in np.linspace(-0.4, 0.4, 7):
+        ax.plot([z_l - 0.8, z_l, 0], [-u*z_l, -u*z_l, 0.0], color=ILLUMINATION, lw=0.8,
+                zorder=2)
+    for m in range(-2, 3):
+        y0 = 2*m*h
+        if m:
+            ax.add_patch(mpatches.Rectangle((0, y0 - h), L, 2*h, facecolor="none",
+                                            edgecolor="0.6", ls="--", lw=0.7, zorder=1))
+            ax.plot(0, y0, "o", mfc="white", mec="#b40426", ms=5, zorder=5)
+    ax.add_patch(mpatches.Rectangle((0, -h), L, 2*h, facecolor=GLASS, edgecolor=EDGE, lw=1,
+                                    zorder=1))
+    ax.plot(0, 0, "o", color="#b40426", ms=5, zorder=5)
+    zz = np.linspace(0, L, 400)
+    for u in np.linspace(-t_in, t_in, 7):
+        ax.plot(zz, _fold(u*zz, h), color=ILLUMINATION, lw=1.0, zorder=3)
+        ax.plot(zz, u*zz, color="0.5", lw=0.6, ls="--", zorder=2)
+    label(ax, -0.15, 4*h + 0.25, "virtual images of the spot", fontsize=8, ha="right",
+          va="bottom", color="#b40426")
+    label(ax, L/2, -5*h - 0.1, "glass rod: reflections at the walls (solid), unfolded "
+          "into mirror copies (dashed)", va="top", fontsize=8)
+    label(ax, L + 0.15, 0.0, "exit evenly filled;\ndirections: a comb,\none per virtual source",
+          ha="left", fontsize=8)
+    label(ax, -0.2, -0.95, "spot", fontsize=8, va="top", color="#b40426")
+    _finish(ax, (z_l - 1.0, L + 2.4), (-5*h - 0.6, 5*h + 0.6), title)
+
+
+def _cpc_walls(theta, a_exit, z0=0.0, y0=0.0, truncation=None, n=300):
+    z, y, a, L = _cpc_wall(theta, a_exit, n)
+    keep = y <= (a if truncation is None else truncation) + 1e-12
+    up = np.c_[z0 + z[keep], y0 + y[keep]]
+    lo = np.c_[up[:, 0], 2*y0 - up[:, 1]]
+    return up, lo, a, L, np.c_[z0 + z, y0 + y]
+
+
+def cpc_edge_rays(ax, acceptance=20.0, ray_angle=None, n=1.0, truncation=None, title=None):
+    """Sketch of a 2D compound parabolic concentrator (notebook 84).
+
+    Each wall is a parabola (dashed: its continuation to the vertex) whose
+    axis is tilted by the acceptance angle theta_a and whose focus lies on
+    the opposite exit rim; a = a'/sin(theta_a), L = (a + a')/tan(theta_a).
+    A fan of parallel rays (traced, with exact reflections at the walls) at
+    the edge angle converges onto the focus; at smaller angles all rays
+    reach the absorber at the exit, at larger ones they turn back.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    acceptance : number, optional
+        Acceptance half angle in degrees (in air, outside the CPC).
+    ray_angle : number, optional
+        Angle of the ray fan in degrees, defaults to just inside the
+        acceptance angle.
+    n : number, optional
+        Refractive index of a dielectric (solid) CPC, which refracts the
+        rays at its flat entrance, reflects them by TIR and has the absorber
+        in optical contact.
+    truncation : number, optional
+        Entrance half width of a truncated CPC (in units of the exit half
+        width); the removed top of the walls is drawn dashed.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    th_a = np.radians(acceptance)
+    th = np.arcsin(np.sin(th_a)/n)
+    a1 = 1.0
+    up, lo, a, L, full = _cpc_walls(th, a1, truncation=truncation, n=3000)
+    z_in, a_in = up[0, 0], up[0, 1]
+    if n > 1:
+        ax.add_patch(mpatches.Polygon(np.r_[up, lo[::-1]], closed=True, facecolor=GLASS,
+                                      edgecolor="none", zorder=0))
+        ax.plot([z_in, z_in], [-a_in, a_in], color=EDGE, lw=1, zorder=3)
+    if truncation is not None:
+        for s in (1, -1):
+            ax.plot(full[:, 0], s*full[:, 1], color="0.6", ls="--", lw=1, zorder=1)
+        ax.plot([z_in]*2, [-a_in, a_in], color="0.5", ls=":", lw=1)
+        label(ax, z_in, a_in + 0.2, "cut", fontsize=8, va="bottom", color="0.4")
+    for w in (up, lo):
+        ax.plot(w[:, 0], w[:, 1], color=EDGE if n > 1 else "0.2", lw=2.0, zorder=4)
+    # continuation of the upper parabola to its vertex, and its axis
+    zx, yx, _, _ = _cpc_wall(th, a1, phi=np.linspace(th + np.pi/2, np.pi, 100))
+    ax.plot(zx, yx, color="0.55", ls="--", lw=0.9, zorder=1)
+    f = a1*(1 + np.sin(th))
+    z_vx, y_vx = L + f*np.cos(th), f*np.sin(th) - a1
+    ax.plot([L, z_vx + 0.5*np.cos(th)], [-a1, y_vx + 0.5*np.sin(th)], color="0.5", lw=0.8,
+            ls="-.", zorder=1)
+    label(ax, z_vx + 0.6*np.cos(th), y_vx + 0.6*np.sin(th) + 0.05, "axis of the\nupper "
+          "parabola", fontsize=8, ha="left", va="bottom", color="0.4")
+    ax.plot([L + 0.04]*2, [-a1, a1], color=ABSORBER, lw=5, solid_capstyle="butt", zorder=5)
+    for s, txt in ((-1, "F₁"), (1, "F₂")):
+        ax.plot(L, s*a1, "o", color="#2ca02c", ms=5, zorder=6)
+        label(ax, L + 0.22, s*(a1 + 0.22), txt, fontsize=9, color="#2ca02c")
+    # rays
+    ang = 0.999*th_a if ray_angle is None else np.radians(ray_angle)
+    ang_in = np.arcsin(np.sin(ang)/n)
+    d = np.array([np.cos(ang_in), np.sin(ang_in)])
+    z_far = z_in - 2.0
+    for y_in in np.linspace(-0.97*a_in, 0.97*a_in, 9):
+        V, _ = _mirror_trace([z_in, y_in], d, [up, lo], z_in - 1e-9, L)
+        if V[-1, 0] <= z_in + 1e-6:
+            e = V[-1] - V[-2]
+            e /= np.hypot(*e)
+            e = np.array([-np.sqrt(1 - (n*e[1])**2), n*e[1]]) if abs(n*e[1]) < 1 else e
+            V = np.r_[V, [V[-1] + 1.8*e]]
+        start = [z_far, y_in - (z_in - z_far)*np.tan(ang)]
+        ax.plot(np.r_[start[0], V[:, 0]], np.r_[start[1], V[:, 1]], color=ILLUMINATION,
+                lw=0.9, zorder=2)
+    # dimensions
+    arrow(ax, z_in - 0.35, -a_in, z_in - 0.35, a_in, style="<|-|>", color="0.3")
+    label(ax, z_in - 0.5, 0.0, "2a" if truncation is None else "2aₜ", ha="right", fontsize=9)
+    arrow(ax, L + 0.75, -a1, L + 0.75, a1, style="<|-|>", color="0.3")
+    label(ax, L + 0.9, 0.0, "2a′", ha="left", fontsize=9)
+    y_dim = -a_in - 0.45
+    arrow(ax, z_in, y_dim, L, y_dim, style="<|-|>", color="0.3")
+    label(ax, (z_in + L)/2, y_dim - 0.1, "L" if truncation is None else "Lₜ", va="top",
+          fontsize=9)
+    zr, yr = z_far + 0.3, -0.97*a_in - (z_in - z_far - 0.3)*np.tan(ang)
+    aa = np.linspace(0, ang, 20)
+    ax.plot(zr + 0.9*np.cos(aa), yr + 0.9*np.sin(aa), color="0.3", lw=0.8)
+    ax.plot([zr, zr + 1.1], [yr, yr], color="0.3", lw=0.6)
+    label(ax, zr + 1.2, yr + 0.18, "{:.0f}°".format(np.degrees(ang)), ha="left", fontsize=8)
+    notes = ["absorber"]
+    if n > 1:
+        notes = ["absorber in optical contact"]
+        label(ax, (z_in + L)/2, 0.15 + a*0.05, "n = {:g}: TIR at the walls".format(n),
+              fontsize=8, color=EDGE)
+    label(ax, L + 0.12, -a1 - 0.45, notes[0], ha="left", va="top", fontsize=8)
+    _finish(ax, (z_far - 0.2, z_vx + 2.4), (y_dim - 0.6, a_in + 0.6), title)
+
+
+def cpc_skew_ray(ax, acceptance=20.0, title=None):
+    """Sketch of a skew ray in a 3D CPC, seen along the axis (notebook 84,
+    section 3).
+
+    The entrance (radius a) and exit (radius a') circles; a meridional ray
+    runs through the axis. A skew ray entering at the radius rho with its
+    azimuth at the angle psi to the radius vector carries the skew invariant
+    h = rho sin(theta) sin(psi); its track (straight between the wall
+    reflections, which conserve h) keeps the distance h/sin(theta) >= h from
+    the axis. When h > a', the ray can never get inside the exit circle and
+    turns back.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    acceptance : number, optional
+        Acceptance half angle in degrees, sets a'/a.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    a = 1.0
+    a1 = a*np.sin(np.radians(acceptance))
+    ax.add_patch(mpatches.Circle((0, 0), a, facecolor="#f2f6f9", edgecolor="0.2", lw=1.5,
+                                 zorder=0))
+    ax.add_patch(mpatches.Circle((0, 0), a1, facecolor="0.8", edgecolor=ABSORBER, lw=1.5,
+                                 zorder=1))
+    hmin = 0.375*a
+    ax.add_patch(mpatches.Circle((0, 0), hmin, facecolor="none", edgecolor="#b40426",
+                                 ls="--", lw=0.9, zorder=2))
+    # meridional ray
+    p1 = 0.8*a*np.array([np.cos(np.radians(200)), np.sin(np.radians(200))])
+    ax.plot([p1[0], 0.5*a1*np.cos(np.radians(20))], [p1[1], 0.5*a1*np.sin(np.radians(20))],
+            color=IMAGING, lw=1.3, zorder=3)
+    label(ax, p1[0] - 0.02, p1[1] - 0.07, "meridional ray, h = 0", fontsize=8, va="top",
+          color=IMAGING)
+    # skew ray
+    rho, phi0 = 0.8*a, np.radians(70)
+    d_k = np.array([0.5, 0.46, 0.43, 0.41, 0.40, 0.40, 0.41])*a
+    r_k = np.array([0.85, 0.72, 0.6, 0.5, 0.45, 0.47, 0.56, 0.7])*a
+    ur = np.array([np.cos(phi0), np.sin(phi0)])
+    uphi = np.array([-np.sin(phi0), np.cos(phi0)])
+    sin_psi = d_k[0]/rho
+    psi = np.pi - np.arcsin(sin_psi)
+    e = np.cos(psi)*ur + np.sin(psi)*uphi
+    P = rho*ur
+    b = P @ e
+    t = -b + np.sqrt(b**2 - (rho**2 - r_k[0]**2))
+    Q = P + t*e
+    pts = [P, Q]
+    ang = np.arctan2(Q[1], Q[0])
+    for k in range(1, len(d_k)):
+        ang = ang + np.arccos(d_k[k]/r_k[k - 1]) + np.arccos(d_k[k]/r_k[k])
+        pts.append(r_k[k]*np.array([np.cos(ang), np.sin(ang)]))
+    pts = np.array(pts)
+    ax.plot(pts[:, 0], pts[:, 1], color=ILLUMINATION, lw=1.4, zorder=4)
+    arrow(ax, *pts[-2], *(pts[-2] + 0.9*(pts[-1] - pts[-2])), color=ILLUMINATION, lw=1.4)
+    ax.plot(pts[1:, 0], pts[1:, 1], "o", color=ILLUMINATION, ms=3, zorder=5)
+    ax.plot(*P, "o", color="0.2", ms=4, zorder=5)
+    ax.plot([0, P[0]], [0, P[1]], color="0.4", lw=0.8, ls="-.")
+    label(ax, 0.5*P[0] - 0.08, 0.5*P[1], "ρ", fontsize=9, ha="right")
+    aa = np.linspace(phi0, phi0 + psi, 30)
+    rr = 0.12*a
+    ax.plot(P[0] + rr*np.cos(aa), P[1] + rr*np.sin(aa), color="0.3", lw=0.8)
+    label(ax, P[0] + 0.17*a*np.cos(phi0 + psi/2), P[1] + 0.17*a*np.sin(phi0 + psi/2), "ψ",
+          fontsize=9)
+    label(ax, 0, -a - 0.06, "entrance, radius a", va="top", fontsize=8)
+    label(ax, 0, -a1 + 0.05, "exit, a′", va="bottom", fontsize=8)
+    label(ax, 1.08*a, 0.55*a, "skew ray: h = ρ sinθ sinψ\nis conserved; its track\n"
+          "keeps h/sinθ ≥ h from\nthe axis", ha="left", fontsize=8, color="#9a6b00")
+    label(ax, 1.08*a, -0.45*a, "dashed: radius h.\nh > a′: the ray never\n"
+          "reaches the exit and\nturns back", ha="left", fontsize=8, color="#b40426")
+    _finish(ax, (-1.15*a, 2.0*a), (-1.2*a, 1.12*a), title)
+
+
+def cpc_secondary(ax, title=None):
+    """Sketch of a CPC secondary behind a lens (notebook 84, section 6).
+
+    Sunlight (the edge of the Sun exaggerated) through the hyperbolic lens of
+    notebook 83 at f/0.5; a CPC in the focal plane with the rim angle of the
+    lens as its acceptance angle collects the coma-blurred image of the Sun
+    and concentrates it on a smaller absorber at its exit (magnified in the
+    inset).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    a, f, n = 1.6, 1.6, 1.5
+    alpha = np.radians(1.2)
+    z_v = _draw_hyperbolic_lens(ax, a, f, n, text="primary: hyperbolic lens, f/0.5")
+    z_f = z_v + f
+    _, e = _lens_ray(0.999*a, 0.0, a, f, n)
+    beta = np.arcsin(abs(e[1]))
+    a_c = 3.8*f*alpha
+    a_x = a_c*np.sin(beta)
+    up, lo, _, L, _ = _cpc_walls(beta, a_x, n=200)
+    shift = z_f - up[0, 0]
+    up[:, 0] += shift
+    lo[:, 0] += shift
+    z_x = z_f + L
+
+    def draw(axx, lw):
+        for ang, col in ((0.0, ILLUMINATION), (alpha, "#b40426")):
+            for y0 in np.linspace(-0.97*a, 0.97*a, 7):
+                V, e = _lens_ray(y0, -ang, a, f, n, z_start=-2.0)
+                q = V[-1] + (z_f - V[-1, 0])/e[0]*e
+                if abs(q[1]) > a_c:      # spills past the entrance of the CPC
+                    VV = np.r_[V, [q]]
+                else:
+                    W, _ = _mirror_trace(q, e, [up, lo], z_f, z_x)
+                    VV = np.r_[V, W]
+                axx.plot(VV[:, 0], VV[:, 1], color=col, lw=lw, zorder=2)
+        for w in (up, lo):
+            axx.plot(w[:, 0], w[:, 1], color="0.2", lw=2*lw + 0.4, zorder=4)
+        axx.plot([z_x + 0.004]*2, [-a_x, a_x], color=ABSORBER, lw=4, solid_capstyle="butt",
+                 zorder=5)
+
+    draw(ax, 0.7)
+    _sun(ax, -2.6, 0.0, r=0.25)
+    label(ax, -1.3, a + 0.15, "sunlight", fontsize=8, va="bottom")
+    label(ax, z_f + 0.1, -0.3, "CPC secondary in the\nfocal plane, acceptance\nangle = rim "
+          "angle\nof the lens ({:.0f}°)".format(np.degrees(beta)), fontsize=8, va="top",
+          ha="left")
+    ins = ax.inset_axes([0.64, 0.5, 0.35, 0.48])
+    draw(ins, 0.8)
+    ins.set_xlim(z_f - 0.8*L, z_x + 0.6*L)
+    ins.set_ylim(-1.6*a_c, 1.6*a_c)
+    ins.set_aspect("equal")
+    ins.set_xticks([])
+    ins.set_yticks([])
+    for s in ins.spines.values():
+        s.set_color("0.6")
+    ins.text(z_x + 0.05*L, -a_x, "absorber", fontsize=7, va="top", ha="left")
+    ins.text(z_f, 1.15*a_c, "spill", fontsize=7, ha="center", color="#b40426")
+    ax.indicate_inset_zoom(ins, edgecolor="0.6")
+    _finish(ax, (-3.0, z_f + 3.6), (-a - 0.6, a + 0.9), title)

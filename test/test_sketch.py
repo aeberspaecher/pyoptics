@@ -110,6 +110,18 @@ def test_paraxial_ray_imaging():
     sketch.sign_conventions,
     sketch.diffraction_geometry,
     sketch.eikonal_wavefronts,
+    sketch.phase_space_portraits,
+    sketch.liouville_lens,
+    sketch.burning_glass,
+    lambda ax: sketch.burning_glass(ax, lens="ideal"),
+    sketch.etendue_diffuser,
+    sketch.light_pipe_images,
+    sketch.cpc_edge_rays,
+    lambda ax: sketch.cpc_edge_rays(ax, ray_angle=25.0),
+    lambda ax: sketch.cpc_edge_rays(ax, truncation=2.0),
+    lambda ax: sketch.cpc_edge_rays(ax, acceptance=30.0, n=1.5),
+    sketch.cpc_skew_ray,
+    sketch.cpc_secondary,
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()
@@ -126,3 +138,38 @@ def test_fold_unfolds_light_pipe():
     yf = sketch._fold(y, h)
     assert np.all(np.abs(yf) <= h + 1e-12)
     assert np.allclose(sketch._fold(np.array([0.1, 0.5, 0.7]), h), [0.1, 0.1, -0.1])
+
+
+def test_cpc_wall_and_edge_rays():
+    # the drawn CPC has a = a'/sin(theta), L = (a + a')/tan(theta), and the
+    # edge rays reflected by the upper wall all meet the lower exit rim
+    th = np.radians(20)
+    z, y, a, L = sketch._cpc_wall(th, 1.0, n=4000)
+    assert np.isclose(a, 1/np.sin(th)) and np.isclose(L, (a + 1)/np.tan(th))
+    assert np.allclose([z[0], y[0], z[-1], y[-1]], [0, a, L, 1.0])
+    up = np.c_[z, y]
+    lo = np.c_[z, -y]
+    d = np.array([np.cos(th), np.sin(th)])
+    for y0 in np.linspace(0.2, 0.95, 5)*a:
+        V, k = sketch._mirror_trace([0.0, y0], d, [up, lo], -1e-9, L)
+        assert k == 1 and np.allclose(V[-1], [L, -1.0], atol=2e-3)
+    # beyond the acceptance angle the rays turn back
+    d = np.array([np.cos(1.3*th), np.sin(1.3*th)])
+    V, k = sketch._mirror_trace([0.0, 0.0], d, [up, lo], -1e-9, L)
+    assert V[-1, 0] < 1e-6
+
+
+def test_hyperbolic_lens_is_stigmatic():
+    a, f = 1.0, 1.0
+    z_v = sketch._hyperbolic_lens(a, f)[2]
+    for y0 in (0.1, 0.5, 0.95):
+        V, e = sketch._lens_ray(y0, 0.0, a, f)
+        y_f = V[-1, 1] + (z_v + f - V[-1, 0])/e[0]*e[1]
+        assert abs(y_f) < 1e-9
+
+
+def test_clip_x():
+    square = np.array([[-1, -1], [1, -1], [1, 1], [-1, 1]], float)
+    piece = sketch._clip_x(square, 0.0, 0.5)
+    assert np.isclose(np.ptp(piece[:, 0]), 0.5) and np.isclose(np.ptp(piece[:, 1]), 2.0)
+    assert len(sketch._clip_x(square, 2.0, 3.0)) == 0
