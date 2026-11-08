@@ -69,6 +69,8 @@ Lengths in one unit (radius, wavelength), angles in radians.
 
 References
 ----------
+R. Descartes, "Les Météores", discourse 8, Leiden (1637).
+
 H. C. van de Hulst, "Light Scattering by Small Particles", Wiley (1957),
 chapter 13.
 
