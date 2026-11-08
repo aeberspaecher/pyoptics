@@ -82,6 +82,9 @@ def test_paraxial_ray_imaging():
     sketch.rainbow_observer,
     lambda ax: sketch.rainbow_observer(ax, sun_elevation=10.0),
     sketch.glory_aircraft,
+    sketch.sim_microscope,
+    sketch.sted_microscope,
+    lambda ax: sketch.sted_microscope(ax, images=(np.ones((8, 8)), np.eye(8), np.eye(8))),
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()
