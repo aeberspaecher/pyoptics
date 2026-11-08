@@ -20,6 +20,7 @@ from . import phase_retrieval
 from . import shack_hartmann
 from . import modes
 from . import vortices
+from . import wavefront_shaping
 from . import turbulence
 from . import coherence
 from . import rainbow

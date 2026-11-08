@@ -74,6 +74,10 @@ Setup sketches for the other example notebooks:
   the ground, an eye and a telescope; adaptive_optics_system(): telescope,
   deformable mirror, dichroic, Shack-Hartmann sensor, science camera and
   the real-time loop (notebook 72).
+- wavefront_shaping_setup(): an SLM imaged onto a diffuser, a thick slab or
+  a multimode fibre, a camera behind it and the feedback loop, optionally
+  with the flat reference frame for measuring the transmission matrix
+  (notebook 73).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -101,6 +105,9 @@ University Press (2019).
 
 D. B. Murphy and M. W. Davidson, "Fundamentals of Light Microscopy and
 Electronic Imaging", 2nd ed., Wiley-Blackwell (2012).
+
+I. M. Vellekoop and A. P. Mosk, "Focusing coherent light through opaque
+strongly scattering media", Opt. Lett. 32, 2309-2311 (2007).
 """
 
 import numpy as np
@@ -116,7 +123,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "spatial_filter", "vortex_interferometer", "mode_converter",
            "axicon_bessel", "cubic_phase_airy", "young_extended_source", "vcz_setup",
            "stellar_interferometer", "michelson_interferometer", "hbt_interferometer",
-           "rainbow_observer", "glory_aircraft", "twinkling_star", "adaptive_optics_system"]
+           "rainbow_observer", "glory_aircraft", "twinkling_star", "adaptive_optics_system",
+           "wavefront_shaping_setup"]
 
 
 GLASS = "#cfe3f3"
@@ -2607,3 +2615,121 @@ def adaptive_optics_system(ax, title=None):
     label(ax, (zc - 0.77 + z_dm + 0.42)/2, 0.68, "actuator\ncommands", fontsize=8,
           color=EMISSION, va="bottom")
     _finish(ax, (-1.6, zc + 0.9), (y_cam - 0.6, 1.6), title)
+
+
+def _slm(ax, z, h, n=10, reference=False, text=None, text_y=None, fontsize=9):
+    # transmissive SLM drawn as a column of segments with random grey phases;
+    # with a reference, the outer segments stay flat (light grey, hatched)
+    mpatches = _patches()
+    rng = np.random.default_rng(7)
+    width = 0.14
+    for k in range(n):
+        y0 = -h + 2*h*k/n
+        outer = reference and (k < 2 or k >= n - 2)
+        ax.add_patch(mpatches.Rectangle((z - width/2, y0), width, 2*h/n,
+                                        facecolor="0.93" if outer else str(0.35 + 0.5*rng.random()),
+                                        edgecolor="0.3", lw=0.5, hatch="///" if outer else None,
+                                        zorder=3))
+    if text:
+        label(ax, z, -1.15*h if text_y is None else text_y, text, fontsize=fontsize, va="top")
+
+
+def wavefront_shaping_setup(ax, medium="diffuser", reference=False, feedback=True, title=None):
+    """Sketch of wavefront shaping through a scattering medium (notebook 73).
+
+    A collimated laser beam falls onto a segmented phase SLM, which a 4f
+    relay images onto the entrance face of the medium. A lens behind the
+    medium images its far field (or, for a fibre, its output facet) onto a
+    camera. Scattered light (thin red lines) leaves the medium in all
+    directions; the shaped part (red band) converges onto the target pixel,
+    whose intensity is fed back to the SLM.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    medium : {"diffuser", "slab", "fibre"}, optional
+        A thin ground glass diffuser, a thick random slab, or a multimode
+        fibre with input and output coupling lenses.
+    reference : bool, optional
+        Keep the outer SLM segments flat as an internal reference (for
+        measuring the transmission matrix by phase stepping).
+    feedback : bool, optional
+        Draw the feedback loop from the target pixel to the SLM.
+    title : str, optional
+    """
+
+    if medium not in ("diffuser", "slab", "fibre"):
+        raise ValueError("medium must be 'diffuser', 'slab' or 'fibre'.")
+    mpatches = _patches()
+    h = 0.6                                   # beam half height at the SLM
+    # relay: SLM -> medium, magnification 1/2 (1/7 onto the fibre core)
+    z_slm, f1, f2 = 0.0, 1.4, (0.2 if medium == "fibre" else 0.7)
+    z_l1 = z_slm + f1
+    z_l2 = z_l1 + f1 + f2
+    z_med = z_l2 + f2
+    lenses = [(z_l1, f1), (z_l2, f2)]
+    band(ax, [-1.3, z_slm], [h, h], [-1.3, z_slm], [-h, -h], color=LASER)
+    zt, yt = paraxial_ray(lenses, z_slm, h, 0.0, z_med)
+    zb, yb = paraxial_ray(lenses, z_slm, -h, 0.0, z_med)
+    band(ax, zt, yt, zb, yb, color=LASER, alpha=0.16)
+    _slm(ax, z_slm, h, reference=reference,
+         text="phase SLM\n(N segments" + (",\nflat frame:\nreference)" if reference else ")"))
+    label(ax, -0.75, h + 0.1, "laser", fontsize=8, va="bottom")
+    lens(ax, z_l1, 1.1*h)
+    lens(ax, z_l2, 0.75*h if medium != "fibre" else 0.35*h)
+    label(ax, (z_l1 + z_l2)/2, -1.15, "4f relay: SLM imaged\nonto the medium", fontsize=8, va="top")
+    hm = h*f2/f1                              # beam half height on the medium
+    rng = np.random.default_rng(3)
+    if medium == "diffuser":
+        thick = 0.12
+        ax.add_patch(mpatches.Rectangle((z_med, -0.75), thick, 1.5, facecolor="0.9", edgecolor="0.35",
+                                        hatch="....", zorder=3))
+        text = "ground glass\ndiffuser"
+    elif medium == "slab":
+        thick = 0.9
+        ax.add_patch(mpatches.Rectangle((z_med, -0.75), thick, 1.5, facecolor="0.94", edgecolor="0.35",
+                                        zorder=3))
+        zz, yy = rng.uniform(z_med + 0.04, z_med + thick - 0.04, 90), rng.uniform(-0.71, 0.71, 90)
+        ax.scatter(zz, yy, s=10, color="0.55", zorder=3.5, linewidths=0)
+        # a multiply scattered path through the slab
+        zp = np.r_[z_med, np.sort(rng.uniform(z_med, z_med + thick, 6)), z_med + thick]
+        yp = np.r_[0.1, rng.uniform(-0.5, 0.5, 6), -0.15]
+        ax.plot(zp, yp, color=LASER, lw=0.9, zorder=4)
+        text = "thick random slab\n(WPM)"
+    else:
+        thick = 2.2
+        zc = np.linspace(z_med, z_med + thick, 200)
+        yc = 0.4*np.sin(2*np.pi*(zc - z_med)/thick*1.5)*np.sin(np.pi*(zc - z_med)/thick)**0.3
+        ax.plot(zc, yc, color="0.35", lw=6, solid_capstyle="butt", zorder=3)
+        ax.plot(zc, yc, color="#f3e6c8", lw=3.5, solid_capstyle="butt", zorder=3.1)
+        text = "multimode fibre\n(M modes, mode mixing)"
+    label(ax, z_med + thick/2, -0.95, text, fontsize=8, va="top")
+    z_out = z_med + thick
+    f3 = 1.5
+    z_l3 = z_out + 0.9
+    z_cam = z_l3 + f3
+    if medium == "fibre":
+        hm = 0.08                             # light leaves the small core
+    # scattered light: random directions
+    for _ in range(22):
+        y0 = rng.uniform(-hm, hm)
+        y1 = y0 + rng.uniform(-0.75, 0.75)
+        ax.plot([z_out, z_l3], [y0, y1], color=LASER, lw=0.5, alpha=0.45, zorder=2)
+    # shaped part: a band from the medium to the target pixel
+    y_t = 0.3
+    band(ax, [z_out, z_l3, z_cam], [hm, hm, y_t], [z_out, z_l3, z_cam], [-hm, -hm, y_t], color=LASER,
+         alpha=0.3)
+    lens(ax, z_l3, 0.8)
+    label(ax, z_l3, -0.95, "lens", fontsize=8, va="top")
+    detector(ax, z_cam, 0.75, text="camera:\n" + ("far field" if medium != "fibre" else "output facet"))
+    ax.plot(z_cam - 0.02, y_t, "o", color=LASER, ms=5, zorder=5)
+    label(ax, z_cam + 0.17, y_t - 0.08, "target", fontsize=8, ha="left", va="top")
+    if feedback:
+        y_fb = 1.45
+        ax.plot([z_cam + 0.1, z_cam + 0.55, z_cam + 0.55, z_slm, z_slm],
+                [y_t, y_t, y_fb, y_fb, h + 0.05], color="0.3", lw=1, zorder=2)
+        arrow(ax, z_slm, h + 0.3, z_slm, h + 0.05, color="0.3")
+        label(ax, (z_slm + z_cam)/2, y_fb + 0.08,
+              "intensity in the target → SLM phases (feedback)" if not reference else
+              "phase-stepped camera frames → transmission matrix", fontsize=8, va="bottom")
+    _finish(ax, (-1.4, z_cam + 0.8), (-1.7 if not reference else -2.0, 1.75), title)
