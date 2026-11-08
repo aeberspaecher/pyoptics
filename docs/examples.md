@@ -292,12 +292,14 @@ notebooks/50_magnification_distortion_telecentricity
 
 ## Illumination optics
 
-Étendue, nonimaging concentrators and microscope illumination.
+Étendue, nonimaging concentrators, microscope illumination, homogenizers
+and speckle reduction.
 
 - {doc}`notebooks/83_etendue_brightness_theorem`
 - {doc}`notebooks/84_nonimaging_concentrators`
 - {doc}`notebooks/85_koehler_critical_illumination`
 - {doc}`notebooks/86_homogenizers`
+- {doc}`notebooks/87_speckle_reduction`
 
 ```{toctree}
 :hidden:
@@ -307,6 +309,7 @@ notebooks/83_etendue_brightness_theorem
 notebooks/84_nonimaging_concentrators
 notebooks/85_koehler_critical_illumination
 notebooks/86_homogenizers
+notebooks/87_speckle_reduction
 ```
 
 ## Atmospheric optics

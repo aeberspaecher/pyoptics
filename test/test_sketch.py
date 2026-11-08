@@ -126,6 +126,11 @@ def test_paraxial_ray_imaging():
     lambda ax: sketch.koehler_critical(ax, mode="critical"),
     sketch.fly_eye_homogenizer,
     lambda ax: sketch.fly_eye_homogenizer(ax, imaging=False, tilt=0.1),
+    sketch.speckle_formation,
+    lambda ax: sketch.speckle_diversity(ax, "polarization"),
+    lambda ax: sketch.speckle_diversity(ax, "wavelength"),
+    lambda ax: sketch.speckle_diversity(ax, "angle"),
+    sketch.laser_projector,
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()
@@ -177,3 +182,11 @@ def test_clip_x():
     piece = sketch._clip_x(square, 0.0, 0.5)
     assert np.isclose(np.ptp(piece[:, 0]), 0.5) and np.isclose(np.ptp(piece[:, 1]), 2.0)
     assert len(sketch._clip_x(square, 2.0, 3.0)) == 0
+
+
+def test_speckle_diversity_rejects_unknown_method():
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    with pytest.raises(ValueError):
+        sketch.speckle_diversity(ax, "time")
+    plt.close(fig)
