@@ -63,6 +63,7 @@ notebooks/67_fdfd_limacon_microcavity
 - {doc}`notebooks/09_mode_analysis`
 - {doc}`notebooks/68_bessel_airy_self_healing`
 - {doc}`notebooks/69_optical_vortices`
+- {doc}`notebooks/81_ultrashort_pulses_lenses`
 
 ```{toctree}
 :hidden:
@@ -74,6 +75,7 @@ notebooks/08_abcd_matrices
 notebooks/09_mode_analysis
 notebooks/68_bessel_airy_self_healing
 notebooks/69_optical_vortices
+notebooks/81_ultrashort_pulses_lenses
 ```
 
 ## Interfaces, thin films and polarization

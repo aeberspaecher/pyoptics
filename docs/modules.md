@@ -390,6 +390,18 @@ What each module does and how mature it is. Planned work is listed in
   multilevel plates, the spectrum of fractional plates, the analytic
   splitting of a charge-3 vortex and the order efficiencies of gratings
   (notebook 69)
+- `ultrafast`: new, tested: ultrashort pulses through glass, lenses,
+  prisms and gratings; group index, GVD and TOD of any dispersion formula
+  (fused silica and CaF2 after Malitson), the exact spectral phase of a
+  slab, Gaussian pulse broadening and the best input duration, pulse
+  synthesis on free time grids; Bor's pulse-front delay from the chromatic
+  power derivative and phase delay, group delay and GDD summed along rays
+  of a `raytrace.System`, the focal field spectrum of a traced lens (sums of
+  monochromatic focuses in time) and Bor and Horváth's axial box model;
+  pulse-front tilt from angular dispersion (prisms and gratings in closed
+  form, group delays of rays through a prism, x-t synthesis of a dispersed
+  beam); exact focused Gaussian beamlets and the axial pulse of
+  simultaneous spatial and temporal focusing (notebook 81)
 - `TIE`: basic transport of intensity solver, partly tested
 - `ifta`: basic Gerchberg-Saxton and variants for beam shaping, tested
   (convergence of GS, HIO-HOO and over-compensation on a reachable target,
@@ -461,8 +473,9 @@ What each module does and how mature it is. Planned work is listed in
   a coated fold mirror with s and p, the KrF illuminator with its pupil and
   field planes, a spatial filter, the geometry of rainbows and of the
   glory seen from an aircraft, the Foucault knife-edge (and wire and Ronchi)
-  test of a concave mirror, and a Toepler schlieren system and a direct
-  shadowgraph
+  test of a concave mirror, a Toepler schlieren system and a direct
+  shadowgraph, and pulses through lenses, prisms and gratings (pulse-front
+  delay and tilt)
 - Unfinished stubs: `interpolator.TrigInterpolator` cannot be evaluated yet,
   the functions in `polarization._polarization` are empty
 
