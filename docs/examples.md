@@ -4,6 +4,8 @@ The example notebooks illustrate the modules with examples whose physics
 is easy to follow, and compare the numerics with analytic results wherever
 an analytic solution exists. They are shown here with their stored outputs;
 to run them yourself, see [Running the notebooks](#running-the-notebooks).
+For suggested reading orders by background and interest, see
+{doc}`learning_paths`.
 
 ## Foundations and conventions
 
