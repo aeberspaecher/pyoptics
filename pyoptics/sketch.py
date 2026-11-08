@@ -127,6 +127,10 @@ Setup sketches for the other example notebooks:
   imaged into one grain; speckle_diversity(): polarization, wavelength and
   angle (moving diffuser) diversity; laser_projector(): illumination and
   observation apertures of a projector and a viewer (notebook 87).
+- led_above_plane(): one or several LEDs above a plane and their
+  irradiance; photometric_distance(): a Lambertian disk and the inverse
+  square law; led_collimator(): a lens, a paraboloid and both together
+  in front of an LED (notebook 88).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -182,7 +186,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "approximation_map", "sign_conventions", "diffraction_geometry", "eikonal_wavefronts",
            "phase_space_portraits", "liouville_lens", "burning_glass", "etendue_diffuser",
            "light_pipe_images", "cpc_edge_rays", "cpc_skew_ray", "cpc_secondary", "koehler_critical",
-           "fly_eye_homogenizer", "speckle_formation", "speckle_diversity", "laser_projector"]
+           "fly_eye_homogenizer", "speckle_formation", "speckle_diversity", "laser_projector",
+           "led_above_plane", "photometric_distance", "led_collimator"]
 
 
 GLASS = "#cfe3f3"
@@ -5283,3 +5288,195 @@ def laser_projector(ax, title=None):
     arrow(ax, 0.0, -2.0, z_s - 0.2, -2.0, style="<->", text="z", text_pos=(4.0, -2.15),
           fontsize=9, va="top")
     _finish(ax, (-1.5, z_s + 0.6), (-2.6, 2.3), title)
+
+
+LED_COLOR = "#e0a000"
+
+
+def _lobe(ax, z, y, m, scale, direction=-90.0, color=LED_COLOR, alpha=0.25, zorder=2):
+    # polar intensity lobe cos(theta)**m about the given direction (degrees)
+    t = np.linspace(-np.pi/2, np.pi/2, 181)
+    r = scale*np.cos(t)**m
+    a = np.deg2rad(direction) + t
+    pts = np.c_[z + r*np.cos(a), y + r*np.sin(a)]
+    ax.add_patch(_patches().Polygon(pts, closed=True, facecolor=color, edgecolor=color, lw=0.8,
+                                    alpha=alpha, zorder=zorder))
+
+
+def led_above_plane(ax, n_leds=1, spacing=1.6, m=1.0, title=None):
+    """Sketch of LEDs above a plane and the irradiance they make (notebook
+    88).
+
+    One LED at the height h with the intensity pattern I_0 cos(theta)**m
+    lights a point of the plane at the distance r = h/cos(theta) under the
+    angle theta: E = I(theta) cos(theta)/r**2 = I_0 cos(theta)**(m + 3)/h**2.
+    With several LEDs (n_leds > 1, spacing in units of h) the patterns add;
+    below the plane, the irradiance of each LED (dashed) and the sum.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    n_leds : int, optional
+    spacing : number, optional
+        Distance between neighbouring LEDs over their height.
+    m : number, optional
+        Exponent of the intensity pattern.
+    title : str, optional
+    """
+
+    h = 2.0
+    xs = (np.arange(n_leds) - (n_leds - 1)/2)*spacing*h
+    half = max(3.2, xs.max() + 2.6) if n_leds > 1 else 3.2
+    ax.plot([-half, half], [0, 0], color="0.3", lw=1.5, zorder=3)
+    ax.add_patch(_patches().Rectangle((-half, -0.12), 2*half, 0.12, facecolor="0.88",
+                                      edgecolor="none", zorder=2))
+    xx = np.linspace(-half, half, 400)
+    E_tot = 0
+    Es = []
+    for x0 in xs:
+        _lobe(ax, x0, h, m, 1.0)
+        ax.add_patch(_patches().Rectangle((x0 - 0.14, h), 0.28, 0.12, facecolor="0.25",
+                                          edgecolor="none", zorder=6))
+        E = (h/np.sqrt((xx - x0)**2 + h**2))**(m + 3)
+        Es.append(E)
+        E_tot = E_tot + E
+    scale = 1.2/np.max(E_tot)
+    y0 = -0.35
+    for E in Es if n_leds > 1 else ():
+        ax.plot(xx, y0 - scale*E, color="#b40426", lw=0.8, ls="--", zorder=4)
+    ax.plot(xx, y0 - scale*E_tot, color="#b40426", lw=1.6, zorder=4)
+    label(ax, half - 0.05, y0 - 0.15, "irradiance E(x)", ha="right", va="top", fontsize=8,
+          color="#b40426")
+    if n_leds == 1:
+        x_p = 2.2
+        ax.plot([0, x_p], [h, 0], color="0.2", lw=1.0, zorder=5)
+        ax.plot([0, 0], [h, 0], color="0.4", ls=":", lw=0.9, zorder=5)
+        ax.plot([x_p, x_p], [0, 0.9], color="0.4", ls=":", lw=0.9, zorder=5)
+        t = np.linspace(-np.pi/2, -np.pi/2 + np.arctan2(x_p, h), 30)
+        ax.plot(0.6*np.cos(t), h + 0.6*np.sin(t), color="0.2", lw=0.8)
+        label(ax, 0.22, h - 0.8, "θ", fontsize=10)
+        t2 = np.linspace(np.pi/2, np.pi/2 + np.arctan2(x_p, h), 30)
+        ax.plot(x_p + 0.5*np.cos(t2), 0.5*np.sin(t2), color="0.2", lw=0.8)
+        label(ax, x_p - 0.2, 0.62, "θ", fontsize=10)
+        label(ax, 1.25, 1.2, "r = h/cos θ", fontsize=9, ha="left")
+        label(ax, -0.1, 1.0, "h", fontsize=10, ha="right")
+        label(ax, 0.0, h + 0.3, r"LED, $I(\theta) = I_0\cos^m\theta$", fontsize=9, va="bottom")
+        label(ax, -half + 0.05, -2.0, r"$E = I(\theta)\cos\theta/r^2 = I_0\cos^{m+3}\theta/h^2$",
+              ha="left", fontsize=9)
+    else:
+        arrow(ax, xs[0], h + 0.45, xs[1], h + 0.45, style="<->", text="d",
+              text_pos=((xs[0] + xs[1])/2, h + 0.6), fontsize=9, va="bottom")
+        label(ax, xs[0] - 0.35, h/2, "h", fontsize=10, ha="right")
+        ax.plot([xs[0], xs[0]], [h, 0], color="0.4", ls=":", lw=0.9, zorder=5)
+    _finish(ax, (-half - 0.2, half + 0.2), (-2.3, h + 1.0), title)
+
+
+def photometric_distance(ax, title=None):
+    """Sketch of the inverse square law and its limit (notebook 88).
+
+    A Lambertian disk of radius a and radiance L gives on its axis the
+    irradiance pi L a**2/(a**2 + d**2); a point source of the same intensity
+    pi L a**2 would give pi L a**2/d**2. The two agree to 1 % at d = 10 a,
+    five diameters: the photometric distance.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    a, d = 0.9, 5.0
+    mpatches = _patches()
+    ax.add_patch(mpatches.Rectangle((-0.12, -a), 0.12, 2*a, facecolor=LED_COLOR,
+                                    edgecolor="0.3", lw=0.8, zorder=4))
+    for y in np.linspace(-a, a, 7):
+        ax.plot([0, d], [y, 0], color=LED_COLOR, lw=0.7, alpha=0.8, zorder=2)
+    ax.add_patch(mpatches.Rectangle((d, -0.3), 0.08, 0.6, facecolor="0.3", edgecolor="none",
+                                    zorder=4))
+    label(ax, d + 0.05, -0.42, "detector", va="top", fontsize=8)
+    arrow(ax, -0.35, -a, -0.35, a, style="<->", text="2a", text_pos=(-0.45, 0.0), ha="right",
+          fontsize=9)
+    arrow(ax, 0.0, -a - 0.35, d, -a - 0.35, style="<->", text="d", text_pos=(d/2, -a - 0.5),
+          va="top", fontsize=9)
+    label(ax, -0.1, a + 0.15, "Lambertian disk,\nradiance L", va="bottom", fontsize=8)
+    label(ax, d/2 + 0.3, a + 0.55,
+          r"$E = \pi L a^2/(a^2 + d^2)$, inverse square law: $\pi L a^2/d^2$",
+          fontsize=9)
+    label(ax, d/2 + 0.3, a + 0.15, "1 % apart at d = 5 × 2a", fontsize=8, color="0.35")
+    _finish(ax, (-1.2, d + 0.9), (-a - 1.0, a + 0.9), title)
+
+
+def led_collimator(ax, kind="hybrid", title=None):
+    """Sketch of LED collimators (notebook 88), drawn to scale (mm) for the
+    design of the notebook: a 1 mm die, a stigmatic (hyperbolic) lens with
+    the focal length 10 mm and the semi-diameter 8 mm, and a paraboloid
+    with the focal length 4 mm whose rim ends where the lens takes over.
+
+    - "lens": the lens collects the light within 29° of the axis, a
+      quarter of a Lambertian LED's flux.
+    - "reflector": the paraboloid catches the light beyond 29° (the lens
+      drawn grey).
+    - "hybrid": both together, as a TIR collimator does in one piece of
+      plastic.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"hybrid", "lens", "reflector"}, optional
+    title : str, optional
+    """
+
+    from . import raytrace as rt
+    if kind not in ("hybrid", "lens", "reflector"):
+        raise ValueError("kind must be 'hybrid', 'lens' or 'reflector'")
+    f, n, a, F = 10.0, 1.5, 8.0, 4.0
+    R, K = (n - 1)*f, -n**2
+    c = 1/R
+    sag = c*a**2/(1 + np.sqrt(1 - (1 + K)*c**2*a**2))
+    t_lens = sag + 1.5
+    theta_L = np.arctan(a/(f + sag))
+    rho = 2*F/(1 - np.cos(theta_L))
+    z_rim, r_rim = rho*np.cos(theta_L), rho*np.sin(theta_L)
+    z_end = z_rim + 12.0
+    use_lens, use_refl = kind in ("hybrid", "lens"), kind in ("hybrid", "reflector")
+    # the lens, its vertex f in front of the die
+    r = np.linspace(-a, a, 81)
+    z_front = f + c*r**2/(1 + np.sqrt(1 - (1 + K)*c**2*r**2))
+    pts = np.r_[np.c_[z_front, r], [[f + t_lens, a], [f + t_lens, -a]]]
+    ax.add_patch(_patches().Polygon(pts, closed=True, facecolor=GLASS if use_lens else "0.93",
+                                    edgecolor=EDGE if use_lens else "0.7", lw=1, zorder=3))
+    # the paraboloid
+    rr = np.linspace(-r_rim, r_rim, 400)
+    ax.plot(rr**2/(4*F) - F, rr, color="0.25" if use_refl else "0.8", lw=2.2, zorder=4)
+    # the die
+    ax.add_patch(_patches().Rectangle((-0.6, -0.5), 0.6, 1.0, facecolor=LED_COLOR,
+                                      edgecolor="0.3", lw=0.6, zorder=5))
+    if use_lens:
+        S = rt.System([rt.Surface(R, t_lens, n_after=n, semi_diameter=a, conic=K),
+                       rt.Surface(np.inf, z_end - t_lens, n_after=1.0, semi_diameter=a)],
+                      0, 550e-6, object_distance=f, object_height=0.5)
+        ang = np.deg2rad(np.linspace(-27, 27, 9))
+        P = np.column_stack([np.zeros_like(ang), np.zeros_like(ang), np.full_like(ang, -f)])
+        d = np.column_stack([np.sin(ang), np.zeros_like(ang), np.cos(ang)])
+        B = S.trace(rt.Rays(P, d, np.zeros(len(ang))))
+        zs = np.array([p[:, 2] for p in B.points]) + f
+        ys = np.array([p[:, 0] for p in B.points])
+        for k in range(len(ang)):
+            ax.plot(zs[:, k], ys[:, k], color=IMAGING, lw=0.8, zorder=2)
+    if use_refl:
+        for s in (1, -1):
+            for phi in np.deg2rad([33, 45, 60, 75, 89]):
+                rh = 2*F/(1 - np.cos(phi))
+                zh, yh = rh*np.cos(phi), s*rh*np.sin(phi)
+                ax.plot([0, zh, z_end], [0, yh, yh], color=ILLUMINATION, lw=0.8, zorder=2)
+    if kind == "hybrid":
+        ax.plot([0, z_rim], [0, r_rim], color="0.5", ls=":", lw=0.8)
+        label(ax, z_rim*0.55, r_rim*0.55 + 2.5, "29°: lens | reflector", fontsize=8,
+              color="0.4", rotation=np.degrees(theta_L))
+    arrow(ax, -9.0, 4.5, -0.8, 0.4, color="0.3", lw=0.8)
+    label(ax, -9.2, 4.6, "LED die,\n1 mm", va="bottom", fontsize=8)
+    if use_lens:
+        label(ax, f + t_lens/2, -a - 1.2, "hyperbolic lens\nf = 10 mm", va="top", fontsize=8)
+    if use_refl:
+        label(ax, z_rim, -r_rim - 1.5, "paraboloid,\nF = 4 mm", va="top", fontsize=8)
+    _finish(ax, (-13.0, z_end + 1.0), (-r_rim - 7.0, r_rim + 4.0), title)
