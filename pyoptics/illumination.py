@@ -61,7 +61,13 @@ The module provides
   revolution, optionally truncated; rays are traced through its wall
   reflections (bracketing and bisection of the wall hit, with a compiled
   kernel if numba is installed), and `tilted_beam()` launches parallel
-  rays over an aperture.
+  rays over an aperture;
+- backward ray tracing: `reverse_system()` turns a centred
+  `raytrace.System` round, `backward_trace()` finds the radiance arriving
+  at a point from given directions and `backward_irradiance()` integrates
+  it into the irradiance (brightness theorem: E = integral of L dp dq), so
+  the field of a lamp, condenser and diaphragms is mapped without forward
+  Monte Carlo through small apertures.
 
 Units: lengths in any unit (mm in the notebooks), angles in radians, NA
 includes the index of the medium.
@@ -1180,3 +1186,143 @@ def tilted_beam(n_rays, half_width, angle, azimuth=0.0, kind="3d", rng=None):
                 (n_rays, 1))
 
     return P, d
+
+
+def reverse_system(system):
+    """The same centred system traced backwards, from its image plane to its
+    object plane.
+
+    Ray paths are reversible, so the light that reaches a point of the
+    image plane from a given direction can be found by tracing the reversed
+    ray back to the source. With the brightness theorem this gives the
+    irradiance of an illumination system without forward Monte Carlo:
+    E(x) = L*integral over the directions (p, q) whose reversed rays hit
+    the source (backward ray tracing). The reversed system is the mirror
+    image z -> -z: surfaces in reverse order with opposite curvatures, conic
+    and aspheric terms of opposite sign, the gaps in reverse order and the
+    media of the forward pass in front of each surface. A forward ray
+    arriving at (x, y) with the direction (L, M, N) is reversed by starting
+    at (x, y) with the direction (-L, -M, N).
+
+    Parameters
+    ----------
+    system : raytrace.System
+        Centred system of plain `raytrace.Surface` objects (no tilts,
+        decentres, ideal lenses or coordinate breaks) with a finite object
+        distance.
+
+    Returns
+    -------
+    raytrace.System
+        Its object plane is the image plane of the original, its image plane
+        the original object plane.
+    """
+
+    import copy
+    from .raytrace import Surface, System
+
+    surfaces = system.surfaces
+    if np.isinf(system.object_distance):
+        raise ValueError("The object distance must be finite.")
+    for s in surfaces:
+        if type(s) is not Surface or any(s.decenter) or any(s.tilt):
+            raise ValueError("Only centred plain Surfaces can be reversed.")
+    n = system.n  # indices in front of each surface and in image space
+    out = []
+    for i in reversed(range(len(surfaces))):
+        s = copy.copy(surfaces[i])
+        s.R = -s.R
+        s.aspheric = tuple(-a for a in s.aspheric)
+        s.n_after = n[i]
+        s.material = None
+        s.thickness = surfaces[i - 1].thickness if i > 0 else system.object_distance
+        out.append(s)
+
+    return System(out, len(surfaces) - 1 - system.stop_index, system.wavelength,
+                  object_distance=surfaces[-1].thickness, object_height=1.0, n_object=n[-1],
+                  units=system.units)
+
+
+def backward_trace(system, points, p, q, source, reversed_system=None):
+    """Radiance arriving at image plane points from the directions (p, q),
+    found by tracing the rays backwards to the source.
+
+    Parameters
+    ----------
+    system : raytrace.System
+        The forward (illumination) system, from the source in its object
+        plane to its image plane.
+    points : (N, 2) array
+        Points (x, y) in the image plane.
+    p, q : (N,) arrays
+        Optical direction cosines of the light arriving there (image space).
+    source : callable
+        Basic radiance L(x, y) of the source in its plane, e.g. 1 on a lamp
+        filament and 0 elsewhere (booleans work).
+    reversed_system : raytrace.System, optional
+        `reverse_system(system)`, to reuse it between calls.
+
+    Returns
+    -------
+    L : (N,) array
+        Radiance carried by each ray (0 for rays that are vignetted or miss
+        the source).
+    """
+
+    R = reverse_system(system) if reversed_system is None else reversed_system
+    xy = np.atleast_2d(np.asarray(points, float))
+    n_img = R.n_object
+    P = np.column_stack([xy[:, 0], xy[:, 1], np.full(len(xy), -R.object_distance)])
+    d = directions_from_sines(-np.asarray(p, float), -np.asarray(q, float), n_img)
+    B = R.trace(Rays(P, d, np.zeros(len(xy))))
+    Q = R.to_image_frame(B.points[-1])
+    ok = np.isfinite(Q[:, 0])
+    L = np.zeros(len(xy))
+    L[ok] = np.asarray(source(Q[ok, 0], Q[ok, 1]), float)
+
+    return L
+
+
+def backward_irradiance(system, points, na, source, n_directions=2000, rng=None,
+                        reversed_system=None):
+    """Irradiance at image plane points by backward ray tracing.
+
+    By the brightness theorem the irradiance at a point is
+    E = integral L(p, q) dp dq over the directions of the arriving light
+    (in a medium of index 1; generally divided by n**2), with L the basic
+    radiance of the source point that the reversed ray hits. The integral
+    is sampled with n_directions random directions per point, uniform in
+    the disk p**2 + q**2 <= na**2 (which must contain all the light).
+
+    Parameters
+    ----------
+    system : raytrace.System
+        Forward illumination system.
+    points : (N, 2) array
+        Points (x, y) in the image plane.
+    na : number
+        Largest NA of the arriving light.
+    source : callable
+        Basic radiance L(x, y) of the source.
+    n_directions : int, optional
+        Directions per point.
+    rng : None, int or numpy.random.Generator, optional
+        Random generator or seed.
+    reversed_system : raytrace.System, optional
+        `reverse_system(system)`.
+
+    Returns
+    -------
+    E : (N,) array
+        Irradiance in units of the source radiance (E = pi*na**2 for a
+        point that sees the source in every direction up to na).
+    """
+
+    rng = _rng(rng)
+    R = reverse_system(system) if reversed_system is None else reversed_system
+    xy = np.atleast_2d(np.asarray(points, float))
+    X = np.repeat(xy, n_directions, axis=0)
+    pq = disk_points(len(X), na, rng)
+    L = backward_trace(system, X, pq[:, 0], pq[:, 1], source, reversed_system=R)
+
+    return np.pi*na**2*L.reshape(len(xy), n_directions).mean(axis=1)

@@ -334,7 +334,10 @@ What each module does and how mature it is. Planned work is listed in
   trough or 3D, truncated) traced through their wall reflections, with a
   compiled kernel if numba is installed; checked against the ideal 2D step,
   the exit étendue under Lambertian input and the 1/n² bound for a
-  dielectric CPC that exits into air (notebook 84)
+  dielectric CPC that exits into air (notebook 84); backward ray tracing
+  through the reversed system (`reverse_system()`, `backward_trace()`,
+  `backward_irradiance()`), checked against forward Monte Carlo and
+  π sin²θ behind a stop (notebook 85)
 - `fresnel`: Fresnel lenses, tested: a parent surface (sphere, conic,
   even asphere) collapsed into zones of constant pitch, constant depth or
   given radii, with curved or flat (conical) facets and drafted risers

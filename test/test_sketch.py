@@ -122,6 +122,8 @@ def test_paraxial_ray_imaging():
     lambda ax: sketch.cpc_edge_rays(ax, acceptance=30.0, n=1.5),
     sketch.cpc_skew_ray,
     sketch.cpc_secondary,
+    sketch.koehler_critical,
+    lambda ax: sketch.koehler_critical(ax, mode="critical"),
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()

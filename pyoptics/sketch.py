@@ -117,6 +117,9 @@ Setup sketches for the other example notebooks:
   parabolas, foci and edge rays, also truncated or dielectric;
   cpc_skew_ray(): a skew ray in a 3D CPC seen along the axis;
   cpc_secondary(): a CPC secondary in the focus of a lens (notebook 84).
+- koehler_critical(): a microscope illuminator, the filament imaged into
+  the aperture diaphragm (Köhler) or the field diaphragm (critical)
+  (notebook 85).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -171,7 +174,7 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "momentum_balance", "pulse_through_lens", "pulse_front_tilt",
            "approximation_map", "sign_conventions", "diffraction_geometry", "eikonal_wavefronts",
            "phase_space_portraits", "liouville_lens", "burning_glass", "etendue_diffuser",
-           "light_pipe_images", "cpc_edge_rays", "cpc_skew_ray", "cpc_secondary"]
+           "light_pipe_images", "cpc_edge_rays", "cpc_skew_ray", "cpc_secondary", "koehler_critical"]
 
 
 GLASS = "#cfe3f3"
@@ -4843,3 +4846,81 @@ def cpc_secondary(ax, title=None):
     ins.text(z_f, 1.15*a_c, "spill", fontsize=7, ha="center", color="#b40426")
     ax.indicate_inset_zoom(ins, edgecolor="0.6")
     _finish(ax, (-3.0, z_f + 3.6), (-a - 0.6, a + 0.9), title)
+
+
+def koehler_critical(ax, mode="koehler", title=None):
+    """Sketch of a microscope illuminator with Köhler or critical
+    illumination (notebook 85).
+
+    Lamp filament, collector, field diaphragm, aperture diaphragm (in the
+    front focal plane of the condenser), condenser and specimen. Rays from
+    two points of the filament (paraxial, clipped by the diaphragms).
+    mode="koehler": the lamp sits close to the collector, which images the
+    filament into the aperture diaphragm; every point of the specimen
+    receives light from the whole filament and the field is even.
+    mode="critical": the lamp sits further back and the filament is imaged
+    into the field diaphragm and so onto the specimen, whose irradiance
+    shows the filament. The curve right of the specimen sketches the
+    irradiance across the field.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    mode : {"koehler", "critical"}, optional
+    title : str, optional
+    """
+
+    f_col, f_cond = 1.0, 1.0
+    z_col, z_fd = 0.0, 2.3
+    z_ad = z_col + 1/(1/f_col - 1/1.17)        # image of the filament for the Köhler lamp position
+    z_cond = z_ad + f_cond
+    z_spec = z_cond + 1/(1/f_cond - 1/(z_cond - z_fd))
+    s_lamp = 1.17 if mode == "koehler" else 1/(1/f_col - 1/(z_fd - z_col))
+    z_lamp = z_col - s_lamp
+    r_fd, r_ad, h = 0.5, 0.55, 0.95
+    lenses = [(z_col, f_col), (z_cond, f_cond)]
+    z_end = z_spec + 0.35
+
+    ax.add_patch(_patches().Rectangle((z_lamp - 0.06, -0.3), 0.12, 0.6, facecolor="none",
+                                      edgecolor="0.5", lw=0.8, zorder=3))
+    for y_r in np.linspace(-0.2, 0.2, 5):
+        ax.plot([z_lamp - 0.04, z_lamp + 0.04], [y_r, y_r], color=ILLUMINATION, lw=2.2, zorder=4)
+    label(ax, z_lamp, -0.4, "filament", va="top", fontsize=8)
+    lens(ax, z_col, h, text="collector", fontsize=8)
+    stop(ax, z_fd, h, openings=((0, r_fd),), width=0.05, text="field\ndiaphragm", fontsize=8)
+    stop(ax, z_ad, h, openings=((0, r_ad),), width=0.05, text="aperture\ndiaphragm", fontsize=8)
+    lens(ax, z_cond, h, text="condenser", fontsize=8)
+    ax.plot([z_spec]*2, [-0.6, 0.6], color="#8fbf8f", lw=4, solid_capstyle="butt", zorder=3)
+    label(ax, z_spec, -0.7, "specimen", va="top", fontsize=8)
+
+    # rays from two points of the filament that pass both diaphragms and both lenses
+    for y_s, col in ((0.07, SOURCE_COLORS[2]), (-0.07, SOURCE_COLORS[0])):
+        passing = []
+        for hc in np.linspace(-h, h, 801):
+            zz, yy = paraxial_ray(lenses, z_lamp, y_s, (hc - y_s)/(z_col - z_lamp), z_end)
+            if all(abs(np.interp(z_p, zz, yy)) <= r for z_p, r in
+                   ((z_fd, r_fd), (z_ad, r_ad), (z_col, h), (z_cond, h))):
+                passing.append((zz, yy))
+        for k in np.linspace(0, len(passing) - 1, 7).round().astype(int):
+            ax.plot(*passing[k], color=col, lw=0.8, alpha=0.85, zorder=2)
+
+    # irradiance across the field, sketched next to the specimen
+    m_field = 0.55                             # drawn magnified
+    yy = np.linspace(-m_field, m_field, 200)
+    if mode == "koehler":
+        E = np.ones_like(yy)
+        text = "filament imaged into the aperture diaphragm:\nevery specimen point sees the " \
+               "whole filament, an even field"
+    else:
+        E = 0.45 + 0.55*np.cos(2*np.pi*yy/(4/3*m_field))**2
+        text = "filament imaged into the field diaphragm\nand onto the specimen: its " \
+               "structure shows"
+    z_E = z_spec + 0.7
+    ax.plot([z_E, z_E], [-m_field, m_field], color="0.6", lw=0.6)
+    ax.plot(z_E + 0.45*E, yy, color="#b40426", lw=1.4)
+    label(ax, z_E + 0.25, m_field + 0.08, "irradiance\nin the field", fontsize=8, va="bottom",
+          color="#b40426")
+    z_img = z_fd if mode == "critical" else z_ad
+    label(ax, z_img, h + 0.12, "filament\nimage", fontsize=8, va="bottom", color="#9a6b00")
+    label(ax, (z_lamp + z_E)/2, -1.55, text, fontsize=9, va="top")
+    _finish(ax, (z_col - 1.95, z_E + 0.8), (-2.05, h + 0.6), title)
