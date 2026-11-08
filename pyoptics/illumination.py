@@ -1459,8 +1459,8 @@ def fly_eye_field_1d(field, x, wavelength, pitch, f_1, f_2=None, gap=None, focal
     u : 1d array
         Coordinates in the focal plane of the condenser (fftshifted).
     U : 1d array
-        Complex field there, normalized so that sum |U|^2 du = sum
-        |field|^2 dx (energy of the passed light).
+        Complex field there, normalized so that ``sum |U|**2 du`` equals
+        ``sum |field|**2 dx`` of the light the array passes.
     """
 
     x = np.asarray(x, float)
