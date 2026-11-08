@@ -189,9 +189,17 @@ class Simulation(object):
     subpixel : int, optional
         Sub-samples per cell and axis for averaging the permittivity
         (1: plain staircase).
+    permittivity : callable, optional
+        A graded background: eps(X, Y), the (complex) relative
+        permittivity at the coordinate arrays (at the wavelength of the
+        solve), e.g. n**2 of a gradient-index medium. It replaces
+        `background` wherever no shape of `structure` lies and is averaged
+        over the sub-samples like the shapes. A PlaneWave box has to lie where it equals the
+        `background` medium.
     """
 
-    def __init__(self, grid, structure=(), mode="Ez", boundaries=None, background=VACUUM, subpixel=4):
+    def __init__(self, grid, structure=(), mode="Ez", boundaries=None, background=VACUUM, subpixel=4,
+                 permittivity=None):
         if grid.ndim != 2:
             raise ValueError("the FDFD solver is 2D")
         if mode not in ("Ez", "Hz"):
@@ -201,6 +209,7 @@ class Simulation(object):
         self.background = background
         self.boundaries = parse(boundaries if boundaries is not None else (PML(16), PML(16)), 2)
         self.subpixel = int(subpixel)
+        self.permittivity_function = permittivity
         self.ndim = 2
         self.e_components = E_COMPONENTS[(2, mode)]
         h_comps = H_COMPONENTS[(2, mode)]
@@ -234,7 +243,11 @@ class Simulation(object):
         idx = np.full(X.shape, len(self.structure), dtype=np.int32)
         for i, (shape, _) in enumerate(self.structure):
             idx[np.asarray(shape.contains(X, Y), dtype=bool)] = i
-        return self._medium_eps(wavelength)[idx].reshape(len(x), S, len(y), S)
+        eps = self._medium_eps(wavelength)[idx]
+        if self.permittivity_function is not None:
+            bg = idx == len(self.structure)
+            eps[bg] = np.asarray(self.permittivity_function(X[bg], Y[bg]), dtype=complex)
+        return eps.reshape(len(x), S, len(y), S)
 
     def epsilon(self, wavelength):
         """Averaged complex permittivity at the nodes of the E components:

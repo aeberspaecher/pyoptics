@@ -19,7 +19,9 @@ What each module does and how mature it is. Planned work is listed in
   inclined planes (detectors); `tilted_plane()` and
   `vectorial_tilted_plane()` are also available from `propagators`
 - `fdfd`: new, tested: finite-difference frequency-domain solver in 2D
-  (Ez and Hz) on the Yee grid of `fdtd` with its shapes and media, a
+  (Ez and Hz) on the Yee grid of `fdtd` with its shapes and media (and a
+  graded background permittivity given as a function, e.g. a GRIN lens;
+  checked against the exact field of Maxwell's fish-eye), a
   stretched-coordinate PML and Bloch boundaries; driven solves (line
   currents, plane waves injected on a total-field box without leakage),
   resonances (quasi-normal modes and Q by shift-invert Arnoldi) and mode

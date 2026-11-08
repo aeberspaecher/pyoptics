@@ -134,3 +134,56 @@ def test_mode_tracing_keeps_the_mode():
         r = sim.resonance(like=prev)
         assert r.overlap(prev) > 0.9
         prev = r
+
+
+@pytest.mark.parametrize("mode", ["Ez", "Hz"])
+def test_permittivity_function_matches_shapes(mode):
+    # a disk given as a function gives the same averaged permittivity and fields as the shape
+    grid = fdtd.Grid((3.0, 3.0), 0.05)
+    disk = fdfd.Simulation(grid, [(fdtd.Circle((0, 0), 0.6), fdtd.Medium.from_index(1.8))], mode=mode)
+    func = fdfd.Simulation(grid, mode=mode, permittivity=lambda X, Y: np.where(X**2 + Y**2 < 0.36, 1.8**2, 1.0))
+    for c in disk.e_components:
+        assert np.allclose(disk.epsilon(1.0)[c], func.epsilon(1.0)[c])
+    box = ((-1.0, 1.0), (-1.0, 1.0))
+    a = disk.solve(1.0, fdfd.PlaneWave((0, 1), box)).main
+    b = func.solve(1.0, fdfd.PlaneWave((0, 1), box)).main
+    assert np.allclose(a, b)
+    # shapes are drawn on top of the graded background
+    both = fdfd.Simulation(grid, [(fdtd.Circle((0, 0), 0.6), fdtd.Medium.from_index(1.8))], mode=mode,
+                           permittivity=lambda X, Y: 2.0 + 0*X)
+    eps = both.epsilon(1.0)[both.e_components[0]]
+    x, y = both.coords(both.e_components[0])
+    assert np.isclose(eps[np.argmin(np.abs(x)), np.argmin(np.abs(y))], 1.8**2)
+    assert np.isclose(eps[0, 0], 2.0)
+
+
+def test_graded_fisheye_against_legendre_green_function():
+    # Maxwell's fish-eye n = 2/(1 + r^2/R^2) inside a mirror at r = R: the field of a line
+    # source is the Green's function of the sphere, -P_nu(-cos gamma)/(4 sin(pi nu)),
+    # minus its image (Leonhardt 2009)
+    from scipy.special import lpmv
+    R, k0 = 1.59, 2*np.pi                     # k0 R between the resonances sqrt(l(l + 1))
+    eps = lambda X, Y: 4/(1 + (X**2 + Y**2)/R**2)**2
+    sim = fdfd.Simulation(fdtd.Grid((3.4, 3.4), 0.02),
+                          [(fdtd.Difference(fdtd.Everywhere(), fdtd.Circle((0, 0), R)),
+                            fdtd.Medium.from_index(0.0, 100.0, wavelength=1.0))],
+                          boundaries=("pec", "pec"), permittivity=eps)
+    x, y = sim.coords("Ez")
+    src = np.array([x[np.argmin(np.abs(x + 0.7))], 0.0])
+    u = sim.solve(1.0, fdfd.PointSource(tuple(src))).main
+    nu = -0.5 + np.sqrt(0.25 + (k0*R)**2)
+
+    def sphere(X, Y):
+        r2 = X**2 + Y**2
+        return np.stack([2*R*X, 2*R*Y, r2 - R**2], axis=-1)/(r2 + R**2)[..., None]
+
+    def green(X, Y, p):
+        c = np.clip(np.sum(sphere(X, Y)*sphere(*p), axis=-1), -1, 1)
+        return -lpmv(0, nu, -c)/(4*np.sin(np.pi*nu))
+
+    X, Y = np.meshgrid(x, y, indexing="ij")
+    with np.errstate(invalid="ignore"):         # singular at the source node
+        exact = 1j*k0*(green(X, Y, src) - green(X, Y, src*R**2/np.sum(src**2)))
+    sel = (X**2 + Y**2 < (0.95*R)**2) & (np.hypot(X - src[0], Y) > 0.3)
+    rel = np.sqrt(np.mean(np.abs(u - exact)[sel]**2)/np.mean(np.abs(exact)[sel]**2))
+    assert rel < 0.05                          # 2 % at 50 cells per wavelength
