@@ -146,6 +146,7 @@ notebooks/45_zernike_aberration_gallery
 - {doc}`notebooks/28_phase_retrieval`
 - {doc}`notebooks/29_TIE`
 - {doc}`notebooks/30_IFTA`
+- {doc}`notebooks/73_wavefront_shaping`
 
 ```{toctree}
 :hidden:
@@ -161,6 +162,7 @@ notebooks/27_holographic_microscopy
 notebooks/28_phase_retrieval
 notebooks/29_TIE
 notebooks/30_IFTA
+notebooks/73_wavefront_shaping
 ```
 
 ## Microscopy

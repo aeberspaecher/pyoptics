@@ -68,6 +68,10 @@ def test_paraxial_ray_imaging():
     lambda ax: sketch.vortex_interferometer(ax, reference="spherical"),
     sketch.mode_converter,
     lambda ax: sketch.mode_converter(ax, images=(np.eye(8), np.ones((8, 8)))),
+    sketch.wavefront_shaping_setup,
+    lambda ax: sketch.wavefront_shaping_setup(ax, medium="slab"),
+    lambda ax: sketch.wavefront_shaping_setup(ax, medium="fibre", feedback=False),
+    lambda ax: sketch.wavefront_shaping_setup(ax, reference=True),
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()

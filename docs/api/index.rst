@@ -121,6 +121,7 @@ Measurement and phase retrieval
    pyoptics.shack_hartmann
    pyoptics.TIE
    pyoptics.ifta
+   pyoptics.wavefront_shaping
    pyoptics.processing
 
 Utilities

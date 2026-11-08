@@ -327,6 +327,15 @@ What each module does and how mature it is. Planned work is listed in
 - `ifta`: basic Gerchberg-Saxton and variants for beam shaping, tested
   (convergence of GS, HIO-HOO and over-compensation on a reachable target,
   phase quantization)
+- `wavefront_shaping`: new, tested: focusing through scattering media;
+  random phase screens, SLM segments, transmission matrices of any linear
+  propagator (segment by segment), phase conjugation for full, phase-only,
+  P-level and binary amplitude modulation with the enhancement and its
+  theoretical value, Vellekoop's feedback algorithms (stepwise and
+  continuous sequential, random partitioning), the phase-stepping TM
+  measurement against a reference (canonical or Hadamard basis), a
+  weighted Gerchberg-Saxton loop through the TM (built on `ifta`), random
+  unitaries and the Marchenko-Pastur law (notebook 73)
 - `phase_retrieval`: phase retrieval, tested: Fienup's error reduction and
   hybrid input-output with support, reality and positivity constraints,
   shrink-wrap support and the autocorrelation support, error histories,
