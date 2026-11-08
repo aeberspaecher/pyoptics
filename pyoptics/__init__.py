@@ -27,4 +27,5 @@ from . import coherence
 from . import tweezers
 from . import rainbow
 from . import grin
+from . import cloak
 from . import colour
