@@ -82,6 +82,9 @@ Setup sketches for the other example notebooks:
   a concave mirror at its centre of curvature; schlieren_system(): a lens
   type Toepler schlieren system with a slit source and a knife edge, and a
   direct shadowgraph (notebook 76).
+- sim_microscope(), sted_microscope(): structured illumination with a
+  grating and an order mask, and a STED microscope with a vortex plate,
+  dichroic mirrors and a pinhole (notebook 78).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -130,7 +133,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "axicon_bessel", "cubic_phase_airy", "young_extended_source", "vcz_setup",
            "stellar_interferometer", "michelson_interferometer", "hbt_interferometer",
            "rainbow_observer", "glory_aircraft", "twinkling_star", "adaptive_optics_system",
-           "wavefront_shaping_setup", "foucault_tester", "schlieren_system"]
+           "wavefront_shaping_setup", "foucault_tester", "schlieren_system",
+           "sim_microscope", "sted_microscope"]
 
 
 GLASS = "#cfe3f3"
@@ -2897,3 +2901,206 @@ def schlieren_system(ax, method="schlieren", title=None):
         arrow(ax, z_t, h + 0.3, z_scr, h + 0.3, style="<->", text="L",
               text_pos=((z_t + z_scr)/2, h + 0.35), va="bottom")
         _finish(ax, (z_s - 1.2, z_scr + 0.6), (-1.8, 1.2), title)
+
+
+def _fold_down_slash(z_m, z_unf, y_unf):
+    # a "/" mirror at (z_m, 0): light travelling along -z is sent along -y;
+    # unfolded (z_m + dz, dy), dz < 0, lands at (z_m + dy, dz)
+    return z_m + np.asarray(y_unf), np.asarray(z_unf) - z_m
+
+
+def _fold_up_backslash(z_m, z_unf, y_unf):
+    # a "\" mirror at (z_m, 0): light travelling along -z is sent along +y;
+    # unfolded (z_m + dz, dy), dz < 0, lands at (z_m - dy, -dz)
+    return z_m - np.asarray(y_unf), z_m - np.asarray(z_unf)
+
+
+def sim_microscope(ax, title=None):
+    """Sketch of a structured illumination microscope with a grating (notebook 78).
+
+    A phase grating in a plane conjugate to the specimen diffracts the
+    collimated laser beam. A mask in the following pupil plane blocks the
+    zeroth order and passes the +-1st orders, which are focused near the
+    edge of the objective pupil and leave the objective as two plane waves
+    that cross in the specimen: their interference is the sinusoidal
+    excitation pattern (inset). The fluorescence is reflected by a dichroic
+    mirror onto the camera. Rotating and shifting the grating gives the
+    angles and phases of the pattern.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    u = 0.5                                  # diffraction angle of the +-1st orders
+    g = 0.2                                  # half height of the beam on the grating
+    z_g = 0.0
+    z_l1, f1 = 1.0, 1.0                      # grating -> order mask (pupil plane)
+    z_mask = 2.0
+    z_l2, f2 = 2.7, 0.7                      # mask -> intermediate image at 3.4
+    z_l3, f3 = 4.3, 0.9                      # image -> objective pupil at 5.2
+    z_obj, f_o = 5.8, 0.6
+    z_dic = 4.85
+    z_foc = z_obj + f_o
+    lenses = [(z_l1, f1), (z_l2, f2), (z_l3, f3), (z_obj, f_o)]
+    # laser, grating
+    laser(ax, -0.8, 0.0, length=0.9, height=0.3, text="laser")
+    band(ax, [-0.8, z_g], [g, g], [-0.8, z_g], [-g, -g], color=EXCITATION, alpha=0.18)
+    for k in range(9):
+        y0 = -0.42 + 0.84*k/8
+        ax.add_patch(mpatches.Rectangle((z_g - 0.03, y0), 0.06 if k % 2 else 0.1, 0.84/9,
+                                        facecolor=GLASS, edgecolor=EDGE, lw=0.6, zorder=3))
+    label(ax, z_g, -0.55, "phase grating\n(rotate, shift)", fontsize=8, va="top")
+    # the +-1st orders as collimated beams
+    for sgn in (-1, 1):
+        zt, yt = paraxial_ray(lenses, z_g, g, sgn*u, z_foc + 0.3)
+        zb, yb = paraxial_ray(lenses, z_g, -g, sgn*u, z_foc + 0.3)
+        band(ax, zt, yt, zb, yb, color=EXCITATION, alpha=0.16, lw=0.6)
+    # the blocked zeroth order
+    zt, yt = paraxial_ray(lenses[:1], z_g, g, 0.0, z_mask)
+    zb, yb = paraxial_ray(lenses[:1], z_g, -g, 0.0, z_mask)
+    band(ax, zt, yt, zb, yb, color="0.6", alpha=0.2, lw=0.5, zorder=0.5)
+    lens(ax, z_l1, 0.75)
+    y_o = f1*u
+    stop(ax, z_mask, 0.8, openings=((y_o - 0.07, y_o + 0.07),), width=0.05,
+         text="order mask:\n0 blocked, ±1 pass", text_y=-0.9)
+    lens(ax, z_l2, 0.75)
+    plane(ax, z_l2 + f2, 0.6)
+    label(ax, z_l2 + f2, 0.68, "image\nplane", fontsize=7, va="bottom")
+    lens(ax, z_l3, 0.75)
+    plane(ax, z_obj - f_o, 0.75)
+    label(ax, z_obj - f_o, -0.82, "pupil", fontsize=7, va="top")
+    mirror(ax, z_dic, 0.0, 1.1, -np.pi/4, dichroic=True)
+    label(ax, z_dic + 0.1, -0.85, "dichroic", fontsize=8, va="top")
+    lens(ax, z_obj, 0.85, text="objective", text_y=-0.95)
+    ax.add_patch(mpatches.Rectangle((z_foc - 0.12, -0.6), 0.24, 1.2, facecolor="#e9f5e9",
+                                    edgecolor="#8fbf8f", zorder=1))
+    label(ax, z_foc, -0.68, "specimen", fontsize=8, va="top")
+    # fluorescence from a point in the specimen, back to the camera above
+    z_t, f_t = z_dic - 1.2, 0.9               # camera tube lens (unfolded position)
+    z_cam = z_t - f_t
+    for v in (-0.4, -0.2, 0.2, 0.4):
+        zz, yy = paraxial_ray([(z_obj, f_o), (z_t, f_t)], z_foc, 0.0, v, z_cam)
+        sel = zz <= z_dic
+        z_cross = z_dic
+        y_cross = np.interp(z_cross, zz[::-1], yy[::-1])
+        ax.plot(np.r_[zz[~sel], z_cross], np.r_[yy[~sel], y_cross], color=EMISSION, lw=0.9,
+                zorder=2)
+        zf, yf = _fold_up_backslash(z_dic, np.r_[z_cross, zz[sel]], np.r_[y_cross, yy[sel]])
+        ax.plot(zf, yf, color=EMISSION, lw=0.9, zorder=2)
+    zc, yc = _fold_up_backslash(z_dic, z_t, 0.0)
+    rotated_lens(ax, zc, yc, 0.4, rotate=90, text="tube lens", fontsize=8)
+    zc, yc = _fold_up_backslash(z_dic, z_cam, 0.0)
+    rotated_detector(ax, zc, yc, 0.4, rotate=-90, text="camera", fontsize=8)
+    # inset: the fringes in the specimen
+    s = np.linspace(-1, 1, 64)
+    S, T = np.meshgrid(s, s)
+    _profile_image(ax, z_foc + 0.85, 0.75, 0.8, 1 + np.cos(2*np.pi*3*(0.85*T + 0.5*S)))
+    label(ax, z_foc + 0.85, 0.27, "excitation\nfringes", fontsize=8, va="top")
+    ax.plot([], [], color=EXCITATION, label="±1st orders: two plane waves in the specimen")
+    ax.plot([], [], color=EMISSION, label="fluorescence")
+    ax.legend(loc="upper left", fontsize=8, frameon=False)
+    _finish(ax, (-1.9, z_foc + 1.4), (-1.3, 2.7), title)
+
+
+def sted_microscope(ax, images=None, title=None):
+    """Sketch of a STED microscope (notebook 78).
+
+    An excitation beam (blue) and a depletion beam (red) are combined by a
+    dichroic mirror and focused by the same objective. The depletion beam
+    passes a spiral (vortex) phase plate and a quarter wave plate, so its
+    focus is a doughnut with a zero in the centre, and switches off the
+    fluorophores everywhere but there. The fluorescence (green) is
+    separated by a second dichroic mirror and detected through a pinhole.
+    Insets show the excitation spot, the doughnut and the effective spot.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    images : sequence of three 2d arrays, optional
+        Excitation, depletion and effective PSF for the insets. Defaults to
+        simple analytic shapes.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    w = 0.32
+    z_las = -0.5
+    z_spp, z_qwp = 0.3, 1.5
+    z_d1, z_d2 = 2.4, 3.6
+    z_obj, f_o = 4.8, 0.9
+    z_foc = z_obj + f_o
+    laser(ax, z_las, 0.0, length=1.0, height=0.3, text="STED", color="#a03020")
+    for top in (True, False):
+        y_edge = w if top else -w
+        zz, yy = paraxial_ray([(z_obj, f_o)], z_las, y_edge, 0.0, z_foc)
+        if top:
+            zt, yt = zz, yy
+        else:
+            zb, yb = zz, yy
+    band(ax, zt, yt, zb, yb, color=STRAY, alpha=0.15)
+    _spiral_plate(ax, z_spp, 0.45, text="vortex plate\nexp(iφ)", text_y=-0.55)
+    ax.add_patch(mpatches.Rectangle((z_qwp - 0.04, -0.45), 0.08, 0.9, facecolor="#e8e0f5",
+                                    edgecolor="#6a5a8a", lw=0.8, zorder=3))
+    label(ax, z_qwp, -0.55, "λ/4: circular,\nspin ∥ vortex", fontsize=8, va="top")
+    # excitation from above, reflected along +z by the first dichroic ("\")
+    w_e = 0.24
+    y_ex = 1.3
+    laser(ax, z_d1, y_ex, length=0.8, height=0.3, rotate=-90, text="exc.", fontsize=8,
+          color="#1a5a8a")
+    band(ax, [z_d1 - w_e, z_d1 - w_e], [y_ex, -w_e], [z_d1 + w_e, z_d1 + w_e],
+         [y_ex, w_e], color=EXCITATION, alpha=0.18)
+    zz_t, yy_t = paraxial_ray([(z_obj, f_o)], z_d1, w_e, 0.0, z_foc)
+    zz_b, yy_b = paraxial_ray([(z_obj, f_o)], z_d1, -w_e, 0.0, z_foc)
+    band(ax, zz_t, yy_t, zz_b, yy_b, color=EXCITATION, alpha=0.18)
+    mirror(ax, z_d1, 0.0, 1.0, -np.pi/4, dichroic=True)
+    label(ax, z_d1 - 0.1, 0.62, "dichroic", fontsize=8, ha="right", va="bottom")
+    # fluorescence: back through the objective, reflected down by the second dichroic ("/")
+    z_t, f_t = z_d2 - 1.0, 0.9
+    z_pin = z_t - f_t
+    for v in (-0.3, -0.16, 0.16, 0.3):
+        zz, yy = paraxial_ray([(z_obj, f_o), (z_t, f_t)], z_foc, 0.0, v, z_pin - 0.25)
+        y_cross = np.interp(z_d2, zz[::-1], yy[::-1])
+        keep = zz > z_d2
+        ax.plot(np.r_[zz[keep], z_d2], np.r_[yy[keep], y_cross], color=EMISSION, lw=0.9, zorder=2)
+        zf, yf = _fold_down_slash(z_d2, np.r_[z_d2, zz[~keep]], np.r_[y_cross, yy[~keep]])
+        ax.plot(zf, yf, color=EMISSION, lw=0.9, zorder=2)
+    mirror(ax, z_d2, 0.0, 1.0, np.pi/4, dichroic=True)
+    label(ax, z_d2 + 0.12, 0.62, "dichroic", fontsize=8, ha="left", va="bottom")
+    zc, yc = _fold_down_slash(z_d2, z_t, 0.0)
+    rotated_lens(ax, zc, yc, 0.35, rotate=90)
+    zc, yc = _fold_down_slash(z_d2, z_pin, 0.0)
+    ax.plot([zc - 0.35, zc - 0.04], [yc, yc], color=METAL, lw=3, solid_capstyle="butt", zorder=4)
+    ax.plot([zc + 0.04, zc + 0.35], [yc, yc], color=METAL, lw=3, solid_capstyle="butt", zorder=4)
+    label(ax, zc + 0.42, yc, "pinhole", fontsize=8, ha="left")
+    rotated_detector(ax, zc, yc - 0.25, 0.3, rotate=-90)
+    label(ax, zc + 0.42, yc - 0.3, "detector", fontsize=8, ha="left")
+    lens(ax, z_obj, 0.85, text="objective", text_y=-0.95)
+    ax.add_patch(mpatches.Rectangle((z_foc - 0.1, -0.55), 0.2, 1.1, facecolor="#e9f5e9",
+                                    edgecolor="#8fbf8f", zorder=1))
+    label(ax, z_foc, -0.62, "specimen\n(scanned)", fontsize=8, va="top")
+    # insets
+    if images is None:
+        s = np.linspace(-1.5, 1.5, 81)
+        S, T = np.meshgrid(s, s)
+        R2 = S**2 + T**2
+        exc = np.exp(-R2/0.5)
+        donut = R2*np.exp(-R2/0.5)
+        images = (exc, donut, exc*np.exp(-np.log(2)*6*donut/donut.max()))
+    names = ("excitation", "doughnut", "effective spot")
+    size = 0.75
+    y_i = 1.75
+    for i, (img, name) in enumerate(zip(images, names)):
+        zi = z_d2 + 0.1 + i*1.0
+        _profile_image(ax, zi, y_i, size, np.asarray(img, dtype=float))
+        label(ax, zi, y_i + size/2 + 0.05, name, fontsize=8, va="bottom")
+    label(ax, z_d2 + 0.6, y_i, "×", fontsize=12)
+    label(ax, z_d2 + 1.6, y_i, "→", fontsize=12)
+    label(ax, z_d2 + 1.1, y_i - size/2 - 0.08, "survival exp(−ln2·I/I_s)", fontsize=7, va="top")
+    ax.plot([], [], color=EXCITATION, label="excitation")
+    ax.plot([], [], color=STRAY, label="STED (depletion) beam")
+    ax.plot([], [], color=EMISSION, label="fluorescence")
+    ax.legend(loc="lower left", fontsize=8, frameon=False)
+    _finish(ax, (-1.7, z_foc + 0.8), (-2.2, 2.4), title)

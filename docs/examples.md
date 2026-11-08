@@ -175,6 +175,7 @@ notebooks/73_wavefront_shaping
 - {doc}`notebooks/53_phase_contrast_dic`
 - {doc}`notebooks/54_confocal_microscopy`
 - {doc}`notebooks/55_fourier_ptychography`
+- {doc}`notebooks/78_super_resolution_microscopy`
 - {doc}`notebooks/27_holographic_microscopy` (in *Measurement, phase retrieval and beam shaping*)
 
 ```{toctree}
@@ -185,6 +186,7 @@ notebooks/52_abbe_image_formation
 notebooks/53_phase_contrast_dic
 notebooks/54_confocal_microscopy
 notebooks/55_fourier_ptychography
+notebooks/78_super_resolution_microscopy
 ```
 
 ## Lithography
