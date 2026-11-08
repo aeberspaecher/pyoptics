@@ -366,6 +366,16 @@ What each module does and how mature it is. Planned work is listed in
   optional reference image, intensity weighted model slopes, modal
   reconstruction (least squares fit of Fringe Zernike gradients) and zonal
   reconstruction (Southwell); sensitivity and dynamic range of the design
+- `turbulence`: new, tested: atmospheric turbulence; von Kármán phase
+  spectrum, random phase screens (FFT method with subharmonics and cell
+  averaged low frequencies), measured and theoretical structure functions,
+  Noll's Zernike variances and residuals; Hufnagel-Valley profiles cut into
+  layers, r0, isoplanatic angle, coherence time and the Rytov scintillation
+  index with aperture averaging; long and short exposure transfer functions,
+  seeing with outer scale, Fried's lucky imaging probability; split-step
+  propagation through layers and frozen flow screens; checked against the
+  Kolmogorov structure function, Noll's table, the 19.12 λ^(-7/6) formula and
+  a split-step simulation (notebook 72)
 - `wpm`: wave propagation method (Cython extension) for inhomogeneous, also
   absorbing media, 2D and y-invariant 1D fields, multi-step driver; direct
   O(N^2) sum (OpenMP) or the fast "levels" variant (one FFT pair per distinct

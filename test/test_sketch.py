@@ -73,6 +73,8 @@ def test_paraxial_ray_imaging():
     lambda ax: sketch.vortex_interferometer(ax, reference="spherical"),
     sketch.mode_converter,
     lambda ax: sketch.mode_converter(ax, images=(np.eye(8), np.ones((8, 8)))),
+    sketch.twinkling_star,
+    sketch.adaptive_optics_system,
     sketch.rainbow_observer,
     lambda ax: sketch.rainbow_observer(ax, sun_elevation=10.0),
     sketch.glory_aircraft,

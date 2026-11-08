@@ -227,12 +227,14 @@ notebooks/50_magnification_distortion_telecentricity
 ## Atmospheric optics
 
 - {doc}`notebooks/71_rainbows_and_glories`
+- {doc}`notebooks/72_twinkling_stars_adaptive_optics`
 
 ```{toctree}
 :hidden:
 :caption: Atmospheric optics
 
 notebooks/71_rainbows_and_glories
+notebooks/72_twinkling_stars_adaptive_optics
 ```
 
 ## Running the notebooks

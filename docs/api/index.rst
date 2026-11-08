@@ -116,6 +116,7 @@ Atmospheric optics and colour
 
    pyoptics.rainbow
    pyoptics.colour
+   pyoptics.turbulence
 
 Measurement and phase retrieval
 -------------------------------
