@@ -317,6 +317,19 @@ What each module does and how mature it is. Planned work is listed in
   medium with rays reflected on the bump and refracted at the cloak's
   edge; a line of FDFD sources that launches a Gaussian beam with the
   grid's dispersion, and angular spectra (notebook 80)
+- `illumination`: new, tested: illumination optics with Monte Carlo rays;
+  Lambertian sources on disks and rectangles (`LambertianSource`, rays for
+  `raytrace.System.trace()`, the Sun with its angular radius), canonical
+  phase space coordinates (x, y, nL, nM), the skew invariant, the ray map of
+  a `raytrace.System` and its Jacobian with a symplecticity check; étendue
+  of Lambertian sources, the concentration limit n²/sin²α, the coupling
+  bound and the stagnation temperature under concentrated sunlight; étendue
+  from rays (occupied phase space volume and the participation étendue
+  P²/∫L², unbiased against Monte Carlo noise); refraction at a plane, thin
+  diffusers and straight light pipes traced by unfolding (TIR or mirror
+  walls); checked against 2w·NA, 4π√det Σ, det J = 1 for a real lens and
+  cos⁴θ′ for the paraxial ideal lens, and the brightness bound
+  NA′²/sin²α of a stigmatic lens (notebook 83)
 - `fresnel`: Fresnel lenses, tested: a parent surface (sphere, conic,
   even asphere) collapsed into zones of constant pitch, constant depth or
   given radii, with curved or flat (conical) facets and drafted risers

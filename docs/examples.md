@@ -242,6 +242,17 @@ notebooks/44_seidel_caldwell_lens
 notebooks/50_magnification_distortion_telecentricity
 ```
 
+## Illumination optics
+
+- {doc}`notebooks/83_etendue_brightness_theorem`
+
+```{toctree}
+:hidden:
+:caption: Illumination optics
+
+notebooks/83_etendue_brightness_theorem
+```
+
 ## Atmospheric optics
 
 - {doc}`notebooks/71_rainbows_and_glories`
