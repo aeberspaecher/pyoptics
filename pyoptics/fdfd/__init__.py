@@ -20,6 +20,10 @@ Building blocks
   wavelength, so dispersive and lossy media need no fit), drawn with
   sub-cell averaging of the permittivity (anisotropic for the in-plane E of
   the Hz polarization).
+- Graded media: `Simulation(permittivity=eps)` takes a function eps(X, Y)
+  (e.g. n**2 of a gradient-index lens from `pyoptics.grin`) as the
+  background, averaged over the cells like the shapes, which are drawn on
+  top.
 - Boundaries per axis: `fdtd.PML` (a stretched-coordinate PML,
   s = kappa + i sigma/omega, graded polynomially), "pec", "periodic" and
   `fdtd.Bloch(k)`.
