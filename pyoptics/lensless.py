@@ -64,8 +64,8 @@ S. Boyd, N. Parikh, E. Chu, B. Peleato and J. Eckstein, "Distributed
 optimization and statistical learning via the alternating direction method
 of multipliers", Found. Trends Mach. Learn. 3, 1-122 (2011).
 
-M. V. Berry, "Disruption of images: the caustic-touching theorem", J. Opt.
-Soc. Am. A 4, 561-569 (1987).
+M. V. Berry and C. Upstill, "Catastrophe optics: morphologies of caustics
+and their diffraction patterns", Prog. Opt. 18, 257-346 (1980).
 """
 
 import numpy as np
@@ -284,7 +284,10 @@ def coded_aperture_image(scene, mask):
         Expected detector counts.
     """
 
-    return np.real(np.fft.ifft2(np.fft.fft2(scene)*np.fft.fft2(mask)))
+    D = np.real(np.fft.ifft2(np.fft.fft2(scene)*np.fft.fft2(mask)))
+    if np.all(np.asarray(scene) >= 0) and np.all(np.asarray(mask) >= 0):
+        D = np.maximum(D, 0.0)         # rounding of the FFTs, for use as Poisson means
+    return D
 
 
 def coded_aperture_decode(picture, decoder, n_open=None):

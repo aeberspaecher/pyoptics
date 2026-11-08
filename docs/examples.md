@@ -112,6 +112,7 @@ notebooks/14_coated_laser_mirror
 - {doc}`notebooks/61_glass_catalogues`
 - {doc}`notebooks/70_monte_carlo_tolerancing`
 - {doc}`notebooks/45_zernike_aberration_gallery`
+- {doc}`notebooks/79_lensless_coded_aperture_imaging`
 
 ```{toctree}
 :hidden:
@@ -132,6 +133,7 @@ notebooks/58_lens_optimization
 notebooks/61_glass_catalogues
 notebooks/70_monte_carlo_tolerancing
 notebooks/45_zernike_aberration_gallery
+notebooks/79_lensless_coded_aperture_imaging
 ```
 
 ## Measurement, phase retrieval and beam shaping

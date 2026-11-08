@@ -2808,7 +2808,7 @@ def lensless_camera(ax, kind="pinhole", title=None):
         label(ax, z_src, -0.75, "distant\nsources", va="top")
         label(ax, z_mask - 0.2, -1.3, "coded mask\n(MURA, ~50 % open)", va="top")
         ax.plot([z_det, z_det], [-1.15, 1.15], color="0.35", lw=3, zorder=4)
-        label(ax, z_det + 0.1, -1.3, "detector: sum of\nshifted shadows", va="top")
+        label(ax, z_det + 0.45, -1.3, "detector: sum of\nshifted shadows", va="top")
         label(ax, z_det + 1.05, 0.0, "decode:\ncorrelate\nwith G", fontsize=8)
         _finish(ax, (z_src - 0.5, z_det + 1.5), (-1.75, 1.3), title)
     else:
@@ -2833,6 +2833,6 @@ def lensless_camera(ax, kind="pinhole", title=None):
         ax.plot(z_sen + 0.08 + 0.12*dens/dens.max()*3, ys, color="k", lw=1.0, zorder=5)
         label(ax, z_src, 0.0, "point source\nat distance u", va="top")
         label(ax, z_dif - 0.35, -1.05, "smooth random\nphase plate", va="top")
-        label(ax, z_sen + 0.2, -1.25, "bare sensor\n(z behind)", va="top")
+        label(ax, z_sen + 0.5, -1.2, "bare sensor\n(z behind)", va="top")
         label(ax, z_sen + 0.95, 0.75, "caustics:\nthe PSF", fontsize=8)
         _finish(ax, (z_src - 0.6, z_sen + 1.4), (-1.6, 1.2), title)
