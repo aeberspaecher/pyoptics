@@ -89,6 +89,8 @@ def test_paraxial_ray_imaging():
     lambda ax: sketch.pulse_through_lens(ax, achromat=True),
     sketch.pulse_front_tilt,
     lambda ax: sketch.pulse_front_tilt(ax, element="grating"),
+    sketch.oct_setup,
+    lambda ax: sketch.oct_setup(ax, kind="time"),
     sketch.twinkling_star,
     sketch.adaptive_optics_system,
     sketch.rainbow_observer,

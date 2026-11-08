@@ -132,6 +132,7 @@ Measurement and phase retrieval
 
    pyoptics.interferometry
    pyoptics.coherence
+   pyoptics.oct
    pyoptics.holography
    pyoptics.unwrap
    pyoptics.phase_retrieval
