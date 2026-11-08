@@ -72,6 +72,14 @@ The module provides
   (`thin_lens()`, `lenslet_array()`), and the scalar wave field of a
   fly's eye homogenizer with one or two arrays in the focal plane of its
   condenser (`fly_eye_field_1d()`), for the interference of coherent light.
+- LEDs and Monte Carlo photometry: emitters with the intensity pattern
+  cos(theta)**m (`cos_power_directions()`, also from quasi-random
+  samples; `cos_power_exponent()` from the half angle,
+  `cos_power_flux()`), irradiance maps and far-field intensity profiles
+  from rays (`irradiance_map()`, `intensity_profile()`), the irradiance of
+  a point source on a plane and of a Lambertian disk on its axis
+  (`point_source_irradiance()`, `disk_irradiance_on_axis()`), and a
+  paraboloidal reflector (`paraboloid_reflector()`).
 
 Units: lengths in any unit (mm in the notebooks), angles in radians, NA
 includes the index of the medium.
@@ -1491,3 +1499,183 @@ def fly_eye_field_1d(field, x, wavelength, pitch, f_1, f_2=None, gap=None, focal
     du = u[1] - u[0]
     U = U/np.sqrt(np.sum(np.abs(U)**2)*du/(np.sum(np.abs(E)**2)*dx))
     return u, U
+
+
+# LEDs and Monte Carlo photometry:
+def cos_power_exponent(half_angle):
+    """Exponent m of the intensity pattern I(theta) = I_0 cos(theta)**m that
+    falls to half at the given half angle (in radians):
+    m = -ln 2/ln cos(theta_1/2). A Lambertian emitter (m = 1) has the half
+    angle 60°."""
+
+    return -np.log(2)/np.log(np.cos(half_angle))
+
+
+def cos_power_flux(I_0, m):
+    """Total flux 2 pi I_0/(m + 1) of the intensity pattern I_0 cos(theta)**m
+    into the hemisphere (pi I_0 for a Lambertian emitter)."""
+
+    return 2*np.pi*I_0/(m + 1.0)
+
+
+def cos_power_directions(n_rays, m=1.0, rng=None, u=None):
+    """Unit directions of an emitter with the intensity pattern
+    I(theta) ~ cos(theta)**m (a generalized Lambertian LED).
+
+    The power into the polar angle theta is ~ cos(theta)**m sin(theta), so
+    cos(theta) = u**(1/(m + 1)) for u uniform in (0, 1]; the azimuth is
+    uniform. m = 1 gives the Lambertian emitter of
+    `lambertian_directions()`.
+
+    Parameters
+    ----------
+    n_rays : int
+    m : number, optional
+        Exponent (>= 0; 0 is an isotropic emitter into the hemisphere).
+    rng : None, int or numpy.random.Generator, optional
+    u : (n_rays, 2) array, optional
+        Uniform samples in [0, 1) to use instead of random numbers, e.g. a
+        quasi-random (Sobol) sequence.
+
+    Returns
+    -------
+    d : (n_rays, 3) array
+    """
+
+    if u is None:
+        u = _rng(rng).random((n_rays, 2))
+    u = np.asarray(u, float)
+    cos_t = (1 - u[:, 0])**(1/(m + 1.0))
+    sin_t = np.sqrt(np.clip(1 - cos_t**2, 0, None))
+    phi = 2*np.pi*u[:, 1]
+
+    return np.column_stack([sin_t*np.cos(phi), sin_t*np.sin(phi), cos_t])
+
+
+def point_source_irradiance(x, y, height, I_0, m=1.0):
+    """Irradiance on a plane at the given height below (or in front of) a
+    point source with the pattern I_0 cos(theta)**m that faces the plane:
+    E = I(theta) cos(theta)/r**2 = I_0 cos(theta)**(m + 3)/height**2."""
+
+    cos_t = height/np.sqrt(np.asarray(x, float)**2 + np.asarray(y, float)**2 + height**2)
+
+    return I_0*cos_t**(m + 3)/height**2
+
+
+def disk_irradiance_on_axis(radiance, radius, distance):
+    """Exact on-axis irradiance at the given distance from a Lambertian disk
+    of constant radiance, pi L a**2/(a**2 + d**2). The inverse square law
+    pi L a**2/d**2 overestimates it by the factor 1 + a**2/d**2: 1 % at
+    five diameters (the photometric five times rule)."""
+
+    return np.pi*radiance*radius**2/(radius**2 + np.asarray(distance, float)**2)
+
+
+def irradiance_map(points, power, bins, ranges):
+    """Monte Carlo irradiance on a plane: the power of the rays that land in
+    each bin over the bin area.
+
+    Parameters
+    ----------
+    points : (N, 2) or (N, 3) array
+        Hit points (only x and y are used; NaN rows are ignored).
+    power : number or (N,) array
+        Power per ray.
+    bins : int or (int, int)
+    ranges : ((x_min, x_max), (y_min, y_max))
+
+    Returns
+    -------
+    E : 2d array
+        Irradiance, E[i, j] at (x[i], y[j]).
+    x, y : 1d arrays
+        Bin centres.
+    """
+
+    P = np.asarray(points, float)
+    w = np.broadcast_to(np.asarray(power, float), (len(P),))
+    ok = np.isfinite(P[:, 0]) & np.isfinite(P[:, 1])
+    H, ex, ey = np.histogram2d(P[ok, 0], P[ok, 1], bins=bins, range=ranges, weights=w[ok])
+    area = np.outer(np.diff(ex), np.diff(ey))
+
+    return H/area, 0.5*(ex[1:] + ex[:-1]), 0.5*(ey[1:] + ey[:-1])
+
+
+def intensity_profile(directions, power, theta_edges):
+    """Monte Carlo intensity (power per solid angle) against the polar angle,
+    averaged over the azimuth: the far field a goniometer measures.
+
+    Parameters
+    ----------
+    directions : (N, 3) array
+        Unit directions (NaN rows are ignored).
+    power : number or (N,) array
+        Power per ray.
+    theta_edges : 1d array
+        Edges of the polar angle bins in radians (0 to pi).
+
+    Returns
+    -------
+    I : 1d array
+        Intensity in each ring, power/(2 pi (cos theta_1 - cos theta_2)).
+    theta : 1d array
+        Bin centres.
+    """
+
+    d = np.asarray(directions, float)
+    w = np.broadcast_to(np.asarray(power, float), (len(d),))
+    ok = np.all(np.isfinite(d), axis=1)
+    theta = np.arccos(np.clip(d[ok, 2], -1, 1))
+    H, e = np.histogram(theta, bins=theta_edges, weights=w[ok])
+    omega = 2*np.pi*(np.cos(e[:-1]) - np.cos(e[1:]))
+
+    return H/omega, 0.5*(e[1:] + e[:-1])
+
+
+def paraboloid_reflector(points, directions, focal_length, z_max=np.inf, z_min=-np.inf):
+    """Reflect rays at a paraboloidal mirror x**2 + y**2 = 4 F (z + F) with
+    its focus at the origin, its vertex at z = -F and its opening towards
+    +z (an LED reflector).
+
+    Rays from the focus leave it parallel to the axis. Only the part of the
+    mirror with z_min <= z <= z_max exists; rays that miss it are returned
+    unchanged.
+
+    Parameters
+    ----------
+    points, directions : (N, 3) arrays
+        Rays inside the mirror.
+    focal_length : number
+        F > 0.
+    z_max, z_min : numbers, optional
+        Rim and lower cut of the mirror.
+
+    Returns
+    -------
+    points : (N, 3) array
+        Hit points (start points for the rays that miss).
+    directions : (N, 3) array
+        Reflected directions (unchanged for the rays that miss).
+    hit : (N,) bool array
+    """
+
+    P = np.asarray(points, float).reshape(-1, 3)
+    d = np.asarray(directions, float).reshape(-1, 3)
+    F = float(focal_length)
+    a = d[:, 0]**2 + d[:, 1]**2
+    b = 2*(P[:, 0]*d[:, 0] + P[:, 1]*d[:, 1]) - 4*F*d[:, 2]
+    c = P[:, 0]**2 + P[:, 1]**2 - 4*F*(P[:, 2] + F)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        disc = np.sqrt(b**2 - 4*a*c)
+        roots = np.stack([(-b + disc)/(2*a), (-b - disc)/(2*a)])
+        lin = -c/b
+        roots = np.where(a[None, :] > 1e-14, roots, np.stack([lin, lin]))
+    roots = np.where(np.isfinite(roots) & (roots > 1e-12), roots, np.inf)
+    t = np.min(roots, axis=0)
+    Q = P + np.where(np.isfinite(t), t, 0.0)[:, None]*d
+    hit = np.isfinite(t) & (Q[:, 2] <= z_max) & (Q[:, 2] >= z_min)
+    nrm = np.column_stack([2*Q[:, 0], 2*Q[:, 1], -4*F*np.ones(len(Q))])
+    nrm /= np.linalg.norm(nrm, axis=1)[:, None]
+    d_r = d - 2*np.sum(d*nrm, axis=1)[:, None]*nrm
+
+    return np.where(hit[:, None], Q, P), np.where(hit[:, None], d_r, d), hit

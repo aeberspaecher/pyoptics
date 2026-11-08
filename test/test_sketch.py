@@ -131,6 +131,12 @@ def test_paraxial_ray_imaging():
     lambda ax: sketch.speckle_diversity(ax, "wavelength"),
     lambda ax: sketch.speckle_diversity(ax, "angle"),
     sketch.laser_projector,
+    sketch.led_above_plane,
+    lambda ax: sketch.led_above_plane(ax, n_leds=3, spacing=1.0, m=3.0),
+    sketch.photometric_distance,
+    lambda ax: sketch.led_collimator(ax, "lens"),
+    lambda ax: sketch.led_collimator(ax, "reflector"),
+    sketch.led_collimator,
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()
@@ -189,4 +195,11 @@ def test_speckle_diversity_rejects_unknown_method():
     fig, ax = plt.subplots()
     with pytest.raises(ValueError):
         sketch.speckle_diversity(ax, "time")
+    plt.close(fig)
+
+
+def test_led_collimator_rejects_unknown_kind():
+    fig, ax = plt.subplots()
+    with pytest.raises(ValueError):
+        sketch.led_collimator(ax, "tir")
     plt.close(fig)

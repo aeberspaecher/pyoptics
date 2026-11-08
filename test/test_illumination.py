@@ -323,3 +323,59 @@ def test_fly_eye_field_coherent_comb():
     assert np.isclose(freq[np.argmax(spec)], p/(wl*F), rtol=0.02)
     with pytest.raises(ValueError):
         il.fly_eye_field_1d(E, x, wl, p, f, gap=5.0)
+
+
+def test_cos_power_exponent_and_flux():
+    assert il.cos_power_exponent(np.pi/3) == pytest.approx(1.0)
+    m = il.cos_power_exponent(np.deg2rad(15))
+    assert np.cos(np.deg2rad(15))**m == pytest.approx(0.5)
+    assert il.cos_power_flux(2.0, 1.0) == pytest.approx(2*np.pi)
+
+
+def test_cos_power_directions_follow_the_pattern():
+    m = 5.0
+    d = il.cos_power_directions(400_000, m, rng=1)
+    assert np.allclose(np.linalg.norm(d, axis=1), 1)
+    assert np.mean(d[:, 2]) == pytest.approx((m + 1)/(m + 2), rel=2e-3)
+    edges = np.deg2rad(np.linspace(0, 60, 13))
+    I, th = il.intensity_profile(d, il.cos_power_flux(1.0, m)/len(d), edges)
+    assert np.allclose(I, np.cos(th)**m, atol=0.03)
+    # Lambertian from given uniform samples equals the closed form
+    u = np.array([[0.0, 0.25], [0.75, 0.5]])
+    d1 = il.cos_power_directions(2, 1.0, u=u)
+    assert np.allclose(d1[:, 2], [1.0, 0.5])
+
+
+def test_irradiance_map_matches_a_point_source_on_a_plane():
+    m, h, N = 2.0, 1.0, 1_000_000
+    d = il.cos_power_directions(N, m, rng=2)
+    P = d[:, :2]/d[:, 2:3]*h
+    E, x, y = il.irradiance_map(P, il.cos_power_flux(1.0, m)/N, 10, [(-1, 1), (-1, 1)])
+    E_th = il.point_source_irradiance(x[:, None], y[None, :], h, 1.0, m)
+    assert np.allclose(E, E_th, rtol=0.08)
+
+
+def test_disk_irradiance_on_axis_against_monte_carlo():
+    a, dist, N = 1.0, 2.0, 2_000_000
+    rng = np.random.default_rng(3)
+    xy = il.disk_points(N, a, rng)
+    d = il.lambertian_directions(N, rng=rng)
+    P = xy + d[:, :2]/d[:, 2:3]*dist
+    r0 = 0.05
+    E_mc = np.mean(np.hypot(P[:, 0], P[:, 1]) < r0)*np.pi*a**2*np.pi/(np.pi*r0**2)   # L = 1
+    assert E_mc == pytest.approx(il.disk_irradiance_on_axis(1.0, a, dist), rel=0.03)
+    assert il.disk_irradiance_on_axis(1.0, 1.0, 10.0) == pytest.approx(np.pi/101)
+
+
+def test_paraboloid_collimates_rays_from_its_focus():
+    F = 4.0
+    d = il.lambertian_directions(1000, rng=4)
+    Q, d_out, hit = il.paraboloid_reflector(np.zeros((1000, 3)), d, F, z_max=30.0)
+    rho = np.linalg.norm(Q[hit], axis=1)
+    cos_phi = Q[hit, 2]/rho
+    assert np.allclose(rho, 2*F/(1 - cos_phi))
+    assert np.allclose(d_out[hit], [0, 0, 1], atol=1e-9)
+    assert np.all(Q[hit, 2] <= 30.0)
+    # rays that leave through the opening are unchanged
+    assert np.allclose(d_out[~hit], d[~hit])
+    assert 0 < hit.mean() < 1

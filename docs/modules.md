@@ -341,7 +341,13 @@ What each module does and how mature it is. Planned work is listed in
   arrays for rays (`thin_lens()`, `lenslet_array()`) and the scalar wave
   field of a fly's eye homogenizer (`fly_eye_field_1d()`), checked against
   the flat top p F/f, its independence of the input tilt and the
-  interference period λF/p (notebook 86)
+  interference period λF/p (notebook 86); LED emitters with the pattern
+  cos^m θ (also from quasi-random samples), irradiance maps and far-field
+  intensity profiles from rays, the irradiance of a point source on a
+  plane and of a Lambertian disk on its axis, and a paraboloidal
+  reflector; checked against cos^m θ, E = I_0 cos^(m+3) θ/h², the
+  photometric distance and the brightness bound I = L A of an LED
+  collimator (notebook 88)
 - `speckle`: new, tested: speckle statistics and speckle reduction; rough
   surfaces with Gaussian heights and correlation, coherent images through
   a circular pupil, random diffuser illumination of a given NA; contrast,
@@ -534,7 +540,8 @@ What each module does and how mature it is. Planned work is listed in
   test of a concave mirror, a Toepler schlieren system and a direct
   shadowgraph, pulses through lenses, prisms and gratings (pulse-front
   delay and tilt), and the formation and reduction of speckle (polarization,
-  wavelength and moving diffuser diversity, a laser projector)
+  wavelength and moving diffuser diversity, a laser projector), LEDs above a
+  plane and LED collimators
 - Unfinished stubs: `interpolator.TrigInterpolator` cannot be evaluated yet,
   the functions in `polarization._polarization` are empty
 
