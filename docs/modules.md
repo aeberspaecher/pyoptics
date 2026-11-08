@@ -329,7 +329,12 @@ What each module does and how mature it is. Planned work is listed in
   diffusers and straight light pipes traced by unfolding (TIR or mirror
   walls); checked against 2w·NA, 4π√det Σ, det J = 1 for a real lens and
   cos⁴θ′ for the paraxial ideal lens, and the brightness bound
-  NA′²/sin²α of a stigmatic lens (notebook 83)
+  NA′²/sin²α of a stigmatic lens (notebook 83); compound parabolic
+  concentrators (edge-ray design, hollow or dielectric with TIR walls, 2D
+  trough or 3D, truncated) traced through their wall reflections, with a
+  compiled kernel if numba is installed; checked against the ideal 2D step,
+  the exit étendue under Lambertian input and the 1/n² bound for a
+  dielectric CPC that exits into air (notebook 84)
 - `fresnel`: Fresnel lenses, tested: a parent surface (sphere, conic,
   even asphere) collapsed into zones of constant pitch, constant depth or
   given radii, with curved or flat (conical) facets and drafted risers

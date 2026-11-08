@@ -259,12 +259,14 @@ notebooks/50_magnification_distortion_telecentricity
 ## Illumination optics
 
 - {doc}`notebooks/83_etendue_brightness_theorem`
+- {doc}`notebooks/84_nonimaging_concentrators`
 
 ```{toctree}
 :hidden:
 :caption: Illumination optics
 
 notebooks/83_etendue_brightness_theorem
+notebooks/84_nonimaging_concentrators
 ```
 
 ## Atmospheric optics
