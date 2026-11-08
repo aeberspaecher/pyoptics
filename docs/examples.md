@@ -224,6 +224,17 @@ notebooks/44_seidel_caldwell_lens
 notebooks/50_magnification_distortion_telecentricity
 ```
 
+## Atmospheric optics
+
+- {doc}`notebooks/71_rainbows_and_glories`
+
+```{toctree}
+:hidden:
+:caption: Atmospheric optics
+
+notebooks/71_rainbows_and_glories
+```
+
 ## Running the notebooks
 
 ```{include} ../notebooks/README.md

@@ -66,6 +66,10 @@ Setup sketches for the other example notebooks:
   with an extended source, the van Cittert-Zernike theorem, Michelson's
   stellar interferometer, a Michelson interferometer for temporal coherence
   and a Hanbury Brown-Twiss intensity interferometer (notebook 74).
+- rainbow_observer(): sun behind the observer, the rain, the antisolar
+  point and the cones of the primary and secondary bow (notebook 71).
+- glory_aircraft(): the glory and the cloud bow around the shadow of an
+  aircraft on a cloud deck (notebook 71).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -107,7 +111,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "phase_diversity_setup", "holography_setup", "fold_mirror", "krf_illuminator",
            "spatial_filter", "vortex_interferometer", "mode_converter",
            "axicon_bessel", "cubic_phase_airy", "young_extended_source", "vcz_setup",
-           "stellar_interferometer", "michelson_interferometer", "hbt_interferometer"]
+           "stellar_interferometer", "michelson_interferometer", "hbt_interferometer",
+           "rainbow_observer", "glory_aircraft"]
 
 
 GLASS = "#cfe3f3"
@@ -2237,3 +2242,188 @@ def hbt_interferometer(ax, title=None):
     label(ax, 0.0, 3.3, "no beam combination:\npaths need only match\nto ~ c/Δf (cm)",
           fontsize=8)
     _finish(ax, (-B/2 - 1.6, B/2 + 1.6), (-1.3, 4.7), title)
+
+SUN = "#e8a33d"
+BOW_RED = "#c0392b"
+BOW_VIOLET = "#6a3d9a"
+
+
+def _sun(ax, z, y, r=0.32):
+    mpatches = _patches()
+    ax.add_patch(mpatches.Circle((z, y), r, facecolor=SUN, edgecolor="#b97a1d", lw=1, zorder=4))
+    for a in np.linspace(0, 2*np.pi, 12, endpoint=False):
+        ax.plot([z + 1.25*r*np.cos(a), z + 1.6*r*np.cos(a)],
+                [y + 1.25*r*np.sin(a), y + 1.6*r*np.sin(a)], color=SUN, lw=1.2, zorder=4)
+
+
+def _person(ax, z, y, height=0.9, color="0.2"):
+    mpatches = _patches()
+    head = height/7
+    ax.add_patch(mpatches.Circle((z, y + height - head), head, facecolor=color,
+                                 edgecolor="none", zorder=5))
+    ax.plot([z, z], [y + 0.42*height, y + height - 2*head], color=color, lw=2.2, zorder=5)
+    for dz in (-0.12, 0.12):
+        ax.plot([z, z + dz*height], [y + 0.42*height, y], color=color, lw=2.0, zorder=5)
+        ax.plot([z, z + 1.4*dz*height], [y + 0.72*height, y + 0.5*height], color=color, lw=1.6,
+                zorder=5)
+
+    return z, y + height - head
+
+
+def rainbow_observer(ax, sun_elevation=25.0, title=None):
+    """Sketch of where a rainbow appears (the geometry of notebook 71).
+
+    The Sun shines from behind the observer onto a curtain of rain. The
+    line from the Sun through the observer's eye meets the ground at the
+    antisolar point, the centre of the bows. Drops that send their primary
+    rainbow ray to the eye lie on a cone of about 42 deg around this line
+    (red outside, violet inside), those of the secondary bow on a cone of
+    about 51 deg (colours reversed). Between the two cones no light of
+    either order reaches the eye: Alexander's dark band.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    sun_elevation : number, optional
+        Elevation of the Sun in degrees.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    h = np.radians(sun_elevation)
+    z_rain, z_end = 7.0, 8.4
+    ax.plot([-3.6, z_end], [0, 0], color="0.35", lw=1.2, zorder=2)
+    ax.add_patch(mpatches.Rectangle((-3.6, -1.6), z_end + 3.6, 1.6, facecolor="#e7efe0",
+                                    edgecolor="none", zorder=0))
+    eye = _person(ax, 0.0, 0.0)
+    # sun rays travel along (cos h, -sin h)
+    d = np.array([np.cos(h), -np.sin(h)])
+    sun = np.array(eye) - 3.0*d
+    _sun(ax, *sun)
+    # rain curtain
+    ax.add_patch(mpatches.Rectangle((z_rain - 0.6, 0), 1.2, 4.6, facecolor="#dfe7ef",
+                                    edgecolor="none", zorder=0.5))
+    rng = np.random.default_rng(3)
+    for zr, yr in zip(rng.uniform(z_rain - 0.55, z_rain + 0.55, 70), rng.uniform(0.1, 4.4, 70)):
+        ax.plot([zr, zr - 0.03], [yr, yr - 0.16], color="#7f9db9", lw=0.8, zorder=1)
+    label(ax, z_rain, 4.75, "rain", fontsize=9, va="bottom")
+    # antisolar line
+    t_ground = eye[1]/np.sin(h)
+    anti = np.array(eye) + t_ground*d
+    ax.plot([sun[0] + 0.5*d[0], anti[0]], [sun[1] + 0.5*d[1], anti[1]], color="0.4", lw=0.9,
+            ls="--", zorder=2)
+    ax.plot(*anti, marker="x", color="0.2", ms=7, mew=1.5, zorder=5)
+    label(ax, anti[0], anti[1] - 0.12, "antisolar\npoint", fontsize=8, va="top")
+
+    def ray_to_eye(rho_deg, color, lw=1.4):
+        a = -h + np.radians(rho_deg)     # direction from the eye to the drop
+        e = np.array([np.cos(a), np.sin(a)])
+        t = (z_rain - eye[0])/e[0]
+        drop = np.array(eye) + t*e
+        ax.plot([eye[0], drop[0]], [eye[1], drop[1]], color=color, lw=lw, zorder=3)
+        ax.plot([drop[0] - 2.4*d[0], drop[0]], [drop[1] - 2.4*d[1], drop[1]], color=SUN, lw=0.9,
+                alpha=0.9, zorder=2)
+        ax.add_patch(mpatches.Circle(drop, 0.07, facecolor="#9fc5e0", edgecolor=EDGE, lw=0.8,
+                                     zorder=4))
+        return drop
+
+    # Alexander's band between the red edge of the primary and the red edge of the secondary
+    a1, a2 = -h + np.radians(42.3), -h + np.radians(50.1)
+    r_far = (z_rain - eye[0])/np.cos(a2)
+    ax.add_patch(mpatches.Polygon([eye, (eye[0] + r_far*np.cos(a2), eye[1] + r_far*np.sin(a2)),
+                                   (z_rain, eye[1] + (z_rain - eye[0])*np.tan(a1))],
+                                  closed=True, facecolor="0.55", edgecolor="none", alpha=0.25,
+                                  zorder=1.5))
+    p_red = ray_to_eye(42.3, BOW_RED)
+    p_vio = ray_to_eye(40.6, BOW_VIOLET)
+    s_red = ray_to_eye(50.1, BOW_RED)
+    s_vio = ray_to_eye(53.5, BOW_VIOLET)
+    label(ax, z_rain + 0.75, (p_red[1] + p_vio[1])/2, "primary bow\n(red outside)", fontsize=8,
+          ha="left")
+    label(ax, z_rain + 0.75, (s_red[1] + s_vio[1])/2, "secondary bow\n(red inside)", fontsize=8,
+          ha="left")
+    label(ax, z_rain + 0.75, (p_red[1] + s_red[1])/2, "Alexander's\ndark band", fontsize=8,
+          ha="left", color="0.35")
+    # angles at the eye
+    r_arc = 2.0
+    for rho, txt in ((42, "42°"), (51, "51°")):
+        aa = np.linspace(-h, -h + np.radians(rho), 40)
+        ax.plot(eye[0] + r_arc*np.cos(aa), eye[1] + r_arc*np.sin(aa), color="0.3", lw=0.8)
+        am = -h + np.radians(rho) - 0.06
+        label(ax, eye[0] + (r_arc + 0.3)*np.cos(am), eye[1] + (r_arc + 0.3)*np.sin(am), txt,
+              fontsize=8)
+        r_arc += 0.9
+    label(ax, sun[0], sun[1] + 0.6, "Sun behind\nthe observer", fontsize=8, va="bottom")
+    label(ax, -1.2, eye[1] + 1.2*np.tan(h) + 0.12, "sunlight", fontsize=8, color="#b97a1d",
+          rotation=-sun_elevation, ha="center", va="bottom")
+    _finish(ax, (-3.6, z_end + 1.6), (-1.6, 5.2), title)
+
+
+def glory_aircraft(ax, title=None):
+    """Sketch of the glory seen from an aircraft (notebook 71).
+
+    The Sun shines from behind the aircraft onto a deck of cloud. Its shadow
+    falls on the cloud around the antisolar point; the cloud droplets
+    (radius ~10 um) scatter light straight back to the observer in coloured
+    rings of a few degrees around the shadow, the glory, and further out,
+    at about 40 deg, in the broad white cloud bow (a fogbow).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    h = np.radians(60.0)
+    d = np.array([np.cos(h), -np.sin(h)])     # sunlight direction
+    plane_pos = np.array([0.0, 3.0])
+    # cloud deck
+    zz = np.linspace(-3.0, 6.5, 200)
+    top = 0.0 + 0.08*np.sin(3.1*zz) + 0.05*np.sin(7.3*zz + 1)
+    ax.fill_between(zz, -1.3, top, color="#eef1f4", edgecolor="0.6", lw=0.8, zorder=1)
+    rng = np.random.default_rng(5)
+    ax.scatter(rng.uniform(-2.9, 6.4, 150), rng.uniform(-1.2, -0.1, 150), s=3, color="#9fb3c8",
+               zorder=1.2)
+    label(ax, 5.6, -0.65, "cloud\n(droplets ~10 µm)", fontsize=8)
+    # aircraft (side view)
+    pz, py = plane_pos
+    body = [(pz - 0.9, py), (pz + 0.8, py + 0.02), (pz + 1.0, py - 0.06), (pz + 0.8, py - 0.12),
+            (pz - 0.8, py - 0.1)]
+    ax.add_patch(mpatches.Polygon(body, closed=True, facecolor="0.3", edgecolor="none", zorder=5))
+    ax.add_patch(mpatches.Polygon([(pz - 0.75, py - 0.02), (pz - 0.95, py + 0.35), (pz - 0.82, py + 0.35),
+                                   (pz - 0.55, py - 0.02)], closed=True, facecolor="0.3",
+                                  edgecolor="none", zorder=5))
+    ax.add_patch(mpatches.Polygon([(pz - 0.1, py - 0.05), (pz + 0.25, py - 0.05), (pz - 0.35, py - 0.3),
+                                   (pz - 0.55, py - 0.3)], closed=True, facecolor="0.45",
+                                  edgecolor="none", zorder=5))
+    _sun(ax, *(plane_pos - 1.95*d), r=0.24)
+    for off in (-0.5, 0.0, 0.5):
+        p0 = plane_pos - 1.5*d + off*np.array([d[1], -d[0]])
+        ax.plot([p0[0], p0[0] + 1.0*d[0]], [p0[1], p0[1] + 1.0*d[1]], color=SUN, lw=1.0)
+    # antisolar direction and the shadow
+    t = (py - 0.0)/np.sin(h)
+    anti = plane_pos + t*d
+    ax.plot([pz + 0.4*d[0], anti[0]], [py + 0.4*d[1], anti[1]], color="0.4", ls="--", lw=0.9,
+            zorder=2)
+    ax.add_patch(mpatches.Ellipse(anti, 0.55, 0.1, facecolor="0.35", edgecolor="none", zorder=3))
+    label(ax, anti[0] + 0.38, anti[1] + 0.06, "shadow", fontsize=8, ha="left", va="bottom")
+
+    def cone(rho_deg, colors, lw=1.3):
+        for j, c in enumerate(colors):
+            for sgn in (1, -1):
+                a = np.arctan2(d[1], d[0]) + sgn*np.radians(rho_deg + 0.8*j)
+                e = np.array([np.cos(a), np.sin(a)])
+                tt = (py - 0.0)/(-e[1])
+                ax.plot([pz, pz + tt*e[0]], [py, py + tt*e[1]], color=c, lw=lw, zorder=2.5)
+
+    cone(4.0, ["#3b6fb6", "#2ca02c", BOW_RED], lw=1.0)
+    cone(40.0, ["0.55"], lw=2.0)
+    label(ax, anti[0] + 0.45, 1.25, "glory: coloured\nrings of a few\ndegrees", fontsize=8,
+          ha="left")
+    a = np.arctan2(d[1], d[0]) + np.radians(40.0)
+    e = np.array([np.cos(a), np.sin(a)])
+    q = plane_pos + 1.6*e
+    label(ax, q[0] + 0.15, q[1] + 0.05, "cloud bow, ~40°\n(white fogbow)", fontsize=8, ha="left")
+    label(ax, -1.9, 4.75, "Sun behind\nthe aircraft", fontsize=8)
+    _finish(ax, (-3.0, 6.5), (-1.3, 5.3), title)
