@@ -102,6 +102,18 @@ What each module does and how mature it is. Planned work is listed in
   tilted surface per intersection); checked against the deviation
   formula, the envelope theorem, a Monte Carlo of traced rays, energy
   conservation and the Mie series (notebook 71)
+- `schlieren`: new, tested: schlieren, shadowgraph and the knife-edge tests
+  of Foucault and Ronchi as Fourier plane filters: knife edge, slit, wire
+  and Ronchi ruling on the focal plane grid, coherent images of a point
+  source and incoherent images of slit and pinhole sources, the geometric
+  limit (transverse aberration through the filter), Toepler's contrast
+  f eps/a and the linear knife-edge transfer for weak wavefronts (slope
+  response for coarse structure, phase response for fine structure), knife
+  defocus, a conic mirror at its centre of curvature and its zonal offsets,
+  the Gladstone-Dale index of hot air and the shadowgraph -L laplace(W);
+  checked against the Hilbert transform image of a knife at the focus, the
+  knife-edge rule, Couder zone readings, Ronchi band periods and ripple
+  contrast (notebook 76)
 - `colour`: new, tested: CIE 1931 colour matching functions (analytic fit
   of Wyman, Sloan and Shirley), XYZ and sRGB of spectra, black body spectra
 - `glasses`: optical glass catalogues of SCHOTT, OHARA, HOYA, CDGM, SUMITA
@@ -406,8 +418,10 @@ What each module does and how mature it is. Planned work is listed in
   of a Twyman-Green and a Fizeau interferometer, a Shack-Hartmann and a
   phase diversity lens test, off-axis holography (lensless and microscope),
   a coated fold mirror with s and p, the KrF illuminator with its pupil and
-  field planes, a spatial filter, and the geometry of rainbows and of the
-  glory seen from an aircraft
+  field planes, a spatial filter, the geometry of rainbows and of the
+  glory seen from an aircraft, the Foucault knife-edge (and wire and Ronchi)
+  test of a concave mirror, and a Toepler schlieren system and a direct
+  shadowgraph
 - Unfinished stubs: `interpolator.TrigInterpolator` cannot be evaluated yet,
   the functions in `polarization._polarization` are empty
 
