@@ -234,3 +234,45 @@ def test_cpc_numba_matches_numpy():
     assert np.allclose(a.points[ok], b.points[ok], atol=1e-9)
     res, V = c.trace(R.points[:5], R.directions[:5], paths=True)
     assert V.shape[1] == 5
+
+
+def _singlet():
+    return rt.System([rt.Surface(25.0, 5.0, n_after=1.5, semi_diameter=10.0, conic=-0.5),
+                      rt.Surface(-60.0, 40.0, semi_diameter=10.0)], 0, 550e-6,
+                     object_distance=80.0, object_height=2.0)
+
+
+def test_reverse_system_retraces_rays():
+    # a ray traced forward and then backwards through the reversed system returns
+    # to its start with the opposite direction; reversing twice gives the original
+    S = _singlet()
+    R = il.reverse_system(S)
+    RR = il.reverse_system(R)
+    for a, b in zip(S.surfaces, RR.surfaces):
+        assert np.isclose(a.thickness, b.thickness) and np.isclose(a.conic, b.conic)
+        assert a.R == b.R or np.isclose(a.R, b.R)
+    assert np.isclose(RR.object_distance, S.object_distance)
+    P = np.array([[0.3, -0.5, -S.object_distance]])
+    d = il.directions_from_sines(np.array([0.02]), np.array([0.05]))
+    B = S.trace(rt.Rays(P, d, np.zeros(1)))
+    Q, e = S.to_image_frame(B.points[-1], B.directions[-1])
+    P2 = np.array([[Q[0, 0], Q[0, 1], -R.object_distance]])
+    B2 = R.trace(rt.Rays(P2, -e*np.array([1, 1, -1]), np.zeros(1)))
+    Q2, e2 = R.to_image_frame(B2.points[-1], B2.directions[-1])
+    assert np.allclose(Q2[0, :2], P[0, :2], atol=1e-9)
+    assert np.allclose(e2[0, :2], -d[0, :2], atol=1e-9)
+
+
+def test_backward_irradiance_of_a_uniform_source_behind_a_stop():
+    # a uniform source seen through a circular stop of radius r at the distance D:
+    # E = pi L sin^2(theta) with tan(theta) = r/D
+    r, D = 3.0, 10.0
+    S = rt.System([rt.Surface(np.inf, D, semi_diameter=r)], 0, 550e-6, object_distance=50.0,
+                  object_height=1.0)
+    E = il.backward_irradiance(S, np.zeros((1, 2)), 0.6, lambda x, y: np.ones_like(x),
+                               n_directions=200000, rng=3)
+    assert np.isclose(E[0], np.pi*r**2/(r**2 + D**2), rtol=0.01)
+    # a source that fills only half the plane gives half
+    E2 = il.backward_irradiance(S, np.zeros((1, 2)), 0.6, lambda x, y: x > 0,
+                                n_directions=200000, rng=4)
+    assert np.isclose(E2[0], E[0]/2, rtol=0.02)
