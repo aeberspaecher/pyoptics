@@ -12,6 +12,12 @@ J. W. Goodman, "Introduction to Fourier Optics", 4th ed., W. H. Freeman (2017).
 
 V. N. Mahajan, "Optical Imaging and Aberrations, Part II: Wave Diffraction
 Optics", 2nd ed., SPIE Press (2011).
+
+C. F. Bohren and D. R. Huffman, "Absorption and Scattering of Light by Small
+Particles", Wiley (1983) (Mie series, cylinders).
+
+W. J. Wiscombe, "Improved Mie scattering algorithms", Appl. Opt. 19,
+1505-1509 (1980) (number of terms of the Mie series).
 """
 
 import numpy as np

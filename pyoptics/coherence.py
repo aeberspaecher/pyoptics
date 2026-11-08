@@ -69,6 +69,8 @@ stars", Mon. Not. R. Astron. Soc. 167, 121-136 (1974).
 
 L. Mandel and E. Wolf, Optical Coherence and Quantum Optics, Cambridge
 University Press (1995), chapters 4 and 9.
+
+J. W. Goodman, "Statistical Optics", 2nd ed., Wiley (2015), chapters 5 and 6.
 """
 
 import numpy as np
