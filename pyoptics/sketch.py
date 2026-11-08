@@ -78,6 +78,8 @@ Setup sketches for the other example notebooks:
   a multimode fibre, a camera behind it and the feedback loop, optionally
   with the flat reference frame for measuring the transmission matrix
   (notebook 73).
+- lensless_camera(): a pinhole camera, a coded aperture camera and a
+  diffuser camera (notebook 79).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -124,7 +126,7 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "axicon_bessel", "cubic_phase_airy", "young_extended_source", "vcz_setup",
            "stellar_interferometer", "michelson_interferometer", "hbt_interferometer",
            "rainbow_observer", "glory_aircraft", "twinkling_star", "adaptive_optics_system",
-           "wavefront_shaping_setup"]
+           "wavefront_shaping_setup", "lensless_camera"]
 
 
 GLASS = "#cfe3f3"
@@ -2733,3 +2735,104 @@ def wavefront_shaping_setup(ax, medium="diffuser", reference=False, feedback=Tru
               "intensity in the target → SLM phases (feedback)" if not reference else
               "phase-stepped camera frames → transmission matrix", fontsize=8, va="bottom")
     _finish(ax, (-1.4, z_cam + 0.8), (-1.7 if not reference else -2.0, 1.75), title)
+
+
+def lensless_camera(ax, kind="pinhole", title=None):
+    """Sketch of a lensless camera (notebook 79).
+
+    - "pinhole": an object, a pinhole of diameter d and a screen at the
+      distance v. Each object point casts a blurred spot (the shadow of the
+      hole widened by diffraction) and the image is inverted.
+    - "coded": two distant sources and a mask with many holes. Every source
+      casts a shifted shadow of the whole mask; the detector records their
+      sum, from which a correlation with the decoding array recovers the
+      sources.
+    - "diffuser": a point source, a smooth random phase plate (the diffuser)
+      and a bare sensor a few millimetres behind it. The bumps of the
+      diffuser act as weak random lenslets whose rays cross on the sensor in
+      a network of bright caustics, the PSF.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"pinhole", "coded", "diffuser"}, optional
+    title : str, optional
+    """
+
+    if kind not in ("pinhole", "coded", "diffuser"):
+        raise ValueError("kind must be 'pinhole', 'coded' or 'diffuser'.")
+    mpatches = _patches()
+    if kind == "pinhole":
+        z_obj, z_hole, z_scr = -3.0, 0.0, 2.0
+        r = 0.06
+        ax.annotate("", xy=(z_obj, 0.85), xytext=(z_obj, 0.0),
+                    arrowprops=dict(arrowstyle="-|>", color=ILLUMINATION, lw=2.5, mutation_scale=14))
+        label(ax, z_obj, -0.15, "object", va="top")
+        stop(ax, z_hole, 1.1, openings=((0.0, r),), width=0.06)
+        label(ax, z_hole, -1.25, "pinhole, diameter d", va="top")
+        for y0, col in ((0.85, ILLUMINATION), (0.0, IMAGING)):
+            # geometric cone from the object point through the hole
+            y_scr = [y0 + (yh - y0)*(z_scr - z_obj)/(z_hole - z_obj) for yh in (r, -r)]
+            band(ax, [z_obj, z_hole, z_scr], [y0, r, y_scr[0]], [z_obj, z_hole, z_scr],
+                 [y0, -r, y_scr[1]], color=col, alpha=0.25, lw=0.6)
+            yc = np.mean(y_scr)
+            yy = np.linspace(-0.22, 0.22, 80)
+            spot = np.exp(-(yy/0.08)**2)
+            ax.plot(z_scr + 0.08 + 0.3*spot, yc + yy, color=col, lw=1.4, zorder=5)
+        ax.plot([z_scr, z_scr], [-1.1, 1.1], color="0.35", lw=3, zorder=4)
+        label(ax, z_scr, -1.25, "screen", va="top")
+        arrow(ax, z_hole, 0.95, z_scr, 0.95, style="<->", text="v", text_pos=((z_hole + z_scr)/2, 1.07),
+              fontsize=9)
+        label(ax, z_scr + 0.75, 0.0, "blurred,\ninverted\nimage\n(blur ≈ d and\n2.44 λv/d)",
+              fontsize=8)
+        _finish(ax, (z_obj - 0.5, z_scr + 1.35), (-1.6, 1.3), title)
+    elif kind == "coded":
+        z_src, z_mask, z_det = -3.2, 0.0, 2.2
+        holes = [(-0.95, -0.8), (-0.65, -0.5), (-0.4, -0.25), (0.05, 0.25), (0.45, 0.55), (0.75, 0.95)]
+        sources = ((0.7, STAR), (-0.45, STAR2))
+        for ys, col in sources:
+            point_source(ax, z_src, ys, color=col, size=90)
+            for a, b in holes:
+                ya = ys + (a - ys)*(z_det - z_src)/(z_mask - z_src)
+                yb = ys + (b - ys)*(z_det - z_src)/(z_mask - z_src)
+                band(ax, [z_src, z_mask, z_det], [ys, b, yb], [z_src, z_mask, z_det], [ys, a, ya],
+                     color=col, alpha=0.13, edges=False)
+                ax.add_patch(mpatches.Rectangle((z_det + 0.07 + (0.0 if col == STAR else 0.12), ya),
+                                                0.1, yb - ya, facecolor=col, alpha=0.8, zorder=5,
+                                                edgecolor="none"))
+        # mask: opaque between the holes
+        edges = [-1.15] + [e for h in holes for e in h] + [1.15]
+        for a, b in zip(edges[::2], edges[1::2]):
+            ax.add_patch(mpatches.Rectangle((z_mask - 0.03, a), 0.06, b - a, facecolor=METAL,
+                                            edgecolor="none", zorder=4))
+        label(ax, z_src, -0.75, "distant\nsources", va="top")
+        label(ax, z_mask - 0.2, -1.3, "coded mask\n(MURA, ~50 % open)", va="top")
+        ax.plot([z_det, z_det], [-1.15, 1.15], color="0.35", lw=3, zorder=4)
+        label(ax, z_det + 0.1, -1.3, "detector: sum of\nshifted shadows", va="top")
+        label(ax, z_det + 1.05, 0.0, "decode:\ncorrelate\nwith G", fontsize=8)
+        _finish(ax, (z_src - 0.5, z_det + 1.5), (-1.75, 1.3), title)
+    else:
+        z_src, z_dif, z_sen = -3.0, 0.0, 1.8
+        y = np.linspace(-0.9, 0.9, 400)
+        bumps = 0.05*np.sin(7.1*y + 0.4) + 0.035*np.sin(13.3*y + 1.9) + 0.02*np.sin(23.0*y + 0.3)
+        ax.fill_betweenx(y, z_dif - 0.08, z_dif + 0.04 + bumps, color=GLASS, zorder=3)
+        ax.plot(z_dif + 0.04 + bumps, y, color=EDGE, lw=1.0, zorder=3.5)
+        point_source(ax, z_src, 0.25, color=ILLUMINATION, size=90)
+        slope = np.gradient(bumps, y)
+        hits = []
+        for yr in np.linspace(-0.85, 0.85, 41):
+            ax.plot([z_src, z_dif], [0.25, yr], color=ILLUMINATION, lw=0.5, alpha=0.6, zorder=2)
+            u = (yr - 0.25)/(z_dif - z_src) - 0.3*np.interp(yr, y, slope)
+            y_end = yr + u*(z_sen - z_dif)
+            hits.append(y_end)
+            ax.plot([z_dif, z_sen], [yr, y_end], color=STRAY, lw=0.6, alpha=0.8, zorder=2)
+        ax.plot([z_sen, z_sen], [-1.1, 1.1], color="0.35", lw=3, zorder=4)
+        # intensity on the sensor: density of ray hits, smoothed
+        ys = np.linspace(-1.1, 1.1, 300)
+        dens = sum(np.exp(-((ys - h)/0.025)**2) for h in hits)
+        ax.plot(z_sen + 0.08 + 0.12*dens/dens.max()*3, ys, color="k", lw=1.0, zorder=5)
+        label(ax, z_src, 0.0, "point source\nat distance u", va="top")
+        label(ax, z_dif - 0.35, -1.05, "smooth random\nphase plate", va="top")
+        label(ax, z_sen + 0.2, -1.25, "bare sensor\n(z behind)", va="top")
+        label(ax, z_sen + 0.95, 0.75, "caustics:\nthe PSF", fontsize=8)
+        _finish(ax, (z_src - 0.6, z_sen + 1.4), (-1.6, 1.2), title)
