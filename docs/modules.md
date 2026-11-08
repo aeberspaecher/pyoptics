@@ -337,7 +337,11 @@ What each module does and how mature it is. Planned work is listed in
   dielectric CPC that exits into air (notebook 84); backward ray tracing
   through the reversed system (`reverse_system()`, `backward_trace()`,
   `backward_irradiance()`), checked against forward Monte Carlo and
-  π sin²θ behind a stop (notebook 85)
+  π sin²θ behind a stop (notebook 85); ideal thin lenses and lenslet
+  arrays for rays (`thin_lens()`, `lenslet_array()`) and the scalar wave
+  field of a fly's eye homogenizer (`fly_eye_field_1d()`), checked against
+  the flat top p F/f, its independence of the input tilt and the
+  interference period λF/p (notebook 86)
 - `fresnel`: Fresnel lenses, tested: a parent surface (sphere, conic,
   even asphere) collapsed into zones of constant pitch, constant depth or
   given radii, with curved or flat (conical) facets and drafted risers

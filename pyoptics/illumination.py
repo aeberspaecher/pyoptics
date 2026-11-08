@@ -68,6 +68,10 @@ The module provides
   it into the irradiance (brightness theorem: E = integral of L dp dq), so
   the field of a lamp, condenser and diaphragms is mapped without forward
   Monte Carlo through small apertures.
+- homogenizers: ideal thin lenses and lenslet arrays for rays
+  (`thin_lens()`, `lenslet_array()`), and the scalar wave field of a
+  fly's eye homogenizer with one or two arrays in the focal plane of its
+  condenser (`fly_eye_field_1d()`), for the interference of coherent light.
 
 Units: lengths in any unit (mm in the notebooks), angles in radians, NA
 includes the index of the medium.
@@ -1326,3 +1330,164 @@ def backward_irradiance(system, points, na, source, n_directions=2000, rng=None,
     L = backward_trace(system, X, pq[:, 0], pq[:, 1], source, reversed_system=R)
 
     return np.pi*na**2*L.reshape(len(xy), n_directions).mean(axis=1)
+
+
+# homogenizers: lenslet arrays (fly's eye)
+
+def thin_lens(points, directions, focal_length, center=(0.0, 0.0)):
+    """Refract rays at an ideal thin lens in the plane of the points.
+
+    The lens bends every ray towards the point where the parallel ray
+    through its centre meets the focal plane: the tangents of the ray
+    change by -(x - x_c)/f and -(y - y_c)/f. This is the paraxial lens of
+    lens design programs (`raytrace.IdealLens`); it images without
+    aberrations but does not conserve étendue at large angles (notebook
+    83, section 3), which does not matter for the small lenslet apertures
+    of a homogenizer.
+
+    Parameters
+    ----------
+    points, directions : (N, 3) arrays
+        Rays at the lens plane.
+    focal_length : number or (N,) array
+        Focal length in the medium of the rays.
+    center : (2,) or (N, 2) array, optional
+        Centre of the lens, per ray if needed.
+
+    Returns
+    -------
+    directions : (N, 3) array
+        Unit directions behind the lens.
+    """
+
+    P = np.asarray(points, float).reshape(-1, 3)
+    d = np.asarray(directions, float).reshape(-1, 3)
+    c = np.broadcast_to(np.asarray(center, float), (len(P), 2))
+    f = np.asarray(focal_length, float)
+    tx = d[:, 0]/d[:, 2] - (P[:, 0] - c[:, 0])/f
+    ty = d[:, 1]/d[:, 2] - (P[:, 1] - c[:, 1])/f
+    norm = np.sqrt(1 + tx**2 + ty**2)
+    return np.column_stack([tx/norm, ty/norm, 1/norm])
+
+
+def lenslet_array(points, directions, pitch, focal_length, n_lenslets=None, offset=(0.0, 0.0)):
+    """Refract rays at a square array of ideal thin lenslets.
+
+    Each ray is refracted by the lenslet it meets (thin_lens() about the
+    lenslet centre). This is the element of a fly's eye homogenizer: two
+    such arrays one focal length apart, followed by a condenser, image every
+    lenslet aperture of the first array onto the same field.
+
+    Parameters
+    ----------
+    points, directions : (N, 3) arrays
+        Rays at the array plane.
+    pitch : number or (2,) sequence
+        Lenslet pitch (x, y). Lenslets are square or rectangular and fill
+        the plane.
+    focal_length : number
+    n_lenslets : int or (2,) sequence, optional
+        Number of lenslets along x and y, centred on the axis (plus
+        offset); rays outside the array are lost (NaN). Default: unlimited.
+    offset : (2,) sequence, optional
+        Shift of the array (x, y).
+
+    Returns
+    -------
+    directions : (N, 3) array
+        Unit directions behind the array (NaN for lost rays).
+    index : (N, 2) int array
+        Lenslet indices (i, j) of the rays, counted from the axis (0 is the
+        lenslet on the axis for an odd number, or the one right of it).
+    """
+
+    P = np.asarray(points, float).reshape(-1, 3)
+    p = np.broadcast_to(np.asarray(pitch, float), (2,))
+    o = np.broadcast_to(np.asarray(offset, float), (2,))
+    n = None if n_lenslets is None else np.broadcast_to(np.asarray(n_lenslets), (2,))
+    # odd counts: lenslet centred on the axis; even counts: an edge on the axis
+    shift = np.zeros(2) if n is None else np.where(n % 2 == 0, 0.5, 0.0)
+    u = (P[:, :2] - o)/p - shift
+    idx = np.round(np.nan_to_num(u)).astype(int)
+    centers = (idx + shift)*p + o
+    d = thin_lens(P, directions, focal_length, centers)
+    if n is not None:
+        half = n/2
+        with np.errstate(invalid="ignore"):
+            outside = np.any(np.abs(u + shift) > half, axis=1)
+        d[outside] = np.nan
+    return d, idx
+
+
+def fly_eye_field_1d(field, x, wavelength, pitch, f_1, f_2=None, gap=None, focal_length=100.0,
+                     n_lenslets=None, n=1.0):
+    """Field in the focal plane of the condenser of a fly's eye homogenizer
+    (scalar wave optics, one transverse dimension).
+
+    The input field passes the first lenslet array (focal length f_1),
+    propagates over the gap (angular spectrum, exact), passes the second
+    array (f_2; None for a single array, a non-imaging homogenizer) and an
+    ideal condenser of focal length F, in whose back focal plane the field
+    is the Fourier transform u = wavelength*F*nu.
+
+    Parameters
+    ----------
+    field : 1d array
+        Complex input field on the equidistant grid x.
+    x : 1d array
+    wavelength : number
+        Vacuum wavelength.
+    pitch : number
+        Lenslet pitch.
+    f_1 : number
+        Focal length of the first array.
+    f_2 : number, optional
+        Focal length of the second array (imaging homogenizer).
+    gap : number, optional
+        Distance between the arrays, default f_2 (the second array in the
+        focal plane of the first, as in an imaging homogenizer with f_1 =
+        f_2).
+    focal_length : number, optional
+        Focal length F of the condenser.
+    n_lenslets : int, optional
+        Number of lenslets (centred); the field outside is blocked.
+    n : number, optional
+        Refractive index between the arrays.
+
+    Returns
+    -------
+    u : 1d array
+        Coordinates in the focal plane of the condenser (fftshifted).
+    U : 1d array
+        Complex field there, normalized so that sum |U|^2 du = sum
+        |field|^2 dx (energy of the passed light).
+    """
+
+    x = np.asarray(x, float)
+    E = np.asarray(field, complex)
+    dx = x[1] - x[0]
+    k = 2*np.pi/wavelength
+
+    def screen(f):
+        shift = 0.0 if n_lenslets is None or n_lenslets % 2 else 0.5
+        c = (np.round(x/pitch - shift) + shift)*pitch
+        t = np.exp(-1j*k*(x - c)**2/(2*f))
+        if n_lenslets is not None:
+            t[np.abs(x) > n_lenslets*pitch/2] = 0.0
+        return t
+
+    E = E*screen(f_1)
+    if f_2 is not None:
+        g = f_2 if gap is None else gap
+        nu = np.fft.fftfreq(len(x), dx)
+        kz = np.sqrt((n*k)**2 - (2*np.pi*nu)**2 + 0j)
+        E = np.fft.ifft(np.fft.fft(E)*np.exp(1j*kz*g))
+        E = E*screen(f_2)
+    elif gap is not None:
+        raise ValueError("gap needs f_2")
+    nu = np.fft.fftshift(np.fft.fftfreq(len(x), dx))
+    U = np.fft.fftshift(np.fft.fft(np.fft.ifftshift(E)))*dx
+    u = wavelength*focal_length*nu
+    du = u[1] - u[0]
+    U = U/np.sqrt(np.sum(np.abs(U)**2)*du/(np.sum(np.abs(E)**2)*dx))
+    return u, U

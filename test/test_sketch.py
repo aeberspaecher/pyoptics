@@ -124,6 +124,8 @@ def test_paraxial_ray_imaging():
     sketch.cpc_secondary,
     sketch.koehler_critical,
     lambda ax: sketch.koehler_critical(ax, mode="critical"),
+    sketch.fly_eye_homogenizer,
+    lambda ax: sketch.fly_eye_homogenizer(ax, imaging=False, tilt=0.1),
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()

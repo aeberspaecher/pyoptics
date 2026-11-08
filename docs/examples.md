@@ -261,6 +261,7 @@ notebooks/50_magnification_distortion_telecentricity
 - {doc}`notebooks/83_etendue_brightness_theorem`
 - {doc}`notebooks/84_nonimaging_concentrators`
 - {doc}`notebooks/85_koehler_critical_illumination`
+- {doc}`notebooks/86_homogenizers`
 
 ```{toctree}
 :hidden:
@@ -269,6 +270,7 @@ notebooks/50_magnification_distortion_telecentricity
 notebooks/83_etendue_brightness_theorem
 notebooks/84_nonimaging_concentrators
 notebooks/85_koehler_critical_illumination
+notebooks/86_homogenizers
 ```
 
 ## Atmospheric optics
