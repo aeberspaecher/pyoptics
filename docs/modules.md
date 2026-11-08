@@ -309,6 +309,14 @@ What each module does and how mature it is. Planned work is listed in
   fish-eye, parabolic and hyperbolic secant rods, an exponential layer
   (mirage), or any index function with a numerical gradient; checked
   against all closed forms (notebook 77)
+- `cloak`: new, tested: carpet cloaks from quasi-conformal maps (Li and
+  Pendry): the map above a bump on a mirror from two Laplace solves on a
+  boundary-fitted grid with sliding, mirror-sliding or fixed boundaries,
+  the isotropic index n² = det K and the dropped anisotropy, first-order
+  theory of the index, the index as an FDFD permittivity and a `grin`
+  medium with rays reflected on the bump and refracted at the cloak's
+  edge; a line of FDFD sources that launches a Gaussian beam with the
+  grid's dispersion, and angular spectra (notebook 80)
 - `fresnel`: Fresnel lenses, tested: a parent surface (sphere, conic,
   even asphere) collapsed into zones of constant pitch, constant depth or
   given radii, with curved or flat (conical) facets and drafted risers

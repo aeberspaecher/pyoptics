@@ -40,6 +40,7 @@ model for lithography is in {doc}`notebooks/65_litho_fdtd_mask`.
 - {doc}`notebooks/64_fdtd_3d_nanojet`
 - {doc}`notebooks/66_fdfd_basics`
 - {doc}`notebooks/67_fdfd_limacon_microcavity`
+- {doc}`notebooks/80_carpet_cloak`
 
 ```{toctree}
 :hidden:
@@ -53,6 +54,7 @@ notebooks/63_fdtd_devices
 notebooks/64_fdtd_3d_nanojet
 notebooks/66_fdfd_basics
 notebooks/67_fdfd_limacon_microcavity
+notebooks/80_carpet_cloak
 ```
 
 ## Beams, modes and paraxial optics
