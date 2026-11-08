@@ -154,3 +154,83 @@ def test_refraction_keeps_direction_sines():
     assert np.allclose(il.refract_plane(d2, 1.5, 1.0), d)
     d3 = il.refract_plane(np.array([[0.8, 0, 0.6]]), 1.5, 1.0)
     assert np.all(np.isnan(d3))
+
+
+@pytest.mark.parametrize("kind", ["2d", "3d"])
+def test_cpc_geometry(kind):
+    th = np.deg2rad(15)
+    c = il.CPC(th, 1.0, kind=kind)
+    assert c.entrance_radius == pytest.approx(1/np.sin(th))
+    assert c.length == pytest.approx((1 + 1/np.sin(th))/np.tan(th))
+    assert c.geometric_concentration == pytest.approx(c.ideal_concentration)
+    z, r = c.profile()
+    assert np.all(np.diff(z) > 0) and np.all(np.diff(r) <= 1e-12)
+    # truncation keeps the exit and shortens the CPC
+    t = il.CPC(th, 1.0, kind=kind, truncation=2.0)
+    assert t.entrance_radius == pytest.approx(2.0) and t.length < c.length
+    assert t.radius(t.length) == pytest.approx(1.0)
+
+
+def test_cpc_2d_is_ideal_and_fills_exit_etendue():
+    th = np.deg2rad(10)
+    c = il.CPC(th, 1.0, kind="2d")
+    for ang, T in ((0.0, 1), (0.9*th, 1), (1.1*th, 0)):
+        P, d = il.tilted_beam(5000, c.entrance_radius, ang, kind="2d", rng=1)
+        assert c.trace(P, d).transmitted.mean() == T
+    rng = np.random.default_rng(2)
+    N = 200000
+    x = (2*rng.random(N) - 1)*c.entrance_radius
+    P = np.column_stack([x, 0*x, 0*x])
+    d = il.directions_from_sines(2*rng.random(N) - 1, 0*x)
+    res = c.trace(P, d)
+    assert res.transmitted.mean() == pytest.approx(np.sin(th), abs=3e-3)
+    # the exit is filled uniformly in p
+    H, _ = np.histogram(res.directions[res.transmitted, 0], bins=10, range=(-1, 1))
+    assert np.std(H)/np.mean(H) < 0.05
+
+
+def test_cpc_3d_transmission_and_etendue():
+    th = np.deg2rad(10)
+    c = il.CPC(th, 1.0, kind="3d")
+    P, d = il.tilted_beam(20000, c.entrance_radius, 0.85*th, rng=3)
+    assert c.trace(P, d).transmitted.mean() > 0.97
+    P, d = il.tilted_beam(20000, c.entrance_radius, 1.15*th, rng=4)
+    assert c.trace(P, d).transmitted.mean() < 0.03
+    src = il.LambertianSource(c.entrance_radius, na=1.0)
+    R = src.rays(200000, rng=5)
+    eta = c.trace(R.points, R.directions).transmitted.mean()
+    assert eta*src.etendue == pytest.approx(np.pi**2*1.0, rel=0.02)
+
+
+def test_dielectric_cpc_and_exit_into_air():
+    th = np.deg2rad(30)
+    c = il.CPC(th, 1.0, n=1.5, kind="3d")
+    assert c.geometric_concentration == pytest.approx(1.5**2/np.sin(th)**2)
+    P, d = il.tilted_beam(10000, c.entrance_radius, np.deg2rad(15), rng=6)
+    assert c.trace(P, d).transmitted.mean() == 1.0
+    R = il.LambertianSource(c.entrance_radius, na=np.sin(th)).rays(200000, rng=7)
+    eta_air = c.trace(R.points, R.directions, n_out=1.0).transmitted.mean()
+    assert eta_air == pytest.approx(1/1.5**2, abs=0.01)
+    # mirror walls: no TIR losses near the acceptance angle
+    m = il.CPC(th, 1.0, n=1.5, kind="3d", mirror=True)
+    P, d = il.tilted_beam(10000, m.entrance_radius, 0.97*th, rng=8)
+    assert np.sum(m.trace(P, d).fate == 2) == 0
+
+
+def test_cpc_numba_matches_numpy():
+    th = np.deg2rad(12)
+    c = il.CPC(th, 1.0, n=1.4, kind="3d")
+    R = il.LambertianSource(c.entrance_radius, na=0.5).rays(3000, rng=9)
+    old = il.use_numba
+    try:
+        il.use_numba = False
+        a = c.trace(R.points, R.directions)
+        il.use_numba = True
+        b = c.trace(R.points, R.directions)
+    finally:
+        il.use_numba = old
+    assert np.array_equal(a.fate, b.fate) and np.array_equal(a.n_reflections, b.n_reflections)
+    ok = a.transmitted
+    assert np.allclose(a.points[ok], b.points[ok], atol=1e-9)
+    res, V = c.trace(R.points[:5], R.directions[:5], paths=True)
+    assert V.shape[1] == 5

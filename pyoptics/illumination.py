@@ -54,7 +54,14 @@ The module provides
   with square or rectangular cross section (`light_pipe()`, by unfolding
   the reflections at its walls);
 - the Sun as a source and the temperature that concentrated sunlight can
-  reach (`SUN_ANGULAR_RADIUS`, `concentration_temperature()`).
+  reach (`SUN_ANGULAR_RADIUS`, `concentration_temperature()`);
+- nonimaging concentrators: the compound parabolic concentrator (`CPC`,
+  `cpc_profile()`), designed by the edge-ray principle, hollow with mirror
+  walls or solid with TIR walls, as a 2D trough or a 3D surface of
+  revolution, optionally truncated; rays are traced through its wall
+  reflections (bracketing and bisection of the wall hit, with a compiled
+  kernel if numba is installed), and `tilted_beam()` launches parallel
+  rays over an aperture.
 
 Units: lengths in any unit (mm in the notebooks), angles in radians, NA
 includes the index of the medium.
@@ -72,11 +79,22 @@ ch. 1 and 16.
 
 M. Born and E. Wolf, "Principles of Optics", 7th ed., Cambridge University
 Press (1999), sec. 4.8 (the étendue as an invariant of the ray map).
+
+R. Winston, "Principles of solar concentrators of a novel design", Solar
+Energy 16, 89-95 (1974).
 """
+
+from collections import namedtuple
 
 import numpy as np
 
 from .raytrace import Rays
+from . import _illumination_numba
+
+
+# Trace CPCs with the compiled kernel if numba is installed
+# (pip install pyoptics[fast]); False: always NumPy.
+use_numba = True
 
 
 # mean angular radius of the solar disk (959.6 arcsec at 1 AU)
@@ -820,3 +838,345 @@ def propagate(points, directions, dz):
     d = np.asarray(directions, float).reshape(-1, 3)
 
     return P + (dz/d[:, 2])[:, None]*d
+
+
+# nonimaging concentrators:
+def cpc_profile(acceptance, exit_radius, n_points=4001):
+    """Profile of a compound parabolic concentrator (CPC).
+
+    The wall is a parabola whose axis is tilted by the acceptance angle
+    theta to the CPC axis and whose focus is the opposite rim of the exit
+    aperture (the edge-ray principle: rays entering at theta through the
+    entrance rim are reflected onto the opposite exit rim). With the focal
+    length f = (1 + sin(theta)) a' and the parameter phi from 2*theta
+    (entrance) to theta + pi/2 (exit), ::
+
+        r(phi)  = 2*f*sin(phi - theta)/(1 - cos(phi)) - a',
+        z'(phi) = 2*f*cos(phi - theta)/(1 - cos(phi)),
+
+    measured from the exit plane. The entrance radius is a = a'/sin(theta),
+    the length L = (a + a')/tan(theta).
+
+    Parameters
+    ----------
+    acceptance : number
+        Acceptance half angle theta (inside the medium of the CPC).
+    exit_radius : number
+        Radius (half width) a' of the exit aperture.
+    n_points : int, optional
+        Number of profile points.
+
+    Returns
+    -------
+    z : (n_points,) array
+        Distance from the entrance plane (0 to L), increasing.
+    r : (n_points,) array
+        Radius of the wall, decreasing from a to a'.
+    """
+
+    th, ap = acceptance, exit_radius
+    f = ap*(1 + np.sin(th))
+    phi = np.linspace(2*th, th + np.pi/2, n_points)
+    r = 2*f*np.sin(phi - th)/(1 - np.cos(phi)) - ap
+    zp = 2*f*np.cos(phi - th)/(1 - np.cos(phi))
+    L = zp[0]
+    z = L - zp
+    z[0], z[-1] = 0.0, L
+    r[0], r[-1] = ap/np.sin(th), ap
+
+    return z, r
+
+
+class CPC(object):
+    """Compound parabolic concentrator: mirror or dielectric (TIR), 2D or 3D.
+
+    The entrance aperture (radius, or half width, a) lies in the plane
+    z = z0, the exit aperture (a' = a*sin(theta)) at z0 + L; light enters
+    travelling in +z. A "3d" CPC is a surface of revolution about the z
+    axis, a "2d" CPC is a trough with walls at x = +-R(z), unbounded in y.
+    The ideal concentration is 1/sin(theta) (2D) or 1/sin(theta)**2 (3D),
+    the limit of `concentration_limit()`: the 2D CPC is an ideal
+    concentrator, the 3D CPC rejects some skew rays inside theta and
+    accepts some outside.
+
+    A dielectric CPC (index n) is filled with a solid; the acceptance angle
+    is given outside (in the medium n_in in front of it), the profile is
+    designed for the refracted angle asin(n_in*sin(theta)/n), and the
+    concentration is n**2/sin(theta)**2 (3D) relative to n_in = 1. Its walls
+    reflect by total internal reflection (rays that do not meet the TIR
+    condition leave and are lost) unless mirror is True.
+
+    Parameters
+    ----------
+    acceptance : number
+        Acceptance half angle theta in front of the entrance (radians).
+    exit_radius : number
+        Radius (half width in 2D) a' of the exit aperture.
+    n : number, optional
+        Refractive index inside (1: a hollow mirror CPC).
+    kind : {"3d", "2d"}, optional
+        Surface of revolution or trough.
+    n_in : number, optional
+        Index in front of the entrance.
+    truncation : number, optional
+        Cut the CPC at this entrance radius (between a' and a) to shorten
+        it; the cut part of the profile is removed.
+    mirror : bool, optional
+        Reflecting walls (default: True for n = 1, TIR for n > 1).
+    reflectivity : number, optional
+        Reflectance of mirror walls (weight per reflection).
+    z0 : number, optional
+        Position of the entrance plane.
+    n_points : int, optional
+        Number of profile points (the wall is interpolated linearly
+        between them).
+    """
+
+    def __init__(self, acceptance, exit_radius, n=1.0, kind="3d", n_in=1.0, truncation=None,
+                 mirror=None, reflectivity=1.0, z0=0.0, n_points=20001):
+        if kind not in ("3d", "2d"):
+            raise ValueError("kind must be '3d' or '2d'.")
+        self.acceptance = acceptance
+        self.exit_radius = exit_radius
+        self.n = n
+        self.kind = kind
+        self.n_in = n_in
+        self.mirror = (n == 1.0) if mirror is None else mirror
+        self.reflectivity = reflectivity
+        self.z0 = z0
+        self.design_angle = np.arcsin(n_in*np.sin(acceptance)/n)
+        z, r = cpc_profile(self.design_angle, exit_radius, n_points)
+        if truncation is not None:
+            if not exit_radius < truncation <= r[0]:
+                raise ValueError("truncation must lie between the exit and the entrance radius.")
+            i = np.searchsorted(-r, -truncation)
+            zc = np.interp(truncation, r[::-1], z[::-1])
+            z = np.concatenate([[zc], z[i:]]) - zc
+            r = np.concatenate([[truncation], r[i:]])
+        self._z, self._r = z, r
+        # wall radius and slope on a uniform grid in z (linear interpolation):
+        self._zg = np.linspace(0.0, z[-1], n_points)
+        self._z_step = self._zg[1]
+        self._rg = np.interp(self._zg, z, r)
+        self._sg = np.gradient(self._rg, self._zg)
+
+    def __repr__(self):
+        return "CPC(acceptance={}, exit_radius={}, n={}, kind={!r}, length={:.4g})".format(
+            self.acceptance, self.exit_radius, self.n, self.kind, self.length)
+
+    @property
+    def entrance_radius(self):
+        """Radius (half width) of the entrance aperture."""
+        return self._r[0]
+
+    @property
+    def length(self):
+        """Length of the CPC."""
+        return self._z[-1]
+
+    @property
+    def geometric_concentration(self):
+        """Entrance over exit area (3D) or width (2D)."""
+        ratio = self.entrance_radius/self.exit_radius
+        return ratio**2 if self.kind == "3d" else ratio
+
+    @property
+    def ideal_concentration(self):
+        """Concentration limit for the acceptance angle (relative to n_in)."""
+        return concentration_limit(self.acceptance, self.n/self.n_in, 3 if self.kind == "3d" else 2)
+
+    def radius(self, z):
+        """Wall radius at the distance z from the entrance."""
+        u = np.clip(np.asarray(z, float)/self._z_step, 0, len(self._rg) - 1)
+        i = np.minimum(u.astype(int), len(self._rg) - 2)
+        f = u - i
+
+        return (1 - f)*self._rg[i] + f*self._rg[i + 1]
+
+    def profile(self):
+        """Profile points (z from the entrance, r)."""
+        return self._z.copy(), self._r.copy()
+
+    def _rho(self, P):
+        if self.kind == "3d":
+            return np.hypot(P[..., 0], P[..., 1])
+        return np.abs(P[..., 0])
+
+    def _normal(self, Q):
+        """Inward unit normal of the wall at the points Q (local z)."""
+        s = np.interp(Q[:, 2], self._zg, self._sg)
+        if self.kind == "3d":
+            rho = np.hypot(Q[:, 0], Q[:, 1])
+            ex, ey = Q[:, 0]/rho, Q[:, 1]/rho
+        else:
+            ex, ey = np.sign(Q[:, 0]), np.zeros(len(Q))
+        nv = np.column_stack([-ex, -ey, s])  # inward: towards the axis, and along +z by the slope
+        return nv/np.linalg.norm(nv, axis=1)[:, None]
+
+    def trace(self, points, directions, max_reflections=500, n_steps=48, n_out=None, paths=False):
+        """Trace rays from the entrance plane through the CPC.
+
+        Parameters
+        ----------
+        points : (N, 3) array
+            Points on the entrance plane (only x, y are used).
+        directions : (N, 3) array
+            Unit directions in front of the entrance (medium n_in).
+        max_reflections : int, optional
+            Rays with more reflections are counted as lost.
+        n_steps : int, optional
+            Samples per ray segment to bracket the wall hit (refined by
+            bisection).
+        n_out : number, optional
+            Index behind the exit face (default: n, the absorber is in
+            optical contact); rays totally reflected at the exit face are
+            lost.
+        paths : bool, optional
+            Also return the vertices of every ray (for drawing).
+
+        Returns
+        -------
+        CPCTrace
+            Exit points and directions (NaN unless transmitted), the
+            transmitted flag, the ray weights (the reflectance of mirror
+            walls), the number of wall reflections and the fate of every
+            ray: 0 transmitted, 1 turned back out of the entrance, 2 escaped
+            through the wall (TIR failed), 3 too many reflections, 4 missed
+            the entrance, 5 TIR at the exit face.
+        vertices : (M, N, 3) array
+            Only if paths is True: the entrance point, the wall hits and the
+            end point of every ray (repeated after it has ended), in the
+            frame of the CPC (entrance at z = 0).
+        """
+
+        P0 = np.asarray(points, float).reshape(-1, 3)
+        N = len(P0)
+        z_end = self.length
+        fate = np.full(N, -1)
+        P = np.column_stack([P0[:, 0], P0[:, 1], np.zeros(N)])
+        d = refract_plane(directions, self.n_in, self.n)
+        fate[self._rho(P) > self.entrance_radius*(1 + 1e-12)] = 4
+        fate[~np.all(np.isfinite(d), axis=1)] = 4
+        k = np.zeros(N, dtype=int)
+        w = np.ones(N)
+        c_tir = np.sqrt(max(0.0, 1 - (1.0/self.n)**2)) if not self.mirror else None
+        active = fate < 0
+        vertices = [P.copy()]
+        if use_numba and _illumination_numba.available and not paths:
+            _illumination_numba.trace(P, d, fate, k, w, self._z_step, self._rg, self._sg, z_end,
+                                      self.kind == "3d", self.mirror, -1.0 if c_tir is None else c_tir,
+                                      self.reflectivity, max_reflections, n_steps,
+                                      4*(self.length + 2*self.entrance_radius))
+            active = fate < 0
+        while np.any(active):
+            idx = np.nonzero(active)[0]
+            Pa, da = P[idx], d[idx]
+            with np.errstate(divide="ignore", invalid="ignore"):
+                t_end = np.where(da[:, 2] > 0, (z_end - Pa[:, 2])/da[:, 2],
+                                 np.where(da[:, 2] < 0, -Pa[:, 2]/da[:, 2], np.inf))
+            # cap the search for rays (nearly) parallel to the planes:
+            t_end = np.minimum(t_end, 4*(self.length + 2*self.entrance_radius))
+            ts = np.linspace(0, 1, n_steps + 1)[None, 1:]*t_end[:, None]
+            Q = Pa[:, None, :] + ts[..., None]*da[:, None, :]
+            g = self.radius(np.clip(Q[..., 2], 0, z_end)) - self._rho(Q)
+            out = g < 0
+            hit = np.any(out, axis=1)
+            j = np.argmax(out, axis=1)
+            # rays that reach a plane without hitting the wall:
+            done = idx[~hit]
+            dz = da[~hit, 2]
+            Pend = Pa[~hit] + t_end[~hit, None]*da[~hit]
+            P[done] = Pend
+            fate[done] = np.where(dz > 0, 0, 1)
+            # refine the hits by bisection between the last inside and the first outside sample:
+            hi_idx = idx[hit]
+            jh = j[hit]
+            th = ts[hit]
+            lo = np.where(jh > 0, th[np.arange(len(jh)), np.maximum(jh - 1, 0)], 0.0)
+            hi = th[np.arange(len(jh)), jh]
+            Ph, dh = Pa[hit], da[hit]
+            for _ in range(50):
+                mid = 0.5*(lo + hi)
+                Qm = Ph + mid[:, None]*dh
+                inside = self.radius(np.clip(Qm[:, 2], 0, z_end)) - self._rho(Qm) >= 0
+                lo = np.where(inside, mid, lo)
+                hi = np.where(inside, hi, mid)
+            Qh = Ph + lo[:, None]*dh
+            nv = self._normal(Qh)
+            cos_i = -np.sum(dh*nv, axis=1)  # nv points inwards, rays hit from inside: d.nv < 0
+            if c_tir is not None:
+                # TIR needs sin(i) > 1/n, i.e. |cos i| < sqrt(1 - 1/n**2)
+                escaped = np.abs(cos_i) >= c_tir
+            else:
+                escaped = np.zeros(len(hi_idx), dtype=bool)
+                w[hi_idx] *= self.reflectivity
+            d_new = dh + 2*cos_i[:, None]*nv
+            d_new /= np.linalg.norm(d_new, axis=1)[:, None]
+            P[hi_idx] = Qh
+            d[hi_idx] = d_new
+            k[hi_idx] += 1
+            fate[hi_idx[escaped]] = 2
+            fate[hi_idx[(k[hi_idx] > max_reflections) & ~escaped]] = 3
+            active = fate < 0
+            if paths:
+                vertices.append(P.copy())
+        n_out = self.n if n_out is None else n_out
+        trans = fate == 0
+        d_out = np.full((N, 3), np.nan)
+        P_out = np.full((N, 3), np.nan)
+        if np.any(trans):
+            d_t = refract_plane(d[trans], self.n, n_out)
+            tir = ~np.all(np.isfinite(d_t), axis=1)
+            ti = np.nonzero(trans)[0]
+            fate[ti[tir]] = 5
+            d_out[ti[~tir]] = d_t[~tir]
+            P_out[ti[~tir]] = P[ti[~tir]]
+        trans = fate == 0
+        P_out[:, 2] += self.z0
+        w[~trans] = 0.0
+
+        result = CPCTrace(P_out, d_out, trans, w, k, fate)
+        if paths:
+            return result, np.array(vertices)
+
+        return result
+
+
+CPCTrace = namedtuple("CPCTrace", ["points", "directions", "transmitted", "weights",
+                                    "n_reflections", "fate"])
+
+
+def tilted_beam(n_rays, half_width, angle, azimuth=0.0, kind="3d", rng=None):
+    """Parallel rays at the polar angle `angle` over an entrance aperture.
+
+    Parameters
+    ----------
+    n_rays : int
+        Number of rays.
+    half_width : number
+        Radius of the disk (kind "3d") or half width of the strip in x
+        (kind "2d", y = 0) that the rays fill uniformly.
+    angle : number
+        Angle of the rays with the z axis.
+    azimuth : number, optional
+        Azimuth of the direction (0: in the x-z plane).
+    kind : {"3d", "2d"}, optional
+        Disk or strip.
+    rng : None, int or numpy.random.Generator, optional
+        Random generator or seed.
+
+    Returns
+    -------
+    points, directions : (n_rays, 3) arrays
+    """
+
+    rng = _rng(rng)
+    if kind == "3d":
+        xy = disk_points(n_rays, half_width, rng)
+    else:
+        xy = np.column_stack([(2*rng.random(n_rays) - 1)*half_width, np.zeros(n_rays)])
+    P = np.column_stack([xy, np.zeros(n_rays)])
+    d = np.tile([np.sin(angle)*np.cos(azimuth), np.sin(angle)*np.sin(azimuth), np.cos(angle)],
+                (n_rays, 1))
+
+    return P, d
