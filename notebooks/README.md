@@ -16,13 +16,13 @@ The notebooks are numbered by topic, in the groups below.
 - **Beams, modes and paraxial optics:** [06](06_gaussian_beams.ipynb) Gaussian beams, [07](07_beam_quality.ipynb) beam quality (ISO 11146, M²), [08](08_abcd_matrices.ipynb) ABCD matrices and resonators, [09](09_mode_analysis.ipynb) mode analysis and fibre modes, [68](68_bessel_airy_self_healing.ipynb) non-diffracting Bessel and Airy beams: the axicon, the accelerating Airy beam and how both heal behind an obstacle, [69](69_optical_vortices.ipynb) optical vortices and orbital angular momentum: spiral phase plates, fork gratings, vortex splitting, measuring the charge by interference and with cylindrical lenses, [81](81_ultrashort_pulses_lenses.ipynb) ultrashort pulses through lenses: GDD from the glass catalogue, Bor's pulse-front delay in a singlet and an achromat, x–t maps of the focus, pulse-front tilt behind prisms and gratings, spatio-temporal focusing
 - **Thin films, coatings and polarization:** [10](10_interfaces_thin_films.ipynb) interfaces and thin films, [11](11_polarization.ipynb) Jones and Mueller calculus, [12](12_layer_stacks.ipynb) interactive layer stacks, [13](13_stack_transfer_functions.ipynb) stack transfer functions and the Goos-Hänchen shift, [14](14_coated_laser_mirror.ipynb) coated laser mirror
 - **Imaging, aberrations and detection:** [15](15_imaging_zernikes.ipynb) imaging and Zernikes, [16](16_bases.ipynb) polynomial bases and fits, [17](17_psf_mtf_strehl.ipynb) PSF, MTF and Strehl ratio, [18](18_image_processing.ipynb) camera noise and image processing, [45](45_zernike_aberration_gallery.ipynb) Zernike aberration gallery: Z2 to Z16 from real lenses, [79](79_lensless_coded_aperture_imaging.ipynb) lensless imaging: Rayleigh's pinhole, MURA coded apertures and their SNR, a diffuser camera with ADMM deconvolution and refocusing
-- **Ray tracing:** [19](19_ray_tracing.ipynb) sequential ray tracing and a lithography lens, [20](20_polarization_raytrace.ipynb) polarization ray tracing with coatings, [21](21_lens_focus_waves.ipynb) rays to waves: the focus of a lithography lens, [47](47_rays_and_waves.ipynb) rays and waves side by side: the caustic of a plano-convex lens, both ways round, [48](48_laser_head_doe.ipynb) rays and waves in a laser processing head with a diffractive 5 × 5 spot splitter, [49](49_eye_aberrometer.ipynb) rays and waves in an eye aberrometer: a schematic eye in front of a Shack-Hartmann sensor, [51](51_fresnel_lenses.ipynb) Fresnel lenses: from a thick lens to a solar concentrator, real facets, losses and kinoforms, [56](56_gaussian_beam_decomposition.ipynb) Gaussian beam decomposition through a lens system: a spatial filter, [58](58_lens_optimization.ipynb) lens optimization with damped least squares: from a singlet to an achromat, a Cooke triplet and a plan microscope objective, [61](61_glass_catalogues.ipynb) glass catalogues: glass maps, partial dispersion and an apochromatic doublet, [70](70_monte_carlo_tolerancing.ipynb) Monte Carlo tolerancing: an air-spaced achromat and Caldwell's KrF lens, [77](77_grin_optics.ipynb) curved rays in gradient-index media: GRIN rods, the Luneburg lens, Maxwell's fish-eye and the mirage over a hot road
-- **Phase retrieval and beam shaping:** [28](28_phase_retrieval.ipynb) phase retrieval and phase diversity, [29](29_TIE.ipynb) transport of intensity equation, [30](30_IFTA.ipynb) IFTA beam shaping, [73](73_wavefront_shaping.ipynb) wavefront shaping: focusing light through a diffuser, a thick random slab and a multimode fibre
-- **Illumination optics:** [83](83_etendue_brightness_theorem.ipynb) étendue and the brightness theorem: phase space portraits, Liouville in a real lens, the paraxial ideal lens that beats the second law, a burning glass, diffusers and light pipes, [84](84_nonimaging_concentrators.ipynb) nonimaging concentrators: the CPC and the edge-ray principle in 2D and 3D, skew rays, truncation, dielectric CPCs and a CPC secondary behind a burning glass, [85](85_koehler_critical_illumination.ipynb) Köhler against critical illumination: backward ray tracing, the field and the pupil, the two diaphragms, focusing the lamp and the images of a Siemens star
-- **Atmospheric optics:** [71](71_rainbows_and_glories.ipynb) rainbows and glories: rays through a drop, Airy and Mie theory of the bow, supernumeraries, fogbows, the glory and the colours in the sky, [72](72_twinkling_stars_adaptive_optics.ipynb) twinkling stars and adaptive optics: phase screens, scintillation, speckle, lucky imaging and a closed loop with a Shack-Hartmann sensor
+- **Ray tracing and lens design:** [19](19_ray_tracing.ipynb) sequential ray tracing and a lithography lens, [20](20_polarization_raytrace.ipynb) polarization ray tracing with coatings, [21](21_lens_focus_waves.ipynb) rays to waves: the focus of a lithography lens, [47](47_rays_and_waves.ipynb) rays and waves side by side: the caustic of a plano-convex lens, both ways round, [48](48_laser_head_doe.ipynb) rays and waves in a laser processing head with a diffractive 5 × 5 spot splitter, [49](49_eye_aberrometer.ipynb) rays and waves in an eye aberrometer: a schematic eye in front of a Shack-Hartmann sensor, [51](51_fresnel_lenses.ipynb) Fresnel lenses: from a thick lens to a solar concentrator, real facets, losses and kinoforms, [56](56_gaussian_beam_decomposition.ipynb) Gaussian beam decomposition through a lens system: a spatial filter, [58](58_lens_optimization.ipynb) lens optimization with damped least squares: from a singlet to an achromat, a Cooke triplet and a plan microscope objective, [61](61_glass_catalogues.ipynb) glass catalogues: glass maps, partial dispersion and an apochromatic doublet, [70](70_monte_carlo_tolerancing.ipynb) Monte Carlo tolerancing: an air-spaced achromat and Caldwell's KrF lens, [77](77_grin_optics.ipynb) curved rays in gradient-index media: GRIN rods, the Luneburg lens, Maxwell's fish-eye and the mirage over a hot road
 - **Interferometry, holography and wavefront sensing:** [22](22_phase_unwrapping.ipynb) phase unwrapping, [23](23_interferometry.ipynb) phase-shifting and Fourier-transform interferometry, [24](24_radius_interferometer.ipynb) radius of curvature interferometer, [74](74_coherence_stellar_interferometry.ipynb) coherence and stellar interferometry: van Cittert–Zernike, Young's fringes against source size, Michelson's stellar interferometer on Betelgeuse, coherence length and Hanbury Brown–Twiss, [25](25_shack_hartmann_vs_phase_diversity.ipynb) Shack-Hartmann vs. phase diversity, [26](26_holography.ipynb) digital holography, [27](27_holographic_microscopy.ipynb) holographic microscopy, [76](76_schlieren_knife_edge.ipynb) schlieren and the Foucault knife-edge test: shadowgrams of mirror errors, the zonal test of a paraboloid, Ronchigrams and a candle plume, [82](82_optical_coherence_tomography.ipynb) optical coherence tomography: time-domain and spectral-domain A-scans of a layer stack, axial resolution, DC term and mirror images, sensitivity roll-off, the SNR advantage, dispersion compensation and a B-scan with speckle
+- **Phase retrieval and beam shaping:** [28](28_phase_retrieval.ipynb) phase retrieval and phase diversity, [29](29_TIE.ipynb) transport of intensity equation, [30](30_IFTA.ipynb) IFTA beam shaping, [73](73_wavefront_shaping.ipynb) wavefront shaping: focusing light through a diffuser, a thick random slab and a multimode fibre
 - **Microscopy:** [52](52_abbe_image_formation.ipynb) Abbe image formation: diffraction orders, pupil cutoff and partial coherence, [53](53_phase_contrast_dic.ipynb) Zernike phase contrast and Nomarski DIC for transparent objects (halo, shade-off, bias and shear), [54](54_confocal_microscopy.ipynb) confocal microscopy: pinhole, PSF product and optical sectioning, [55](55_fourier_ptychography.ipynb) Fourier ptychography: a synthetic aperture from an LED array, with pupil recovery, [75](75_optical_tweezers.ipynb) optical tweezers: Ashkin's rays against the exact Mie force in a Richards–Wolf focus, trap stiffness, Brownian calibration and escape, [78](78_super_resolution_microscopy.ipynb) super-resolution: structured illumination (SIM), STED with a vortex doughnut, and PALM localization; see also [27](27_holographic_microscopy.ipynb) digital holographic microscopy
 - **Optical lithography:** [31](31_vectorial_imaging_lithography.ipynb) vectorial imaging, [32](32_lithography_toolbox.ipynb) lithography toolbox, [33](33_litho_lens_aberrations.ipynb) lens aberrations over the slit, [34](34_hopkins_socs.ipynb) Hopkins and SOCS, [35](35_litho_resist_swing.ipynb) resist and swing curves, [36](36_litho_rigorous_mask.ipynb) rigorous mask (RCWA), [37](37_litho_mask_models.ipynb) mask models compared (Kirchhoff, film, boundary layer, RCWA), [65](65_litho_fdtd_mask.ipynb) a rigorous FDTD mask model: lines against RCWA, and contact holes, [38](38_litho_jones_pupil.ipynb) Jones pupils, [39](39_litho_source_optimization.ipynb) source optimization, [40](40_litho_opc.ipynb) OPC, [41](41_litho_telecentricity.ipynb) telecentricity across the slit, [42](42_litho_illuminator.ipynb) a ray traced KrF illuminator, [43](43_litho_delano_lens_design.ipynb) Delano diagrams and the layout of a projection lens, [44](44_seidel_caldwell_lens.ipynb) Seidel aberrations surface by surface, correction and tension, [50](50_magnification_distortion_telecentricity.ipynb) magnification, distortion and telecentricity as Zernikes over the field
+- **Illumination optics:** [83](83_etendue_brightness_theorem.ipynb) étendue and the brightness theorem: phase space portraits, Liouville in a real lens, the paraxial ideal lens that beats the second law, a burning glass, diffusers and light pipes, [84](84_nonimaging_concentrators.ipynb) nonimaging concentrators: the CPC and the edge-ray principle in 2D and 3D, skew rays, truncation, dielectric CPCs and a CPC secondary behind a burning glass, [85](85_koehler_critical_illumination.ipynb) Köhler against critical illumination: backward ray tracing, the field and the pupil, the two diaphragms, focusing the lamp and the images of a Siemens star
+- **Atmospheric optics:** [71](71_rainbows_and_glories.ipynb) rainbows and glories: rays through a drop, Airy and Mie theory of the bow, supernumeraries, fogbows, the glory and the colours in the sky, [72](72_twinkling_stars_adaptive_optics.ipynb) twinkling stars and adaptive optics: phase screens, scintillation, speckle, lucky imaging and a closed loop with a Shack-Hartmann sensor
 
 ## All notebooks
 
@@ -121,56 +121,44 @@ All notebooks use the pyoptics convention $\exp(i(\mathbf{k}\cdot\mathbf{r} - \o
 ## Running
 
 <!-- docs:running-start -->
-You need an installation of pyoptics as described in the main README, plus
-matplotlib, Jupyter and (for notebook 12) ipywidgets, all contained in the
-`notebooks` extra:
+### Setup
+
+Install pyoptics as described in the main README, with the `notebooks` extra
+(matplotlib, JupyterLab and ipywidgets) and preferably the `fast` extra
+(numba), then start JupyterLab:
 
 ```bash
-pip install -e ".[notebooks]"
+pip install -e ".[notebooks,fast]"
 jupyter lab notebooks/
 ```
 
-The widgets of notebook 12 only work with a running kernel; static viewers
-such as GitHub show the static figures stored below each interactive cell.
+Notebook 12 (interactive layer stacks) has widgets, which only work with a
+running kernel. Static viewers such as GitHub show the figures stored below
+each interactive cell instead.
 
-Run times on an ordinary laptop range from a few seconds to about a minute per
-notebook (longest: 01 and 05), with these exceptions:
+### Run times
 
-- about 5 minutes: 32 (lithography toolbox, many focus-exposure matrices and
-  through-pitch series), 41 (telecentricity, some 200 polarization ray
-  traces over the slit)
-- about 3 minutes: 21 (rays to waves, angular spectrum propagation to many
-  planes), 28 (phase retrieval, many HIO runs), 47 (rays and waves,
-  propagation to many planes and sums of 7 800 Gaussian beamlets), 70
-  (Monte Carlo tolerancing, about 3 500 fully traced lenses)
-- about 2 minutes: 20 (polarization ray trace), 33 (lens aberrations, ray
-  traces over the slit and Zernike sensitivities)
-- about 2.5 minutes: 52 (Abbe image formation, partially coherent images
-  summed over thousands of source points)
-- about 3 minutes: 56 (Gaussian beam decomposition, sums of 9 000 beamlets
-  over the pinhole plane)
-- about 1.5 minutes: 09 (mode analysis, basis fits and large LG expansions),
-  25 (Shack-Hartmann vs. phase diversity), 76 (schlieren and knife-edge
-  tests, a WPM run through a candle plume), 26 (holography, many refocusing
-  runs on 1024² padded grids), 31 (vectorial imaging lithography), 37 (mask
-  models, RCWA over a grid of pitches and duty cycles), 45 (Zernike gallery,
-  fifteen lenses tuned, traced and propagated through focus), 53 (phase
-  contrast and DIC), 55 (Fourier ptychography, many reconstructions)
+Most notebooks run in under a minute on an ordinary laptop. These take longer:
 
-Notebooks 14 (coated laser mirror), 24 (radius interferometer), 27
-(holographic microscopy), 34 (Hopkins/SOCS), 35 (resist), 36 (rigorous mask),
-38 (Jones pupils) and 54 (confocal microscopy) take 20 to 30 seconds, 39
-(source optimization) and 40 (OPC) about 10 seconds, 69 (optical vortices) about 30 seconds, 73 (wavefront shaping, a WPM transmission matrix of 256 runs) about 2 minutes, 78 (super-resolution microscopy) about a minute, 79 (lensless imaging, ADMM deconvolutions) about 45 seconds, 80 (carpet cloak, some 90 FDFD solves) about 7 minutes, 82 (optical coherence tomography, three B-scans of 400 A-scans) about 2.5 minutes, 81 (ultrashort pulses, lenses traced at 160 wavelengths) about 35 seconds, 83 (étendue, some 20 million Monte Carlo rays) about 25 seconds, 84 (nonimaging concentrators) about 25 seconds with numba, 85 (Köhler and critical illumination, backward ray tracing) about 50 seconds, 71 (rainbows and glories, Mie series for 36 wavelengths) about 1.5 minutes, 77 (GRIN optics, WPM rods and FDFD lenses) about 1.5 minutes; 75 (optical tweezers, exact Mie forces in a focus for many bead sizes, NAs and indices) about 8 minutes with numba; 57 (FDTD basics)
-takes about a minute, 59 (FDTD with metals) about 3 minutes, 60 (FDTD
-photonic circuits) about 4 minutes, 62 (FDTD periodic structures) about
-5 minutes, 63 (FDTD devices) about 8 minutes, 64 (3D FDTD) about 5 minutes, 65 (FDTD mask model) about 6 minutes and 67 (limaçon microcavity) about 3 minutes with numba; 66 (FDFD basics) takes under a minute; 68 (Bessel and Airy beams, angular spectrum propagation to some 750 planes) takes about 2 minutes and 72 (twinkling stars and adaptive optics) about 3 minutes
-(`pip install pyoptics[fast]`).
+| Run time | Notebooks |
+|---|---|
+| 7–8 min | 63 FDTD devices\*, 75 optical tweezers\*, 80 carpet cloak |
+| 5–6 min | 32 lithography toolbox, 41 telecentricity, 62 FDTD periodic structures\*, 64 3D FDTD\*, 65 FDTD mask model\* |
+| 3–4 min | 21 rays to waves, 28 phase retrieval, 47 rays and waves, 56 Gaussian beam decomposition, 59 FDTD with metals\*, 60 FDTD photonic circuits\*, 67 limaçon microcavity\*, 70 Monte Carlo tolerancing, 72 twinkling stars and adaptive optics |
+| 2–2.5 min | 20 polarization ray trace, 33 litho lens aberrations, 52 Abbe image formation, 68 Bessel and Airy beams, 73 wavefront shaping, 82 optical coherence tomography |
+| 1–1.5 min | 01 propagation, 05 WPM, 09 mode analysis, 25 Shack-Hartmann vs. phase diversity, 26 holography, 31 vectorial imaging lithography, 37 mask models, 45 Zernike gallery, 53 phase contrast and DIC, 55 Fourier ptychography, 57 FDTD basics\*, 71 rainbows and glories, 76 schlieren and knife-edge, 77 GRIN optics, 78 super-resolution microscopy |
 
-The FFTs (pyoptics.fft) use all CPU cores; FFT-heavy notebooks such as 04
-(chirp-z transform) and 26 (holography) run about 30 to 45 % faster than with
-single threaded FFTs. Set `pyoptics.fft.workers = 1` to use a single core.
+\* Time with numba (the `fast` extra). Without it, the FDTD notebooks (57 to
+67) and 75 are much slower, and so are the ray tracing and illumination
+notebooks.
 
-To re-execute all notebooks and store their outputs:
+The FFTs (`pyoptics.fft`) use all CPU cores, which makes FFT-heavy notebooks
+such as 04 and 26 about 30 to 45 % faster. Set `pyoptics.fft.workers = 1` to
+use a single core.
+
+### Re-executing all notebooks
+
+To run all notebooks and store their outputs:
 
 ```bash
 jupyter nbconvert --to notebook --execute --inplace notebooks/*.ipynb
