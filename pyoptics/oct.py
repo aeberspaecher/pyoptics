@@ -9,13 +9,13 @@ reference arm (a mirror at the distance z_R) and a sample arm. The sample
 reflects with the wavenumber dependent amplitude r_S(k), which holds the
 depths of all its reflectors as phases exp(2ikz). With the field convention
 of `thin_films` (exp(i(kz - omega t)), a path z adds exp(+ikz)), the
-detector sees
+detector sees::
 
-    I(k) = S(k) |r_R exp(2ikz_R) + r_S(k) exp(2ikz_S)|**2
+    I(k) = S(k) abs(r_R exp(2ikz_R) + r_S(k) exp(2ikz_S))**2
 
 for the power spectrum S(k) of the source (the constant losses of the beam
 splitter are left out). Expanded, it is the sum of the "DC" term
-S(|r_R|**2 + |r_S|**2), which holds the autocorrelation of the sample
+S(abs(r_R)**2 + abs(r_S)**2), which holds the autocorrelation of the sample
 reflectors, and the cross term 2 S Re(r_R* r_S exp(2ik(z_S - z_R))), which
 holds their depths relative to the reference.
 
@@ -51,7 +51,7 @@ Analytic results:
   sqrt(1 + (phi_2 w**2/(8 ln2))**2) (Hitzenberger et al.).
 - `sd_td_snr_ratio()`: for the same exposure and shot noise, SD-OCT has a
   signal-to-noise ratio higher by the number of depths it measures in
-  parallel, L/int |gamma|**2 dz (Leitgeb et al., de Boer et al., Choma
+  parallel, L/int abs(gamma)**2 dz (Leitgeb et al., de Boer et al., Choma
   et al.).
 
 `stack_reflection()` computes r_S(k) of a layered sample with
@@ -229,7 +229,7 @@ def depth_axis(k, n_fft=None):
 
 def spectral_interferogram(k, spectrum, r_sample, z_sample=0.0, r_ref=1.0, z_ref=0.0):
     """Spectrum at the detector of a Michelson interferometer,
-    S |r_R exp(2ikz_R) + r_S exp(2ikz_S)|**2.
+    S abs(r_R exp(2ikz_R) + r_S exp(2ikz_S))**2.
 
     Parameters
     ----------
@@ -311,7 +311,7 @@ def a_scan(interferogram, k, background=None, window=None, norm=None, n_fft=None
         Apodization over k (e.g. np.hanning(len(k))).
     norm : number, optional
         The transform is divided by it, default the sum of the window. Pass
-        sum(spectrum*window) to get the reflection amplitude |r_R r_S| as
+        sum(spectrum*window) to get the reflection amplitude abs(r_R r_S) as
         the peak height of a single reflector.
     n_fft : int, optional
         FFT length (zero padding for finer depth sampling).
@@ -366,8 +366,8 @@ def sensitivity_rolloff(z, pixel_width, resolution=0.0):
 def time_domain_signal(k, spectrum, r_sample, z_ref, z_sample=0.0, r_ref=1.0, chunk=2048):
     """TD-OCT detector signal: the interferogram integrated over k, for each
     reference position, divided by the integral of S(k) (a mirror sample
-    gives fringes of amplitude 2|r_R r_S| on the background
-    |r_R|**2 + |r_S|**2).
+    gives fringes of amplitude 2 abs(r_R r_S) on the background
+    abs(r_R)**2 + abs(r_S)**2).
 
     Parameters
     ----------
@@ -407,7 +407,7 @@ def time_domain_signal(k, spectrum, r_sample, z_ref, z_sample=0.0, r_ref=1.0, ch
 
 def demodulate(signal):
     """Complex envelope of TD-OCT fringes, half the analytic signal of the
-    signal minus its mean, so that a mirror gives the peak |r_R r_S| as in
+    signal minus its mean, so that a mirror gives the peak abs(r_R r_S) as in
     `a_scan()`.
 
     Parameters
@@ -638,7 +638,7 @@ def compensate_dispersion(interferogram, k, k0, coefficients):
 
 
 def sharpness(a_scan_values):
-    """Sharpness sum |A|**4/(sum |A|**2)**2 of an A-scan: larger for fewer,
+    """Sharpness sum abs(A)**4/(sum abs(A)**2)**2 of an A-scan: larger for fewer,
     narrower peaks.
 
     Parameters
@@ -704,7 +704,7 @@ def optimize_dispersion(interferogram, k, k0, width, order=3, window=None, n_fft
 
 def sd_td_snr_ratio(depth_range, resolution):
     """Shot noise limited SNR of SD-OCT over TD-OCT for the same source
-    power and A-scan time: L/int |gamma(z)|**2 dz for a Gaussian coherence
+    power and A-scan time: L/int abs(gamma(z))**2 dz for a Gaussian coherence
     function of FWHM `resolution` scanned over the depth range L,
     L/(sqrt(pi/(8 ln2)) l_c), about the number of resolvable depths.
 
@@ -713,7 +713,7 @@ def sd_td_snr_ratio(depth_range, resolution):
     depth_range : number
         Depth L scanned by the TD reference mirror.
     resolution : number
-        FWHM l_c of |gamma|.
+        FWHM l_c of abs(gamma).
 
     Returns
     -------
