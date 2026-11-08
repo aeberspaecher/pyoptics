@@ -265,7 +265,7 @@ def gaussian_broadening(tau_fwhm, gdd):
 
 
 def optimal_input_duration(gdd):
-    """Input FWHM sqrt(4 ln 2 |GDD|) of a Gaussian pulse that comes out
+    """Input FWHM sqrt(4 ln 2 abs(GDD)) of a Gaussian pulse that comes out
     shortest after the GDD (it comes out sqrt(2) times longer).
 
     Parameters
@@ -602,12 +602,13 @@ def focal_spectrum(system, wavelengths_nm, r, z=0.0, n_rho=400, amplitude=None):
     rho) are traced to the last surface. Every exit point P carries the
     phase k OPL(P); the field at a point X near the axial image point F of
     the system (at its own wavelength) follows from a Kirchhoff integral
-    over the exit surface, with |X - P| expanded to first order in the
-    radius r of X (a Debye type integral):
+    over the exit surface, with the distance from P to X expanded to first
+    order in the radius r of X (a Debye type integral):
 
         E(r, z) = (k/i) int A(rho) exp(ik W) J0(k rho_P r/D) rho drho / D,
 
-    W = OPL(P) + |F + z - P|, D = |F + z - P| and rho_P the height of P.
+    W = OPL(P) + D, D the distance from P to the point F + z and rho_P the
+    height of P.
     Amplitudes are those of the entrance pupil (no apodization), which is
     fine at moderate NA. The absolute phase is kept, so a sum over the
     wavelengths gives the pulse in the focus with its group delays and
