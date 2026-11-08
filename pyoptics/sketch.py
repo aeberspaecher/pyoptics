@@ -100,6 +100,13 @@ Setup sketches for the other example notebooks:
   achromat; pulse_front_tilt(): the tilted pulse front behind a prism or a
   grating (notebook 81).
 
+- approximation_map(): the levels of approximation from Maxwell's
+  equations to rays and Fraunhofer diffraction and the modules for each;
+  sign_conventions(): axes, radii, thicknesses, ray and field angles and
+  the two mirror conventions; diffraction_geometry(): the Rayleigh-Sommerfeld
+  integral; eikonal_wavefronts(): wavefronts of constant optical path and
+  the rays normal to them (notebook 00).
+
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
 
@@ -150,7 +157,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "wavefront_shaping_setup", "foucault_tester", "schlieren_system",
            "sim_microscope", "sted_microscope",
            "grin_rod_imaging", "road_mirage", "lensless_camera", "optical_tweezers", "ashkin_rays",
-           "momentum_balance"]
+           "momentum_balance", "pulse_through_lens", "pulse_front_tilt",
+           "approximation_map", "sign_conventions", "diffraction_geometry", "eikonal_wavefronts"]
 
 
 GLASS = "#cfe3f3"
@@ -3721,3 +3729,312 @@ def pulse_front_tilt(ax, element="prism", title=None):
           ha="left")
     label(ax, P0[0] + 1.0, P0[1] + 0.95, "pulse front =\nphase front", fontsize=8)
     _finish(ax, (P0[0] - 0.3, O[0] + 3.2), (-1.5, 1.45), title)
+
+
+# ---------------------------------------------------------------------------
+# Foundations and conventions (notebook 00)
+# ---------------------------------------------------------------------------
+
+def _box(ax, x, y, w, h, title, lines=(), modules=None, color="#eef4fa", edgecolor=EDGE,
+         fontsize=8.5):
+    """A rounded box with a bold title, some lines of text and a line of
+    module names in a monospaced font (the approximation map)."""
+
+    mpatches = _patches()
+    ax.add_patch(mpatches.FancyBboxPatch((x - w/2, y - h/2), w, h,
+                                         boxstyle="round,pad=0.02,rounding_size=0.15",
+                                         facecolor=color, edgecolor=edgecolor, lw=1.1, zorder=3))
+    rows = [(title, dict(weight="bold", fontsize=fontsize + 0.5))]
+    rows += [(t, dict(fontsize=fontsize)) for t in lines]
+    if modules:
+        rows.append((modules, dict(fontsize=fontsize - 0.5, family="monospace", color="#1d4f7a")))
+    n = len(rows)
+    for i, (t, kw) in enumerate(rows):
+        yy = y + h/2*(0.62 - 1.24*i/max(n - 1, 1)) if n > 1 else y
+        ax.text(x, yy, t, ha="center", va="center", zorder=4, **kw)
+
+
+def approximation_map(ax, title=None):
+    """The levels of approximation from Maxwell's equations down to rays and
+    Fraunhofer diffraction, with the pyoptics modules that work on each
+    level (notebook 00).
+
+    Every arrow names the assumption that leads from one level to the next.
+    Polarization (Jones and Stokes vectors) branches off where the field is
+    a sum of transverse plane waves, interfaces and thin films where the
+    medium is piecewise homogeneous in planar layers; both are exact
+    solutions of Maxwell's equations under these assumptions.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    W, H = 4.7, 1.25
+    boxes = {
+        "maxwell": (8.0, 10.0, "Maxwell's equations",
+                    ("∇×E = −∂B/∂t,  ∇×H = J + ∂D/∂t",),
+                    "fdtd  (time domain, any structure)"),
+        "vector": (8.0, 7.9, "vector Helmholtz equation",
+                   ("∇×∇×E − k₀² n²(r) E = 0",),
+                   "fdfd  litho.rcwa  analytical (Mie)"),
+        "layers": (2.2, 7.9, "planar interfaces and layers",
+                   ("Fresnel coefficients, 2×2 matrices",),
+                   "interfaces  thin_films  coatings"),
+        "jones": (13.6, 7.9, "polarization",
+                  ("E⊥ = (E_x, E_y): Jones, Stokes, Mueller",),
+                  "polarization  litho.jones_pupil"),
+        "scalar": (8.0, 5.8, "scalar Helmholtz equation",
+                   ("(∇² + k₀² n²(r)) U = 0",),
+                   "wpm  fdfd (2D: Ez or Hz exactly)"),
+        "angular": (4.6, 3.7, "angular spectrum = Rayleigh-Sommerfeld",
+                    ("U = Σ A(k⊥) exp(i(k⊥·r⊥ + k_z z))",),
+                    "propagators (also vectorial)  tilted"),
+        "eikonal": (11.4, 3.7, "eikonal and rays",
+                    ("|∇S|² = n²,  d/ds(n dr/ds) = ∇n",),
+                    "raytrace  grin  raywave"),
+        "fresnel": (4.6, 1.6, "Fresnel (paraxial) diffraction",
+                    ("2ik ∂_z u + ∇⊥² u = 0: Gaussian beams",),
+                    "propagators.fresnel_*  beams  modes"),
+        "abcd": (11.4, 1.6, "paraxial rays",
+                 ("(y, nu) → ABCD,  q-law for beams",),
+                 "abcd  delano  raytrace.paraxial()"),
+        "fraun": (4.6, -0.5, "Fraunhofer diffraction, imaging",
+                  ("far field = Fourier transform of the pupil",),
+                  "propagators.fraunhofer  imaging  litho"),
+    }
+    colors = {"maxwell": "#fde9c9", "layers": "#e6f2e3", "jones": "#efe6f5"}
+    widths = {"layers": 4.2, "jones": 4.2}
+    for key, (x, y, t, lines, mods) in boxes.items():
+        _box(ax, x, y, widths.get(key, W), H, t, lines, mods,
+             color=colors.get(key, "#eef4fa"))
+
+    def link(a, b, text, side="right", dx=0.0, ls="-", rad=0.0, fontsize=7.8):
+        xa, ya = boxes[a][:2]
+        xb, yb = boxes[b][:2]
+        if abs(ya - yb) < 1e-9:      # horizontal link
+            sgn = np.sign(xb - xa)
+            p0, p1 = (xa + sgn*widths.get(a, W)/2, ya), (xb - sgn*widths.get(b, W)/2, yb)
+        else:
+            p0, p1 = (xa + dx, ya - H/2), (xb + dx, yb + H/2)
+        ax.annotate("", xy=p1, xytext=p0, zorder=2,
+                    arrowprops=dict(arrowstyle="-|>", color="0.3", lw=1.0, ls=ls,
+                                    mutation_scale=10, shrinkA=1, shrinkB=1,
+                                    connectionstyle="arc3,rad=%g" % rad))
+        xm, ym = (p0[0] + p1[0])/2, (p0[1] + p1[1])/2
+        if abs(ya - yb) < 1e-9:
+            ax.text(xm, ym - 0.1, text, fontsize=fontsize, color="0.25", style="italic",
+                    ha="center", va="top", zorder=4)
+            return
+        off = 0.12 if side == "right" else -0.12
+        ax.text(xm + off, ym, text, fontsize=fontsize, color="0.25", style="italic",
+                ha="left" if side == "right" else "right", va="center", zorder=4)
+
+    link("maxwell", "vector", "time harmonic exp(−iωt),\nlinear isotropic medium")
+    link("maxwell", "jones", "transverse plane waves", rad=-0.15)
+    link("vector", "layers", "planar\nlayers")
+    link("vector", "scalar", "n varies slowly over λ:\ncomponents decouple")
+    link("scalar", "angular", "homogeneous n", side="left")
+    link("scalar", "eikonal", "λ → 0:  U = A exp(ik₀S)")
+    link("angular", "fresnel", "paraxial: k_z ≈ k − k⊥²/2k", side="left")
+    link("eikonal", "abcd", "small angles and heights")
+    link("fresnel", "fraun", "far field: N_F = a²/λz ≪ 1\n(or the focal plane of a lens)",
+         side="left")
+    ax.annotate("", xy=(11.4 - W/2, 1.6), xytext=(4.6 + W/2, 1.6), zorder=2,
+                arrowprops=dict(arrowstyle="<|-|>", color="0.45", lw=1.0, ls="--",
+                                mutation_scale=10))
+    ax.text(8.0, 1.75, "same matrices", fontsize=7.8, color="0.35", style="italic",
+            ha="center", va="bottom")
+    ax.annotate("", xy=(11.4 - W/2, 3.7), xytext=(4.6 + W/2, 3.7), zorder=2,
+                arrowprops=dict(arrowstyle="<|-|>", color="0.45", lw=1.0, ls="--",
+                                mutation_scale=10))
+    ax.text(8.0, 3.85, "rays ↔ waves:\nstationary phase", fontsize=7.8, color="0.35",
+            style="italic", ha="center", va="bottom")
+    _finish(ax, (-0.1, 16.1), (-1.4, 10.9), title)
+
+
+def sign_conventions(ax, title=None):
+    """Coordinates and sign conventions of pyoptics in one meridional
+    section (notebook 00): the axes, the direction of propagation, the
+    signs of radii, thicknesses, ray angles and field angles, and the two
+    mirror conventions of `abcd` (unfolded) and `raytrace` (real geometry).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    # axes
+    z0, y0 = -1.7, -1.85
+    arrow(ax, z0, y0, z0 + 1.0, y0, color="0.1", lw=1.4)
+    arrow(ax, z0, y0, z0, y0 + 1.0, color="0.1", lw=1.4)
+    ax.add_patch(mpatches.Circle((z0, y0), 0.09, facecolor="white", edgecolor="0.1", lw=1.2,
+                                 zorder=5))
+    ax.plot(z0, y0, "o", color="0.1", ms=2.5, zorder=6)
+    label(ax, z0 + 1.12, y0, "z", fontsize=11, ha="left")
+    label(ax, z0, y0 + 1.15, "y", fontsize=11, va="bottom")
+    label(ax, z0 - 0.15, y0 - 0.2, "x (towards you)", fontsize=8, ha="right", va="top")
+    ax.plot([-1.2, 13.3], [0, 0], color="0.6", lw=0.8, ls="-.", zorder=1)
+    label(ax, 9.6, 0.12, "optical axis", fontsize=8, ha="right", va="bottom", color="0.4")
+    # incoming plane wave with tilted field
+    field = np.deg2rad(12)
+    for yy in (0.55, 1.0, 1.45):
+        ax.plot([-1.0, 1.4], [yy - 0.9 - 2.4*np.tan(field), yy - 0.9], color=ILLUMINATION, lw=1.0)
+    label(ax, 0.6, -1.15, "field > 0: rays go up (+y)", fontsize=8, color="#8a6300")
+    # wave crest moving in +z
+    zz = np.linspace(-1.0, 1.5, 200)
+    ax.plot(zz, 1.85 + 0.18*np.cos(2*np.pi*zz/0.5), color=IMAGING, lw=1.0)
+    arrow(ax, 0.9, 2.25, 1.6, 2.25, color=IMAGING, lw=1.2)
+    label(ax, 0.25, 2.55, "exp(i(kz − ωt)) travels in +z", fontsize=8.5, color=IMAGING)
+    # biconvex lens with its two centres of curvature
+    zv1, zv2, h, R1, R2 = 3.0, 3.9, 1.3, 2.2, -2.2
+    yy = np.linspace(-h, h, 61)
+    s1 = zv1 + R1 - np.sqrt(R1**2 - yy**2)
+    s2 = zv2 + R2 + np.sqrt(R2**2 - yy**2)
+    ax.add_patch(mpatches.Polygon(np.r_[np.c_[s1, yy], np.c_[s2[::-1], yy[::-1]]], closed=True,
+                                  facecolor=GLASS, edgecolor=EDGE, lw=1.1, zorder=3))
+    for zv, R, name, yl in ((zv1, R1, "R₁ > 0", -0.45), (zv2, R2, "R₂ < 0", -0.95)):
+        c = zv + R
+        ax.plot(c, 0, "+", color="0.2", ms=8, mew=1.2, zorder=5)
+        arrow(ax, zv, yl, c, yl, color="0.3", lw=0.9)
+        label(ax, (zv + c)/2, yl - 0.18, name, fontsize=8.5, va="top")
+    label(ax, zv1 + R1, 0.2, "C₁", fontsize=8, va="bottom")
+    label(ax, zv2 + R2, 0.2, "C₂", fontsize=8, va="bottom")
+    label(ax, 3.45, 1.75, "R > 0: centre of\ncurvature in +z", fontsize=8.5)
+    # thickness
+    arrow(ax, zv1, -1.55, zv2, -1.55, style="<->", color="0.3", lw=0.9)
+    label(ax, 3.45, -1.75, "d > 0", fontsize=8.5, va="top")
+    # a ray with positive slope behind the lens
+    zr0, zr1 = 6.0, 8.2
+    ax.plot([zr0, zr1], [-0.3, 0.7], color=IMAGING, lw=1.4, zorder=4)
+    ax.plot([zr0, zr0 + 1.2], [-0.3, -0.3], color="0.5", lw=0.7, ls=":")
+    a = np.arctan2(1.0, zr1 - zr0)
+    arc = np.linspace(0, a, 20)
+    ax.plot(zr0 + 0.9*np.cos(arc), -0.3 + 0.9*np.sin(arc), color=IMAGING, lw=0.8)
+    label(ax, 7.4, 1.25, "u = dy/dz > 0\n(ABCD: reduced angle n·u)", fontsize=8, color=IMAGING)
+    # concave mirror at the end: two conventions
+    zm, Rm, hm = 12.2, -2.6, 1.3
+    ym = np.linspace(-hm, hm, 61)
+    sm = zm + Rm + np.sqrt(Rm**2 - ym**2)
+    ax.plot(sm, ym, color="0.2", lw=2.4, zorder=4)
+    for yh in np.linspace(-hm, hm, 9):
+        zs = zm + Rm + np.sqrt(Rm**2 - yh**2)
+        ax.plot([zs, zs + 0.15], [yh, yh + 0.1], color="0.2", lw=0.7)
+    for yb in (-0.8, 0.8):
+        zs = zm + Rm + np.sqrt(Rm**2 - yb**2)
+        ax.plot([9.6, zs], [yb, yb], color=LASER, lw=1.0)
+        ax.plot([zs, zm + Rm/2], [yb, 0], color=LASER, lw=1.0, ls="--")
+    ax.plot(zm + Rm, 0, "+", color="0.2", ms=8, mew=1.2, zorder=5)
+    label(ax, zm + Rm, -0.2, "C", fontsize=8, va="top")
+    label(ax, 11.4, 2.0, "concave mirror:\nraytrace R < 0 (real geometry,\nthicknesses behind it < 0)\n"
+          "abcd R > 0 (unfolded, f = R/2)", fontsize=8)
+    _finish(ax, (-3.2, 13.5), (-2.4, 2.9), title)
+
+
+def diffraction_geometry(ax, title=None):
+    """Geometry of the Rayleigh-Sommerfeld diffraction integral (notebook
+    00): a plane wave on an aperture in the plane z = 0, secondary wavelets
+    exp(ikr)/r from its points, the distance r and the angle theta from a
+    point Q of the aperture to the observation point P.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    a = 1.0
+    # screen with an opening
+    for y_a, y_b in ((a, 2.0), (-2.0, -a)):
+        ax.add_patch(_patches().Rectangle((-0.06, y_a), 0.12, y_b - y_a, facecolor=METAL,
+                                          edgecolor="none", zorder=3))
+    # incident plane wave
+    for z in (-2.2, -1.7, -1.2, -0.7):
+        ax.plot([z, z], [-1.6, 1.6], color=ILLUMINATION, lw=1.0)
+    arrow(ax, -2.4, 1.85, -1.3, 1.85, color="#8a6300", lw=1.2)
+    label(ax, -1.85, 2.1, "U₀ exp(ikz)", fontsize=9, color="#8a6300")
+    # wavelets
+    for yq in np.linspace(-0.8, 0.8, 5):
+        for rr in (0.35, 0.7, 1.05):
+            th = np.linspace(-np.pi/2, np.pi/2, 60)
+            ax.plot(rr*np.cos(th), yq + rr*np.sin(th), color=IMAGING, lw=0.6, alpha=0.45)
+    # Q, P, r, theta
+    Q, P = np.array([0.0, -0.45]), np.array([5.2, 1.4])
+    ax.plot(*Q, "o", color="0.1", ms=4, zorder=6)
+    ax.plot(*P, "o", color=LASER, ms=6, zorder=6)
+    arrow(ax, Q[0], Q[1], P[0], P[1], color="0.2", lw=1.1)
+    label(ax, Q[0] - 0.15, Q[1] - 0.05, "Q = (x′, y′, 0)", fontsize=9, ha="right")
+    label(ax, P[0] + 0.15, P[1] + 0.05, "P = (x, y, z)", fontsize=9, ha="left", color=LASER)
+    label(ax, 2.5, 0.8, "r", fontsize=11, style="italic")
+    ax.plot([Q[0], Q[0] + 2.0], [Q[1], Q[1]], color="0.5", lw=0.8, ls=":")
+    th = np.arctan2(P[1] - Q[1], P[0] - Q[0])
+    arc = np.linspace(0, th, 20)
+    ax.plot(Q[0] + 1.4*np.cos(arc), Q[1] + 1.4*np.sin(arc), color="0.3", lw=0.8)
+    label(ax, Q[0] + 1.65, Q[1] + 0.2, "θ", fontsize=10)
+    label(ax, 0.0, -2.25, "aperture, z = 0", fontsize=9, va="top")
+    ax.plot([-2.6, 6.4], [0, 0], color="0.6", lw=0.7, ls="-.", zorder=1)
+    label(ax, 6.4, -0.15, "z", fontsize=10, ha="right", va="top")
+    label(ax, 3.1, -1.25, "U(P) = (1/iλ) ∫ U(Q) cos θ exp(ikr)/r dA\n"
+          "(Rayleigh-Sommerfeld I, kr ≫ 1)", fontsize=9)
+    label(ax, 3.1, -1.95, "Green's function of (∇² + k²): exp(ikr)/(4πr)", fontsize=8.5, color="0.35")
+    _finish(ax, (-2.8, 6.6), (-2.5, 2.4), title)
+
+
+def eikonal_wavefronts(ax, n2=1.5, title=None):
+    """Rays and wavefronts of a point source in front of a glass block
+    (notebook 00): the wavefronts are the surfaces of constant optical path
+    S, computed along the refracted rays, and the rays are their normals
+    (grad S = n s). In the glass the wavefronts are closer by 1/n, and they
+    are no longer spheres: the virtual source of the refracted rays is
+    smeared out (spherical aberration of a plane surface).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    n2 : number, optional
+        Index of the block.
+    title : str, optional
+    """
+
+    zs, zi, z_end, h = 0.0, 2.0, 6.0, 1.7
+    ax.add_patch(_patches().Rectangle((zi, -h - 0.15), z_end - zi, 2*h + 0.3, facecolor=GLASS,
+                                      edgecolor=EDGE, lw=1.0, zorder=1))
+    point_source(ax, zs, 0.0, color=ILLUMINATION, size=50)
+    angles = np.deg2rad(np.linspace(-38, 38, 13))
+    rays = []
+    for a in angles:
+        y_i = (zi - zs)*np.tan(a)
+        a2 = np.arcsin(np.sin(a)/n2)
+        y_e = y_i + (z_end - zi)*np.tan(a2)
+        rays.append((a, y_i, a2, y_e))
+        ax.plot([zs, zi, z_end], [0, y_i, y_e], color=IMAGING, lw=0.8, alpha=0.8, zorder=2)
+    # wavefronts: points of equal optical path S along the rays
+    step = 0.45
+    for S in np.arange(step, 8.0, step):
+        pts = []
+        for a, y_i, a2, y_e in rays:
+            L1 = (zi - zs)/np.cos(a)
+            if S <= L1:
+                pts.append((zs + S*np.cos(a), S*np.sin(a)))
+            else:
+                s2 = (S - L1)/n2
+                if zi + s2*np.cos(a2) > z_end:
+                    pts = None
+                    break
+                pts.append((zi + s2*np.cos(a2), y_i + s2*np.sin(a2)))
+        if pts is None:
+            continue
+        pts = np.array(pts)
+        th = np.linspace(angles[0], angles[-1], 60)
+        L1 = (zi - zs)/np.cos(th)
+        if S <= (zi - zs):          # whole wavefront still in air: a circle arc
+            ax.plot(zs + S*np.cos(th), S*np.sin(th), color="0.25", lw=1.0, zorder=3)
+        else:
+            ax.plot(pts[:, 0], pts[:, 1], color="0.25", lw=1.0, zorder=3)
+    label(ax, 1.0, 1.85, "S = const", fontsize=9)
+    label(ax, 4.0, 1.95, "n = %.1f: wavefronts closer by 1/n" % n2, fontsize=9, va="bottom")
+    label(ax, 4.0, -1.95, "rays ⊥ wavefronts:  ∇S = n ŝ,  |∇S| = n", fontsize=9, va="top")
+    _finish(ax, (-0.5, 6.3), (-2.6, 2.5), title)

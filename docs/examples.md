@@ -5,6 +5,20 @@ is easy to follow, and compare the numerics with analytic results wherever
 an analytic solution exists. They are shown here with their stored outputs;
 to run them yourself, see [Running the notebooks](#running-the-notebooks).
 
+## Foundations and conventions
+
+From Maxwell's equations down to rays, with the modules for each level of
+approximation and numerical checks of all sign conventions.
+
+- {doc}`notebooks/00_foundations_conventions`
+
+```{toctree}
+:hidden:
+:caption: Foundations
+
+notebooks/00_foundations_conventions
+```
+
 ## Propagation and diffraction
 
 - {doc}`notebooks/01_propagation`
