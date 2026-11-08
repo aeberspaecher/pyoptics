@@ -85,6 +85,11 @@ def test_paraxial_ray_imaging():
     sketch.rainbow_observer,
     lambda ax: sketch.rainbow_observer(ax, sun_elevation=10.0),
     sketch.glory_aircraft,
+    sketch.foucault_tester,
+    lambda ax: sketch.foucault_tester(ax, test="wire"),
+    lambda ax: sketch.foucault_tester(ax, test="ronchi"),
+    sketch.schlieren_system,
+    lambda ax: sketch.schlieren_system(ax, method="shadowgraph"),
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()

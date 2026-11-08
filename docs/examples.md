@@ -142,6 +142,7 @@ notebooks/79_lensless_coded_aperture_imaging
 - {doc}`notebooks/22_phase_unwrapping`
 - {doc}`notebooks/23_interferometry`
 - {doc}`notebooks/24_radius_interferometer`
+- {doc}`notebooks/76_schlieren_knife_edge`
 - {doc}`notebooks/74_coherence_stellar_interferometry`
 - {doc}`notebooks/25_shack_hartmann_vs_phase_diversity`
 - {doc}`notebooks/26_holography`
@@ -159,6 +160,7 @@ notebooks/18_image_processing
 notebooks/22_phase_unwrapping
 notebooks/23_interferometry
 notebooks/24_radius_interferometer
+notebooks/76_schlieren_knife_edge
 notebooks/74_coherence_stellar_interferometry
 notebooks/25_shack_hartmann_vs_phase_diversity
 notebooks/26_holography
