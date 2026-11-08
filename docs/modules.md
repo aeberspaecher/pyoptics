@@ -274,6 +274,13 @@ What each module does and how mature it is. Planned work is listed in
   gradient (traceable with `raytrace.System.trace()`), rays from local
   spectra (sampled Husimi function) and the Wigner function of a 1D field;
   structured rays from fields for the round trip through ray-traced optics
+- `grin`: new, tested: ray tracing through gradient-index media (the ray
+  equation in the parameter dt = ds/n, Runge-Kutta-Nyström after Sharma,
+  Kumar and Ghatak, with the optical path and exact end points on a stop
+  surface); media with closed form rays: Luneburg lens, Maxwell's
+  fish-eye, parabolic and hyperbolic secant rods, an exponential layer
+  (mirage), or any index function with a numerical gradient; checked
+  against all closed forms (notebook 77)
 - `fresnel`: Fresnel lenses, tested: a parent surface (sphere, conic,
   even asphere) collapsed into zones of constant pitch, constant depth or
   given radii, with curved or flat (conical) facets and drafted risers

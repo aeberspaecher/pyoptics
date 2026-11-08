@@ -104,6 +104,7 @@ notebooks/14_coated_laser_mirror
 - {doc}`notebooks/20_polarization_raytrace`
 - {doc}`notebooks/21_lens_focus_waves`
 - {doc}`notebooks/47_rays_and_waves`
+- {doc}`notebooks/77_grin_optics`
 - {doc}`notebooks/48_laser_head_doe`
 - {doc}`notebooks/49_eye_aberrometer`
 - {doc}`notebooks/51_fresnel_lenses`
@@ -124,6 +125,7 @@ notebooks/19_ray_tracing
 notebooks/20_polarization_raytrace
 notebooks/21_lens_focus_waves
 notebooks/47_rays_and_waves
+notebooks/77_grin_optics
 notebooks/48_laser_head_doe
 notebooks/49_eye_aberrometer
 notebooks/51_fresnel_lenses
