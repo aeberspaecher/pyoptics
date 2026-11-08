@@ -12,6 +12,12 @@ J. W. Goodman, "Introduction to Fourier Optics", 4th ed., W. H. Freeman (2017).
 
 V. N. Mahajan, "Optical Imaging and Aberrations, Part II: Wave Diffraction
 Optics", 2nd ed., SPIE Press (2011).
+
+C. F. Bohren and D. R. Huffman, "Absorption and Scattering of Light by Small
+Particles", Wiley (1983) (Mie series, cylinders).
+
+W. J. Wiscombe, "Improved Mie scattering algorithms", Appl. Opt. 19,
+1505-1509 (1980) (number of terms of the Mie series).
 """
 
 import numpy as np
@@ -579,6 +585,77 @@ def mie_efficiencies(radius, n_sph, wl, n_medium=1.0, num_orders=None):
     q_sca = 2/x**2*np.sum((2*n + 1)*(np.abs(a)**2 + np.abs(b)**2))
 
     return q_ext, q_sca
+
+
+def mie_amplitudes(theta, radius, n_sph, wl, n_medium=1.0, num_orders=None, chunk=None):
+    """Far field scattering amplitudes S1, S2 of a sphere (Lorenz-Mie).
+
+    The scattered far field is ::
+
+        E_par  = exp(i k r)/(-i k r) S2(theta) E_par_inc,
+        E_perp = exp(i k r)/(-i k r) S1(theta) E_perp_inc,
+
+    with the components parallel and perpendicular to the scattering plane,
+    so that the differential cross sections are ``|S1|**2/k**2`` (incident
+    light polarized perpendicular to the scattering plane) and
+    ``|S2|**2/k**2`` (parallel to it); unpolarized light gives their mean.
+
+    Parameters
+    ----------
+    theta : array
+        Scattering angles (radians, 0: forward).
+    radius, n_sph, wl, n_medium :
+        See mie_coefficients().
+    num_orders : int, optional
+        Highest order. Default: Wiscombe's criterion x + 4.05 x**(1/3) + 2
+        for the size parameter x outside the sphere (the scattered field
+        needs no more orders; the inner field of mie_field() needs the
+        larger m x).
+    chunk : int, optional
+        Number of angles summed at once (memory: chunk times num_orders
+        numbers). Default: about 4 million numbers.
+
+    Returns
+    -------
+    S1, S2 : complex arrays (shape of theta)
+
+    Notes
+    -----
+    Bohren and Huffman [1]_, eq. (4.74), with the angular functions pi_n
+    and tau_n from their upward recurrence.
+
+    References
+    ----------
+    .. [1] C. F. Bohren and D. R. Huffman, "Absorption and Scattering of Light
+       by Small Particles", Wiley (1983), chapter 4.
+    """
+
+    if num_orders is None:
+        x = 2*np.pi*n_medium/wl*radius
+        num_orders = int(x + 4.05*x**(1/3) + 2)
+    n, a_n, b_n, _, _ = mie_coefficients(radius, n_sph, wl, n_medium, num_orders)
+    theta = np.asarray(theta, dtype=float)
+    mu = np.cos(theta).ravel()
+    w = (2*n + 1)/(n*(n + 1.0))
+    wa, wb = w*a_n, w*b_n
+    if chunk is None:
+        chunk = max(1, 4_000_000//len(n))
+    S1 = np.empty(mu.shape, dtype=complex)
+    S2 = np.empty(mu.shape, dtype=complex)
+    for start in range(0, len(mu), chunk):
+        m = mu[start:start + chunk]
+        pi_n = np.empty((len(n), len(m)))
+        pi_prev, pi_cur = np.zeros(len(m)), np.ones(len(m))     # pi_0, pi_1
+        for j in range(len(n)):
+            pi_n[j] = pi_cur
+            nn = j + 1
+            pi_prev, pi_cur = pi_cur, ((2*nn + 1)*m*pi_cur - (nn + 1)*pi_prev)/nn
+        pi_m1 = np.vstack([np.zeros(len(m)), pi_n[:-1]])
+        tau_n = n[:, None]*m*pi_n - (n[:, None] + 1)*pi_m1
+        S1[start:start + chunk] = wa @ pi_n + wb @ tau_n
+        S2[start:start + chunk] = wa @ tau_n + wb @ pi_n
+
+    return S1.reshape(theta.shape), S2.reshape(theta.shape)
 
 
 def mie_field(x, y, z, radius, n_sph, wl, n_medium=1.0, num_orders=None):

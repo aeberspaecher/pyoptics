@@ -66,6 +66,14 @@ Setup sketches for the other example notebooks:
   with an extended source, the van Cittert-Zernike theorem, Michelson's
   stellar interferometer, a Michelson interferometer for temporal coherence
   and a Hanbury Brown-Twiss intensity interferometer (notebook 74).
+- rainbow_observer(): sun behind the observer, the rain, the antisolar
+  point and the cones of the primary and secondary bow (notebook 71).
+- glory_aircraft(): the glory and the cloud bow around the shadow of an
+  aircraft on a cloud deck (notebook 71).
+- twinkling_star(): starlight through turbulent layers, shadow bands at
+  the ground, an eye and a telescope; adaptive_optics_system(): telescope,
+  deformable mirror, dichroic, Shack-Hartmann sensor, science camera and
+  the real-time loop (notebook 72).
 - wavefront_shaping_setup(): an SLM imaged onto a diffuser, a thick slab or
   a multimode fibre, a camera behind it and the feedback loop, optionally
   with the flat reference frame for measuring the transmission matrix
@@ -115,6 +123,7 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "spatial_filter", "vortex_interferometer", "mode_converter",
            "axicon_bessel", "cubic_phase_airy", "young_extended_source", "vcz_setup",
            "stellar_interferometer", "michelson_interferometer", "hbt_interferometer",
+           "rainbow_observer", "glory_aircraft", "twinkling_star", "adaptive_optics_system",
            "wavefront_shaping_setup"]
 
 
@@ -2245,6 +2254,367 @@ def hbt_interferometer(ax, title=None):
     label(ax, 0.0, 3.3, "no beam combination:\npaths need only match\nto ~ c/Δf (cm)",
           fontsize=8)
     _finish(ax, (-B/2 - 1.6, B/2 + 1.6), (-1.3, 4.7), title)
+
+SUN = "#e8a33d"
+BOW_RED = "#c0392b"
+BOW_VIOLET = "#6a3d9a"
+
+
+def _sun(ax, z, y, r=0.32):
+    mpatches = _patches()
+    ax.add_patch(mpatches.Circle((z, y), r, facecolor=SUN, edgecolor="#b97a1d", lw=1, zorder=4))
+    for a in np.linspace(0, 2*np.pi, 12, endpoint=False):
+        ax.plot([z + 1.25*r*np.cos(a), z + 1.6*r*np.cos(a)],
+                [y + 1.25*r*np.sin(a), y + 1.6*r*np.sin(a)], color=SUN, lw=1.2, zorder=4)
+
+
+def _person(ax, z, y, height=0.9, color="0.2"):
+    mpatches = _patches()
+    head = height/7
+    ax.add_patch(mpatches.Circle((z, y + height - head), head, facecolor=color,
+                                 edgecolor="none", zorder=5))
+    ax.plot([z, z], [y + 0.42*height, y + height - 2*head], color=color, lw=2.2, zorder=5)
+    for dz in (-0.12, 0.12):
+        ax.plot([z, z + dz*height], [y + 0.42*height, y], color=color, lw=2.0, zorder=5)
+        ax.plot([z, z + 1.4*dz*height], [y + 0.72*height, y + 0.5*height], color=color, lw=1.6,
+                zorder=5)
+
+    return z, y + height - head
+
+
+def rainbow_observer(ax, sun_elevation=25.0, title=None):
+    """Sketch of where a rainbow appears (the geometry of notebook 71).
+
+    The Sun shines from behind the observer onto a curtain of rain. The
+    line from the Sun through the observer's eye meets the ground at the
+    antisolar point, the centre of the bows. Drops that send their primary
+    rainbow ray to the eye lie on a cone of about 42 deg around this line
+    (red outside, violet inside), those of the secondary bow on a cone of
+    about 51 deg (colours reversed). Between the two cones no light of
+    either order reaches the eye: Alexander's dark band.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    sun_elevation : number, optional
+        Elevation of the Sun in degrees.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    h = np.radians(sun_elevation)
+    z_rain, z_end = 7.0, 8.4
+    ax.plot([-3.6, z_end], [0, 0], color="0.35", lw=1.2, zorder=2)
+    ax.add_patch(mpatches.Rectangle((-3.6, -1.6), z_end + 3.6, 1.6, facecolor="#e7efe0",
+                                    edgecolor="none", zorder=0))
+    eye = _person(ax, 0.0, 0.0)
+    # sun rays travel along (cos h, -sin h)
+    d = np.array([np.cos(h), -np.sin(h)])
+    sun = np.array(eye) - 3.0*d
+    _sun(ax, *sun)
+    # rain curtain
+    ax.add_patch(mpatches.Rectangle((z_rain - 0.6, 0), 1.2, 4.6, facecolor="#dfe7ef",
+                                    edgecolor="none", zorder=0.5))
+    rng = np.random.default_rng(3)
+    for zr, yr in zip(rng.uniform(z_rain - 0.55, z_rain + 0.55, 70), rng.uniform(0.1, 4.4, 70)):
+        ax.plot([zr, zr - 0.03], [yr, yr - 0.16], color="#7f9db9", lw=0.8, zorder=1)
+    label(ax, z_rain, 4.75, "rain", fontsize=9, va="bottom")
+    # antisolar line
+    t_ground = eye[1]/np.sin(h)
+    anti = np.array(eye) + t_ground*d
+    ax.plot([sun[0] + 0.5*d[0], anti[0]], [sun[1] + 0.5*d[1], anti[1]], color="0.4", lw=0.9,
+            ls="--", zorder=2)
+    ax.plot(*anti, marker="x", color="0.2", ms=7, mew=1.5, zorder=5)
+    label(ax, anti[0], anti[1] - 0.12, "antisolar\npoint", fontsize=8, va="top")
+
+    def ray_to_eye(rho_deg, color, lw=1.4):
+        a = -h + np.radians(rho_deg)     # direction from the eye to the drop
+        e = np.array([np.cos(a), np.sin(a)])
+        t = (z_rain - eye[0])/e[0]
+        drop = np.array(eye) + t*e
+        ax.plot([eye[0], drop[0]], [eye[1], drop[1]], color=color, lw=lw, zorder=3)
+        ax.plot([drop[0] - 2.4*d[0], drop[0]], [drop[1] - 2.4*d[1], drop[1]], color=SUN, lw=0.9,
+                alpha=0.9, zorder=2)
+        ax.add_patch(mpatches.Circle(drop, 0.07, facecolor="#9fc5e0", edgecolor=EDGE, lw=0.8,
+                                     zorder=4))
+        return drop
+
+    # Alexander's band between the red edge of the primary and the red edge of the secondary
+    a1, a2 = -h + np.radians(42.3), -h + np.radians(50.1)
+    r_far = (z_rain - eye[0])/np.cos(a2)
+    ax.add_patch(mpatches.Polygon([eye, (eye[0] + r_far*np.cos(a2), eye[1] + r_far*np.sin(a2)),
+                                   (z_rain, eye[1] + (z_rain - eye[0])*np.tan(a1))],
+                                  closed=True, facecolor="0.55", edgecolor="none", alpha=0.25,
+                                  zorder=1.5))
+    p_red = ray_to_eye(42.3, BOW_RED)
+    p_vio = ray_to_eye(40.6, BOW_VIOLET)
+    s_red = ray_to_eye(50.1, BOW_RED)
+    s_vio = ray_to_eye(53.5, BOW_VIOLET)
+    label(ax, z_rain + 0.75, (p_red[1] + p_vio[1])/2, "primary bow\n(red outside)", fontsize=8,
+          ha="left")
+    label(ax, z_rain + 0.75, (s_red[1] + s_vio[1])/2, "secondary bow\n(red inside)", fontsize=8,
+          ha="left")
+    label(ax, z_rain + 0.75, (p_red[1] + s_red[1])/2, "Alexander's\ndark band", fontsize=8,
+          ha="left", color="0.35")
+    # angles at the eye
+    r_arc = 2.0
+    for rho, txt in ((42, "42°"), (51, "51°")):
+        aa = np.linspace(-h, -h + np.radians(rho), 40)
+        ax.plot(eye[0] + r_arc*np.cos(aa), eye[1] + r_arc*np.sin(aa), color="0.3", lw=0.8)
+        am = -h + np.radians(rho) - 0.06
+        label(ax, eye[0] + (r_arc + 0.3)*np.cos(am), eye[1] + (r_arc + 0.3)*np.sin(am), txt,
+              fontsize=8)
+        r_arc += 0.9
+    label(ax, sun[0], sun[1] + 0.6, "Sun behind\nthe observer", fontsize=8, va="bottom")
+    label(ax, -1.2, eye[1] + 1.2*np.tan(h) + 0.12, "sunlight", fontsize=8, color="#b97a1d",
+          rotation=-sun_elevation, ha="center", va="bottom")
+    _finish(ax, (-3.6, z_end + 1.6), (-1.6, 5.2), title)
+
+
+def glory_aircraft(ax, title=None):
+    """Sketch of the glory seen from an aircraft (notebook 71).
+
+    The Sun shines from behind the aircraft onto a deck of cloud. Its shadow
+    falls on the cloud around the antisolar point; the cloud droplets
+    (radius ~10 um) scatter light straight back to the observer in coloured
+    rings of a few degrees around the shadow, the glory, and further out,
+    at about 40 deg, in the broad white cloud bow (a fogbow).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    h = np.radians(60.0)
+    d = np.array([np.cos(h), -np.sin(h)])     # sunlight direction
+    plane_pos = np.array([0.0, 3.0])
+    # cloud deck
+    zz = np.linspace(-3.0, 6.5, 200)
+    top = 0.0 + 0.08*np.sin(3.1*zz) + 0.05*np.sin(7.3*zz + 1)
+    ax.fill_between(zz, -1.3, top, color="#eef1f4", edgecolor="0.6", lw=0.8, zorder=1)
+    rng = np.random.default_rng(5)
+    ax.scatter(rng.uniform(-2.9, 6.4, 150), rng.uniform(-1.2, -0.1, 150), s=3, color="#9fb3c8",
+               zorder=1.2)
+    label(ax, 5.6, -0.65, "cloud\n(droplets ~10 µm)", fontsize=8)
+    # aircraft (side view)
+    pz, py = plane_pos
+    body = [(pz - 0.9, py), (pz + 0.8, py + 0.02), (pz + 1.0, py - 0.06), (pz + 0.8, py - 0.12),
+            (pz - 0.8, py - 0.1)]
+    ax.add_patch(mpatches.Polygon(body, closed=True, facecolor="0.3", edgecolor="none", zorder=5))
+    ax.add_patch(mpatches.Polygon([(pz - 0.75, py - 0.02), (pz - 0.95, py + 0.35), (pz - 0.82, py + 0.35),
+                                   (pz - 0.55, py - 0.02)], closed=True, facecolor="0.3",
+                                  edgecolor="none", zorder=5))
+    ax.add_patch(mpatches.Polygon([(pz - 0.1, py - 0.05), (pz + 0.25, py - 0.05), (pz - 0.35, py - 0.3),
+                                   (pz - 0.55, py - 0.3)], closed=True, facecolor="0.45",
+                                  edgecolor="none", zorder=5))
+    _sun(ax, *(plane_pos - 1.95*d), r=0.24)
+    for off in (-0.5, 0.0, 0.5):
+        p0 = plane_pos - 1.5*d + off*np.array([d[1], -d[0]])
+        ax.plot([p0[0], p0[0] + 1.0*d[0]], [p0[1], p0[1] + 1.0*d[1]], color=SUN, lw=1.0)
+    # antisolar direction and the shadow
+    t = (py - 0.0)/np.sin(h)
+    anti = plane_pos + t*d
+    ax.plot([pz + 0.4*d[0], anti[0]], [py + 0.4*d[1], anti[1]], color="0.4", ls="--", lw=0.9,
+            zorder=2)
+    ax.add_patch(mpatches.Ellipse(anti, 0.55, 0.1, facecolor="0.35", edgecolor="none", zorder=3))
+    label(ax, anti[0] + 0.38, anti[1] + 0.06, "shadow", fontsize=8, ha="left", va="bottom")
+
+    def cone(rho_deg, colors, lw=1.3):
+        for j, c in enumerate(colors):
+            for sgn in (1, -1):
+                a = np.arctan2(d[1], d[0]) + sgn*np.radians(rho_deg + 0.8*j)
+                e = np.array([np.cos(a), np.sin(a)])
+                tt = (py - 0.0)/(-e[1])
+                ax.plot([pz, pz + tt*e[0]], [py, py + tt*e[1]], color=c, lw=lw, zorder=2.5)
+
+    cone(4.0, ["#3b6fb6", "#2ca02c", BOW_RED], lw=1.0)
+    cone(40.0, ["0.55"], lw=2.0)
+    label(ax, anti[0] + 0.45, 1.25, "glory: coloured\nrings of a few\ndegrees", fontsize=8,
+          ha="left")
+    a = np.arctan2(d[1], d[0]) + np.radians(40.0)
+    e = np.array([np.cos(a), np.sin(a)])
+    q = plane_pos + 1.6*e
+    label(ax, q[0] + 0.15, q[1] + 0.05, "cloud bow, ~40°\n(white fogbow)", fontsize=8, ha="left")
+    label(ax, -1.9, 4.75, "Sun behind\nthe aircraft", fontsize=8)
+    _finish(ax, (-3.0, 6.5), (-1.3, 5.3), title)
+
+
+def _wavy(s, amplitude, n_waves, phase=0.0):
+    """A smooth random-looking undulation along s (for turbulent wavefronts)."""
+
+    s = np.asarray(s, dtype=float)
+    span = np.ptp(s) if np.ptp(s) > 0 else 1.0
+    u = (s - s.min())/span
+    return amplitude*(np.sin(2*np.pi*n_waves*u + phase) + 0.5*np.sin(2*np.pi*2.3*n_waves*u + 1.7*phase + 0.9)
+                      + 0.3*np.sin(2*np.pi*0.45*n_waves*u + 2.1))/1.8
+
+
+def twinkling_star(ax, title=None):
+    """Sketch of starlight passing turbulent layers (the setup of notebook 72).
+
+    A plane wave from a star (at the top) crosses a few thin turbulent layers
+    at different heights, each moving with its own wind. Every layer
+    corrugates the wavefront; over the kilometres down to the ground the
+    corrugations focus and defocus the light into a moving pattern of
+    shadow bands with a typical size of the Fresnel scale sqrt(λh) (a few
+    centimetres). A small pupil (the eye) sees the intensity fluctuate, the
+    star twinkles; a large telescope averages over many bands but sees a
+    wavefront corrugated on the scale r0, which spreads the image into a
+    speckle cloud (seeing).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    x = np.linspace(-2.6, 2.6, 300)
+    point_source(ax, 0.0, 5.1, color=ILLUMINATION, size=260)
+    label(ax, 0.35, 5.1, "star", ha="left", fontsize=9)
+    # plane wavefronts above the atmosphere
+    for y0 in (4.45, 4.15):
+        ax.plot(x, np.full_like(x, y0), color="0.2", lw=1.2)
+    label(ax, 2.7, 4.3, "plane\nwavefronts", ha="left", fontsize=8)
+    layers = [(3.4, "jet stream, ~10 km", 25, 0.0), (2.2, "~4 km", 10, 1.3),
+              (1.05, "boundary layer", 5, 2.6)]
+    amp = 0.0
+    for i, (y0, text, v, ph) in enumerate(layers):
+        band(ax, x, y0 + 0.13 + _wavy(x, 0.05, 5, ph), x, y0 - 0.13 + _wavy(x, 0.05, 5, ph + 1),
+             color=IMAGING, alpha=0.18, edges=False)
+        label(ax, -2.75, y0, text, ha="right", fontsize=8)
+        arrow(ax, 1.7, y0 + 0.27, 1.7 + 0.025*v, y0 + 0.27, color=IMAGING, lw=1.0)
+        label(ax, 1.7 + 0.025*v + 0.08, y0 + 0.27, "wind", fontsize=7, ha="left",
+              color=IMAGING)
+        # the wavefront below the layer gets more and more corrugated
+        amp += 0.05
+        y_w = y0 - 0.5
+        ax.plot(x, y_w + _wavy(x, amp, 6 + 2*i, 0.7*i), color="0.2", lw=1.1)
+    # focused and defocused light near the ground: shadow bands
+    xs = np.linspace(-2.6, 2.6, 400)
+    pattern = 0.5 + 0.5*np.tanh(2.5*(_wavy(xs, 1.0, 14, 0.4) + 0.3*_wavy(xs, 1.0, 31, 1.1)))
+    for x0, x1, p in zip(xs[:-1], xs[1:], pattern[:-1]):
+        ax.add_patch(mpatches.Rectangle((x0, -0.1), x1 - x0, 0.22,
+                                        facecolor=(1, 0.85 - 0.25*p, 0.35 + 0.5*(1 - p)),
+                                        edgecolor="none", alpha=0.3 + 0.7*p, zorder=2))
+    label(ax, 2.7, 0.0, "shadow bands\n(size ~ √(λh))", ha="left", fontsize=8)
+    ax.plot([-2.8, 2.8], [-0.18, -0.18], color="0.35", lw=1.5)
+    # an eye and a telescope at the ground
+    ax.add_patch(mpatches.Ellipse((-1.6, -0.48), 0.42, 0.22, facecolor="white", edgecolor="0.2",
+                                  lw=1, zorder=4))
+    ax.add_patch(mpatches.Circle((-1.6, -0.48), 0.07, facecolor="0.15", zorder=5))
+    label(ax, -1.6, -0.7, "eye: small pupil,\nthe star twinkles", fontsize=8, va="top")
+    ax.add_patch(mpatches.Polygon([(0.55, -0.25), (1.75, -0.25), (1.35, -0.85), (0.95, -0.85)],
+                                  closed=True, facecolor="0.85", edgecolor="0.3", lw=1, zorder=4))
+    ax.plot([0.55, 1.75], [-0.25, -0.25], color=METAL, lw=3, zorder=5)
+    label(ax, 1.15, -0.95, "telescope: averages the bands,\nbut images a speckle cloud",
+          fontsize=8, va="top")
+    _finish(ax, (-4.2, 3.9), (-1.5, 5.5), title)
+
+
+def adaptive_optics_system(ax, title=None):
+    """Sketch of an adaptive optics system (the setup of notebook 72).
+
+    The telescope (drawn as a lens) images the star; a collimator makes the
+    beam parallel and images the pupil onto the deformable mirror (DM). A
+    dichroic beam splitter sends the visible light to a Shack-Hartmann
+    wavefront sensor and passes the infrared light to the science camera.
+    A real-time computer turns the spot shifts into actuator commands
+    (reconstructor and integrator) and pushes the DM to the conjugate of
+    the measured wavefront, closing the loop: the sensor sees the residual
+    behind the DM.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    h_t, f_t = 1.0, 2.4
+    z_col, f_col = f_t + 0.8, 0.8
+    w = h_t*f_col/f_t
+    z_dm = z_col + 1.1
+    y_bs = -1.6
+    # turbulent input wavefronts
+    for z0 in (-1.3, -0.95, -0.6):
+        s = np.linspace(-h_t, h_t, 61)
+        ax.plot(z0 + _wavy(s, 0.07, 2.5, 3*z0), s, color="0.2", lw=1.1)
+    label(ax, -0.95, 1.2, "distorted\nwavefront", fontsize=8, va="bottom")
+    # telescope focus and collimator
+    z, yt = paraxial_ray([(0.0, f_t), (z_col, f_col)], -1.4, h_t, 0.0, z_dm - w)
+    z, yb = paraxial_ray([(0.0, f_t), (z_col, f_col)], -1.4, -h_t, 0.0, z_dm - w)
+    band(ax, z, yt, z, yb, color=LASER)
+    lens(ax, 0.0, 1.1*h_t, text="telescope")
+    lens(ax, z_col, 1.25*w, text="collimator", text_y=-0.75)
+    # beam from the DM down to the dichroic
+    band(ax, [z_dm - w, z_dm - w], [-w + 2*w, y_bs + w], [z_dm + w, z_dm + w], [w, y_bs - w],
+         color=LASER, edges=False)
+    ax.add_patch(mpatches.Polygon([(z_dm - w, w), (z_dm + w, -w), (z_dm + w, w)], closed=True,
+                                  facecolor=LASER, edgecolor="none", alpha=0.22, zorder=1))
+    # deformable mirror: a wavy face at 45° with actuators behind
+    s = np.linspace(-1.25*w, 1.25*w, 61)
+    d = _wavy(s, 0.035, 2.0, 0.8)
+    e = np.array([1, -1])/np.sqrt(2)
+    n = np.array([1, 1])/np.sqrt(2)
+    ax.plot(z_dm + s*e[0] + d*n[0], s*e[1] + d*n[1], color=METAL, lw=3, zorder=4)
+    for si in np.linspace(-1.0*w, 1.0*w, 6):
+        p0 = np.array([z_dm, 0.0]) + si*e + 0.06*n
+        p1 = p0 + 0.28*n
+        ax.plot([p0[0], p1[0]], [p0[1], p1[1]], color="0.45", lw=1.6, zorder=4)
+    label(ax, z_dm - 0.1, 0.78, "deformable\nmirror (DM)", ha="right", fontsize=9)
+    # dichroic: visible to the Shack-Hartmann (along +z), infrared down to the camera
+    beam_splitter(ax, z_dm, y_bs, 2.6*w, orientation="\\")
+    label(ax, z_dm - 0.5, y_bs - 0.05, "dichroic", ha="right", fontsize=9)
+    z_la = z_dm + 1.3
+    band(ax, [z_dm - w, z_la], [y_bs + w, y_bs + w], [z_dm + w, z_la], [y_bs - w, y_bs - w],
+         color="#e0a000", edges=False, alpha=0.25)
+    ax.add_patch(mpatches.Polygon([(z_dm - w, y_bs + w), (z_dm + w, y_bs + w), (z_dm + w, y_bs - w)],
+                                  closed=True, facecolor="#e0a000", edgecolor="none", alpha=0.25,
+                                  zorder=1))
+    hl = 1.1*w
+    p = 2*hl/6
+    c = np.linspace(-hl + p/2, hl - p/2, 6)
+    ax.add_patch(mpatches.Rectangle((z_la - 0.02, y_bs - hl), 0.04, 2*hl, facecolor=GLASS,
+                                    edgecolor=EDGE, lw=0.8, zorder=3))
+    for ci in c:
+        yy = np.linspace(-p/2, p/2, 15)
+        ax.plot(z_la + 0.02 + 0.35*p*(1 - (2*yy/p)**2)/2, y_bs + ci + yy, color=EDGE, lw=0.8,
+                zorder=3)
+        ax.plot([z_la, z_la + 0.45], [y_bs + ci + p/2.5, y_bs + ci + 0.02*np.sin(5*ci)],
+                color="#e0a000", lw=0.7)
+        ax.plot([z_la, z_la + 0.45], [y_bs + ci - p/2.5, y_bs + ci + 0.02*np.sin(5*ci)],
+                color="#e0a000", lw=0.7)
+    ax.add_patch(mpatches.Rectangle((z_la + 0.45, y_bs - hl), 0.06, 2*hl, facecolor="0.35",
+                                    edgecolor="none", zorder=4))
+    label(ax, z_la + 0.25, y_bs - hl - 0.1, "Shack-Hartmann\n(visible)", fontsize=9, va="top")
+    # science path: infrared down to a camera lens and the camera
+    y_cam_lens, y_cam = y_bs - 1.0, y_bs - 2.0
+    ax.add_patch(mpatches.Polygon([(z_dm - w, y_bs - w), (z_dm - w, y_cam_lens), (z_dm, y_cam),
+                                   (z_dm + w, y_cam_lens), (z_dm + w, y_bs + w)],
+                                  closed=True, facecolor=LASER, edgecolor="none", alpha=0.22,
+                                  zorder=1))
+    ax.plot([z_dm - w, z_dm, z_dm + w], [y_cam_lens, y_cam, y_cam_lens], color=LASER, lw=0.8)
+    wavefront(ax, z_dm, -0.75, w, vertical=False)
+    label(ax, z_dm + w + 0.08, -0.75, "corrected", fontsize=8, ha="left")
+    rotated_lens(ax, z_dm, y_cam_lens, 1.2*w, text="camera lens", text_offset=-1.5*w)
+    rotated_detector(ax, z_dm, y_cam, 0.5*w, width=0.07)
+    label(ax, z_dm, y_cam - 0.12, "science camera (infrared):\nsharp image", fontsize=9, va="top")
+    # loop: computer from the sensor to the DM
+    zc, yc = z_la + 1.75, 0.75
+    ax.add_patch(mpatches.FancyBboxPatch((zc - 0.75, yc - 0.32), 1.5, 0.64,
+                                         boxstyle="round,pad=0.03", facecolor="#eef3e8",
+                                         edgecolor="0.35", lw=1, zorder=4))
+    label(ax, zc, yc, "real-time computer\nslopes → commands\n(integrator)", fontsize=8,
+          zorder=5)
+    arrow(ax, z_la + 0.55, y_bs + 0.2, zc, yc - 0.34, color=EMISSION, lw=1.3)
+    arrow(ax, zc - 0.77, yc, z_dm + 0.42, 0.42, color=EMISSION, lw=1.3)
+    label(ax, z_la + 1.25, y_bs + 0.9, "spot\nshifts", fontsize=8, color=EMISSION, ha="left")
+    label(ax, (zc - 0.77 + z_dm + 0.42)/2, 0.68, "actuator\ncommands", fontsize=8,
+          color=EMISSION, va="bottom")
+    _finish(ax, (-1.6, zc + 0.9), (y_cam - 0.6, 1.6), title)
 
 
 def _slm(ax, z, h, n=10, reference=False, text=None, text_y=None, fontsize=9):

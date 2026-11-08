@@ -77,6 +77,11 @@ def test_paraxial_ray_imaging():
     lambda ax: sketch.wavefront_shaping_setup(ax, medium="slab"),
     lambda ax: sketch.wavefront_shaping_setup(ax, medium="fibre", feedback=False),
     lambda ax: sketch.wavefront_shaping_setup(ax, reference=True),
+    sketch.twinkling_star,
+    sketch.adaptive_optics_system,
+    sketch.rainbow_observer,
+    lambda ax: sketch.rainbow_observer(ax, sun_elevation=10.0),
+    sketch.glory_aircraft,
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()

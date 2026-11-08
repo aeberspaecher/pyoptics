@@ -50,7 +50,7 @@ def _intersect_conic(c, K, A, n_A, x, y, z, ex, ey, ez):
     # root on the branch through the vertex, stable for c -> 0:
     t = -2.0*C/(b + (1.0 if b >= 0 else -1.0)*np.sqrt(D))
     if (1.0 + K)*c*(z + t*ez) > 1.0:
-        t = C/(a*t)
+        t = C/(a*t) if t != 0.0 else -b/a
     if n_A > 0:
         if not np.isfinite(t):
             t = -z/ez
