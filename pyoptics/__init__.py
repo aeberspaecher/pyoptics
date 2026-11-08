@@ -21,3 +21,4 @@ from . import shack_hartmann
 from . import modes
 from . import vortices
 from . import wavefront_shaping
+from . import coherence

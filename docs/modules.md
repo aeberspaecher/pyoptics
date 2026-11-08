@@ -209,6 +209,18 @@ What each module does and how mature it is. Planned work is listed in
   interferograms with a carrier (sideband window, automatic carrier search,
   masks, apodization, overlap warning); phase error vs. shifter
   miscalibration
+- `coherence`: new, tested: spatial and temporal coherence and intensity
+  interferometry; the van Cittert-Zernike theorem for any incoherent source
+  (chirp-z transform of its intensity), the degree of coherence of uniform
+  and linearly limb darkened stellar disks and of binaries, random
+  realizations of incoherent sources; gamma(tau) of a sampled spectrum
+  (Wiener-Khinchin), line shapes and coherence times of Gaussian,
+  Lorentzian and rectangular lines; fringe visibility and phase by least
+  squares; chaotic light with a given line shape, pairs with a given degree
+  of coherence, g1, g2 and normalized intensity correlations (Hanbury Brown
+  and Twiss); checked against 2J1(v)/v, the limb darkening formula, the
+  Siegert relation and random-phase sources propagated with
+  `fresnel_scaled()` (notebook 74)
 - `holography`: digital holography, tested: off-axis and in-line holograms
   (tilted reference, phase shifts; camera noise via `processing.CameraNoiser`),
   sampling condition for the reference angle; reconstruction by sideband
