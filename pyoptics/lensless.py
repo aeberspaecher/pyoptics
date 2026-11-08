@@ -554,7 +554,7 @@ def convolve_crop(scene, psf, sensor_shape=None):
 
 
 def wiener_deconvolve(picture, psf, regularization):
-    """Wiener (Tikhonov) deconvolution: X = B*conj(H)/(|H|**2 + K).
+    """Wiener (Tikhonov) deconvolution: ``X = B*conj(H)/(abs(H)**2 + K)``.
 
     Parameters
     ----------
@@ -564,7 +564,7 @@ def wiener_deconvolve(picture, psf, regularization):
         Centred PSF.
     regularization : number
         K, the noise-to-signal power ratio. Relative to the PSF summing to 1
-        (|H(0)| = 1).
+        (``abs(H(0)) = 1``).
 
     Returns
     -------
@@ -586,7 +586,7 @@ def _grad_adj(g):
 
 
 def total_variation(x):
-    """Anisotropic total variation sum(|dx| + |dy|) with periodic differences.
+    """Anisotropic total variation ``sum(abs(dx) + abs(dy))`` with periodic differences.
 
     Parameters
     ----------
@@ -639,7 +639,7 @@ def admm_tv_deconvolve(picture, psf, tau, n_iter=300, mu1=None, mu2=None, mu3=No
     Notes
     -----
     The minimizer does not depend on mu1, mu2, mu3; they set how fast ADMM
-    gets there. The defaults suit a PSF normalized to sum 1 (|H| <= 1) and
+    gets there. The defaults suit a PSF normalized to sum 1 (``abs(H) <= 1``) and
     tau of 1e-5 to 1e-3 for pictures of order 0.1 to 1. Too large values
     make the iteration creep, too small ones make it oscillate.
     """
