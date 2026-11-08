@@ -21,3 +21,5 @@ from . import shack_hartmann
 from . import modes
 from . import vortices
 from . import coherence
+from . import rainbow
+from . import colour
