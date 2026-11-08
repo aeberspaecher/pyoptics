@@ -12,6 +12,12 @@ J. W. Goodman, "Introduction to Fourier Optics", 4th ed., W. H. Freeman (2017).
 
 V. N. Mahajan, "Optical Imaging and Aberrations, Part II: Wave Diffraction
 Optics", 2nd ed., SPIE Press (2011).
+
+C. F. Bohren and D. R. Huffman, "Absorption and Scattering of Light by Small
+Particles", Wiley (1983) (Mie series, cylinders).
+
+W. J. Wiscombe, "Improved Mie scattering algorithms", Appl. Opt. 19,
+1505-1509 (1980) (number of terms of the Mie series).
 """
 
 import numpy as np
@@ -165,9 +171,10 @@ def _num_orders(size_parameter, m):
     return int(x + 4.05*x**(1/3) + 10)
 
 
-def cylinder_coefficients(radius, n_cyl, wl, n_medium=1.0, num_orders=None):
+def cylinder_coefficients(radius, n_cyl, wl, n_medium=1.0, num_orders=None, polarization="E"):
     """Scattering coefficients of a circular dielectric cylinder for the scalar
-    Helmholtz equation (TE polarization: E parallel to the cylinder axis).
+    Helmholtz equation (polarization "E": E parallel to the cylinder axis, the
+    default; "H": H parallel to it).
 
     The total field is written as
 
@@ -178,8 +185,9 @@ def cylinder_coefficients(radius, n_cyl, wl, n_medium=1.0, num_orders=None):
     exp(-i omega t)), k = 2 pi n_medium/wl and m_rel = n_cyl/n_medium. B_m
     describes the incident field (B_m = 1 for a plane wave along phi = 0).
     For E parallel to the axis, u = E_axis and its radial derivative are
-    continuous at r = radius, so this is the exact solution of Maxwell's
-    equations [1]_.
+    continuous at r = radius; for H parallel to the axis, u = H_axis and its
+    radial derivative divided by n**2. Either way this is the exact solution
+    of Maxwell's equations [1]_.
 
     Parameters
     ----------
@@ -193,6 +201,8 @@ def cylinder_coefficients(radius, n_cyl, wl, n_medium=1.0, num_orders=None):
         Refractive index of the surrounding medium.
     num_orders : int, optional
         Highest order m. Defaults to Wiscombe's criterion.
+    polarization : {"E", "H"}, optional
+        Field along the cylinder axis.
 
     Returns
     -------
@@ -218,24 +228,28 @@ def cylinder_coefficients(radius, n_cyl, wl, n_medium=1.0, num_orders=None):
     J, Jp = jv(m, x), jvp(m, x)
     H, Hp = hankel1(m, x), h1vp(m, x)
     Ji, Jip = jv(m, m_rel*x), jvp(m, m_rel*x)
-    den = Ji*Hp - m_rel*Jip*H
-    a_m = (m_rel*Jip*J - Ji*Jp)/den
+    if polarization not in ("E", "H"):
+        raise ValueError("polarization must be 'E' or 'H'")
+    g = m_rel if polarization == "E" else 1/m_rel   # factor of the inner radial derivative
+    den = Ji*Hp - g*Jip*H
+    a_m = (g*Jip*J - Ji*Jp)/den
     c_m = 2j/(np.pi*x)/den   # Wronskian J H' - J' H = 2i/(pi x)
 
     return m, a_m, c_m
 
 
 def cylinder_field(x, z, radius, n_cyl, wl, n_medium=1.0, k_x=None, amplitudes=None,
-                   num_orders=None):
+                   num_orders=None, polarization="E"):
     """Exact total field of a circular dielectric cylinder (axis along y,
-    centred at x = z = 0) illuminated by plane waves travelling towards +z, TE
-    polarization (scalar Helmholtz equation).
+    centred at x = z = 0) illuminated by plane waves travelling towards +z:
+    the field component along the axis, E (TE polarization, the default) or
+    H (TM).
 
     Parameters
     ----------
     x, z : arrays
         Coordinates (broadcastable against each other).
-    radius, n_cyl, wl, n_medium, num_orders :
+    radius, n_cyl, wl, n_medium, num_orders, polarization :
         See cylinder_coefficients().
     k_x : array, optional
         Transverse wavenumbers of the incident plane waves. Defaults to a
@@ -256,7 +270,7 @@ def cylinder_field(x, z, radius, n_cyl, wl, n_medium=1.0, k_x=None, amplitudes=N
 
     k = 2*np.pi*n_medium/wl
     m_rel = n_cyl/n_medium
-    m, a_m, c_m = cylinder_coefficients(radius, n_cyl, wl, n_medium, num_orders)
+    m, a_m, c_m = cylinder_coefficients(radius, n_cyl, wl, n_medium, num_orders, polarization)
     k_x = np.zeros(1) if k_x is None else np.asarray(k_x, dtype=float)
     amplitudes = np.ones(len(k_x)) if amplitudes is None else np.asarray(amplitudes)
     k_z = np.sqrt(np.clip(k**2 - k_x**2, 0, None))
@@ -292,6 +306,78 @@ def cylinder_field(x, z, radius, n_cyl, wl, n_medium=1.0, k_x=None, amplitudes=N
     u[inside] = u_i
 
     return u
+
+
+def disk_resonance(m, radius, n_disk, wavelength, n_medium=1.0, polarization="E"):
+    """Exact resonance (quasi-normal mode) of a dielectric disk or cylinder
+    with azimuthal number m, near a guess of its wavelength.
+
+    The field along the axis is u = J_m(n_disk k r) exp(i m phi) inside and
+    proportional to H_m(n_medium k r) exp(i m phi) outside (outgoing, time
+    dependence exp(-i omega t)); matching u and its radial derivative (E
+    along the axis) or the radial derivative over n**2 (H along the axis)
+    at r = radius gives a complex vacuum wavenumber k with Im k < 0: the
+    mode decays in time. High m and low radial order are the whispering
+    gallery modes.
+
+    Parameters
+    ----------
+    m : int
+        Azimuthal number (abs(m); the modes +-m are degenerate).
+    radius : number
+    n_disk, n_medium : numbers
+        Refractive indices inside and outside.
+    wavelength : number or complex
+        Guess of the vacuum wavelength: real, the root next to the zero
+        crossing on the real axis nearest to it (whispering gallery modes);
+        complex (2 pi/k of an estimate, e.g. a numerical resonance), the
+        root Newton's method converges to from there (also strongly
+        leaking modes).
+    polarization : {"E", "H"}, optional
+        Field along the axis.
+
+    Returns
+    -------
+    k : complex
+        Vacuum wavenumber of the resonance: wavelength 2 pi/Re(k),
+        Q = Re(k)/(-2 Im(k)).
+
+    References
+    ----------
+    .. [1] H. Cao and J. Wiersig, "Dielectric microcavities: Model systems for
+       wave chaos and non-Hermitian physics", Rev. Mod. Phys. 87, 61-111
+       (2015), section II.
+    """
+
+    from scipy.special import jv, jvp, hankel1, h1vp
+    from scipy.optimize import newton
+
+    if polarization not in ("E", "H"):
+        raise ValueError("polarization must be 'E' or 'H'")
+    m = abs(int(m))
+    m_rel = n_disk/n_medium
+    g = m_rel if polarization == "E" else 1/m_rel
+
+    def f(x):   # x = n_medium k radius; the logarithmic derivatives match
+        return g*jvp(m, m_rel*x)/jv(m, m_rel*x) - h1vp(m, x)/hankel1(m, x)
+
+    if np.iscomplexobj(wavelength):   # a complex guess: Newton from there
+        x0 = 2*np.pi*n_medium*radius/complex(wavelength)
+        x = newton(f, x0, x1=x0*(1 + 1e-6) - 1e-6j, tol=1e-14, maxiter=200)
+        return complex(x)/(n_medium*radius)
+    # start from the zero crossing of Re f on the real axis nearest to the
+    # guess (not a pole of the Bessel ratio), then Newton in the complex plane
+    x_g = 2*np.pi*n_medium*radius/wavelength
+    xs = np.linspace(0.8*x_g, 1.2*x_g, 4001)
+    v = np.real(f(xs + 0j))
+    i = np.nonzero((np.sign(v[:-1]) != np.sign(v[1:])) & (np.abs(v[:-1]) + np.abs(v[1:]) < 5))[0]
+    if len(i) == 0:
+        raise RuntimeError("no resonance near the given wavelength")
+    i = i[np.argmin(np.abs(xs[i] - x_g))]
+    x0 = xs[i] - v[i]*(xs[i + 1] - xs[i])/(v[i + 1] - v[i]) + 0j
+    x = newton(f, x0, x1=x0*(1 + 1e-6) - 1e-6j, tol=1e-14, maxiter=200)
+
+    return complex(x)/(n_medium*radius)
 
 
 def sphere_coefficients(radius, n_sph, wl, n_medium=1.0, num_orders=None):
@@ -426,3 +512,233 @@ def sphere_field(rho, z, radius, n_sph, wl, n_medium=1.0, k_rho=None, amplitudes
     u[inside] = u_i
 
     return u
+
+
+def mie_coefficients(radius, n_sph, wl, n_medium=1.0, num_orders=None):
+    """Lorenz-Mie coefficients of a homogeneous sphere (vector theory, non-magnetic).
+
+    Parameters
+    ----------
+    radius : number
+        Sphere radius.
+    n_sph : number
+        Refractive index of the sphere (may be complex).
+    wl : number
+        Vacuum wavelength.
+    n_medium : number, optional
+        Refractive index of the surrounding medium.
+    num_orders : int, optional
+        Highest order n. Defaults to Wiscombe's criterion.
+
+    Returns
+    -------
+    n : array
+        Orders 1..num_orders.
+    a_n, b_n : arrays
+        Coefficients of the scattered field (electric and magnetic
+        multipoles).
+    c_n, d_n : arrays
+        Coefficients of the inner field.
+
+    Notes
+    -----
+    Bohren and Huffman [1]_, eq. (4.52) and (4.53), time dependence
+    exp(-i omega t).
+
+    References
+    ----------
+    .. [1] C. F. Bohren and D. R. Huffman, "Absorption and Scattering of Light
+       by Small Particles", Wiley (1983), chapter 4.
+    """
+
+    from scipy.special import spherical_jn, spherical_yn
+
+    k = 2*np.pi*n_medium/wl
+    m = n_sph/n_medium
+    x = k*radius
+    if num_orders is None:
+        num_orders = _num_orders(x, m)
+    n = np.arange(1, num_orders + 1)
+    j, jp = spherical_jn(n, x), spherical_jn(n, x, derivative=True)
+    h = j + 1j*spherical_yn(n, x)
+    hp = jp + 1j*spherical_yn(n, x, derivative=True)
+    ji, jip = spherical_jn(n, m*x), spherical_jn(n, m*x, derivative=True)
+    xj, xh = j + x*jp, h + x*hp              # [x j_n(x)]', [x h_n(x)]'
+    mxj = ji + m*x*jip                        # [mx j_n(mx)]'
+    den_e = m**2*ji*xh - h*mxj
+    den_m = ji*xh - h*mxj
+    a_n = (m**2*ji*xj - j*mxj)/den_e
+    b_n = (ji*xj - j*mxj)/den_m
+    c_n = (j*xh - h*xj)/den_m
+    d_n = m*(j*xh - h*xj)/den_e
+
+    return n, a_n, b_n, c_n, d_n
+
+
+def mie_efficiencies(radius, n_sph, wl, n_medium=1.0, num_orders=None):
+    """Extinction and scattering efficiencies (cross sections over the
+    geometric one, pi radius**2) of a sphere from mie_coefficients()."""
+
+    n, a, b, _, _ = mie_coefficients(radius, n_sph, wl, n_medium, num_orders)
+    x = 2*np.pi*n_medium/wl*radius
+    q_ext = 2/x**2*np.sum((2*n + 1)*np.real(a + b))
+    q_sca = 2/x**2*np.sum((2*n + 1)*(np.abs(a)**2 + np.abs(b)**2))
+
+    return q_ext, q_sca
+
+
+def mie_amplitudes(theta, radius, n_sph, wl, n_medium=1.0, num_orders=None, chunk=None):
+    """Far field scattering amplitudes S1, S2 of a sphere (Lorenz-Mie).
+
+    The scattered far field is ::
+
+        E_par  = exp(i k r)/(-i k r) S2(theta) E_par_inc,
+        E_perp = exp(i k r)/(-i k r) S1(theta) E_perp_inc,
+
+    with the components parallel and perpendicular to the scattering plane,
+    so that the differential cross sections are ``|S1|**2/k**2`` (incident
+    light polarized perpendicular to the scattering plane) and
+    ``|S2|**2/k**2`` (parallel to it); unpolarized light gives their mean.
+
+    Parameters
+    ----------
+    theta : array
+        Scattering angles (radians, 0: forward).
+    radius, n_sph, wl, n_medium :
+        See mie_coefficients().
+    num_orders : int, optional
+        Highest order. Default: Wiscombe's criterion x + 4.05 x**(1/3) + 2
+        for the size parameter x outside the sphere (the scattered field
+        needs no more orders; the inner field of mie_field() needs the
+        larger m x).
+    chunk : int, optional
+        Number of angles summed at once (memory: chunk times num_orders
+        numbers). Default: about 4 million numbers.
+
+    Returns
+    -------
+    S1, S2 : complex arrays (shape of theta)
+
+    Notes
+    -----
+    Bohren and Huffman [1]_, eq. (4.74), with the angular functions pi_n
+    and tau_n from their upward recurrence.
+
+    References
+    ----------
+    .. [1] C. F. Bohren and D. R. Huffman, "Absorption and Scattering of Light
+       by Small Particles", Wiley (1983), chapter 4.
+    """
+
+    if num_orders is None:
+        x = 2*np.pi*n_medium/wl*radius
+        num_orders = int(x + 4.05*x**(1/3) + 2)
+    n, a_n, b_n, _, _ = mie_coefficients(radius, n_sph, wl, n_medium, num_orders)
+    theta = np.asarray(theta, dtype=float)
+    mu = np.cos(theta).ravel()
+    w = (2*n + 1)/(n*(n + 1.0))
+    wa, wb = w*a_n, w*b_n
+    if chunk is None:
+        chunk = max(1, 4_000_000//len(n))
+    S1 = np.empty(mu.shape, dtype=complex)
+    S2 = np.empty(mu.shape, dtype=complex)
+    for start in range(0, len(mu), chunk):
+        m = mu[start:start + chunk]
+        pi_n = np.empty((len(n), len(m)))
+        pi_prev, pi_cur = np.zeros(len(m)), np.ones(len(m))     # pi_0, pi_1
+        for j in range(len(n)):
+            pi_n[j] = pi_cur
+            nn = j + 1
+            pi_prev, pi_cur = pi_cur, ((2*nn + 1)*m*pi_cur - (nn + 1)*pi_prev)/nn
+        pi_m1 = np.vstack([np.zeros(len(m)), pi_n[:-1]])
+        tau_n = n[:, None]*m*pi_n - (n[:, None] + 1)*pi_m1
+        S1[start:start + chunk] = wa @ pi_n + wb @ tau_n
+        S2[start:start + chunk] = wa @ tau_n + wb @ pi_n
+
+    return S1.reshape(theta.shape), S2.reshape(theta.shape)
+
+
+def mie_field(x, y, z, radius, n_sph, wl, n_medium=1.0, num_orders=None):
+    """Electric field of the Lorenz-Mie solution: a homogeneous sphere
+    (centred at the origin) illuminated by a plane wave travelling towards
+    +z, polarized along x, E_inc = exp(i k z) (time dependence
+    exp(-i omega t), k = 2 pi n_medium/wl).
+
+    The vector counterpart of sphere_field(): exact solution of Maxwell's
+    equations, which depends on the polarization.
+
+    Parameters
+    ----------
+    x, y, z : arrays
+        Coordinates (broadcastable against each other).
+    radius, n_sph, wl, n_medium, num_orders :
+        See mie_coefficients().
+
+    Returns
+    -------
+    E : complex array (3, ...)
+        Ex, Ey, Ez of the total field (incident plus scattered outside,
+        transmitted inside).
+
+    Notes
+    -----
+    Sums the vector spherical harmonics M_o1n and N_e1n of Bohren and
+    Huffman [1]_ (eq. 4.37, 4.45, 4.50).
+
+    References
+    ----------
+    .. [1] C. F. Bohren and D. R. Huffman, "Absorption and Scattering of Light
+       by Small Particles", Wiley (1983), chapter 4.
+    """
+
+    from scipy.special import spherical_jn, spherical_yn
+
+    k = 2*np.pi*n_medium/wl
+    m = n_sph/n_medium
+    n_k, a_n, b_n, c_n, d_n = mie_coefficients(radius, n_sph, wl, n_medium, num_orders)
+    x, y, z = np.broadcast_arrays(*(np.asarray(v, dtype=float) for v in (x, y, z)))
+    r = np.sqrt(x**2 + y**2 + z**2)
+    rs = np.where(r > 0, r, 1e-12*wl)
+    cos_t = np.clip(z/rs, -1, 1)
+    sin_t = np.sqrt(1 - cos_t**2)
+    phi = np.arctan2(y, x)
+    cos_p, sin_p = np.cos(phi), np.sin(phi)
+    inside = r < radius
+    rho = np.where(inside, m*k*rs, k*rs)
+    E_r = np.zeros(r.shape, dtype=complex)
+    E_t = np.zeros(r.shape, dtype=complex)
+    E_p = np.zeros(r.shape, dtype=complex)
+    pi_prev, pi_n = np.zeros(r.shape), np.ones(r.shape)       # pi_0, pi_1
+    j_prev = spherical_jn(0, rho)
+    y_prev = spherical_yn(0, np.where(inside, 1.0, rho))
+    for n, a, b, c, d in zip(n_k, a_n, b_n, c_n, d_n):
+        tau_n = n*cos_t*pi_n - (n + 1)*pi_prev
+        j = spherical_jn(n, rho)
+        # outside: the scattered field (h_n), inside: the inner field (j_n)
+        if np.any(~inside):
+            yy = spherical_yn(n, np.where(inside, 1.0, rho))
+            h = j + 1j*yy
+            dh = (j_prev + 1j*y_prev) - n*h/rho      # [rho h_n]'/rho
+            y_prev = yy
+        else:
+            h = dh = 0
+        dj = j_prev - n*j/rho                        # [rho j_n]'/rho
+        En = 1j**n*(2*n + 1)/(n*(n + 1))
+        # radial functions times coefficients: M (z_n) and N ([rho z_n]'/rho, z_n/rho)
+        zM = np.where(inside, c*j, -b*h)
+        zN = np.where(inside, -1j*d*dj, 1j*a*dh)
+        zR = np.where(inside, -1j*d*j/rho, 1j*a*h/rho)
+        E_r += En*n*(n + 1)*sin_t*pi_n*zR
+        E_t += En*(pi_n*zM + tau_n*zN)
+        E_p += En*(-tau_n*zM - pi_n*zN)
+        j_prev = j
+        pi_prev, pi_n = pi_n, ((2*n + 1)*cos_t*pi_n - (n + 1)*pi_prev)/n
+    E_r *= cos_p
+    E_t *= cos_p
+    E_p *= sin_p
+    E = np.array([sin_t*cos_p*E_r + cos_t*cos_p*E_t - sin_p*E_p,
+                  sin_t*sin_p*E_r + cos_t*sin_p*E_t + cos_p*E_p,
+                  cos_t*E_r - sin_t*E_t])
+    E[0] += np.where(inside, 0, np.exp(1j*k*z))
+
+    return E

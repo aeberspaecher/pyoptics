@@ -13,12 +13,25 @@ to be stored.
   exp(-i omega t)): a field f(t) gives F = sum f(t) exp(+i omega t) dt, so
   a wave travelling towards +x has the phase exp(+ikx). For a continuous
   wave, Re{F exp(-i omega t)} animates the steady state over one period.
-- Flux: power through a line (2D) or a point (1D) per wavelength, from the
-  DFT of E and H; ratios of two runs (with and without a structure) give
-  reflectance and transmittance.
+- Flux: power through a plane (3D), a line (2D) or a point (1D) per
+  wavelength, from the DFT of E and H; ratios of two runs (with and
+  without a structure) give reflectance and transmittance.
 
-Monitor regions are given as ((xmin, xmax), (ymin, ymax)) (None for the
-whole domain); each component keeps the nodes that fall inside.
+Monitor regions are given as ((xmin, xmax), (ymin, ymax)[, (zmin, zmax)])
+(None for the whole domain); each component keeps the nodes that fall
+inside. A number instead of a range picks the single node layer nearest
+to it, e.g. ((-1, 1), 0.0, (-2, 2)) for the plane y = 0 in 3D (the arrays
+keep a length-1 axis there).
+
+References
+----------
+A. Taflove and S. C. Hagness, "Computational Electrodynamics: The
+Finite-Difference Time-Domain Method", 3rd ed., Artech House (2005), chapter
+5 (DFT and flux).
+
+A. F. Oskooi, D. Roundy, M. Ibanescu, P. Bermel, J. D. Joannopoulos and S.
+G. Johnson, "MEEP: A flexible free-software package for electromagnetic
+simulations by the FDTD method", Comput. Phys. Commun. 181, 687-702 (2010).
 """
 
 import collections
@@ -26,6 +39,7 @@ import collections
 import numpy as np
 
 from . import storage
+from .grid import OFFSETS, mode_key
 
 
 def _region_index(sim, component, region, stride=1):
@@ -36,6 +50,9 @@ def _region_index(sim, component, region, stride=1):
     for a, c in enumerate(coords):
         if region is None or region[a] is None:
             sl = slice(None, None, stride)
+        elif np.ndim(region[a]) == 0:
+            i = int(np.argmin(np.abs(c - region[a])))
+            sl = slice(i, i + 1)
         else:
             lo, hi = region[a]
             sel = np.nonzero((c >= lo - 1e-9) & (c <= hi + 1e-9))[0]
@@ -75,7 +92,7 @@ class Probe(Monitor):
 
     def setup(self, sim):
         if self.component is None:
-            self.component = sim.e_components[0] if sim.mode == "Ez" else "Hz"
+            self.component = sim.default_component
         self._idx = sim.grid.index(self.position, self.component, sim.mode)
         self._t, self._v = [], []
 
@@ -173,7 +190,7 @@ class Snapshots(Monitor):
 
     def setup(self, sim):
         if self.component is None:
-            self.component = sim.e_components[0] if sim.mode == "Ez" else "Hz"
+            self.component = sim.default_component
         self._idx, self.coords = _region_index(sim, self.component, self.region, self.stride)
         self._mode = sim.mode
         self._frames = collections.deque(maxlen=self.keep_last)
@@ -281,6 +298,7 @@ class DFTField(Monitor):
             self._idx[c], self._coords[c] = idx, coords
             self._acc[c] = np.zeros((len(self.wavelengths),) + tuple(len(x) for x in coords), complex)
         self._mode = sim.mode
+        self._offsets = OFFSETS[sim.ndim][mode_key(sim.ndim, sim.mode)]
         self.duration = 0.0
 
     def record(self, sim):
@@ -300,6 +318,51 @@ class DFTField(Monitor):
 
     def coords(self, component):
         return self._coords[component]
+
+    def colocated(self, components=None, wavelength_index=0):
+        """Components moved to common nodes (the integer nodes of the Yee
+        grid, by averaging the two neighbours along each axis where a
+        component sits half a cell off), on the nodes all of them share:
+        for intensities or vector plots. Along the normal of a plane monitor
+        (one node layer) the components are taken as they are, half a cell
+        apart.
+
+        Returns
+        -------
+        coords : tuple of arrays
+        fields : complex array (n_components, ...)
+        """
+
+        comps = list(components or self._acc)
+        out, crds = [], []
+        for c in comps:
+            F = self._acc[c][wavelength_index]
+            cs = list(self._coords[c])
+            for a, o in enumerate(self._offsets[c]):
+                if o and F.shape[a] > 1:
+                    lo = [slice(None)]*F.ndim
+                    hi = [slice(None)]*F.ndim
+                    lo[a], hi[a] = slice(0, -1), slice(1, None)
+                    F = 0.5*(F[tuple(lo)] + F[tuple(hi)])
+                    cs[a] = 0.5*(cs[a][:-1] + cs[a][1:])
+            out.append(F)
+            crds.append(cs)
+        common, sel = [], [[] for _ in comps]
+        for a in range(len(crds[0])):
+            ref = crds[0][a]
+            if all(len(cs[a]) == 1 for cs in crds):   # a plane monitor: the nearest layers
+                common.append(ref)
+                for q in range(len(comps)):
+                    sel[q].append(np.zeros(1, dtype=int))
+                continue
+            keep = np.ones(len(ref), dtype=bool)
+            for cs in crds[1:]:
+                keep &= np.min(np.abs(ref[:, None] - cs[a][None, :]), axis=1) < 1e-6
+            common.append(ref[keep])
+            for q, cs in enumerate(crds):
+                sel[q].append(np.array([np.argmin(np.abs(cs[a] - v)) for v in ref[keep]], dtype=int))
+        fields = np.array([F[np.ix_(*sel[q])] for q, F in enumerate(out)])
+        return tuple(common), fields
 
     def data(self):
         """The result as DFTFieldData (e.g. to save it)."""
@@ -322,15 +385,23 @@ _FLUX = {
     (2, "Ez", 0): ("Ez", "Hy", -1), (2, "Ez", 1): ("Ez", "Hx", 1),
     (2, "Hz", 0): ("Ey", "Hz", 1), (2, "Hz", 1): ("Ex", "Hz", -1),
 }
+# 3D: S_x = Ey Hz - Ez Hy, S_y = Ez Hx - Ex Hz, S_z = Ex Hy - Ey Hx; each
+# H differs from its E partner by half a cell along the normal only
+_FLUX3 = {0: (("Ey", "Hz", 1), ("Ez", "Hy", -1)), 1: (("Ez", "Hx", 1), ("Ex", "Hz", -1)),
+          2: (("Ex", "Hy", 1), ("Ey", "Hx", -1))}
 
 
 class Flux(Monitor):
-    """Spectral power flux through a line (2D) or a point (1D).
+    """Spectral power flux through a plane (3D), a line (2D) or a point
+    (1D).
 
-    The line is normal to `axis` at `position`, optionally limited to
-    `extent` along the other axis; the flux counts positive along +axis.
-    H is interpolated to the E nodes. flux() returns 1/2 Re(sum E H*) dA
-    per wavelength (arbitrary units: divide by the flux of a reference run).
+    The line or plane is normal to `axis` at `position`, optionally
+    limited to `extent` along the other axis ((lo, hi)) or, in 3D, axes
+    (((lo, hi), (lo, hi)) in the order x, y, z, entries may be None); the
+    flux counts positive along +axis. H is interpolated to the E nodes.
+    flux() returns 1/2 Re(sum E H*) dA per wavelength (with a unit
+    amplitude source, in arbitrary units: divide by the flux of a reference
+    run).
     """
 
     def __init__(self, position, wavelengths, axis=0, extent=None):
@@ -340,6 +411,14 @@ class Flux(Monitor):
         self.extent = extent
 
     def setup(self, sim):
+        if sim.ndim == 3:
+            self._parts = []
+            for cE, cH, sign in _FLUX3[self.axis]:
+                part = Flux(self.position, self.wavelengths, self.axis, self.extent)
+                part._setup3(sim, cE, cH, sign)
+                self._parts.append(part)
+            return
+        self._parts = None
         a = self.axis
         cE, cH, self._sign = _FLUX[(sim.ndim, sim.mode, a)]
         grid = sim.grid
@@ -373,7 +452,40 @@ class Flux(Monitor):
         self._E = np.zeros((len(self._omega), nE), complex)
         self._H = np.zeros((len(self._omega), nE), complex)
 
+    def _setup3(self, sim, cE, cH, sign):
+        self._parts = None
+        a = self.axis
+        grid = sim.grid
+        pos = np.zeros(3)
+        pos[a] = self.position
+        i = grid.index(pos, cE, sim.mode)[a]
+        if i < 1:
+            raise ValueError("flux plane too close to the wall")
+        sE, sH = [None]*3, [None]*3
+        others = [b for b in range(3) if b != a]
+        for q, b in enumerate(others):
+            t = sim.coords(cE)[b]
+            ext = None if self.extent is None else self.extent[q]
+            if ext is None:
+                sE[b] = sH[b] = slice(None)
+            else:
+                sel = np.nonzero((t >= ext[0]) & (t <= ext[1]))[0]
+                sE[b] = sH[b] = slice(sel[0], sel[-1] + 1)
+        sE[a], sH[a] = slice(i, i + 1), slice(i - 1, i + 1)
+        self._sign = sign
+        self._cE, self._cH = cE, cH
+        self._sE, self._sH = tuple(sE), tuple(sH)
+        self._dA = grid.spacing[others[0]]*grid.spacing[others[1]]
+        self._omega = 2*np.pi/self.wavelengths
+        nE = np.asarray(sim.fields[cE][self._sE]).size
+        self._E = np.zeros((len(self._omega), nE), complex)
+        self._H = np.zeros((len(self._omega), nE), complex)
+
     def record(self, sim):
+        if self._parts:
+            for p in self._parts:
+                p.record(sim)
+            return
         E = np.asarray(sim.fields[self._cE][self._sE]).ravel()
         Hpair = np.asarray(sim.fields[self._cH][self._sH])
         if sim.ndim == 1:
@@ -388,9 +500,14 @@ class Flux(Monitor):
     def flux(self):
         """Power flux per wavelength (n_wavelengths,)."""
 
+        if self._parts:
+            return sum(p.flux() for p in self._parts)
         return 0.5*np.real(self._sign*np.sum(self._E*np.conj(self._H), axis=1))*self._dA
 
     def fields(self):
-        """DFT amplitudes of E and H (interpolated) along the line."""
+        """DFT amplitudes of E and H (interpolated) along the line (in 3D a
+        list of the (E, H) pairs of the two terms of the Poynting vector)."""
 
+        if self._parts:
+            return [(p._E, p._H) for p in self._parts]
         return self._E, self._H

@@ -403,7 +403,10 @@ class Surface:
             # for b ~ 0 (rays through the centre of curvature) the sign is
             # decided by rounding; the vertex branch has (1 + K) c z <= 1:
             wrong = (1 + K)*c*(z + t*dz) > 1
-            t = np.where(wrong, C/(a*t), t)
+            # the other root from the product of the roots, or from their sum
+            # for t = 0 (a ray that starts on the other branch, e.g. inside a
+            # sphere after an earlier intersection with it):
+            t = np.where(wrong, np.where(t != 0, C/(a*t), -b/a), t)
         if self.aspheric:
             t_plane = -z/dz
             t = np.where(np.isfinite(t), t, t_plane)
@@ -2461,7 +2464,13 @@ class System:
         """Fringe Zernike fit to the OPD map.
 
         Least squares fit of Z_1...Z_n_terms on the unit disk of pupil
-        coordinates.
+        coordinates, i.e. normalized positions in the entrance pupil. Note
+        that `imaging` (and `litho`) parametrize the pupil by the image space
+        ray directions instead (see `pupil()`); for a lens that forms a real
+        image the two are point-mirrored, and the coefficients of Zernikes
+        that are odd in the azimuth (Z2, Z3, Z7, Z8, Z10, Z11, ...) change
+        sign. Fit `pupil().phase` (or use `litho.lens.lens_aberrations()`)
+        for coefficients to hand to `imaging`.
 
         Parameters
         ----------

@@ -3,7 +3,8 @@
 
 """Plots and animations of FDTD simulations (needs matplotlib).
 
-- plot_structure(): permittivity map with the PML, sources and monitors.
+- plot_structure(): permittivity map with the PML, sources and monitors;
+  a periodic unit cell can be repeated to show the structure it stands for.
 - plot_field(): a component of the current fields, of a DFT monitor or of
   a snapshot, with the outlines of the structure on top.
 - animate(): a matplotlib animation of a SnapshotStack (time domain) or of
@@ -12,6 +13,10 @@
   IPython.display.HTML(anim.to_jshtml()) or as a GIF with gif(anim); save
   it with anim.save().
 - xt_diagram(): a 1D run as an image over x and t.
+
+3D runs are shown as sections: plane=("y", 0.0) (the default) shows the
+xz plane through y = 0, ("z", 1.0) the xy plane at z = 1; monitors
+recorded on a single plane are shown as they are.
 
 Real fields use a diverging colormap with symmetric limits, intensities
 inferno. The colours of sources and monitors are those of pyoptics.sketch.
@@ -23,7 +28,7 @@ import numpy as np
 from . import sources as _src
 from . import modes as _modes
 from . import monitors as _mon
-from .boundaries import PML
+from .boundaries import PML, PERIODIC, Bloch
 
 
 FIELD_CMAP = "RdBu_r"
@@ -31,6 +36,7 @@ INTENSITY_CMAP = "inferno"
 SOURCE_COLOR = "#e0a000"   # sketch.ILLUMINATION
 MONITOR_COLOR = "#2a7ab9"  # sketch.IMAGING
 PML_COLOR = "0.5"
+METAL_COLOR = "#b5893c"    # media with poles (metals): their eps_inf says little
 
 
 def _plt():
@@ -54,22 +60,152 @@ def _extent(coords):
     return out
 
 
-def _structure_outline(ax, sim, color="k", lw=0.6, alpha=0.6):
+AXIS_NAMES = "xyz"
+
+
+def _plane(plane):
+    """(axis index, position) of a section plane of a 3D run."""
+
+    if plane is None:
+        plane = ("y", 0.0)
+    a, pos = plane
+    return (AXIS_NAMES.index(a) if isinstance(a, str) else int(a)), float(pos)
+
+
+def _section(F, coords, plane=None):
+    """2D section of a 3D array: the given plane, else a length-1 axis
+    (a monitor on a single plane), else the default plane. Returns the
+    array, the coordinates and the axis names that remain."""
+
+    if F.ndim != 3:
+        return F, coords, list(AXIS_NAMES[:F.ndim])
+    flat = [a for a in range(3) if F.shape[a] == 1]
+    if plane is None and flat:
+        a = flat[0]
+        i = 0
+    else:
+        a, pos = _plane(plane)
+        i = int(np.argmin(np.abs(coords[a] - pos)))
+    keep = [b for b in range(3) if b != a]
+    return np.take(F, i, axis=a), [coords[b] for b in keep], [AXIS_NAMES[b] for b in keep]
+
+
+def _labels(ax, names):
+    ax.set_xlabel(names[0])
+    ax.set_ylabel(names[1])
+
+
+def _structure_outline(ax, sim, color="k", lw=0.6, alpha=0.6, plane=None):
     """Outline of each shape of the structure on top of a field plot."""
 
-    if not sim.structure or sim.ndim != 2:
+    if not sim.structure or sim.ndim == 1:
         return
-    x, y = sim.coords(sim.e_components[0])
-    X, Y = np.meshgrid(x, y, indexing="ij")
+    x, y, pts = _section_points(sim, sim.e_components[0], plane)
     for shape, _ in sim.structure:
-        inside = shape.contains(X, Y).astype(float)
+        inside = shape.contains(*pts).astype(float)
         if 0 < inside.mean() < 1:
             ax.contour(x, y, inside.T, levels=[0.5], colors=color, linewidths=lw, alpha=alpha)
 
 
-def _overlays(ax, sim, show_pml=True, show_sources=True, show_monitors=True):
+def _section_points(sim, component, plane=None):
+    """Coordinates of the nodes of a component on the plot plane (2D: all of
+    them; 3D: the section) and the points to test shapes at."""
+
+    if sim.ndim == 3:
+        a, pos = _plane(plane)
+        keep = [b for b in range(3) if b != a]
+        x, y = (sim.coords(component)[b] for b in keep)
+        X, Y = np.meshgrid(x, y, indexing="ij")
+        pts = [None]*3
+        pts[keep[0]], pts[keep[1]], pts[a] = X, Y, np.full(X.shape, pos)
+        return x, y, pts
+    x, y = sim.coords(component)
+    X, Y = np.meshgrid(x, y, indexing="ij")
+    return x, y, (X, Y)
+
+
+def _dispersive_mask(sim, component, plane=None):
+    """Nodes of the plot plane in a medium with poles (Drude, Lorentz,
+    Debye), whose eps_inf alone would show them like vacuum."""
+
+    x, y, pts = _section_points(sim, component, plane)
+    medium = np.full(pts[0].shape, -1)
+    for i, (shape, _) in enumerate(sim.structure):
+        medium[np.asarray(shape.contains(*pts), dtype=bool)] = i
+    poles = np.array([bool(m.poles) for _, m in sim.structure] + [bool(sim.background.poles)])
+    return poles[medium]
+
+
+def _overlays3(ax, sim, plane, show_pml=True, show_sources=True, show_monitors=True):
+    """PML, sources and monitors of a 3D run on a section plane (sources
+    and monitors projected onto it)."""
+
     plt = _plt()
     g = sim.grid
+    a, pos = _plane(plane)
+    keep = [b for b in range(3) if b != a]
+    ext = g.extent
+    lo = [ext[2*b] for b in keep]
+    hi = [ext[2*b + 1] for b in keep]
+
+    def span(q, v0, v1, **kw):
+        """A band v0..v1 along shown axis q (0: horizontal) across the plot."""
+        if q == 0:
+            return plt.Rectangle((v0, lo[1]), v1 - v0, hi[1] - lo[1], **kw)
+        return plt.Rectangle((lo[0], v0), hi[0] - lo[0], v1 - v0, **kw)
+
+    if show_pml:
+        for q, b in enumerate(keep):
+            bnd = sim.boundaries[b]
+            if isinstance(bnd, PML):
+                w = bnd.cells*g.spacing[b]
+                for v0 in (lo[q], hi[q] - w):
+                    r = span(q, v0, v0 + w)
+                    r.set(facecolor="none", edgecolor=PML_COLOR, hatch="///", lw=0, alpha=0.5)
+                    ax.add_patch(r)
+
+    def line(axis, position, color, **kw):
+        if axis in keep:
+            q = keep.index(axis)
+            if q == 0:
+                ax.plot([position]*2, [lo[1], hi[1]], color=color, **kw)
+            else:
+                ax.plot([lo[0], hi[0]], [position]*2, color=color, **kw)
+
+    if show_sources:
+        for s in sim.sources:
+            if isinstance(s, _src.PointSource):
+                p = np.asarray(s.position, dtype=float)
+                ax.plot(p[keep[0]], p[keep[1]], "o", ms=6, mec="k", mew=0.6, color=SOURCE_COLOR)
+            elif isinstance(s, _src.LineSource):
+                line(s.axis, s.position, SOURCE_COLOR, lw=2)
+            elif isinstance(s, _src.TFSF):
+                b = s.box
+                x0, x1 = b[2*keep[0]], b[2*keep[0] + 1]
+                y0, y1 = b[2*keep[1]], b[2*keep[1] + 1]
+                ax.add_patch(plt.Rectangle((x0, y0), x1 - x0, y1 - y0, fill=False,
+                                           ec=SOURCE_COLOR, lw=1.2, ls="--"))
+                if 2 in keep:   # the wave travels along +z
+                    if keep[1] == 2:
+                        tail, tip = ((x0 + x1)/2, y0), ((x0 + x1)/2, y0 + 0.25*(y1 - y0))
+                    else:
+                        tail, tip = (x0, (y0 + y1)/2), (x0 + 0.25*(x1 - x0), (y0 + y1)/2)
+                    ax.annotate("", xy=tip, xytext=tail,
+                                arrowprops=dict(arrowstyle="-|>", color=SOURCE_COLOR, lw=1.5))
+    if show_monitors:
+        for m in sim.monitors:
+            if isinstance(m, _mon.Flux) or type(m).__name__ == "DiffractionMonitor":
+                line(m.axis, m.position, MONITOR_COLOR, lw=1.2, ls="--")
+            elif isinstance(m, _mon.Probe):
+                p = np.asarray(m.position, dtype=float)
+                ax.plot(p[keep[0]], p[keep[1]], "x", ms=6, color=MONITOR_COLOR, mew=1.5)
+
+
+def _overlays(ax, sim, show_pml=True, show_sources=True, show_monitors=True, plane=None):
+    plt = _plt()
+    g = sim.grid
+    if sim.ndim == 3:
+        return _overlays3(ax, sim, plane, show_pml, show_sources, show_monitors)
     if sim.ndim == 1:
         if show_pml:
             for a, b in enumerate(sim.boundaries):
@@ -134,9 +270,8 @@ def _overlays(ax, sim, show_pml=True, show_sources=True, show_monitors=True):
                             arrowprops=dict(arrowstyle="-|>", color=SOURCE_COLOR, lw=1.5))
     if show_monitors:
         for m in sim.monitors:
-            if isinstance(m, (_mon.Flux, _modes.ModeMonitor)):
-                lo, hi = m.extent if m.extent is not None else \
-                    ((y0, y1) if m.axis == 0 else (x0, x1))
+            if isinstance(m, (_mon.Flux, _modes.ModeMonitor)) or type(m).__name__ == "DiffractionMonitor":
+                lo, hi = getattr(m, "extent", None) or ((y0, y1) if m.axis == 0 else (x0, x1))
                 if m.axis == 0:
                     ax.plot([m.position]*2, [lo, hi], color=MONITOR_COLOR, lw=1.2, ls="--")
                 else:
@@ -150,13 +285,23 @@ def _overlays(ax, sim, show_pml=True, show_sources=True, show_monitors=True):
 
 
 def plot_structure(sim, ax=None, component=None, cmap="Greys", show_pml=True, show_sources=True,
-                   show_monitors=True, colorbar=False):
-    """Refractive index map (2D, sqrt of the permittivity) or permittivity
-    profile (1D) with PML, sources and monitors.
+                   show_monitors=True, colorbar=False, periods=1, plane=None):
+    """Refractive index map (2D, a section in 3D, sqrt of the permittivity)
+    or permittivity profile (1D) with PML, sources and monitors. Media with
+    poles (metals) are filled in a metallic colour.
 
     Sources are drawn in amber (points, lines, the TFSF box with an arrow
     for the direction), monitors in blue (flux lines dashed, DFT regions
     dotted, probes as crosses), the PML hatched (2D) or shaded (1D).
+
+    periods : int
+        Repeat the cell this many times (odd numbers centre the simulated
+        cell) along each periodic or Bloch-periodic axis in the plot, to
+        show the structure a unit cell stands for. The simulated cell is
+        framed with dashed lines; sources and monitors are drawn in it
+        only.
+    plane : (axis, position), optional
+        3D: the section, ("y", 0.0) by default (see the module docstring).
     """
 
     ax = _ax(ax)
@@ -169,16 +314,44 @@ def plot_structure(sim, ax=None, component=None, cmap="Greys", show_pml=True, sh
         ax.set_ylabel(r"$\varepsilon_r$")
         ax.set_xlim(*sim.grid.extent)
     else:
+        names = list(AXIS_NAMES[:2])
+        shown = [0, 1]
+        if sim.ndim == 3:
+            a3, _ = _plane(plane)
+            eps, coords, names = _section(eps, coords, (a3, _plane(plane)[1]))
+            shown = [b for b in range(3) if b != a3]
         n = np.sqrt(np.maximum(eps, 0))
-        im = ax.imshow(n.T, origin="lower", extent=_extent(coords), cmap=cmap,
+        ext = list(_extent(coords))
+        periodic = [sim.boundaries[b] == PERIODIC or isinstance(sim.boundaries[b], Bloch)
+                    for b in shown]
+        reps = [int(periods) if p else 1 for p in periodic]
+        if max(reps) > 1:
+            n_t = np.tile(n, reps)
+            for a in range(2):
+                L, k0 = sim.grid.size[shown[a]], (reps[a] - 1)//2
+                ext[2*a] -= k0*L
+                ext[2*a + 1] += (reps[a] - 1 - k0)*L
+        else:
+            n_t = n
+        im = ax.imshow(n_t.T, origin="lower", extent=ext, cmap=cmap,
                        vmin=min(1.0, n.min()), vmax=1 + 1.4*max(n.max() - 1, 0.3),
                        interpolation="nearest")
+        metal = _dispersive_mask(sim, c, plane if sim.ndim == 3 else None)
+        if metal.any():
+            m_t = np.tile(metal, reps).astype(float)
+            from matplotlib.colors import ListedColormap
+            ax.imshow(np.ma.masked_less(m_t.T, 0.5), origin="lower", extent=ext, interpolation="nearest",
+                      cmap=ListedColormap([METAL_COLOR]), vmin=0, vmax=1)
+        if max(reps) > 1:
+            gext = sim.grid.extent
+            gx0, gx1, gy0, gy1 = (gext[2*b + e] for b in shown for e in (0, 1))
+            ax.add_patch(_plt().Rectangle((gx0, gy0), gx1 - gx0, gy1 - gy0, fill=False, ec="k",
+                                          lw=0.8, ls="--"))
         if colorbar:
             _plt().colorbar(im, ax=ax, label="n")
-        ax.set_xlabel("x")
-        ax.set_ylabel("y")
+        _labels(ax, names)
         ax.set_aspect("equal")
-    _overlays(ax, sim, show_pml, show_sources, show_monitors)
+    _overlays(ax, sim, show_pml, show_sources, show_monitors, plane=plane)
     return ax
 
 
@@ -188,8 +361,9 @@ def _resolve(data, component, wavelength_index):
 
     from .simulation import Simulation
     if isinstance(data, Simulation):
-        c = component or data.e_components[0] if data.mode == "Ez" else component or "Hz"
-        return data.fields[c].astype(float), data.coords(c), c
+        c = component or data.default_component
+        F = data.fields[c]
+        return (F.real if np.iscomplexobj(F) else F).astype(float), data.coords(c), c
     if isinstance(data, _mon.DFTField):
         data = data.data()
     if isinstance(data, _mon.DFTFieldData):
@@ -213,7 +387,7 @@ def _part(F, part):
 
 
 def plot_field(data, component=None, ax=None, sim=None, part="real", wavelength_index=0,
-               vmax=None, log=False, cmap=None, colorbar=True, title=None):
+               vmax=None, log=False, cmap=None, colorbar=True, title=None, plane=None):
     """Plot a field component.
 
     Parameters
@@ -228,6 +402,8 @@ def plot_field(data, component=None, ax=None, sim=None, part="real", wavelength_
     part : "real", "imag", "abs" or "intensity"
     log : bool
         Logarithmic intensity in dB (part "abs" or "intensity").
+    plane : (axis, position), optional
+        3D: the section (see the module docstring).
     """
 
     from .simulation import Simulation
@@ -236,6 +412,12 @@ def plot_field(data, component=None, ax=None, sim=None, part="real", wavelength_
     F, coords, c = _resolve(data, component, wavelength_index)
     if isinstance(data, Simulation) and sim is None:
         sim = data
+    names = list(AXIS_NAMES[:2])
+    if np.ndim(F) == 3:
+        if plane is None and 1 in F.shape:
+            a = list(F.shape).index(1)
+            plane = (a, coords[a][0])
+        F, coords, names = _section(F, coords, plane)
     V = _part(F, part)
     signed = part in ("real", "imag")
     if log and not signed:
@@ -256,11 +438,10 @@ def plot_field(data, component=None, ax=None, sim=None, part="real", wavelength_
     im = ax.imshow(V.T, origin="lower", extent=_extent(coords), cmap=cmap, vmin=vmin, vmax=vmax,
                    interpolation="bilinear")
     if sim is not None:
-        _structure_outline(ax, sim)
+        _structure_outline(ax, sim, plane=plane)
     ax.set_xlim(_extent(coords)[:2])
     ax.set_ylim(_extent(coords)[2:])
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
+    _labels(ax, names)
     ax.set_aspect("equal")
     if colorbar:
         label = {"real": "Re ", "imag": "Im ", "abs": "|%s|", "intensity": "|%s|$^2$"}[part]
@@ -272,7 +453,7 @@ def plot_field(data, component=None, ax=None, sim=None, part="real", wavelength_
 
 
 def animate(data, component=None, sim=None, ax=None, frames=24, wavelength_index=0, interval=60,
-            vmax=None, cmap=FIELD_CMAP, title=True):
+            vmax=None, cmap=FIELD_CMAP, title=True, plane=None):
     """Animation of a SnapshotStack, or of a DFT field over one period.
 
     Parameters
@@ -287,6 +468,8 @@ def animate(data, component=None, sim=None, ax=None, frames=24, wavelength_index
     vmax : number, optional
         Colour limit; default: the maximum over all frames (snapshots: the
         99.5 % percentile, so that the source does not saturate the scale).
+    plane : (axis, position), optional
+        3D: the section (see the module docstring).
 
     Returns
     -------
@@ -301,6 +484,12 @@ def animate(data, component=None, sim=None, ax=None, frames=24, wavelength_index
         c = component or list(data.fields)[0]
         F = data.fields[c][wavelength_index]
         coords = data.coords[c]
+        names = list(AXIS_NAMES[:2])
+        if F.ndim == 3:
+            if plane is None and 1 in F.shape:
+                a = list(F.shape).index(1)
+                plane = (a, coords[a][0])
+            F, coords, names = _section(F, coords, plane)
         phases = np.exp(-2j*np.pi*np.arange(frames)/frames)
         get = lambda k: np.real(F*phases[k])
         n = frames
@@ -310,7 +499,15 @@ def animate(data, component=None, sim=None, ax=None, frames=24, wavelength_index
     else:
         c = data.component
         coords = data.coords
+        names = list(AXIS_NAMES[:2])
         get = lambda k: data.frames[k].astype(float)
+        if data.frames.ndim == 4:
+            if plane is None and 1 in data.frames.shape[1:]:
+                a = list(data.frames.shape[1:]).index(1)
+                plane = (a, coords[a][0])
+            coords3 = coords
+            _, coords, names = _section(data.frames[0], coords3, plane)
+            get = lambda k: _section(data.frames[k].astype(float), coords3, plane)[0]
         n = len(data)
         labels = ["t = %.2f" % t for t in data.times]
         if vmax is None:
@@ -333,11 +530,10 @@ def animate(data, component=None, sim=None, ax=None, frames=24, wavelength_index
         artist = ax.imshow(get(0).T, origin="lower", extent=_extent(coords), cmap=cmap, vmin=-vmax,
                            vmax=vmax, interpolation="bilinear", animated=True)
         if sim is not None:
-            _structure_outline(ax, sim)
+            _structure_outline(ax, sim, plane=plane)
         ax.set_xlim(_extent(coords)[:2])
         ax.set_ylim(_extent(coords)[2:])
-        ax.set_xlabel("x")
-        ax.set_ylabel("y")
+        _labels(ax, names)
         ax.set_aspect("equal")
         update_data = lambda k: artist.set_data(get(k).T)
     txt = ax.set_title(labels[0] if title else "")

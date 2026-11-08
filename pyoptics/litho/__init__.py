@@ -46,6 +46,9 @@ exchangeable:
   size and dose to clear,
 - `rcwa`: rigorous mask diffraction of 1D layouts (RCWA), `RigorousMask`
   for Abbe and Hopkins imaging, calibration of the boundary layer model,
+- `fdtd_mask`: rigorous mask diffraction with the FDTD (`FDTDMask`, the
+  same interface as `RigorousMask`) for 1D and 2D layouts (contact holes),
+  per source point or at normal incidence,
 - `jones_pupil`: polarization of the lens as Jones pupils, in the
   representations of the literature (Jones-Zernike, Pauli-Zernike,
   retardance and diattenuation in orientation Zernike polynomials), with
@@ -99,3 +102,4 @@ from . import source_opt
 from . import opc
 from . import illuminator
 from .rcwa import RigorousMask
+from .fdtd_mask import FDTDMask

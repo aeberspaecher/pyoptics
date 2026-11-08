@@ -438,6 +438,12 @@ def get_z_derivative(stack, dz, order):
     -------
     dIdZ : array
         z-derivative in the central z-plane.
+
+    References
+    ----------
+    .. [1] A. Savitzky and M. J. E. Golay, "Smoothing and differentiation of
+       data by simplified least squares procedures", Anal. Chem. 36,
+       1627-1639 (1964).
     """
 
     # TODO: implement default behaviour for order

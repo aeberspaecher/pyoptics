@@ -8,10 +8,21 @@ permeability are 1, lengths are in any unit (the same as the wavelengths)
 and times are in that unit divided by c. The frequency of a vacuum
 wavelength wl is f = 1/wl, its angular frequency 2*pi/wl.
 
-Arrays are indexed [ix] in 1D and [ix, iy] in 2D (x first). The grid has
-shape[a] cells along axis a, with origin + i*spacing (i = 0..shape[a] - 1)
-for the integer nodes and origin + (i + 1/2)*spacing for the half nodes.
+Arrays are indexed [ix] in 1D, [ix, iy] in 2D and [ix, iy, iz] in 3D (x
+first). The grid has shape[a] cells along axis a, with origin + i*spacing
+(i = 0..shape[a] - 1) for the integer nodes and origin + (i + 1/2)*spacing
+for the half nodes.
 The outer walls lie at origin and origin + shape*spacing.
+
+References
+----------
+K. S. Yee, "Numerical solution of initial boundary value problems involving
+Maxwell's equations in isotropic media", IEEE Trans. Antennas Propag. 14,
+302-307 (1966).
+
+A. Taflove and S. C. Hagness, "Computational Electrodynamics: The
+Finite-Difference Time-Domain Method", 3rd ed., Artech House (2005),
+chapters 3 and 4 (Yee cell, numerical dispersion and stability).
 """
 
 import numpy as np
@@ -24,15 +35,28 @@ OFFSETS = {
     1: {"Ez": {"Ez": (0.0,), "Hy": (0.5,)}},
     2: {"Ez": {"Ez": (0.0, 0.0), "Hx": (0.0, 0.5), "Hy": (0.5, 0.0)},
         "Hz": {"Ex": (0.5, 0.0), "Ey": (0.0, 0.5), "Hz": (0.5, 0.5)}},
+    # 3D: the 2D offsets extended (E along z and H in the plane sit half a
+    # cell up along z)
+    3: {"3D": {"Ex": (0.5, 0.0, 0.0), "Ey": (0.0, 0.5, 0.0), "Ez": (0.0, 0.0, 0.5),
+               "Hx": (0.0, 0.5, 0.5), "Hy": (0.5, 0.0, 0.5), "Hz": (0.5, 0.5, 0.0)}},
 }
 
-E_COMPONENTS = {(1, "Ez"): ("Ez",), (2, "Ez"): ("Ez",), (2, "Hz"): ("Ex", "Ey")}
-H_COMPONENTS = {(1, "Ez"): ("Hy",), (2, "Ez"): ("Hx", "Hy"), (2, "Hz"): ("Hz",)}
+E_COMPONENTS = {(1, "Ez"): ("Ez",), (2, "Ez"): ("Ez",), (2, "Hz"): ("Ex", "Ey"),
+                (3, "3D"): ("Ex", "Ey", "Ez")}
+H_COMPONENTS = {(1, "Ez"): ("Hy",), (2, "Ez"): ("Hx", "Hy"), (2, "Hz"): ("Hz",),
+                (3, "3D"): ("Hx", "Hy", "Hz")}
 AXES = "xyz"
 
 
+def mode_key(ndim, mode):
+    """The key of OFFSETS[ndim] for a polarization mode: the mode in 2D,
+    "Ez" in 1D, "3D" in 3D."""
+
+    return mode if ndim == 2 else ("Ez" if ndim == 1 else "3D")
+
+
 class Grid(object):
-    """Regular Yee grid in 1D or 2D.
+    """Regular Yee grid in 1D, 2D or 3D.
 
     Parameters
     ----------
@@ -49,8 +73,8 @@ class Grid(object):
     def __init__(self, size, spacing, center=None):
         size = np.atleast_1d(np.asarray(size, dtype=float))
         ndim = len(size)
-        if ndim not in (1, 2):
-            raise ValueError("only 1D and 2D grids are supported so far")
+        if ndim not in (1, 2, 3):
+            raise ValueError("grids have 1, 2 or 3 dimensions")
         spacing = np.broadcast_to(np.asarray(spacing, dtype=float), (ndim,)).copy()
         center = np.zeros(ndim) if center is None else \
             np.broadcast_to(np.asarray(center, dtype=float), (ndim,)).copy()
@@ -72,14 +96,14 @@ class Grid(object):
     def coords(self, component, mode="Ez"):
         """1D coordinate arrays (one per axis) of a field component."""
 
-        offsets = OFFSETS[self.ndim][mode if self.ndim == 2 else "Ez"][component]
+        offsets = OFFSETS[self.ndim][mode_key(self.ndim, mode)][component]
         return tuple(self.axis(a, o) for a, o in enumerate(offsets))
 
     def index(self, position, component, mode="Ez"):
         """Index tuple of the node of a component closest to a position."""
 
         position = np.atleast_1d(np.asarray(position, dtype=float))
-        offsets = OFFSETS[self.ndim][mode if self.ndim == 2 else "Ez"][component]
+        offsets = OFFSETS[self.ndim][mode_key(self.ndim, mode)][component]
         idx = []
         for a, o in enumerate(offsets):
             i = int(np.floor((position[a] - self.origin[a])/self.spacing[a] - o + 0.5 + 1e-9))
@@ -94,7 +118,7 @@ class Grid(object):
 
     @property
     def extent(self):
-        """(xmin, xmax[, ymin, ymax]) of the domain, for imshow()."""
+        """(xmin, xmax[, ymin, ymax[, zmin, zmax]]) of the domain."""
 
         return tuple(v for a in range(self.ndim)
                      for v in (self.origin[a], self.origin[a] + self.size[a]))

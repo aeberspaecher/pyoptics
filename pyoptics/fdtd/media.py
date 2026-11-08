@@ -27,6 +27,22 @@ Debye update (an exponential integrator) first order.
 
 Photon energies convert with omega = E/(hbar c) per length unit:
 `omega_from_eV()` (1.2398/E µm for E in eV).
+
+References
+----------
+A. Taflove and S. C. Hagness, "Computational Electrodynamics: The
+Finite-Difference Time-Domain Method", 3rd ed., Artech House (2005), chapter
+9.
+
+R. M. Joseph, S. C. Hagness and A. Taflove, "Direct time integration of
+Maxwell's equations in linear dispersive media with absorption for
+scattering and propagation of femtosecond electromagnetic pulses", Opt.
+Lett. 16, 1412-1414 (1991).
+
+A. Vial, A.-S. Grimault, D. Macias, D. Barchiesi and M. Lamy de la Chapelle,
+"Improved analytical fit of gold dispersion: Application to the modeling of
+extinction spectra with a finite-difference time-domain method", Phys. Rev.
+B 71, 085416 (2005).
 """
 
 import numpy as np
@@ -139,14 +155,29 @@ class Medium(object):
 
     @classmethod
     def from_index(cls, n, k=0.0, wavelength=None):
-        """Non-dispersive medium with the complex index n + ik at one vacuum
-        wavelength (exact there; the conductivity model makes k vary with
-        wavelength)."""
+        """Medium with the complex index n + ik at one vacuum wavelength
+        (exact there).
+
+        With Re(eps) = n**2 - k**2 >= 1 the medium is a permittivity with a
+        conductivity (which makes k vary with the wavelength). Below 1
+        (metals such as chrome in the UV, Re(eps) < 0) the time step would
+        be unstable; the medium is then eps_inf = 1 with one Drude term
+        that gives eps exactly at the wavelength:
+        1 - eps = omega_p**2/(omega (omega + i gamma)) has a solution with
+        omega_p**2 > 0, gamma >= 0 for every Re(eps) < 1, Im(eps) >= 0.
+        """
 
         if k != 0 and wavelength is None:
             raise ValueError("an absorbing medium needs the wavelength")
-        sigma = 2*n*k*2*np.pi/wavelength if k else 0.0
-        return cls(n**2 - k**2, sigma)
+        eps = complex(n, k)**2
+        if eps.real >= 1 or wavelength is None:
+            sigma = 2*n*k*2*np.pi/wavelength if k else 0.0
+            return cls(eps.real, sigma)
+        omega = 2*np.pi/wavelength
+        c = 1/(1 - eps)
+        omega_p2 = omega**2/c.real
+        gamma = omega_p2*c.imag/omega
+        return cls(1.0, 0.0, [Drude(np.sqrt(omega_p2), gamma)])
 
     @classmethod
     def fit(cls, wavelengths, index, n_lorentz=2, drude=False, eps_inf=None):

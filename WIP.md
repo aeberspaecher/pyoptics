@@ -12,8 +12,8 @@
 ## Medium
 
 * Finish the stub `interpolator.TrigInterpolator`
-* Lithography (DUV, see the roadmap in the project files): RCWA for 2D masks, ray traced stress
-  birefringence
+* Lithography (DUV, see the roadmap in the project files): RCWA for 2D masks (the FDTD
+  mask model covers them, slowly), ray traced stress birefringence
 * More tests for `TIE`
 * WPM: Fresnel transmission correction at index steps, absorbing boundaries;
   symmetrized step (alternate the two operator orderings) against the power
@@ -24,12 +24,22 @@
 * Documentation: user guide pages per topic, bibliography, doctests, weekly
   re-execution of the notebooks
 * Incoherence in thin films (spatial and temporal incoherence)
+* FDFD, next: 3D (needs an iterative solver), dispersive media inside the
+  eigenvalue problem (nonlinear eigenproblem; now evaluated at the guess),
+  symmetry boundaries (half and quarter domains for mirror-symmetric
+  cavities), better subpixel averaging of curved boundaries (lowers the
+  numerical Q floor of whispering gallery modes, about 1e7 at 20 cells per
+  wavelength), Husimi functions and ray dynamics for deformed cavities
 * FDTD, next milestones (done: 1D/2D core, numba kernels, dispersive media,
   waveguide modes, mode sources/monitors, S-parameters, Q extraction,
-  Bloch boundaries, diffraction orders vs. RCWA, band structures;
-  notebooks 57, 59, 60 and 62): mode sources with dispersion-matched auxiliary
-  grids (no backward leakage away from the centre wavelength); photonic-crystal
-  waveguides and cavities, grating couplers, metasurfaces and 3D; a second-order Debye
+  Bloch boundaries, diffraction orders vs. RCWA, band structures,
+  photonic-crystal devices, grating coupler, metalens, 3D with the Mie
+  sphere and the nanojet, 3D diffraction orders, the litho mask model
+  `litho.FDTDMask`; notebooks 57, 59, 60, 62, 63, 64 and 65): 3D mode
+  sources and monitors (needs the mode solver on a 2D cross section);
+  subpixel averaging for dispersive media (FDTDMask puts edges on nodes
+  instead); a GPU or MPI backend for large 3D mask cells; mode sources with dispersion-matched auxiliary
+  grids (no backward leakage away from the centre wavelength); a second-order Debye
   update; better accuracy for metal boundaries in the Hz mode (first order
   now); `analytical.cylinder_field` for H along the axis (the series is in
   notebook 57 and test_fdtd.py)
@@ -86,6 +96,10 @@
   notebook 35)
 * Lithography: rigorous mask diffraction with 1D RCWA and boundary layer
   calibration (`litho.rcwa`, notebook 36)
+* Lithography: rigorous FDTD mask model for 1D and 2D layouts
+  (`litho.FDTDMask`, notebook 65)
+* FDFD solver in 2D (`fdfd`: driven solves, resonances, mode tracing, far
+  fields; notebooks 66 and 67, the limaçon microcavity)
 * Lithography: Jones pupils (Pauli-Zernike, orientation Zernikes, polar
   decomposition) and the polarization ray trace of a lens with coatings
   and CaF2 intrinsic birefringence (`litho.jones_pupil`, `litho.lens`,

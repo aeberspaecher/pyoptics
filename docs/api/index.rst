@@ -37,6 +37,9 @@ Rigorous electromagnetics (FDTD)
    pyoptics.fdtd.simulation
    pyoptics.fdtd.storage
    pyoptics.fdtd.plot
+   pyoptics.fdfd
+   pyoptics.fdfd.solver
+   pyoptics.fdfd.radiation
 
 Beams, modes and paraxial optics
 --------------------------------
@@ -47,6 +50,8 @@ Beams, modes and paraxial optics
    pyoptics.beams
    pyoptics.beam_quality
    pyoptics.modes
+   pyoptics.vortices
+   pyoptics.ultrafast
    pyoptics.abcd
 
 Imaging and ray tracing
@@ -60,11 +65,19 @@ Imaging and ray tracing
    pyoptics.bases
    pyoptics.vectorial_imaging
    pyoptics.microscopy
+   pyoptics.tweezers
+   pyoptics.lensless
+   pyoptics.superresolution
+   pyoptics.schlieren
    pyoptics.raytrace
    pyoptics.raywave
+   pyoptics.grin
+   pyoptics.cloak
    pyoptics.fresnel
+   pyoptics.illumination
    pyoptics.delano
    pyoptics.lens_optimization
+   pyoptics.tolerancing
    pyoptics.glasses
 
 Lithography
@@ -103,6 +116,16 @@ Interfaces, thin films and polarization
    pyoptics.polarization.jones
    pyoptics.polarization.mueller
 
+Atmospheric optics and colour
+-----------------------------
+
+.. autosummary::
+   :toctree: generated
+
+   pyoptics.rainbow
+   pyoptics.colour
+   pyoptics.turbulence
+
 Measurement and phase retrieval
 -------------------------------
 
@@ -110,12 +133,15 @@ Measurement and phase retrieval
    :toctree: generated
 
    pyoptics.interferometry
+   pyoptics.coherence
+   pyoptics.oct
    pyoptics.holography
    pyoptics.unwrap
    pyoptics.phase_retrieval
    pyoptics.shack_hartmann
    pyoptics.TIE
    pyoptics.ifta
+   pyoptics.wavefront_shaping
    pyoptics.processing
 
 Utilities

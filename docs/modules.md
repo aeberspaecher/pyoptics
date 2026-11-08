@@ -18,8 +18,20 @@ What each module does and how mature it is. Planned work is listed in
   Jacobian; carrier removal, power flux and ISO 11146 beam widths on
   inclined planes (detectors); `tilted_plane()` and
   `vectorial_tilted_plane()` are also available from `propagators`
+- `fdfd`: new, tested: finite-difference frequency-domain solver in 2D
+  (Ez and Hz) on the Yee grid of `fdtd` with its shapes and media (and a
+  graded background permittivity given as a function, e.g. a GRIN lens;
+  checked against the exact field of Maxwell's fish-eye), a
+  stretched-coordinate PML and Bloch boundaries; driven solves (line
+  currents, plane waves injected on a total-field box without leakage),
+  resonances (quasi-normal modes and Q by shift-invert Arnoldi) and mode
+  tracing through a change of the structure by field overlap; far fields
+  from outgoing cylindrical waves and the directionality of the emission;
+  checked against the cylinder series and the exact microdisk modes
+  (`analytical.disk_resonance`), the slab under oblique incidence and the
+  FDTD (notebooks 66 and 67)
 - `fdtd`: new, tested: finite-difference time-domain
-  solver for Maxwell's equations in 1D and 2D (polarizations Ez and Hz,
+  solver for Maxwell's equations in 1D, 2D and 3D (2D polarizations Ez and Hz,
   with the TE/TM naming explained in the module docstring), NumPy kernels
   and compiled numba kernels (optional, about ten times faster, identical
   results), shapes with sub-cell permittivity averaging (anisotropic for
@@ -41,9 +53,20 @@ What each module does and how mature it is. Planned work is listed in
   (oblique incidence at a fixed transverse wave number), diffraction
   orders of gratings and band structures of photonic crystals
   (`bloch_modes`), checked against `thin_films`, RCWA (`litho.rcwa`), the
-  analytic bands of a Bragg stack and the band gap of a rod lattice.
-  Planned: photonic-crystal devices, grating couplers, 3D
-  (`proposals/fdtd.md` in the project notes)
+  analytic bands of a Bragg stack and the band gap of a rod lattice;
+  devices: lattices with defects (`Lattice`), photonic-crystal
+  waveguides (supercell bands, transmission through a sharp bend) and
+  cavities (Q against the crystal size), a fibre-to-chip grating coupler,
+  complex transmission of unit cells (`DiffractionOrders.coefficient`)
+  for a metasurface phase library and a metalens; 3D: all six components
+  (float32 and numba by default, CPML stored only in the layers), 3D
+  shapes (`Sphere`, `Box`, `Cylinder`, `Prism` extrusions of 2D shapes),
+  plane sources, a TFSF plane wave along z with the incident spectrum
+  recorded, plane monitors, flux through planes and section plots,
+  checked against the vector Mie series (near field and scattering cross
+  section of a sphere); the photonic nanojet; diffraction orders (m, n) of 3D periodic cells;
+  `Medium.from_index` for metals at one wavelength (an exact Drude match);
+  the rigorous FDTD mask model `litho.FDTDMask`
 - `analytic_phase`: propagation with analytic handling of the wavefront
   phase after Wyrowski and coworkers, tested: fields stored as a smooth
   sampled amplitude times a separable quadratic phase with carrier
@@ -59,7 +82,10 @@ What each module does and how mature it is. Planned work is listed in
   (`utils.pad()`/`unpad()` for centered zero padding; `analytical` holds the
   Airy pattern, its encircled energy, the diffraction limited OTF and the
   exact series solutions for a dielectric cylinder (TE) and sphere (scalar),
-  also for beams: `cylinder_field()`, `sphere_field()`)
+  also for beams: `cylinder_field()`, `sphere_field()`, and the vector
+  Lorenz-Mie solution of a sphere: `mie_coefficients()`, `mie_field()`,
+  `mie_efficiencies()`, and its far field `mie_amplitudes()` (S1, S2, checked
+  against the optical theorem and the scattering efficiency))
 - `bases`: mature (Zernike, Legendre, Chebyshev bases, numerical
   orthogonalization, fits); all bases can be shifted and rotated, Legendre and
   Chebyshev derive from the abstract `TensorProductBasis`; tested
@@ -69,7 +95,29 @@ What each module does and how mature it is. Planned work is listed in
   coherent multilayer stacks; `stack_transfer_functions()` gives r and t on
   the angular spectrum grid of a field)
 - `materials`: Abbe (n_d, V_d) dispersion model via a two-term Cauchy
-  formula, tested
+  formula, the index of water (Daimon and Masumura, 20 deg C) and of
+  standard air (Ciddor), tested
+- `rainbow`: new, tested: rays through a spherical drop with any number of
+  internal reflections (exact vector trace, Fresnel factors for s and p),
+  Descartes' angles, the geometric cross section of every order, Airy's
+  theory of the bow, and the drop as a sequential `raytrace.System` (one
+  tilted surface per intersection); checked against the deviation
+  formula, the envelope theorem, a Monte Carlo of traced rays, energy
+  conservation and the Mie series (notebook 71)
+- `schlieren`: new, tested: schlieren, shadowgraph and the knife-edge tests
+  of Foucault and Ronchi as Fourier plane filters: knife edge, slit, wire
+  and Ronchi ruling on the focal plane grid, coherent images of a point
+  source and incoherent images of slit and pinhole sources, the geometric
+  limit (transverse aberration through the filter), Toepler's contrast
+  f eps/a and the linear knife-edge transfer for weak wavefronts (slope
+  response for coarse structure, phase response for fine structure), knife
+  defocus, a conic mirror at its centre of curvature and its zonal offsets,
+  the Gladstone-Dale index of hot air and the shadowgraph -L laplace(W);
+  checked against the Hilbert transform image of a knife at the focus, the
+  knife-edge rule, Couder zone readings, Ronchi band periods and ripple
+  contrast (notebook 76)
+- `colour`: new, tested: CIE 1931 colour matching functions (analytic fit
+  of Wyman, Sloan and Shirley), XYZ and sRGB of spectra, black body spectra
 - `glasses`: optical glass catalogues of SCHOTT, OHARA, HOYA, CDGM, SUMITA
   and HIKARI (about 1600 glasses with the vendors' Sellmeier and power
   series formulas, from the refractiveindex.info database, CC0), tested:
@@ -119,6 +167,9 @@ What each module does and how mature it is. Planned work is listed in
   factorization, conical incidence, enhanced transmittance matrices; exact
   against `thin_films`, energy conserving), `RigorousMask` for Abbe and
   Hopkins imaging and a calibration of the boundary layer model;
+  `litho.FDTDMask`: rigorous mask diffraction of any 1D or 2D layout
+  (contact holes, line ends) with the 3D FDTD, the same interface as
+  `RigorousMask`, checked against RCWA for lines (orders, images, CD);
   `litho.jones_pupil`: polarization of the lens as Jones pupils in the
   representations of the literature (Pauli-Zernike, polar decomposition,
   retardance and diattenuation in orientation Zernike polynomials) with
@@ -158,6 +209,29 @@ What each module does and how mature it is. Planned work is listed in
   ptychography: LED array illumination, the low resolution forward model
   and the reconstruction by alternating projections with embedded pupil
   recovery (quasi-Newton or EPRY step), pupil overlap in k-space
+- `tweezers`: new, tested: optical forces on a dielectric sphere in a
+  focused beam (optical tweezers), as trapping efficiencies Q = Fc/(n P);
+  Ashkin's closed form ray efficiencies (checked against an explicit trace
+  of the internal reflections) and the ray optics force of a fan of rays
+  from an aplanatic pupil with s/p splitting per ray; the Richards-Wolf
+  focus as a plane wave quadrature (E, H, gradients, beam power); the exact
+  force on a sphere of any size (`MieTrap`: every plane wave scattered by
+  Mie theory, the force from the momentum lost in the far field, with an
+  optional numba kernel); the dipole force with the radiatively corrected
+  polarizability, the plane wave radiation pressure efficiency; equilibrium,
+  stiffness, overdamped Brownian motion and the Lorentzian power spectrum;
+  checked against the dipole force (deviation ∝ (ka)²), Mie radiation
+  pressure, the Poynting flux of the focus and ray optics for large beads
+  (notebook 75)
+- `superresolution`: new, tested: super-resolution fluorescence microscopy;
+  SIM patterns and raw images, band separation from the pattern phases
+  (`sim_bands()`), band shifts by any wave vector, the generalized Wiener
+  reconstruction and the OTF support for several angles; vectorial vortex
+  foci with any polarization (`vortex_focus()`, the true zero needs spin
+  parallel to the orbital angular momentum), the effective STED PSF and the
+  square root law; pixelated Gaussian spots, centroid, least squares and
+  Poisson maximum likelihood localization, Mortensen's precision formulas
+  (notebook 78)
 - `abcd`: ABCD (ray transfer) matrices, tested: thin and thick lenses,
   spherical interfaces, tilted mirrors (tangential/sagittal), GRIN media;
   `OpticalSystem` builds systems element by element and traces rays and
@@ -183,6 +257,30 @@ What each module does and how mature it is. Planned work is listed in
   interferograms with a carrier (sideband window, automatic carrier search,
   masks, apodization, overlap warning); phase error vs. shifter
   miscalibration
+- `coherence`: new, tested: spatial and temporal coherence and intensity
+  interferometry; the van Cittert-Zernike theorem for any incoherent source
+  (chirp-z transform of its intensity), the degree of coherence of uniform
+  and linearly limb darkened stellar disks and of binaries, random
+  realizations of incoherent sources; gamma(tau) of a sampled spectrum
+  (Wiener-Khinchin), line shapes and coherence times of Gaussian,
+  Lorentzian and rectangular lines; fringe visibility and phase by least
+  squares; chaotic light with a given line shape, pairs with a given degree
+  of coherence, g1, g2 and normalized intensity correlations (Hanbury Brown
+  and Twiss); checked against 2J1(v)/v, the limb darkening formula, the
+  Siegert relation and random-phase sources propagated with
+  `fresnel_scaled()` (notebook 74)
+- `oct`: new, tested: optical coherence tomography; spectral interferograms
+  of a Michelson interferometer with DC, autocorrelation and cross terms, a
+  spectrometer model (pixel averaging and Gaussian resolution), A-scans by
+  FFT with the depth axis and z_max = pi/(2 delta k), time-domain signals
+  for a scanned reference and their Hilbert demodulation, r_S(k) of layer
+  stacks via `thin_films` (dispersive, absorbing) and the single
+  reflection amplitudes, full range interferograms from a quarter wave
+  reference step, round trip dispersion phases, Taylor coefficients,
+  numerical compensation and its optimization by A-scan sharpness; checked
+  against the axial resolution 2 ln2/pi lambda^2/Delta lambda, the
+  sensitivity roll-off, the dispersion broadening of a Gaussian spectrum
+  and the SD/TD SNR ratio (notebook 82)
 - `holography`: digital holography, tested: off-axis and in-line holograms
   (tilted reference, phase shifts; camera noise via `processing.CameraNoiser`),
   sampling condition for the reference angle; reconstruction by sideband
@@ -204,6 +302,39 @@ What each module does and how mature it is. Planned work is listed in
   gradient (traceable with `raytrace.System.trace()`), rays from local
   spectra (sampled Husimi function) and the Wigner function of a 1D field;
   structured rays from fields for the round trip through ray-traced optics
+- `grin`: new, tested: ray tracing through gradient-index media (the ray
+  equation in the parameter dt = ds/n, Runge-Kutta-Nyström after Sharma,
+  Kumar and Ghatak, with the optical path and exact end points on a stop
+  surface); media with closed form rays: Luneburg lens, Maxwell's
+  fish-eye, parabolic and hyperbolic secant rods, an exponential layer
+  (mirage), or any index function with a numerical gradient; checked
+  against all closed forms (notebook 77)
+- `cloak`: new, tested: carpet cloaks from quasi-conformal maps (Li and
+  Pendry): the map above a bump on a mirror from two Laplace solves on a
+  boundary-fitted grid with sliding, mirror-sliding or fixed boundaries,
+  the isotropic index n² = det K and the dropped anisotropy, first-order
+  theory of the index, the index as an FDFD permittivity and a `grin`
+  medium with rays reflected on the bump and refracted at the cloak's
+  edge; a line of FDFD sources that launches a Gaussian beam with the
+  grid's dispersion, and angular spectra (notebook 80)
+- `illumination`: new, tested: illumination optics with Monte Carlo rays;
+  Lambertian sources on disks and rectangles (`LambertianSource`, rays for
+  `raytrace.System.trace()`, the Sun with its angular radius), canonical
+  phase space coordinates (x, y, nL, nM), the skew invariant, the ray map of
+  a `raytrace.System` and its Jacobian with a symplecticity check; étendue
+  of Lambertian sources, the concentration limit n²/sin²α, the coupling
+  bound and the stagnation temperature under concentrated sunlight; étendue
+  from rays (occupied phase space volume and the participation étendue
+  P²/∫L², unbiased against Monte Carlo noise); refraction at a plane, thin
+  diffusers and straight light pipes traced by unfolding (TIR or mirror
+  walls); checked against 2w·NA, 4π√det Σ, det J = 1 for a real lens and
+  cos⁴θ′ for the paraxial ideal lens, and the brightness bound
+  NA′²/sin²α of a stigmatic lens (notebook 83); compound parabolic
+  concentrators (edge-ray design, hollow or dielectric with TIR walls, 2D
+  trough or 3D, truncated) traced through their wall reflections, with a
+  compiled kernel if numba is installed; checked against the ideal 2D step,
+  the exit étendue under Lambertian input and the 1/n² bound for a
+  dielectric CPC that exits into air (notebook 84)
 - `fresnel`: Fresnel lenses, tested: a parent surface (sphere, conic,
   even asphere) collapsed into zones of constant pitch, constant depth or
   given radii, with curved or flat (conical) facets and drafted risers
@@ -269,6 +400,15 @@ What each module does and how mature it is. Planned work is listed in
   and their prices); `predicted_gain()` ranks candidate variables (e.g. an
   asphere on each surface) by the linearized decrease of the merit function
   (notebook 43, section 7)
+- `tolerancing`: Monte Carlo tolerancing, tested: tolerances (power in
+  fringes, radius, thickness and air space, axial position of an element,
+  image plane, index, Abbe number, element decentre) with Gaussian, uniform
+  or end point distributions, applied before or after the compensators;
+  performance vectors of the polychromatic RMS spot and the RMS wavefront per
+  field (full pupil, valid for decentred lenses); compensators from
+  `lens_optimization` variables (focus, axial manipulators) and lateral
+  manipulators; sensitivity tables, variance budgets, full Monte Carlo runs and
+  the linear model (exact quadratic merit), compensator choice (notebook 70)
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
 - `modes`: mode analysis and fibres, tested: decomposition of any field into
@@ -280,10 +420,50 @@ What each module does and how mature it is. Planned work is listed in
   Gaussian approximation); coupling efficiency of any field into any mode
   (generalizes `abcd.coupling_efficiency()`), sweeps over offset, tilt and
   defocus, power per fibre mode
+- `vortices`: new, tested: optical vortices and orbital angular momentum of
+  scalar beams; spiral phase plates (continuous, multilevel, fractional
+  charge) and their height profiles, fork gratings (binary and sinusoidal
+  amplitude, blazed and binary phase); the topological charge on a circle,
+  all phase singularities of a sampled field with their signs, the spiral
+  (OAM) spectrum about any axis, the mean OAM per photon and the orbital
+  current density; checked against LG modes, the sinc² spectrum of
+  multilevel plates, the spectrum of fractional plates, the analytic
+  splitting of a charge-3 vortex and the order efficiencies of gratings
+  (notebook 69)
+- `ultrafast`: new, tested: ultrashort pulses through glass, lenses,
+  prisms and gratings; group index, GVD and TOD of any dispersion formula
+  (fused silica and CaF2 after Malitson), the exact spectral phase of a
+  slab, Gaussian pulse broadening and the best input duration, pulse
+  synthesis on free time grids; Bor's pulse-front delay from the chromatic
+  power derivative and phase delay, group delay and GDD summed along rays
+  of a `raytrace.System`, the focal field spectrum of a traced lens (sums of
+  monochromatic focuses in time) and Bor and Horváth's axial box model;
+  pulse-front tilt from angular dispersion (prisms and gratings in closed
+  form, group delays of rays through a prism, x-t synthesis of a dispersed
+  beam); exact focused Gaussian beamlets and the axial pulse of
+  simultaneous spatial and temporal focusing (notebook 81)
 - `TIE`: basic transport of intensity solver, partly tested
 - `ifta`: basic Gerchberg-Saxton and variants for beam shaping, tested
   (convergence of GS, HIO-HOO and over-compensation on a reachable target,
   phase quantization)
+- `wavefront_shaping`: new, tested: focusing through scattering media;
+  random phase screens, SLM segments, transmission matrices of any linear
+  propagator (segment by segment), phase conjugation for full, phase-only,
+  P-level and binary amplitude modulation with the enhancement and its
+  theoretical value, Vellekoop's feedback algorithms (stepwise and
+  continuous sequential, random partitioning), the phase-stepping TM
+  measurement against a reference (canonical or Hadamard basis), a
+  weighted Gerchberg-Saxton loop through the TM (built on `ifta`), random
+  unitaries and the Marchenko-Pastur law (notebook 73)
+- `lensless`: new, tested: lensless imaging; the pinhole camera
+  (Rayleigh's optimum pinhole, the exact on-axis Fresnel intensity behind a
+  hole, geometric and diffraction blur), coded apertures (MURAs of prime
+  order 4m + 1 and their decoders, the periodic shadow model, decoding by
+  correlation, Fenimore's signal-to-noise ratio against a single hole), and
+  the diffuser camera (PSF of a point source behind any mask by wave
+  propagation, the focal length of the bumps of a random phase plate, the
+  shift and 1 + z/u scaling of the PSF, Wiener deconvolution and ADMM with
+  total variation, positivity and a cropped sensor) (notebook 79)
 - `phase_retrieval`: phase retrieval, tested: Fienup's error reduction and
   hybrid input-output with support, reality and positivity constraints,
   shrink-wrap support and the autocorrelation support, error histories,
@@ -300,6 +480,16 @@ What each module does and how mature it is. Planned work is listed in
   optional reference image, intensity weighted model slopes, modal
   reconstruction (least squares fit of Fringe Zernike gradients) and zonal
   reconstruction (Southwell); sensitivity and dynamic range of the design
+- `turbulence`: new, tested: atmospheric turbulence; von Kármán phase
+  spectrum, random phase screens (FFT method with subharmonics and cell
+  averaged low frequencies), measured and theoretical structure functions,
+  Noll's Zernike variances and residuals; Hufnagel-Valley profiles cut into
+  layers, r0, isoplanatic angle, coherence time and the Rytov scintillation
+  index with aperture averaging; long and short exposure transfer functions,
+  seeing with outer scale, Fried's lucky imaging probability; split-step
+  propagation through layers and frozen flow screens; checked against the
+  Kolmogorov structure function, Noll's table, the 19.12 λ^(-7/6) formula and
+  a split-step simulation (notebook 72)
 - `wpm`: wave propagation method (Cython extension) for inhomogeneous, also
   absorbing media, 2D and y-invariant 1D fields, multi-step driver; direct
   O(N^2) sum (OpenMP) or the fast "levels" variant (one FFT pair per distinct
@@ -321,7 +511,11 @@ What each module does and how mature it is. Planned work is listed in
   of a Twyman-Green and a Fizeau interferometer, a Shack-Hartmann and a
   phase diversity lens test, off-axis holography (lensless and microscope),
   a coated fold mirror with s and p, the KrF illuminator with its pupil and
-  field planes, and a spatial filter
+  field planes, a spatial filter, the geometry of rainbows and of the
+  glory seen from an aircraft, the Foucault knife-edge (and wire and Ronchi)
+  test of a concave mirror, a Toepler schlieren system and a direct
+  shadowgraph, and pulses through lenses, prisms and gratings (pulse-front
+  delay and tilt)
 - Unfinished stubs: `interpolator.TrigInterpolator` cannot be evaluated yet,
   the functions in `polarization._polarization` are empty
 

@@ -8,7 +8,7 @@ Conventions
 -----------
 Fields vary as exp(i(k.r - omega*t)) (see the README). The test beam carries
 the phase phi = k*W of its wavefront error (or optical path difference) W,
-so a wavefront that runs ahead has phi > 0. Superposing it with a reference
+so a wavefront that lags behind (a longer optical path, W > 0) has phi > 0. Superposing it with a reference
 beam E_ref gives the two-beam interferogram ::
 
     I = |E_test + E_ref*exp(i*delta)|**2

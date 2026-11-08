@@ -2,7 +2,9 @@
 
 All of pyoptics uses the time dependence exp(-iωt), which is implicit and
 never written out, and positive spatial phases for propagation, i.e. fields
-vary as exp(i(**k**·**r** − ωt)). In particular:
+vary as exp(i(**k**·**r** − ωt)). Notebook
+{doc}`notebooks/00_foundations_conventions` derives these conventions from
+Maxwell's equations and checks each of them numerically. In particular:
 
 - A plane wave travelling in +z is exp(+ikz). Propagating a field by a
   distance z > 0 multiplies each of its plane wave components by
@@ -37,9 +39,33 @@ vary as exp(i(**k**·**r** − ωt)). In particular:
   waveguide, grating and scattering texts, `litho.rcwa` and
   `analytical.cylinder_field` call the same case "TE" (E perpendicular to
   the plane of incidence).
+- FDFD (`fdfd`) shares the units, grid, shapes and media of the FDTD and
+  uses exp(−iωt): outgoing waves go as exp(+ikr) and resonances have
+  Im ω < 0 with Q = Re ω/(−2 Im ω), as `analytical.disk_resonance`.
 - Absorbing media have the complex refractive index n + iκ with κ > 0. Under
   total internal reflection, the transmitted wave decays away from the
   interface.
 - Wave plates delay the slow (y) component by exp(+iδ). The Jones vector
   [1, i]/√2 rotates from x to y in time and has the Stokes parameter
   S₃ = 2 Im(E_x* E_y) = +1.
+- A positive phase is a delay: the phase is +k₀ times the optical path. A
+  wavefront that lags behind a reference (a longer optical path, OPD > 0)
+  has a positive phase.
+- Pupils: `imaging`, `litho` and `raytrace.System.pupil()` use the
+  directions of the image space plane waves, (P_x, P_y) = **k**⊥/(k NA);
+  `raytrace.System.opd()` and `System.zernike()` use positions in the
+  entrance pupil. For a lens that forms a real image the two are
+  point-mirrored, so Zernikes odd in the azimuth (Z2, Z3, Z7, Z8, ...)
+  change sign between them. Zernikes are Fringe Zernikes (University of
+  Arizona order, 1 at the rim), the azimuth runs from +x towards +y, and
+  a positive Z4 puts the best focus behind the plane of evaluation.
+- Fresnel coefficients: `interfaces` gives ratios of the full fields with
+  Hecht's reference directions (r_p = −r_s at normal incidence);
+  `thin_films` and `coatings` give ratios of the tangential fields (r_p =
+  r_s at normal incidence, t_p larger by cos θ₂/cos θ₁). R and T agree.
+- Circular polarization is named about the direction of propagation (IEEE):
+  `jones.J_RHCP` = [1, i]/√2 has positive helicity. Born & Wolf and Hecht
+  call the same field left-circular.
+- Arrays of the wave optics modules are indexed [y, x] (from
+  `utils.grid2d()`, plotted with `origin="lower"`); the FDTD and FDFD index
+  their fields [x, y] (or [x, y, z]).
