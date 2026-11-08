@@ -78,6 +78,13 @@ Setup sketches for the other example notebooks:
   a multimode fibre, a camera behind it and the feedback loop, optionally
   with the flat reference frame for measuring the transmission matrix
   (notebook 73).
+- foucault_tester(): the Foucault knife-edge (or wire, or Ronchi) test of
+  a concave mirror at its centre of curvature; schlieren_system(): a lens
+  type Toepler schlieren system with a slit source and a knife edge, and a
+  direct shadowgraph (notebook 76).
+- sim_microscope(), sted_microscope(): structured illumination with a
+  grating and an order mask, and a STED microscope with a vortex plate,
+  dichroic mirrors and a pinhole (notebook 78).
 - optical_tweezers(): laser, beam expander overfilling a water immersion
   objective, sample chamber with a bead, condenser and quadrant photodiode;
   ashkin_rays(): two rays refracted by a sphere near the focus and the
@@ -113,6 +120,8 @@ Electronic Imaging", 2nd ed., Wiley-Blackwell (2012).
 
 I. M. Vellekoop and A. P. Mosk, "Focusing coherent light through opaque
 strongly scattering media", Opt. Lett. 32, 2309-2311 (2007).
+
+G. S. Settles, "Schlieren and Shadowgraph Techniques", Springer (2001).
 """
 
 import numpy as np
@@ -129,7 +138,9 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "axicon_bessel", "cubic_phase_airy", "young_extended_source", "vcz_setup",
            "stellar_interferometer", "michelson_interferometer", "hbt_interferometer",
            "rainbow_observer", "glory_aircraft", "twinkling_star", "adaptive_optics_system",
-           "wavefront_shaping_setup", "optical_tweezers", "ashkin_rays", "momentum_balance"]
+           "wavefront_shaping_setup", "foucault_tester", "schlieren_system",
+           "sim_microscope", "sted_microscope", "optical_tweezers", "ashkin_rays",
+           "momentum_balance"]
 
 
 GLASS = "#cfe3f3"
@@ -2738,6 +2749,367 @@ def wavefront_shaping_setup(ax, medium="diffuser", reference=False, feedback=Tru
               "intensity in the target → SLM phases (feedback)" if not reference else
               "phase-stepped camera frames → transmission matrix", fontsize=8, va="bottom")
     _finish(ax, (-1.4, z_cam + 0.8), (-1.7 if not reference else -2.0, 1.75), title)
+
+
+def _knife(ax, z, y_edge, h, from_below=True, color=METAL, zorder=6):
+    """A knife blade in section, its edge at height y_edge."""
+
+    s = -1 if from_below else 1
+    ax.add_patch(_patches().Polygon([(z - 0.05, y_edge + s*h), (z + 0.05, y_edge + s*h),
+                                     (z + 0.05, y_edge + s*0.08), (z, y_edge)],
+                                    closed=True, facecolor=color, edgecolor="none",
+                                    zorder=zorder))
+
+
+def _ronchi_bars(ax, z, y, h, n=9, zorder=6):
+    for yb in np.linspace(y - h, y + h, n):
+        ax.add_patch(_patches().Rectangle((z - 0.025, yb - h/(2*n)), 0.05, h/n, facecolor=METAL,
+                                          edgecolor="none", zorder=zorder))
+
+
+def foucault_tester(ax, test="knife", title=None):
+    """Sketch of the Foucault knife-edge test of a concave mirror (notebook
+    76).
+
+    A pinhole source next to the centre of curvature C of the mirror is
+    imaged back onto the other side of C. A knife edge (or a wire, a slit,
+    a Ronchi ruling) is moved into this image, and the eye or a camera
+    behind it, focused on the mirror, sees the mirror lit by the light that
+    passes. A ray from a zone that bends the wavefront (red) misses the focus
+    and is blocked or passed depending on its side: the zone turns dark or
+    bright.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    test : {"knife", "wire", "ronchi"}, optional
+        The element in the focus. Defaults to "knife".
+    title : str, optional
+    """
+
+    R = 5.6
+    z_c = 0.0
+    z_m = z_c + R
+    h = 1.4
+    s = 0.12
+    sphere(ax, z_m, 0.0, -R, h, color="0.3", lw=3, text="concave mirror\nunder test",
+           text_y=-h - 0.15)
+    yy = np.linspace(-h, h, 9)
+    z_surf = z_m - R + np.sqrt(R**2 - yy**2)
+    for yi, zi in zip(yy, z_surf):
+        ax.plot([z_c, zi], [-s, yi], color=ILLUMINATION, lw=0.7, alpha=0.7, zorder=2)
+        ax.plot([zi, z_c, z_c - 1.2], [yi, s, s - (yi - s)/(zi - z_c)*1.2], color=IMAGING,
+                lw=0.7, alpha=0.7, zorder=2)
+    # a zone with a slope error: its reflected ray misses the focus
+    yz = 0.9
+    zz = z_m - R + np.sqrt(R**2 - yz**2)
+    y_miss = s + 0.2
+    u_err = (y_miss - yz)/(z_c - zz)
+    ax.plot([zz, z_c], [yz, y_miss], color=STRAY, lw=1.3, zorder=3)
+    if test == "knife":
+        _knife(ax, z_c, s, 0.7, from_below=False)
+        label(ax, z_c + 0.12, s + 0.75, "knife edge", ha="left", fontsize=8)
+    elif test == "wire":
+        ax.plot([z_c], [s], "o", color=METAL, ms=5, zorder=6)
+        ax.plot([z_c, z_c], [s, s + 0.7], color=METAL, lw=1, zorder=6)
+        label(ax, z_c + 0.12, s + 0.75, "wire", ha="left", fontsize=8)
+    else:
+        _ronchi_bars(ax, z_c, s + 0.25, 0.45)
+        label(ax, z_c + 0.12, s + 0.75, "Ronchi ruling", ha="left", fontsize=8)
+    if test == "ronchi":
+        ax.plot([z_c, z_c - 1.2], [y_miss, y_miss + u_err*(-1.2)], color=STRAY, lw=1.3,
+                zorder=3)
+    point_source(ax, z_c, -s, size=50)
+    ax.add_patch(_patches().Rectangle((z_c + 0.03, -0.75), 0.04, 0.75 - s - 0.03,
+                                      facecolor=METAL, edgecolor="none", zorder=5))
+    label(ax, z_c + 0.12, -0.8, "pinhole source", ha="left", va="top", fontsize=8)
+    # eye / camera focused on the mirror
+    lens(ax, z_c - 1.2, 0.4, text="camera lens\n(focused on\nthe mirror)", text_y=-0.5)
+    detector(ax, z_c - 1.9, 0.3)
+    arrow(ax, z_c, -h - 0.35, z_m, -h - 0.35, style="<->", text="R",
+          text_pos=((z_c + z_m)/2, -h - 0.42), va="top")
+    _finish(ax, (z_c - 2.3, z_m + 0.5), (-h - 0.7, h + 0.25), title)
+
+
+def _candle_plume(ax, z, y_base, height, width=0.3, color="#c0392b"):
+    mpatches = _patches()
+    ax.add_patch(mpatches.Rectangle((z - 0.1, y_base - 0.6), 0.2, 0.6, facecolor="#f3ead3",
+                                    edgecolor="0.4", lw=0.8, zorder=5))
+    ax.add_patch(mpatches.Ellipse((z, y_base + 0.12), 0.1, 0.26, facecolor="#f5a623",
+                                  edgecolor="none", zorder=6))
+    t = np.linspace(0, 1, 60)
+    for s in (-1, 1):
+        ax.plot(z + s*width*(0.25 + 0.75*np.sqrt(t)) + 0.08*np.sin(9*t)*t, y_base + 0.25 + t*height,
+                color=color, lw=0.8, alpha=0.7, zorder=5)
+
+
+def schlieren_system(ax, method="schlieren", title=None):
+    """Sketch of a lens type Toepler schlieren system and of a direct
+    shadowgraph (notebook 76).
+
+    A lamp and condenser light a slit source in the focus of the first lens,
+    which makes a parallel beam through the test section (a candle plume).
+    The second lens forms an image of the slit on the knife edge, and the
+    camera images the test section. A ray deflected by the angle eps in the
+    plume (red) arrives f2*eps beside the slit image and passes or is
+    blocked. In the shadowgraph the parallel beam falls directly onto a
+    screen at the distance L, where the deflected rays have moved by L*eps.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    method : {"schlieren", "shadowgraph"}, optional
+        Defaults to "schlieren".
+    title : str, optional
+    """
+
+    f1, f2 = 2.0, 2.6
+    z_s = 0.0
+    z_l1 = z_s + f1
+    z_t = z_l1 + 1.6
+    z_l2 = z_t + 1.6
+    z_k = z_l2 + f2
+    h = 0.75
+    point_source(ax, z_s - 0.9, 0.0, size=70, text="lamp", text_dy=-0.2)
+    lens(ax, z_s - 0.5, 0.25)
+    stop(ax, z_s, 0.45, openings=((0, 0.04),), width=0.04, text="slit\nsource", text_y=-0.5)
+    band(ax, [z_s, z_l1, z_t + (1.6 if method == "schlieren" else 2.6)], [0.0, h, h],
+         [z_s, z_l1, z_t + (1.6 if method == "schlieren" else 2.6)], [0.0, -h, -h],
+         color=ILLUMINATION, alpha=0.18)
+    lens(ax, z_l1, 1.1*h, text="lens 1 (f₁)")
+    _candle_plume(ax, z_t, -h - 0.15, 2*h + 0.3)
+    label(ax, z_t, -h - 0.85, "test section:\ncandle plume", va="top", fontsize=8)
+    eps = 0.09
+    yr = 0.25
+    if method == "schlieren":
+        z_cam = z_k + 1.4
+        band(ax, [z_l2, z_k, z_cam], [h, 0.0, -h*1.4/f2], [z_l2, z_k, z_cam],
+             [-h, 0.0, h*1.4/f2], color=ILLUMINATION, alpha=0.18)
+        lens(ax, z_l2, 1.1*h, text="lens 2 (f₂)")
+        y_l2 = yr + eps*(z_l2 - z_t)
+        u2 = eps - y_l2/f2
+        ax.plot([z_t, z_l2, z_cam], [yr, y_l2, y_l2 + u2*(z_cam - z_l2)], color=STRAY, lw=1.3,
+                zorder=4)
+        ax.plot([z_l1 - 0.6, z_t], [yr, yr], color=STRAY, lw=1.3, zorder=4)
+        _knife(ax, z_k, 0.0, 0.6)
+        label(ax, z_k, -0.7, "knife edge in\nthe slit image", va="top", fontsize=8)
+        arrow(ax, z_k + 0.3, eps*f2 + 0.25, z_k + 0.03, eps*f2 + 0.02, color=STRAY,
+              text="f₂ ε", text_pos=(z_k + 0.33, eps*f2 + 0.27), ha="left", va="bottom")
+        lens(ax, z_cam, 0.6, text="camera lens", text_y=0.95)
+        detector(ax, z_cam + 1.0, 0.5, text="camera\n(focused on the\ntest section)",
+                 text_y=-0.6)
+        _finish(ax, (z_s - 1.2, z_cam + 1.6), (-1.8, 1.2), title)
+    else:
+        z_scr = z_t + 2.6
+        ax.plot([z_l1 - 0.6, z_t, z_scr], [yr, yr, yr + eps*(z_scr - z_t)], color=STRAY, lw=1.3,
+                zorder=4)
+        detector(ax, z_scr, 1.1*h, text="screen or camera", text_y=-0.95)
+        arrow(ax, z_t, h + 0.3, z_scr, h + 0.3, style="<->", text="L",
+              text_pos=((z_t + z_scr)/2, h + 0.35), va="bottom")
+        _finish(ax, (z_s - 1.2, z_scr + 0.6), (-1.8, 1.2), title)
+
+
+def _fold_down_slash(z_m, z_unf, y_unf):
+    # a "/" mirror at (z_m, 0): light travelling along -z is sent along -y;
+    # unfolded (z_m + dz, dy), dz < 0, lands at (z_m + dy, dz)
+    return z_m + np.asarray(y_unf), np.asarray(z_unf) - z_m
+
+
+def _fold_up_backslash(z_m, z_unf, y_unf):
+    # a "\" mirror at (z_m, 0): light travelling along -z is sent along +y;
+    # unfolded (z_m + dz, dy), dz < 0, lands at (z_m - dy, -dz)
+    return z_m - np.asarray(y_unf), z_m - np.asarray(z_unf)
+
+
+def sim_microscope(ax, title=None):
+    """Sketch of a structured illumination microscope with a grating (notebook 78).
+
+    A phase grating in a plane conjugate to the specimen diffracts the
+    collimated laser beam. A mask in the following pupil plane blocks the
+    zeroth order and passes the +-1st orders, which are focused near the
+    edge of the objective pupil and leave the objective as two plane waves
+    that cross in the specimen: their interference is the sinusoidal
+    excitation pattern (inset). The fluorescence is reflected by a dichroic
+    mirror onto the camera. Rotating and shifting the grating gives the
+    angles and phases of the pattern.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    u = 0.5                                  # diffraction angle of the +-1st orders
+    g = 0.2                                  # half height of the beam on the grating
+    z_g = 0.0
+    z_l1, f1 = 1.0, 1.0                      # grating -> order mask (pupil plane)
+    z_mask = 2.0
+    z_l2, f2 = 2.7, 0.7                      # mask -> intermediate image at 3.4
+    z_l3, f3 = 4.3, 0.9                      # image -> objective pupil at 5.2
+    z_obj, f_o = 5.8, 0.6
+    z_dic = 4.85
+    z_foc = z_obj + f_o
+    lenses = [(z_l1, f1), (z_l2, f2), (z_l3, f3), (z_obj, f_o)]
+    # laser, grating
+    laser(ax, -0.8, 0.0, length=0.9, height=0.3, text="laser")
+    band(ax, [-0.8, z_g], [g, g], [-0.8, z_g], [-g, -g], color=EXCITATION, alpha=0.18)
+    for k in range(9):
+        y0 = -0.42 + 0.84*k/8
+        ax.add_patch(mpatches.Rectangle((z_g - 0.03, y0), 0.06 if k % 2 else 0.1, 0.84/9,
+                                        facecolor=GLASS, edgecolor=EDGE, lw=0.6, zorder=3))
+    label(ax, z_g, -0.55, "phase grating\n(rotate, shift)", fontsize=8, va="top")
+    # the +-1st orders as collimated beams
+    for sgn in (-1, 1):
+        zt, yt = paraxial_ray(lenses, z_g, g, sgn*u, z_foc + 0.3)
+        zb, yb = paraxial_ray(lenses, z_g, -g, sgn*u, z_foc + 0.3)
+        band(ax, zt, yt, zb, yb, color=EXCITATION, alpha=0.16, lw=0.6)
+    # the blocked zeroth order
+    zt, yt = paraxial_ray(lenses[:1], z_g, g, 0.0, z_mask)
+    zb, yb = paraxial_ray(lenses[:1], z_g, -g, 0.0, z_mask)
+    band(ax, zt, yt, zb, yb, color="0.6", alpha=0.2, lw=0.5, zorder=0.5)
+    lens(ax, z_l1, 0.75)
+    y_o = f1*u
+    stop(ax, z_mask, 0.8, openings=((y_o - 0.07, y_o + 0.07),), width=0.05,
+         text="order mask:\n0 blocked, ±1 pass", text_y=-0.9)
+    lens(ax, z_l2, 0.75)
+    plane(ax, z_l2 + f2, 0.6)
+    label(ax, z_l2 + f2, 0.68, "image\nplane", fontsize=7, va="bottom")
+    lens(ax, z_l3, 0.75)
+    plane(ax, z_obj - f_o, 0.75)
+    label(ax, z_obj - f_o, -0.82, "pupil", fontsize=7, va="top")
+    mirror(ax, z_dic, 0.0, 1.1, -np.pi/4, dichroic=True)
+    label(ax, z_dic + 0.1, -0.85, "dichroic", fontsize=8, va="top")
+    lens(ax, z_obj, 0.85, text="objective", text_y=-0.95)
+    ax.add_patch(mpatches.Rectangle((z_foc - 0.12, -0.6), 0.24, 1.2, facecolor="#e9f5e9",
+                                    edgecolor="#8fbf8f", zorder=1))
+    label(ax, z_foc, -0.68, "specimen", fontsize=8, va="top")
+    # fluorescence from a point in the specimen, back to the camera above
+    z_t, f_t = z_dic - 1.2, 0.9               # camera tube lens (unfolded position)
+    z_cam = z_t - f_t
+    for v in (-0.4, -0.2, 0.2, 0.4):
+        zz, yy = paraxial_ray([(z_obj, f_o), (z_t, f_t)], z_foc, 0.0, v, z_cam)
+        sel = zz <= z_dic
+        z_cross = z_dic
+        y_cross = np.interp(z_cross, zz[::-1], yy[::-1])
+        ax.plot(np.r_[zz[~sel], z_cross], np.r_[yy[~sel], y_cross], color=EMISSION, lw=0.9,
+                zorder=2)
+        zf, yf = _fold_up_backslash(z_dic, np.r_[z_cross, zz[sel]], np.r_[y_cross, yy[sel]])
+        ax.plot(zf, yf, color=EMISSION, lw=0.9, zorder=2)
+    zc, yc = _fold_up_backslash(z_dic, z_t, 0.0)
+    rotated_lens(ax, zc, yc, 0.4, rotate=90, text="tube lens", fontsize=8)
+    zc, yc = _fold_up_backslash(z_dic, z_cam, 0.0)
+    rotated_detector(ax, zc, yc, 0.4, rotate=-90, text="camera", fontsize=8)
+    # inset: the fringes in the specimen
+    s = np.linspace(-1, 1, 64)
+    S, T = np.meshgrid(s, s)
+    _profile_image(ax, z_foc + 0.85, 0.75, 0.8, 1 + np.cos(2*np.pi*3*(0.85*T + 0.5*S)))
+    label(ax, z_foc + 0.85, 0.27, "excitation\nfringes", fontsize=8, va="top")
+    ax.plot([], [], color=EXCITATION, label="±1st orders: two plane waves in the specimen")
+    ax.plot([], [], color=EMISSION, label="fluorescence")
+    ax.legend(loc="upper left", fontsize=8, frameon=False)
+    _finish(ax, (-1.9, z_foc + 1.4), (-1.3, 2.7), title)
+
+
+def sted_microscope(ax, images=None, title=None):
+    """Sketch of a STED microscope (notebook 78).
+
+    An excitation beam (blue) and a depletion beam (red) are combined by a
+    dichroic mirror and focused by the same objective. The depletion beam
+    passes a spiral (vortex) phase plate and a quarter wave plate, so its
+    focus is a doughnut with a zero in the centre, and switches off the
+    fluorophores everywhere but there. The fluorescence (green) is
+    separated by a second dichroic mirror and detected through a pinhole.
+    Insets show the excitation spot, the doughnut and the effective spot.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    images : sequence of three 2d arrays, optional
+        Excitation, depletion and effective PSF for the insets. Defaults to
+        simple analytic shapes.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    w = 0.32
+    z_las = -0.5
+    z_spp, z_qwp = 0.3, 1.5
+    z_d1, z_d2 = 2.4, 3.6
+    z_obj, f_o = 4.8, 0.9
+    z_foc = z_obj + f_o
+    laser(ax, z_las, 0.0, length=1.0, height=0.3, text="STED", color="#a03020")
+    for top in (True, False):
+        y_edge = w if top else -w
+        zz, yy = paraxial_ray([(z_obj, f_o)], z_las, y_edge, 0.0, z_foc)
+        if top:
+            zt, yt = zz, yy
+        else:
+            zb, yb = zz, yy
+    band(ax, zt, yt, zb, yb, color=STRAY, alpha=0.15)
+    _spiral_plate(ax, z_spp, 0.45, text="vortex plate\nexp(iφ)", text_y=-0.55)
+    ax.add_patch(mpatches.Rectangle((z_qwp - 0.04, -0.45), 0.08, 0.9, facecolor="#e8e0f5",
+                                    edgecolor="#6a5a8a", lw=0.8, zorder=3))
+    label(ax, z_qwp, -0.55, "λ/4: circular,\nspin ∥ vortex", fontsize=8, va="top")
+    # excitation from above, reflected along +z by the first dichroic ("\")
+    w_e = 0.24
+    y_ex = 1.3
+    laser(ax, z_d1, y_ex, length=0.8, height=0.3, rotate=-90, text="exc.", fontsize=8,
+          color="#1a5a8a")
+    band(ax, [z_d1 - w_e, z_d1 - w_e], [y_ex, -w_e], [z_d1 + w_e, z_d1 + w_e],
+         [y_ex, w_e], color=EXCITATION, alpha=0.18)
+    zz_t, yy_t = paraxial_ray([(z_obj, f_o)], z_d1, w_e, 0.0, z_foc)
+    zz_b, yy_b = paraxial_ray([(z_obj, f_o)], z_d1, -w_e, 0.0, z_foc)
+    band(ax, zz_t, yy_t, zz_b, yy_b, color=EXCITATION, alpha=0.18)
+    mirror(ax, z_d1, 0.0, 1.0, -np.pi/4, dichroic=True)
+    label(ax, z_d1 - 0.1, 0.62, "dichroic", fontsize=8, ha="right", va="bottom")
+    # fluorescence: back through the objective, reflected down by the second dichroic ("/")
+    z_t, f_t = z_d2 - 1.0, 0.9
+    z_pin = z_t - f_t
+    for v in (-0.3, -0.16, 0.16, 0.3):
+        zz, yy = paraxial_ray([(z_obj, f_o), (z_t, f_t)], z_foc, 0.0, v, z_pin - 0.25)
+        y_cross = np.interp(z_d2, zz[::-1], yy[::-1])
+        keep = zz > z_d2
+        ax.plot(np.r_[zz[keep], z_d2], np.r_[yy[keep], y_cross], color=EMISSION, lw=0.9, zorder=2)
+        zf, yf = _fold_down_slash(z_d2, np.r_[z_d2, zz[~keep]], np.r_[y_cross, yy[~keep]])
+        ax.plot(zf, yf, color=EMISSION, lw=0.9, zorder=2)
+    mirror(ax, z_d2, 0.0, 1.0, np.pi/4, dichroic=True)
+    label(ax, z_d2 + 0.12, 0.62, "dichroic", fontsize=8, ha="left", va="bottom")
+    zc, yc = _fold_down_slash(z_d2, z_t, 0.0)
+    rotated_lens(ax, zc, yc, 0.35, rotate=90)
+    zc, yc = _fold_down_slash(z_d2, z_pin, 0.0)
+    ax.plot([zc - 0.35, zc - 0.04], [yc, yc], color=METAL, lw=3, solid_capstyle="butt", zorder=4)
+    ax.plot([zc + 0.04, zc + 0.35], [yc, yc], color=METAL, lw=3, solid_capstyle="butt", zorder=4)
+    label(ax, zc + 0.42, yc, "pinhole", fontsize=8, ha="left")
+    rotated_detector(ax, zc, yc - 0.25, 0.3, rotate=-90)
+    label(ax, zc + 0.42, yc - 0.3, "detector", fontsize=8, ha="left")
+    lens(ax, z_obj, 0.85, text="objective", text_y=-0.95)
+    ax.add_patch(mpatches.Rectangle((z_foc - 0.1, -0.55), 0.2, 1.1, facecolor="#e9f5e9",
+                                    edgecolor="#8fbf8f", zorder=1))
+    label(ax, z_foc, -0.62, "specimen\n(scanned)", fontsize=8, va="top")
+    # insets
+    if images is None:
+        s = np.linspace(-1.5, 1.5, 81)
+        S, T = np.meshgrid(s, s)
+        R2 = S**2 + T**2
+        exc = np.exp(-R2/0.5)
+        donut = R2*np.exp(-R2/0.5)
+        images = (exc, donut, exc*np.exp(-np.log(2)*6*donut/donut.max()))
+    names = ("excitation", "doughnut", "effective spot")
+    size = 0.75
+    y_i = 1.75
+    for i, (img, name) in enumerate(zip(images, names)):
+        zi = z_d2 + 0.1 + i*1.0
+        _profile_image(ax, zi, y_i, size, np.asarray(img, dtype=float))
+        label(ax, zi, y_i + size/2 + 0.05, name, fontsize=8, va="bottom")
+    label(ax, z_d2 + 0.6, y_i, "×", fontsize=12)
+    label(ax, z_d2 + 1.6, y_i, "→", fontsize=12)
+    label(ax, z_d2 + 1.1, y_i - size/2 - 0.08, "survival exp(−ln2·I/I_s)", fontsize=7, va="top")
+    ax.plot([], [], color=EXCITATION, label="excitation")
+    ax.plot([], [], color=STRAY, label="STED (depletion) beam")
+    ax.plot([], [], color=EMISSION, label="fluorescence")
+    ax.legend(loc="lower left", fontsize=8, frameon=False)
+    _finish(ax, (-1.7, z_foc + 0.8), (-2.2, 2.4), title)
 
 
 BEAD = "#e8eef5"

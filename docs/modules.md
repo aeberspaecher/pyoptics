@@ -102,6 +102,18 @@ What each module does and how mature it is. Planned work is listed in
   tilted surface per intersection); checked against the deviation
   formula, the envelope theorem, a Monte Carlo of traced rays, energy
   conservation and the Mie series (notebook 71)
+- `schlieren`: new, tested: schlieren, shadowgraph and the knife-edge tests
+  of Foucault and Ronchi as Fourier plane filters: knife edge, slit, wire
+  and Ronchi ruling on the focal plane grid, coherent images of a point
+  source and incoherent images of slit and pinhole sources, the geometric
+  limit (transverse aberration through the filter), Toepler's contrast
+  f eps/a and the linear knife-edge transfer for weak wavefronts (slope
+  response for coarse structure, phase response for fine structure), knife
+  defocus, a conic mirror at its centre of curvature and its zonal offsets,
+  the Gladstone-Dale index of hot air and the shadowgraph -L laplace(W);
+  checked against the Hilbert transform image of a knife at the focus, the
+  knife-edge rule, Couder zone readings, Ronchi band periods and ripple
+  contrast (notebook 76)
 - `colour`: new, tested: CIE 1931 colour matching functions (analytic fit
   of Wyman, Sloan and Shirley), XYZ and sRGB of spectra, black body spectra
 - `glasses`: optical glass catalogues of SCHOTT, OHARA, HOYA, CDGM, SUMITA
@@ -209,6 +221,15 @@ What each module does and how mature it is. Planned work is listed in
   checked against the dipole force (deviation ∝ (ka)²), Mie radiation
   pressure, the Poynting flux of the focus and ray optics for large beads
   (notebook 75)
+- `superresolution`: new, tested: super-resolution fluorescence microscopy;
+  SIM patterns and raw images, band separation from the pattern phases
+  (`sim_bands()`), band shifts by any wave vector, the generalized Wiener
+  reconstruction and the OTF support for several angles; vectorial vortex
+  foci with any polarization (`vortex_focus()`, the true zero needs spin
+  parallel to the orbital angular momentum), the effective STED PSF and the
+  square root law; pixelated Gaussian spots, centroid, least squares and
+  Poisson maximum likelihood localization, Mortensen's precision formulas
+  (notebook 78)
 - `abcd`: ABCD (ray transfer) matrices, tested: thin and thick lenses,
   spherical interfaces, tilted mirrors (tangential/sagittal), GRIN media;
   `OpticalSystem` builds systems element by element and traces rays and
@@ -420,8 +441,10 @@ What each module does and how mature it is. Planned work is listed in
   of a Twyman-Green and a Fizeau interferometer, a Shack-Hartmann and a
   phase diversity lens test, off-axis holography (lensless and microscope),
   a coated fold mirror with s and p, the KrF illuminator with its pupil and
-  field planes, a spatial filter, and the geometry of rainbows and of the
-  glory seen from an aircraft
+  field planes, a spatial filter, the geometry of rainbows and of the
+  glory seen from an aircraft, the Foucault knife-edge (and wire and Ronchi)
+  test of a concave mirror, and a Toepler schlieren system and a direct
+  shadowgraph
 - Unfinished stubs: `interpolator.TrigInterpolator` cannot be evaluated yet,
   the functions in `polarization._polarization` are empty
 

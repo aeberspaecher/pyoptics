@@ -140,6 +140,7 @@ notebooks/45_zernike_aberration_gallery
 - {doc}`notebooks/22_phase_unwrapping`
 - {doc}`notebooks/23_interferometry`
 - {doc}`notebooks/24_radius_interferometer`
+- {doc}`notebooks/76_schlieren_knife_edge`
 - {doc}`notebooks/74_coherence_stellar_interferometry`
 - {doc}`notebooks/25_shack_hartmann_vs_phase_diversity`
 - {doc}`notebooks/26_holography`
@@ -157,6 +158,7 @@ notebooks/18_image_processing
 notebooks/22_phase_unwrapping
 notebooks/23_interferometry
 notebooks/24_radius_interferometer
+notebooks/76_schlieren_knife_edge
 notebooks/74_coherence_stellar_interferometry
 notebooks/25_shack_hartmann_vs_phase_diversity
 notebooks/26_holography
@@ -174,6 +176,7 @@ notebooks/73_wavefront_shaping
 - {doc}`notebooks/54_confocal_microscopy`
 - {doc}`notebooks/55_fourier_ptychography`
 - {doc}`notebooks/75_optical_tweezers`
+- {doc}`notebooks/78_super_resolution_microscopy`
 - {doc}`notebooks/27_holographic_microscopy` (in *Measurement, phase retrieval and beam shaping*)
 
 ```{toctree}
@@ -185,6 +188,7 @@ notebooks/53_phase_contrast_dic
 notebooks/54_confocal_microscopy
 notebooks/55_fourier_ptychography
 notebooks/75_optical_tweezers
+notebooks/78_super_resolution_microscopy
 ```
 
 ## Lithography
