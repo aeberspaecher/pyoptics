@@ -164,7 +164,7 @@ def sim_images(sample, x, y, otf, k_p, angles, phases, modulation=1.0):
 def sim_bands(images, phases, modulation=1.0):
     """Separates the three bands of SIM images by their phase dependence.
 
-    For each angle the spectrum of the raw image with pattern phase phi_n is
+    For each angle the spectrum of the raw image with pattern phase phi_n is::
 
         D_n(k) = OTF(k)*[S(k) + m/2*exp(i*phi_n)*S(k - k_p) + m/2*exp(-i*phi_n)*S(k + k_p)],
 
@@ -226,7 +226,7 @@ def shift_spectrum(spectrum, x, y, k_x, k_y):
 
 def ideal_otf(x, y, k_c):
     """Incoherent OTF of a diffraction limited circular pupil with cutoff k_c,
-    (2/pi)*(arccos(q) - q*sqrt(1 - q**2)), q = |k|/k_c.
+    (2/pi)*(arccos(q) - q*sqrt(1 - q**2)), q = ``|k|``/k_c.
 
     Parameters
     ----------
@@ -299,7 +299,7 @@ def sim_reconstruct(images, x, y, otf, k_p, angles, phases, modulation=1.0, wien
     """SIM reconstruction by a generalized Wiener filter.
 
     The bands of each angle (sim_bands()) are moved to their true place,
-    B_aj(k + j*k_p) = OTF(k + j*k_p)*S(k), and combined as
+    B_aj(k + j*k_p) = OTF(k + j*k_p)*S(k), and combined as::
 
         S_est(k) = A(k)*sum OTF*(k + j*k_p) B_aj(k + j*k_p) / (sum |OTF(k + j*k_p)|**2 + w**2)
 
@@ -434,7 +434,7 @@ def sted_psf(I_exc, I_sted, zeta, I_det=None):
     """Effective STED PSF.
 
     A fluorophore excited with I_exc survives the depletion pulse with the
-    probability exp(-ln(2)*I_STED/I_s); the effective PSF is
+    probability exp(-ln(2)*I_STED/I_s); the effective PSF is::
 
         h_eff = I_exc*exp(-ln(2)*zeta*I_sted/max(I_sted)) [*I_det],
 
