@@ -342,6 +342,17 @@ What each module does and how mature it is. Planned work is listed in
   field of a fly's eye homogenizer (`fly_eye_field_1d()`), checked against
   the flat top p F/f, its independence of the input tilt and the
   interference period λF/p (notebook 86)
+- `speckle`: new, tested: speckle statistics and speckle reduction; rough
+  surfaces with Gaussian heights and correlation, coherent images through
+  a circular pupil, random diffuser illumination of a given NA; contrast,
+  the gamma densities of summed patterns and the intensity autocorrelation
+  1 + |2J1(v)/v|²; the contrast of correlated sums from the eigenvalues of
+  the correlation matrix, polarization diversity √((1 + P²)/2), the
+  wavelength decorrelation exp(−(Δk σ_L)²) and the contrast for a Gaussian
+  or sampled spectrum, the limit of angle diversity from the mutual
+  intensity of the illumination (0.678 NA_obs/NA_ill for large ratios) and
+  C² = C∞² + (1 + C∞²)/M for M diffuser positions; checked against wave
+  optics simulations (notebook 87)
 - `fresnel`: Fresnel lenses, tested: a parent surface (sphere, conic,
   even asphere) collapsed into zones of constant pitch, constant depth or
   given radii, with curved or flat (conical) facets and drafted risers
@@ -521,8 +532,9 @@ What each module does and how mature it is. Planned work is listed in
   field planes, a spatial filter, the geometry of rainbows and of the
   glory seen from an aircraft, the Foucault knife-edge (and wire and Ronchi)
   test of a concave mirror, a Toepler schlieren system and a direct
-  shadowgraph, and pulses through lenses, prisms and gratings (pulse-front
-  delay and tilt)
+  shadowgraph, pulses through lenses, prisms and gratings (pulse-front
+  delay and tilt), and the formation and reduction of speckle (polarization,
+  wavelength and moving diffuser diversity, a laser projector)
 - Unfinished stubs: `interpolator.TrigInterpolator` cannot be evaluated yet,
   the functions in `polarization._polarization` are empty
 

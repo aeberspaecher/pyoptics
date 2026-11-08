@@ -123,6 +123,10 @@ Setup sketches for the other example notebooks:
 - fly_eye_homogenizer(): one or two lenslet arrays and a condenser that
   overlap the channels into a flat field, with a tilted input (notebook
   86); the rod integrator is light_pipe_images().
+- speckle_formation(): laser light on a rough surface, one resolution cell
+  imaged into one grain; speckle_diversity(): polarization, wavelength and
+  angle (moving diffuser) diversity; laser_projector(): illumination and
+  observation apertures of a projector and a viewer (notebook 87).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -178,7 +182,7 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "approximation_map", "sign_conventions", "diffraction_geometry", "eikonal_wavefronts",
            "phase_space_portraits", "liouville_lens", "burning_glass", "etendue_diffuser",
            "light_pipe_images", "cpc_edge_rays", "cpc_skew_ray", "cpc_secondary", "koehler_critical",
-           "fly_eye_homogenizer"]
+           "fly_eye_homogenizer", "speckle_formation", "speckle_diversity", "laser_projector"]
 
 
 GLASS = "#cfe3f3"
@@ -5013,3 +5017,269 @@ def fly_eye_homogenizer(ax, imaging=True, tilt=0.0, title=None):
     if tilt:
         label(ax, -0.6, half + 0.15, "tilted input", fontsize=8, va="bottom", color="0.3")
     _finish(ax, (-2.3, z_fp + 1.6), (-half - 1.1, half + 0.9), title)
+
+
+SCREEN = "0.82"
+
+
+def _speckle_image(n=48, NA_ratio=0.0, M=1, polarizations=1, seed=0, grain=6.0):
+    # a small speckle pattern for the sketches: M diffuser positions with an
+    # illumination of NA_ratio times the observer NA, and one or two
+    # independent polarizations
+    from . import speckle
+    rng = np.random.default_rng(seed)
+    lam, dx = 1.0, 1.0
+    NA = lam/grain
+    I = 0.0
+    for _ in range(polarizations):
+        r = np.exp(2j*np.pi*rng.random((n, n)))
+        for _ in range(M):
+            u = speckle.diffuser_field(n, dx, NA_ratio*NA, lam, rng)
+            I = I + np.abs(speckle.coherent_image(r*u, dx, NA, lam))**2
+    return I
+
+
+def _gray_image(ax, z, y, size, image, vmax=None, text=None, fontsize=8):
+    I = image/(np.mean(image)*2.5 if vmax is None else vmax)
+    ax.imshow(np.clip(I, 0, 1), extent=[z - size/2, z + size/2, y - size/2, y + size/2],
+              origin="lower", cmap="gray", vmin=0, vmax=1, zorder=6, interpolation="bilinear")
+    ax.add_patch(_patches().Rectangle((z - size/2, y - size/2), size, size, facecolor="none",
+                                      edgecolor="0.4", lw=0.8, zorder=7))
+    if text:
+        label(ax, z, y - size/2 - 0.08, text, va="top", fontsize=fontsize)
+
+
+def _rough_profile(z0, y_lo, y_hi, amplitude, n=60, seed=1):
+    rng = np.random.default_rng(seed)
+    y = np.linspace(y_lo, y_hi, n)
+    return z0 + amplitude*(rng.random(n) - 0.5), y
+
+
+def _rough_screen(ax, z, h, amplitude=0.07, depth=0.25, seed=1, text=None, fontsize=8):
+    # a rough surface at z with its body of the given depth behind it (to the
+    # left for depth > 0, to the right for depth < 0)
+    zr, yr = _rough_profile(z, -h, h, amplitude, seed=seed)
+    mpatches = _patches()
+    pts = np.r_[np.c_[zr, yr], [[z - depth, h], [z - depth, -h]]]
+    ax.add_patch(mpatches.Polygon(pts, closed=True, facecolor=SCREEN, edgecolor="0.35", lw=0.8,
+                                  zorder=4))
+    if text:
+        label(ax, z - depth/2, -h - 0.1, text, va="top", fontsize=fontsize)
+    return zr, yr
+
+
+def speckle_formation(ax, title=None):
+    """Sketch of how speckle forms (notebook 87).
+
+    Laser light falls on a rough surface; every point reflects it with a
+    random phase 4 pi h/lambda. A lens of numerical aperture NA images the
+    surface: each image point collects the light of one resolution cell,
+    about lambda/NA across, and the random phasors add to a random sum, the
+    grains of the speckle pattern in the image.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    h_s, z_l = 1.5, 3.2    # lens at 2f from the surface: image at 2f behind it
+    z_i = 2*z_l
+    _rough_screen(ax, 0.0, h_s, amplitude=0.12, depth=0.35, text="rough surface,\nheights h")
+    # illumination from the laser at the upper right
+    laser(ax, 1.5, 1.9, length=0.9, height=0.28, rotate=-140, text="laser", fontsize=8)
+    band(ax, [1.5 - 0.1, 0.06], [1.9 + 0.08, 1.0], [1.5 + 0.08, 0.06], [1.9 - 0.1, -0.95],
+         color=LASER, alpha=0.15, edges=False)
+    # random phasors on the surface
+    rng = np.random.default_rng(3)
+    for y0 in np.linspace(-0.8, 0.8, 6):
+        r = 0.16 + 0.12*rng.random()
+        t = np.linspace(-0.45*np.pi, 0.45*np.pi, 30)
+        ax.plot(0.06 + r*np.cos(t), y0 + r*np.sin(t), color=LASER, lw=0.8, zorder=5)
+    # one resolution cell imaged onto one image point
+    y0, cell = 0.45, 0.22
+    lens(ax, z_l, 1.2)
+    for ys in (y0 - cell/2, y0, y0 + cell/2):
+        for yl in (-1.1, 0.0, 1.1):
+            ax.plot([0.06, z_l, z_i], [ys, yl, -y0],
+                    color=IMAGING, lw=0.6, alpha=0.7, zorder=2)
+    ax.plot([0.25, 0.25], [y0 - cell/2, y0 + cell/2], color="0.15", lw=2.0, zorder=6)
+    label(ax, 0.32, y0 + cell/2 + 0.12, "one resolution\ncell, about λ/NA", ha="left",
+          va="bottom", fontsize=8)
+    # numerical aperture of the imaging lens
+    ax.plot([0.06, z_l], [0.0, 1.2], color="0.4", ls="--", lw=0.8)
+    ax.plot([0.06, z_l], [0.0, 0.0], color="0.4", ls=":", lw=0.8)
+    label(ax, 2.0, 0.42, "NA", fontsize=9, color="0.3")
+    label(ax, z_l, -1.35, "imaging lens", va="top", fontsize=8)
+    # the speckle image
+    _gray_image(ax, z_i + 0.75, 0.0, 1.5, _speckle_image(seed=5), text="image: speckle,\ngrain ≈ λ/NA")
+    ax.plot([z_i, z_i], [-1.2, 1.2], color="0.55", ls=":", lw=1)
+    label(ax, z_i - 0.05, 1.32, "image\nplane", fontsize=8, color="0.4", va="bottom")
+    label(ax, 3.6, -2.35, "the phasors exp(4πih/λ) of one cell add to a random sum",
+          fontsize=8, color="0.3")
+    _finish(ax, (-0.8, z_i + 1.7), (-2.6, 2.8), title)
+
+
+def speckle_diversity(ax, method="angle", title=None):
+    """Sketches of the three ways to make uncorrelated speckle patterns
+    (notebook 87).
+
+    - "polarization": a depolarizing screen scatters polarized light into
+      two orthogonal polarizations with independent speckle; a detector
+      without polarizer adds them (C = 1/sqrt(2)).
+    - "wavelength": the phase 4 pi h/lambda of a rough surface changes with
+      the wavelength by 2 dk h; when 2 dk sigma_h ~ 1 the speckle changes.
+    - "angle": a moving diffuser in front of a condenser illuminates the
+      screen from a cone of numerical aperture NA_ill, an observer of
+      numerical aperture NA_obs looks at it; every diffuser position gives
+      another speckle pattern, and many positions average about
+      (NA_ill/NA_obs)**2 of them.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    method : {"polarization", "wavelength", "angle"}, optional
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    if method == "polarization":
+        laser(ax, 0.0, 0.0, length=1.0, height=0.3, text="laser", fontsize=8)
+        ax.plot([0.0, 1.9], [0.0, 0.0], color=LASER, lw=2, zorder=2)
+        ax.annotate("", xy=(0.95, 0.38), xytext=(0.95, -0.38),
+                    arrowprops=dict(arrowstyle="<->", color="#8c6d1f", lw=1.2))
+        label(ax, 0.95, 0.5, "polarized", fontsize=8, va="bottom")
+        _rough_screen(ax, 2.2, 0.9, depth=0.3, text="depolarizing\nscreen")
+        for a in np.linspace(-0.5, 0.5, 5):
+            ax.plot([2.25, 3.4], [0.0, 1.15*a*2], color=LASER, lw=0.7, alpha=0.7, zorder=2)
+        # two polarizations: in-plane arrow and dot
+        ax.annotate("", xy=(3.15, 0.95), xytext=(3.15, 0.55),
+                    arrowprops=dict(arrowstyle="<->", color="#8c6d1f", lw=1.0))
+        ax.plot([3.35], [0.75], "o", color="#8c6d1f", ms=4)
+        label(ax, 3.25, 1.05, "both\npolarizations", fontsize=8, va="bottom")
+        I1 = _speckle_image(seed=11)
+        I2 = _speckle_image(seed=12)
+        vmax = 2.5*np.mean(I1)
+        _gray_image(ax, 4.4, 0.0, 1.1, I1, vmax=vmax, text="∥ polarization")
+        label(ax, 5.15, 0.0, "+", fontsize=14)
+        _gray_image(ax, 5.9, 0.0, 1.1, I2, vmax=vmax, text="⊥ polarization")
+        label(ax, 6.65, 0.0, "=", fontsize=14)
+        _gray_image(ax, 7.4, 0.0, 1.1, I1 + I2, vmax=2*vmax, text="detector,\nC = 1/√2")
+        _finish(ax, (-1.2, 8.1), (-1.25, 1.55), title)
+    elif method == "wavelength":
+        zr = np.linspace(0.0, 4.0, 200)
+        rng = np.random.default_rng(4)
+        w = np.exp(-np.linspace(-3, 3, 31)**2)
+        hr = np.convolve(rng.standard_normal(230), w, "valid")[:200]
+        hr = 0.3*hr/hr.std()
+        ax.add_patch(mpatches.Polygon(np.r_[np.c_[zr, hr], [[4.0, -0.9], [0.0, -0.9]]],
+                                      closed=True, facecolor=SCREEN, edgecolor="none", zorder=3))
+        ax.plot(zr, hr, color="0.35", lw=0.8, zorder=3.5)
+        ax.plot([0.0, 4.0], [0.0, 0.0], color="0.45", ls=":", lw=0.8, zorder=4)
+        i_hi = np.argmax(hr[40:160]) + 40
+        i_lo = np.argmin(hr[40:160]) + 40
+        for i in (i_hi, i_lo):
+            for col, dz in (("#1a9850", -0.06), ("#a6d96a", 0.06)):
+                ax.annotate("", xy=(zr[i] + dz, hr[i]), xytext=(zr[i] + dz, 1.6),
+                            arrowprops=dict(arrowstyle="-|>", color=col, lw=1.2))
+        label(ax, zr[i_hi] - 0.2, 1.25, r"$\lambda_1$", ha="right", fontsize=9, color="#1a9850")
+        label(ax, zr[i_hi] + 0.2, 1.25, r"$\lambda_2$", ha="left", fontsize=9, color="#7fbf3f")
+        z_m = zr[i_lo] + 0.3
+        ax.plot([zr[i_lo], z_m + 0.08], [hr[i_lo], hr[i_lo]], color="0.25", lw=0.6, zorder=5)
+        ax.annotate("", xy=(z_m, hr[i_lo]), xytext=(z_m, 0.0),
+                    arrowprops=dict(arrowstyle="<->", color="0.25", lw=0.8, shrinkA=0, shrinkB=0),
+                    zorder=6)
+        label(ax, z_m + 0.1, hr[i_lo]/2 + 0.12, "h", ha="left", fontsize=9, zorder=6)
+        label(ax, 2.0, 1.95, "phase 4πh/λ: two wavelengths differ by 2Δk·h",
+              fontsize=8, color="0.25")
+        label(ax, 2.0, -1.05, r"rough surface, rms height $\sigma_h$", va="top", fontsize=8)
+        # two speckle images from the same surface at two wavelengths, partly correlated
+        n, grain = 48, 6.0
+        from . import speckle
+        r = speckle.rough_surface(n, 1.0, 1.0, 0.0, rng=7)
+        NA = 1/grain
+        Ia = np.abs(speckle.coherent_image(np.exp(1j*r*6.0), 1.0, NA, 1.0))**2
+        Ib = np.abs(speckle.coherent_image(np.exp(1j*r*6.6), 1.0, NA, 1.0))**2
+        vmax = 2.5*np.mean(Ia)
+        _gray_image(ax, 5.2, 0.4, 1.1, Ia, vmax=vmax, text=r"$\lambda_1$")
+        _gray_image(ax, 6.5, 0.4, 1.1, Ib, vmax=vmax, text=r"$\lambda_2$")
+        label(ax, 5.85, 1.25, "partly changed\nspeckle", fontsize=8, va="bottom")
+        _finish(ax, (-0.3, 7.2), (-1.45, 2.2), title)
+    elif method == "angle":
+        laser(ax, 0.0, 0.0, length=1.0, height=0.3, text="laser", fontsize=8)
+        ax.plot([0.0, 0.8], [0.0, 0.0], color=LASER, lw=2, zorder=2)
+        # rotating diffuser (edge-on disk) with a rotation arrow
+        ax.add_patch(mpatches.Rectangle((0.8, -0.9), 0.08, 1.8, facecolor="0.85",
+                                        edgecolor="0.4", lw=0.8, hatch="....", zorder=4))
+        ax.add_patch(mpatches.FancyArrowPatch((0.65, 0.95), (1.05, 0.95),
+                                              connectionstyle="arc3,rad=-0.6",
+                                              arrowstyle="-|>", mutation_scale=8,
+                                              color="0.3", lw=0.9))
+        label(ax, 0.84, -1.0, "moving\ndiffuser", va="top", fontsize=8)
+        z_c, z_s = 1.9, 3.4
+        lens(ax, z_c, 0.8)
+        label(ax, z_c, -1.0, "condenser", va="top", fontsize=8)
+        for a in np.linspace(-0.3, 0.3, 5):
+            ax.plot([0.88, z_c], [0.0, a*2.5], color=LASER, lw=0.6, alpha=0.6, zorder=2)
+        band(ax, [z_c, z_s], [0.75, 0.05], [z_c, z_s], [-0.75, -0.05], color=LASER,
+             alpha=0.18, edges=True)
+        _rough_screen(ax, z_s + 0.1, 1.0, depth=0.1, text="rough\nscreen")
+        label(ax, (z_c + z_s)/2 - 0.1, 0.65, r"NA$_\mathrm{ill}$", fontsize=9, color=LASER)
+        z_o = 6.0
+        band(ax, [z_s + 0.15, z_o], [0.0, 0.32], [z_s + 0.15, z_o], [0.0, -0.32],
+             color=IMAGING, alpha=0.2, edges=True)
+        lens(ax, z_o, 0.4)
+        label(ax, (z_s + z_o)/2 + 0.2, 0.42, r"NA$_\mathrm{obs}$", fontsize=9, color=IMAGING)
+        label(ax, z_o, -0.55, "observer\n(eye, camera)", va="top", fontsize=8)
+        imgs = ((1, "1 position"), (4, "4 positions"), (40, "40 positions"))
+        for k, (M, txt) in enumerate(imgs):
+            I = _speckle_image(NA_ratio=3.0, M=M, seed=21)
+            I = I/np.mean(I)
+            _gray_image(ax, 7.3 + 1.25*k, 0.0, 1.05, I, vmax=2.5, text=txt)
+        _finish(ax, (-1.2, 7.3 + 2*1.25 + 0.7), (-1.45, 1.4), title)
+    else:
+        raise ValueError("method must be 'polarization', 'wavelength' or 'angle'")
+
+
+def laser_projector(ax, title=None):
+    """Sketch of a laser projector, its screen and a viewer (notebook 87).
+
+    The projection lens of aperture D illuminates a point of the screen at
+    the distance z from the cone NA_ill = D/(2z) (when a moving diffuser
+    fills its pupil); the eye pupil d sees it within NA_obs = d/(2z). Their
+    ratio sets how far angle diversity can lower the speckle contrast.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    z_s = 8.0
+    _rough_screen(ax, z_s, 2.0, amplitude=0.06, depth=-0.2)
+    label(ax, z_s + 0.1, -2.15, "screen (rough,\ndepolarizing)", va="top", fontsize=8)
+    # projector
+    y_p, D = -0.9, 0.6
+    ax.add_patch(mpatches.Rectangle((-1.3, y_p - 0.45), 1.15, 0.9, facecolor="0.3",
+                                    edgecolor="none", zorder=4))
+    label(ax, -0.72, y_p, "laser\nprojector", color="white", fontsize=8, zorder=5)
+    _lens_at(ax, -0.05, y_p, D/2, thickness=0.14)
+    y_t = 0.5
+    band(ax, [-0.05, z_s], [y_p + D/2, y_t], [-0.05, z_s], [y_p - D/2, y_t],
+         color=LASER, alpha=0.2)
+    label(ax, 3.4, -1.2, r"NA$_\mathrm{ill}$ = D/(2z)", fontsize=9, color=LASER)
+    label(ax, -0.05, y_p - D/2 - 0.12, "D", va="top", fontsize=9)
+    # eye
+    y_e, d = 1.4, 0.16
+    ax.add_patch(mpatches.Circle((-0.35, y_e), 0.3, facecolor="white", edgecolor="0.3", lw=1.0,
+                                 zorder=4))
+    ax.add_patch(mpatches.Circle((-0.1, y_e), 0.07, facecolor="0.15", edgecolor="none",
+                                 zorder=5))
+    band(ax, [z_s, -0.06], [y_t, y_e + d/2], [z_s, -0.06], [y_t, y_e - d/2],
+         color=IMAGING, alpha=0.25)
+    label(ax, 3.4, 1.35, r"NA$_\mathrm{obs}$ = d/(2z)", fontsize=9, color=IMAGING)
+    label(ax, -0.35, y_e + 0.42, "eye, pupil d", va="bottom", fontsize=8)
+    arrow(ax, 0.0, -2.0, z_s - 0.2, -2.0, style="<->", text="z", text_pos=(4.0, -2.15),
+          fontsize=9, va="top")
+    _finish(ax, (-1.5, z_s + 0.6), (-2.6, 2.3), title)
