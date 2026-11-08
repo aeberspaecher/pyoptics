@@ -95,6 +95,10 @@ Setup sketches for the other example notebooks:
   ashkin_rays(): two rays refracted by a sphere near the focus and the
   forces they exert; momentum_balance(): the force from the momentum flux
   through a sphere far away (notebook 75).
+- pulse_through_lens(): a pulse through a singlet lags behind the phase
+  front, most on the axis (Bor's pulse-front delay), not through an
+  achromat; pulse_front_tilt(): the tilted pulse front behind a prism or a
+  grating (notebook 81).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -3555,3 +3559,165 @@ def momentum_balance(ax, title=None):
           fontsize=9, va="top")
     label(ax, 0.18, -0.32, "bead", fontsize=8, va="top")
     _finish(ax, (-3.6, 3.6), (-3.1, 2.8), title)
+
+
+PULSE = "#d6604d"
+PHASE_FRONT = "0.45"
+
+
+def pulse_through_lens(ax, achromat=False, title=None):
+    """Sketch of Bor's pulse-front delay in a lens (notebook 81).
+
+    A collimated beam carries a short pulse (red band) on a plane phase
+    front. Behind a singlet the phase fronts (grey arcs) converge on the
+    focus, but the pulse travels with the group velocity: it lags behind
+    the phase front, most on the axis, where the glass is thickest, and
+    reaches the focus spread in time by the delay Delta T. Behind an
+    achromat (achromat=True, a cemented crown and flint doublet) pulse front
+    and phase front coincide.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    achromat : bool, optional
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    h, f = 1.0, 3.2
+    z_l = 0.0
+    if achromat:
+        yy = np.linspace(-h, h, 41)
+        b1 = 0.16*(1 - (yy/h)**2)
+        crown = np.r_[np.c_[z_l - 0.02 - b1, yy], np.c_[np.full_like(yy, z_l + 0.02), yy[::-1]]]
+        ax.add_patch(mpatches.Polygon(crown, closed=True, facecolor=GLASS, edgecolor=EDGE, lw=1,
+                                      zorder=3))
+        flint = np.r_[np.c_[np.full_like(yy, z_l + 0.02), yy],
+                      np.c_[z_l + 0.12 - 0.06*(1 - (yy[::-1]/h)**2), yy[::-1]]]
+        ax.add_patch(mpatches.Polygon(flint, closed=True, facecolor="#9fbfdc", edgecolor=EDGE,
+                                      lw=1, zorder=3))
+        label(ax, z_l, -1.2, "achromat (crown + flint)", va="top")
+    else:
+        lens(ax, z_l, h, thickness=0.36)
+        label(ax, z_l, -1.2, "singlet", va="top")
+    # incoming beam, phase fronts and the pulse
+    band(ax, [-2.6, z_l], [h, h], [-2.6, z_l], [-h, -h], color=PULSE, alpha=0.08, edges=False)
+    for z in (-2.3, -1.9, -1.5, -0.7, -0.3):
+        ax.plot([z, z], [-h, h], color=PHASE_FRONT, lw=0.8, zorder=2)
+    ax.add_patch(mpatches.Rectangle((-1.15, -h), 0.12, 2*h, facecolor=PULSE, alpha=0.85,
+                                    edgecolor="none", zorder=4))
+    label(ax, -1.1, 1.22, "pulse on a\nphase front", fontsize=8, va="bottom")
+    # converging beam
+    band(ax, [z_l, f], [h, 0.0], [z_l, f], [-h, 0.0], color=PULSE, alpha=0.08, edges=False)
+    for zc in (1.0, 1.7, 2.3):
+        rr = f - zc
+        y_edge = h*rr/f
+        phi = np.linspace(-np.arcsin(y_edge/np.hypot(rr, 0) if rr else 0), np.arcsin(y_edge/rr), 41)
+        ax.plot(f - rr*np.cos(phi), rr*np.sin(phi), color=PHASE_FRONT, lw=0.8, zorder=2)
+    # the pulse front behind the lens, on (or behind) the phase front at z = 1.45
+    rr = f - 1.45
+    y_edge = h*rr/f
+    phi = np.linspace(-np.arcsin(y_edge/rr), np.arcsin(y_edge/rr), 61)
+    zp, yp = f - rr*np.cos(phi), rr*np.sin(phi)
+    ax.plot(zp, yp, color=PHASE_FRONT, lw=0.8, ls="--", zorder=2)
+    lag = 0.0 if achromat else 0.38*(1 - (yp/y_edge)**2)
+    ax.plot(zp - lag, yp, color=PULSE, lw=4.5, alpha=0.9, solid_capstyle="round", zorder=4)
+    if achromat:
+        label(ax, 1.45, 0.9, "pulse front =\nphase front", fontsize=8, va="bottom")
+    else:
+        arrow(ax, zp[30], 0.0, zp[30] - 0.38, 0.0, color="0.15", style="<->",
+              text="ΔT", text_pos=(zp[30] - 0.19, 0.13), fontsize=9)
+        label(ax, 1.25, 0.9, "pulse front lags behind\nthe phase front (n_g > n)",
+              fontsize=8, va="bottom")
+    point_source(ax, f, 0.0, color="k", size=18)
+    label(ax, f + 0.1, -0.22, "focus", fontsize=8, ha="left")
+    _finish(ax, (-2.7, f + 0.7), (-1.55, 1.6), title)
+
+
+def pulse_front_tilt(ax, element="prism", title=None):
+    """Sketch of the pulse-front tilt behind a prism or a grating (notebook
+    81).
+
+    The colours leave the element at different angles (angular dispersion
+    d theta/d lambda). The phase fronts stay normal to the beam, but the
+    pulse front (red band) is tilted against them by the angle gamma with
+    tan gamma = lambda d theta/d lambda: behind a prism the part of the beam
+    that crossed the thick base lags; behind a grating the part that hit
+    the grating later lags.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    element : {"prism", "grating"}, optional
+    title : str, optional
+    """
+
+    if element not in ("prism", "grating"):
+        raise ValueError("element must be 'prism' or 'grating'.")
+    mpatches = _patches()
+    w = 0.32
+    if element == "prism":
+        apex = np.deg2rad(60)
+        top, base = (0.0, 1.0), 1.7
+        a2 = apex/2
+        pts = [top, (-base*np.tan(a2), top[1] - base), (base*np.tan(a2), top[1] - base)]
+        ax.add_patch(mpatches.Polygon(pts, closed=True, facecolor=GLASS, edgecolor=EDGE, lw=1,
+                                      zorder=3))
+        z_in, y_in, ang_in = -0.5, 0.15, np.deg2rad(22)
+        p_out, ang_out = (0.5, 0.15), -np.deg2rad(22)
+        label(ax, 0.0, -0.95, "prism", va="top")
+        tilt = -np.deg2rad(28)       # the base side lags; drawn exaggerated
+        colours = ((-0.12, "#2a7ab9"), (0.0, "#5aa469"), (0.12, "#d6604d"))
+    else:
+        z_g = 0.0
+        ax.plot([z_g, z_g], [-1.0, 1.0], color="0.25", lw=2.5, zorder=3)
+        for y in np.linspace(-0.95, 0.95, 20):
+            ax.plot([z_g, z_g + 0.06], [y, y + 0.04], color="0.25", lw=0.8, zorder=3)
+        z_in, y_in, ang_in = z_g, 0.0, 0.0
+        p_out, ang_out = (z_g, 0.0), -np.deg2rad(30)
+        label(ax, 0.0, -1.1, "grating", va="top")
+        tilt = np.deg2rad(30)        # pulse front parallel to the grating
+        colours = ((0.12, "#2a7ab9"), (0.0, "#5aa469"), (-0.12, "#d6604d"))
+    # incoming beam (from the left, at angle ang_in) with a normal pulse front
+    d_in = np.array([np.cos(ang_in), np.sin(ang_in)])
+    n_in = np.array([-d_in[1], d_in[0]])
+    P0 = np.array([z_in, y_in]) - 2.2*d_in
+    e1, e2 = P0 + w*n_in, P0 - w*n_in
+    f1, f2 = np.array([z_in, y_in]) + w*n_in, np.array([z_in, y_in]) - w*n_in
+    band(ax, [e1[0], f1[0]], [e1[1], f1[1]], [e2[0], f2[0]], [e2[1], f2[1]], color=PULSE,
+         alpha=0.1, edges=False)
+    c = P0 + 1.1*d_in
+    ax.plot([c[0] + w*n_in[0], c[0] - w*n_in[0]], [c[1] + w*n_in[1], c[1] - w*n_in[1]],
+            color=PULSE, lw=4.5, alpha=0.9, zorder=4)
+    for s in (0.5, 0.8, 1.4, 1.7):
+        q = P0 + s*d_in
+        ax.plot([q[0] + w*n_in[0], q[0] - w*n_in[0]], [q[1] + w*n_in[1], q[1] - w*n_in[1]],
+                color=PHASE_FRONT, lw=0.8, zorder=2)
+    # dispersed colours
+    for da, col in colours:
+        a = ang_out + da
+        ax.plot([p_out[0], p_out[0] + 2.4*np.cos(a)], [p_out[1], p_out[1] + 2.4*np.sin(a)],
+                color=col, lw=1.0, zorder=2)
+    # outgoing beam: phase fronts normal to it, tilted pulse front
+    d_o = np.array([np.cos(ang_out), np.sin(ang_out)])
+    n_o = np.array([-d_o[1], d_o[0]])
+    O = np.array(p_out)
+    band(ax, [O[0] + w*n_o[0], O[0] + w*n_o[0] + 2.4*d_o[0]],
+         [O[1] + w*n_o[1], O[1] + w*n_o[1] + 2.4*d_o[1]],
+         [O[0] - w*n_o[0], O[0] - w*n_o[0] + 2.4*d_o[0]],
+         [O[1] - w*n_o[1], O[1] - w*n_o[1] + 2.4*d_o[1]], color=PULSE, alpha=0.1, edges=False)
+    for s in (0.6, 0.95, 1.95, 2.25):
+        q = O + s*d_o
+        ax.plot([q[0] + w*n_o[0], q[0] - w*n_o[0]], [q[1] + w*n_o[1], q[1] - w*n_o[1]],
+                color=PHASE_FRONT, lw=0.8, zorder=2)
+    q = O + 1.45*d_o
+    m = np.array([np.cos(np.arctan2(n_o[1], n_o[0]) + tilt), np.sin(np.arctan2(n_o[1], n_o[0]) + tilt)])
+    L = w/np.cos(tilt)
+    ax.plot([q[0] + L*m[0], q[0] - L*m[0]], [q[1] + L*m[1], q[1] - L*m[1]], color=PULSE, lw=4.5,
+            alpha=0.9, zorder=4)
+    ax.plot([q[0] + w*n_o[0], q[0] - w*n_o[0]], [q[1] + w*n_o[1], q[1] - w*n_o[1]],
+            color=PHASE_FRONT, lw=0.8, ls="--", zorder=3)
+    label(ax, q[0] + 0.55, q[1] + 0.55, "tilted pulse front\ntan γ = λ dθ/dλ", fontsize=8,
+          ha="left")
+    label(ax, P0[0] + 1.0, P0[1] + 0.95, "pulse front =\nphase front", fontsize=8)
+    _finish(ax, (P0[0] - 0.3, O[0] + 3.2), (-1.5, 1.45), title)
