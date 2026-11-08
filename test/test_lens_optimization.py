@@ -260,3 +260,23 @@ def test_paraxial_focus_solve_in_front_of_a_cover_glass():
     # an offset puts the image plane behind the focus, as for the image distance solve
     lo.solve_paraxial_focus(offset=0.01, surface=1)(system)
     assert np.isclose(system.paraxial().image_distance, -0.01, atol=1e-9)
+
+
+def test_predicted_gain_ranks_new_variables():
+    # an on-axis singlet bent for least spherical aberration: an asphere removes the rest,
+    # a variable that repeats the bending gains nothing
+    system = singlet(0.7)
+    opt = lo.DampedLeastSquares(system, [lo.Curvature(0), lo.Thickness(1)],
+                                [lo.ray_errors(fields=(0.0,), tolerance=1e-4)],
+                                solves=[lo.solve_curvature_for_efl(1, 100.0)])
+    opt.run(max_iterations=30)
+    rim = 8.0
+    gains, base = opt.predicted_gain({"asphere": [lo.Aspheric(0, 4, rim), lo.Aspheric(0, 6, rim)],
+                                      "repeat": [lo.Curvature(0)]})
+    assert gains["asphere"] > 0.5*base
+    assert abs(gains["repeat"]) < 1e-3*base
+    # the prediction comes true
+    with_asphere = lo.DampedLeastSquares(opt.system, [lo.Curvature(0), lo.Thickness(1),
+                                                      lo.Aspheric(0, 4, rim), lo.Aspheric(0, 6, rim)],
+                                         opt.operands, solves=opt.solves).run(max_iterations=30)
+    assert with_asphere.merit < 0.2*opt.merit()

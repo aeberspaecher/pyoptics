@@ -1568,7 +1568,11 @@ def center_thickness(surface):
 def edge_thickness(surface, height=None, margin=1.05):
     """Function system -> thickness between a surface and the next at the
     height (default: the paraxial rim ``|y| + |ybar|`` of the beam at full
-    aperture and field, times margin, the larger of the two surfaces).
+    aperture and field, times margin, the larger of the two surfaces; a
+    system that is optimized at a fraction of its aperture and field
+    carries the fractions as ``system._stage = (na_fraction,
+    field_fraction)``, as in `LensOptimizer`, and the rim is scaled back to
+    the full beam).
     Beyond the semi aperture of a conic the missing sag counts as negative
     thickness, so that the constraint keeps a gradient."""
 
@@ -1577,7 +1581,8 @@ def edge_thickness(surface, height=None, margin=1.05):
         a, b = S[surface], S[surface + 1]
         if height is None:
             p = system.paraxial()
-            rim = margin*(np.abs(p.marginal[:, 0]) + np.abs(p.chief[:, 0]))
+            na_scale, field_scale = system.__dict__.get("_stage", (1.0, 1.0))
+            rim = margin*(np.abs(p.marginal[:, 0])/na_scale + np.abs(p.chief[:, 0])/field_scale)
             r = max(rim[surface], rim[surface + 1])
         else:
             r = height
@@ -1750,10 +1755,18 @@ class DampedLeastSquares:
         system = self.system if system is None else system
         r = self.residuals(system)
         g = self.constraint_values(system)[0]
-        J = np.zeros((len(r), len(self.variables)))
-        A = np.zeros((len(g), len(self.variables)))
-        for k, v in enumerate(self.variables):
-            h = 1e-6*self._scale[k]
+        J, A = self._columns(self.variables, self._scale, system, r, g)
+
+        return J, A, r, g
+
+    def _columns(self, variables, scales, system, r, g):
+        """Forward difference columns of the residuals and constraint
+        values for variables."""
+
+        J = np.zeros((len(r), len(variables)))
+        A = np.zeros((len(g), len(variables)))
+        for k, v in enumerate(variables):
+            h = 1e-6*scales[k]
             lo, hi = v.bounds
             x0 = v.get(system)
             if hi is not None and x0 + h > hi:
@@ -1764,11 +1777,80 @@ class DampedLeastSquares:
             if len(g):
                 A[:, k] = (self.constraint_values(s)[0] - g)/h
 
-        return J, A, r, g
+        return J, A
+
+    def predicted_gain(self, candidates, damping=None, jacobian=None):
+        """Predicted decrease of the merit function if groups of variables
+        were added, from the linearized operands (a ranking of candidates,
+        e.g. of the surfaces for an asphere).
+
+        For each group, one damped least squares step with the current
+        variables and the group is solved, with the constraints that are
+        active (violated or at their bound) held at their current values to
+        first order, and its
+        predicted merit function is compared with that of the same step with
+        the current variables alone. At a minimum of the current variables
+        the gain is that part of the residuals that the new columns of the
+        Jacobian reach and the old ones do not (it is zero for a variable
+        that only repeats what the others do).
+
+        Parameters
+        ----------
+        candidates : dict or sequence
+            name -> sequence of Variable (or a sequence of sequences, named
+            by their index).
+        damping : number, optional
+            lambda of the steps (default: the initial damping).
+        jacobian : tuple, optional
+            (J, A, r, g) of the current variables from `jacobian()`, to
+            reuse.
+
+        Returns
+        -------
+        gains : dict
+            name -> predicted decrease of the merit function.
+        base : float
+            Predicted merit function of the step with the current
+            variables alone.
+        """
+
+        if not isinstance(candidates, dict):
+            candidates = dict(enumerate(candidates))
+        lam = self.damping if damping is None else damping
+        J, A, r, g = self.jacobian() if jacobian is None else jacobian
+        self._lo, self._hi, tol, _ = self._constraint_info()
+        active = (self._lo == self._hi) | (g <= self._lo + 1e-3*tol) | (g >= self._hi - 1e-3*tol)
+        target = g  # held where they are: the gain is not mixed with the cost of restoring them
+        scale = self._scale
+
+        def predicted(Jx, Ax, sx):
+            self._scale = sx
+            try:
+                dx = self._step(Jx, Ax, r, target, g, lam, active, np.zeros(len(sx), bool))[0]
+            finally:
+                self._scale = scale
+            return float(np.sum((r + Jx @ dx)**2))
+
+        base = predicted(J, A, scale)
+        gains = {}
+        for name, group in candidates.items():
+            group = list(group)
+            sc = np.array([v.typical(self.system) for v in group])
+            Jc, Ac = self._columns(group, sc, self.system, r, g)
+            gains[name] = base - predicted(np.hstack([J, Jc]), np.hstack([A, Ac]),
+                                           np.concatenate([scale, sc]))
+
+        return gains, base
 
     def _step(self, J, A, r, target, g, lam, active, bounds):
         """Damped least squares step in scaled variables with the active
-        constraints held to first order."""
+        constraints held to first order (a step that overflows for a huge
+        damping is rejected by the caller)."""
+
+        with np.errstate(over="ignore", invalid="ignore"):
+            return self._step_unchecked(J, A, r, target, g, lam, active, bounds)
+
+    def _step_unchecked(self, J, A, r, target, g, lam, active, bounds):
 
         D = self._scale
         Js = J*D
@@ -1874,11 +1956,18 @@ class DampedLeastSquares:
                                  or (v.bounds[1] is not None and xi >= v.bounds[1] and gi < 0)
                                  for v, xi, gi in zip(self.variables, x, grad)], bool)
             accepted = False
+            restore = 1.0
             for _ in range(30):
                 # active set: equalities, violated inequalities and those that
-                # the step would violate
+                # the step would violate; violated constraints are restored
+                # by the fraction restore, which halves with every rejected
+                # step (far from the constraints, the linearized restoring
+                # step can be much too long, and the damping does not
+                # shorten it)
                 active = (self._lo == self._hi) | (g < self._lo) | (g > self._hi)
                 target = np.clip(g, self._lo, self._hi)
+                if restore < 1.0:
+                    target = g + restore*(target - g)
                 for _ in range(len(g) + 1):
                     dx, mu = self._step(J, A, r, target, g, lam, active, at_bound)
                     g_pred = g + A @ dx
@@ -1903,21 +1992,31 @@ class DampedLeastSquares:
                     break
                 lam *= nu
                 nu *= 2
+                restore *= 0.5
             if not accepted:
                 success, message = True, "no step lowers the merit function (local minimum)"
                 break
             gain = (phi - phi_new)/max(phi, 1e-300)
             self.system, x, phi = s_new, x_new, phi_new
-            multipliers = dict(zip([n for n, a in zip(names, active) if a], mu))
             viol = self.constraint_values()[1]
             if gain < ftol and np.all(np.abs(viol) < 1e-3):
                 success, message = True, "converged"
                 break
         r = self.residuals()
-        viol = self.constraint_values()[1]
+        g, viol = self.constraint_values()
         history.append(dict(merit=float(np.sum(r**2)), damping=lam,
                             violation=float(np.max(np.abs(viol), initial=0.0)), x=x.copy()))
         history[-1]["damping"] = lam_ok
+        if len(g) and history[:-1]:
+            # multipliers of the constraints at their bounds at the end (with
+            # the last Jacobian): the gradient of the merit function that
+            # they balance, J^T r + A^T mu = 0
+            active = ((self._lo == self._hi) | (g <= self._lo + 1e-3*tol)
+                      | (g >= self._hi - 1e-3*tol))
+            if np.any(active):
+                D = self._scale
+                mu = np.linalg.lstsq((A*D)[active].T, -(J*D).T @ r, rcond=None)[0]
+                multipliers = dict(zip([n for n, a in zip(names, active) if a], mu))
 
         return DLSResult(self.system.copy(), x, float(np.sum(r**2)), history, success, message,
                          multipliers)

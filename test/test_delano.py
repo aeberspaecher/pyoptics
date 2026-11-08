@@ -183,3 +183,13 @@ def test_delano_krf_lens_meets_the_specification():
     assert abs(D[0, 1]/D[0, 2]) < 1e-3
     assert abs(I[0, 1] + 0.25*system.max_field) < 5e-5
     assert system.rms_opd(field=system.max_field, N=16) < 0.3
+
+
+def test_delano_krf_lens_without_aspheres():
+    system = rt.delano_krf_lens(spherical=True)
+    p = system.paraxial()
+    assert np.isclose(p.magnification, -0.25, atol=2e-4)
+    assert np.isclose(p.na, 0.7, atol=1e-3)
+    assert np.isclose(system.object_distance + system.image_z, 1000.0)
+    assert not any(any(s.aspheric) for s in system.surfaces)
+    assert system.rms_opd(field=0.0, N=16) < 0.6
