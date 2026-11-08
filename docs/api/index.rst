@@ -64,6 +64,7 @@ Imaging and ray tracing
    pyoptics.bases
    pyoptics.vectorial_imaging
    pyoptics.microscopy
+   pyoptics.tweezers
    pyoptics.raytrace
    pyoptics.raywave
    pyoptics.fresnel
