@@ -147,7 +147,6 @@ notebooks/45_zernike_aberration_gallery
 - {doc}`notebooks/28_phase_retrieval`
 - {doc}`notebooks/29_TIE`
 - {doc}`notebooks/30_IFTA`
-- {doc}`notebooks/72_twinkling_stars_adaptive_optics`
 
 ```{toctree}
 :hidden:
@@ -164,7 +163,6 @@ notebooks/27_holographic_microscopy
 notebooks/28_phase_retrieval
 notebooks/29_TIE
 notebooks/30_IFTA
-notebooks/72_twinkling_stars_adaptive_optics
 ```
 
 ## Microscopy
@@ -224,6 +222,19 @@ notebooks/42_litho_illuminator
 notebooks/43_litho_delano_lens_design
 notebooks/44_seidel_caldwell_lens
 notebooks/50_magnification_distortion_telecentricity
+```
+
+## Atmospheric optics
+
+- {doc}`notebooks/71_rainbows_and_glories`
+- {doc}`notebooks/72_twinkling_stars_adaptive_optics`
+
+```{toctree}
+:hidden:
+:caption: Atmospheric optics
+
+notebooks/71_rainbows_and_glories
+notebooks/72_twinkling_stars_adaptive_optics
 ```
 
 ## Running the notebooks

@@ -22,3 +22,5 @@ from . import modes
 from . import vortices
 from . import turbulence
 from . import coherence
+from . import rainbow
+from . import colour

@@ -82,7 +82,8 @@ What each module does and how mature it is. Planned work is listed in
   exact series solutions for a dielectric cylinder (TE) and sphere (scalar),
   also for beams: `cylinder_field()`, `sphere_field()`, and the vector
   Lorenz-Mie solution of a sphere: `mie_coefficients()`, `mie_field()`,
-  `mie_efficiencies()`)
+  `mie_efficiencies()`, and its far field `mie_amplitudes()` (S1, S2, checked
+  against the optical theorem and the scattering efficiency))
 - `bases`: mature (Zernike, Legendre, Chebyshev bases, numerical
   orthogonalization, fits); all bases can be shifted and rotated, Legendre and
   Chebyshev derive from the abstract `TensorProductBasis`; tested
@@ -92,7 +93,17 @@ What each module does and how mature it is. Planned work is listed in
   coherent multilayer stacks; `stack_transfer_functions()` gives r and t on
   the angular spectrum grid of a field)
 - `materials`: Abbe (n_d, V_d) dispersion model via a two-term Cauchy
-  formula, tested
+  formula, the index of water (Daimon and Masumura, 20 deg C) and of
+  standard air (Ciddor), tested
+- `rainbow`: new, tested: rays through a spherical drop with any number of
+  internal reflections (exact vector trace, Fresnel factors for s and p),
+  Descartes' angles, the geometric cross section of every order, Airy's
+  theory of the bow, and the drop as a sequential `raytrace.System` (one
+  tilted surface per intersection); checked against the deviation
+  formula, the envelope theorem, a Monte Carlo of traced rays, energy
+  conservation and the Mie series (notebook 71)
+- `colour`: new, tested: CIE 1931 colour matching functions (analytic fit
+  of Wyman, Sloan and Shirley), XYZ and sRGB of spectra, black body spectra
 - `glasses`: optical glass catalogues of SCHOTT, OHARA, HOYA, CDGM, SUMITA
   and HIKARI (about 1600 glasses with the vendors' Sellmeier and power
   series formulas, from the refractiveindex.info database, CC0), tested:
@@ -386,7 +397,8 @@ What each module does and how mature it is. Planned work is listed in
   of a Twyman-Green and a Fizeau interferometer, a Shack-Hartmann and a
   phase diversity lens test, off-axis holography (lensless and microscope),
   a coated fold mirror with s and p, the KrF illuminator with its pupil and
-  field planes, and a spatial filter
+  field planes, a spatial filter, and the geometry of rainbows and of the
+  glory seen from an aircraft
 - Unfinished stubs: `interpolator.TrigInterpolator` cannot be evaluated yet,
   the functions in `polarization._polarization` are empty
 

@@ -165,6 +165,71 @@ def abbe_dispersion(wavelength, n_d, V_d, lambda_d=LAMBDA_d,
     return cauchy_n(wavelength, A, B)
 
 
+# Daimon and Masumura (2007), liquid water at 20 deg C: (B_j, C_j [um^2])
+_WATER_SELLMEIER = ((5.684027565e-1, 5.101829712e-3),
+                    (1.726177391e-1, 1.821153936e-2),
+                    (2.086189578e-2, 2.620722293e-2),
+                    (1.130748688e-1, 1.069792721e1))
+
+
+def water_index(wavelength_nm):
+    """Refractive index of liquid water at 20 deg C.
+
+    Four-term Sellmeier formula of Daimon and Masumura [1]_ (fit to their
+    measurements from 182 nm to 1129 nm), relative to vacuum: n = 1.33335
+    at 589.3 nm, which agrees with the IAPWS formulation [2]_ to 1e-5 in
+    the visible. Relative to air (`air_index()`), the usual n_D = 1.3330.
+
+    Parameters
+    ----------
+    wavelength_nm : number or array
+        Vacuum wavelength in nm.
+
+    Returns
+    -------
+    n : number or array
+
+    References
+    ----------
+    .. [1] M. Daimon and A. Masumura, "Measurement of the refractive index of
+       distilled water from the near-infrared region to the ultraviolet
+       region", Appl. Opt. 46, 3811-3820 (2007).
+    .. [2] The International Association for the Properties of Water and Steam,
+       "Release on the refractive index of ordinary water substance as a
+       function of wavelength, temperature and pressure" (1997).
+    """
+
+    l2 = (np.asarray(wavelength_nm, dtype=float)*1e-3)**2
+    n2 = 1.0 + sum(B*l2/(l2 - C) for B, C in _WATER_SELLMEIER)
+
+    return np.sqrt(n2)[()]
+
+
+def air_index(wavelength_nm):
+    """Refractive index of standard air (15 deg C, 101325 Pa, dry, 450 ppm
+    CO2) after Ciddor [1]_.
+
+    Parameters
+    ----------
+    wavelength_nm : number or array
+        Vacuum wavelength in nm.
+
+    Returns
+    -------
+    n : number or array
+        1.000277 at 589.3 nm.
+
+    References
+    ----------
+    .. [1] P. E. Ciddor, "Refractive index of air: new equations for the
+       visible and near infrared", Appl. Opt. 35, 1566-1573 (1996).
+    """
+
+    s2 = (1e3/np.asarray(wavelength_nm, dtype=float))**2      # 1/um^2
+
+    return (1.0 + 0.05792105/(238.0185 - s2) + 0.00167917/(57.362 - s2))[()]
+
+
 # media for the polarization ray trace:
 
 def extinction_from_absorption(alpha, wavelength):

@@ -108,6 +108,16 @@ Interfaces, thin films and polarization
    pyoptics.polarization.jones
    pyoptics.polarization.mueller
 
+Atmospheric optics and colour
+-----------------------------
+
+.. autosummary::
+   :toctree: generated
+
+   pyoptics.rainbow
+   pyoptics.colour
+   pyoptics.turbulence
+
 Measurement and phase retrieval
 -------------------------------
 
@@ -120,7 +130,6 @@ Measurement and phase retrieval
    pyoptics.unwrap
    pyoptics.phase_retrieval
    pyoptics.shack_hartmann
-   pyoptics.turbulence
    pyoptics.TIE
    pyoptics.ifta
    pyoptics.processing

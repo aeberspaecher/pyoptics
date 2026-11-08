@@ -68,11 +68,28 @@ frequencies in cycles per radian.
 
 References
 ----------
+A. N. Kolmogorov, "The local structure of turbulence in incompressible
+viscous fluid for very large Reynolds numbers", Dokl. Akad. Nauk SSSR 30,
+301-305 (1941); English translation in Proc. R. Soc. Lond. A 434, 9-13 (1991).
+
+T. von Kármán, "Progress in the statistical theory of turbulence", Proc.
+Natl. Acad. Sci. USA 34, 530-539 (1948).
+
+V. I. Tatarskii, "Wave Propagation in a Turbulent Medium", McGraw-Hill
+(1961).
+
 D. L. Fried, "Optical resolution through a randomly inhomogeneous medium for
 very long and very short exposures", J. Opt. Soc. Am. 56, 1372-1379 (1966).
 
 R. J. Noll, "Zernike polynomials and atmospheric turbulence", J. Opt. Soc. Am.
 66, 207-211 (1976).
+
+R. E. Hufnagel, "Variations of atmospheric turbulence", in Digest of Topical
+Meeting on Optical Propagation through Turbulence, Optical Society of
+America (1974), paper WA1.
+
+G. C. Valley, "Isoplanatic degradation of tilt correction and short-term
+imaging systems", Appl. Opt. 19, 574-577 (1980).
 
 D. L. Fried, "Probability of getting a lucky short-exposure image through
 turbulence", J. Opt. Soc. Am. 68, 1651-1658 (1978).
@@ -82,6 +99,12 @@ Progress in Optics 19, 281-376 (1981).
 
 E. M. Johansson and D. T. Gavel, "Simulation of stellar speckle imaging",
 Proc. SPIE 2200, 372-383 (1994).
+
+D. L. Fried, "Anisoplanatism in adaptive optics", J. Opt. Soc. Am. 72,
+52-61 (1982).
+
+L. C. Andrews and R. L. Phillips, "Laser Beam Propagation through Random
+Media", 2nd ed., SPIE Press (2005).
 
 R. G. Lane, A. Glindemann and J. C. Dainty, "Simulation of a Kolmogorov phase
 screen", Waves Random Media 2, 209-224 (1992).

@@ -403,7 +403,10 @@ class Surface:
             # for b ~ 0 (rays through the centre of curvature) the sign is
             # decided by rounding; the vertex branch has (1 + K) c z <= 1:
             wrong = (1 + K)*c*(z + t*dz) > 1
-            t = np.where(wrong, C/(a*t), t)
+            # the other root from the product of the roots, or from their sum
+            # for t = 0 (a ray that starts on the other branch, e.g. inside a
+            # sphere after an earlier intersection with it):
+            t = np.where(wrong, np.where(t != 0, C/(a*t), -b/a), t)
         if self.aspheric:
             t_plane = -z/dz
             t = np.where(np.isfinite(t), t, t_plane)
