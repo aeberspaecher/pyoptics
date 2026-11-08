@@ -387,6 +387,15 @@ What each module does and how mature it is. Planned work is listed in
   measurement against a reference (canonical or Hadamard basis), a
   weighted Gerchberg-Saxton loop through the TM (built on `ifta`), random
   unitaries and the Marchenko-Pastur law (notebook 73)
+- `lensless`: new, tested: lensless imaging; the pinhole camera
+  (Rayleigh's optimum pinhole, the exact on-axis Fresnel intensity behind a
+  hole, geometric and diffraction blur), coded apertures (MURAs of prime
+  order 4m + 1 and their decoders, the periodic shadow model, decoding by
+  correlation, Fenimore's signal-to-noise ratio against a single hole), and
+  the diffuser camera (PSF of a point source behind any mask by wave
+  propagation, the focal length of the bumps of a random phase plate, the
+  shift and 1 + z/u scaling of the PSF, Wiener deconvolution and ADMM with
+  total variation, positivity and a cropped sensor) (notebook 79)
 - `phase_retrieval`: phase retrieval, tested: Fienup's error reduction and
   hybrid input-output with support, reality and positivity constraints,
   shrink-wrap support and the autocorrelation support, error histories,
