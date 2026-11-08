@@ -106,6 +106,10 @@ def test_paraxial_ray_imaging():
     sketch.sim_microscope,
     sketch.sted_microscope,
     lambda ax: sketch.sted_microscope(ax, images=(np.ones((8, 8)), np.eye(8), np.eye(8))),
+    sketch.approximation_map,
+    sketch.sign_conventions,
+    sketch.diffraction_geometry,
+    sketch.eikonal_wavefronts,
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()

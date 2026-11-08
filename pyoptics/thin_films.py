@@ -9,6 +9,15 @@ layer of thickness t adds the phase +k_0*(n + i*k)*cos(theta)*t. McLeod's
 characteristic matrices (exp(+i*omega*t), n - i*k) enter as their complex
 conjugates.
 
+The amplitude coefficients are ratios of the *tangential* components of the
+electric field (characteristic matrix method, Macleod, Yeh). For s
+polarization this is the full field. For p polarization, r_p has the
+opposite sign of the full-field convention of pyoptics.interfaces (Hecht,
+Born & Wolf): here r_p = r_s at normal incidence, there r_p = -r_s. The
+transmission t_p is the ratio of the tangential fields, i.e. the full-field
+t_p of pyoptics.interfaces times cos(theta_substrate)/cos(theta_0). The
+reflectances and transmittances agree.
+
 References
 ----------
 A. Zangwill, "Modern Electrodynamics", Cambridge University Press (2013).
