@@ -90,6 +90,8 @@ Setup sketches for the other example notebooks:
   a car to the eye over a hot road, the inverted image (notebook 77).
 - lensless_camera(): a pinhole camera, a coded aperture camera and a
   diffuser camera (notebook 79).
+- oct_setup(): a time-domain and a spectral-domain optical coherence
+  tomograph with a layered sample (notebook 82).
 - optical_tweezers(): laser, beam expander overfilling a water immersion
   objective, sample chamber with a bead, condenser and quadrant photodiode;
   ashkin_rays(): two rays refracted by a sphere near the focus and the
@@ -149,7 +151,7 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "rainbow_observer", "glory_aircraft", "twinkling_star", "adaptive_optics_system",
            "wavefront_shaping_setup", "foucault_tester", "schlieren_system",
            "sim_microscope", "sted_microscope",
-           "grin_rod_imaging", "road_mirage", "lensless_camera", "optical_tweezers", "ashkin_rays",
+           "grin_rod_imaging", "road_mirage", "lensless_camera", "oct_setup", "optical_tweezers", "ashkin_rays",
            "momentum_balance"]
 
 
@@ -3339,6 +3341,90 @@ def lensless_camera(ax, kind="pinhole", title=None):
         label(ax, z_sen + 0.5, -1.2, "bare sensor\n(z behind)", va="top")
         label(ax, z_sen + 0.95, 0.75, "caustics:\nthe PSF", fontsize=8)
         _finish(ax, (z_src - 0.6, z_sen + 1.4), (-1.6, 1.2), title)
+
+
+def oct_setup(ax, kind="spectral", title=None):
+    """Sketch of an optical coherence tomograph (notebook 82).
+
+    A superluminescent diode (SLD) feeds a Michelson interferometer: the
+    reference arm ends in a mirror, the sample arm focuses into a layered
+    sample. The returning beams are recombined on the detection side.
+
+    - "time": the reference mirror is scanned over the depth range and a
+      single photodiode records fringes wherever the reference path matches
+      the path to a reflector within the coherence length.
+    - "spectral": the reference mirror is fixed, and a spectrometer (grating
+      and line camera) records the spectrum. Each reflector modulates it with
+      fringes whose frequency in k is proportional to its depth.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"spectral", "time"}, optional
+    title : str, optional
+    """
+
+    if kind not in ("spectral", "time"):
+        raise ValueError("kind must be 'spectral' or 'time'.")
+    mpatches = _patches()
+    w = 0.25
+    z_bs = 2.2
+    laser(ax, 0.2, 0.0, length=1.0, height=0.45, text="SLD", color="0.3")
+    band(ax, [0.2, z_bs], [w, w], [0.2, z_bs], [-w, -w], color=ILLUMINATION)
+    # reference arm (up)
+    y_ref = 2.0
+    band(ax, [z_bs - w, z_bs - w], [0.0, y_ref], [z_bs + w, z_bs + w], [0.0, y_ref], color=REFERENCE,
+         alpha=0.2)
+    mirror(ax, z_bs, y_ref + 0.05, 0.8, np.pi/2)
+    if kind == "time":
+        arrow(ax, z_bs + 0.6, y_ref - 0.25, z_bs + 0.6, y_ref + 0.35, style="<|-|>", color="0.3")
+        label(ax, z_bs + 0.75, y_ref + 0.05, "scanned\n$z_R$", ha="left", fontsize=8)
+    else:
+        label(ax, z_bs + 0.55, y_ref + 0.05, "fixed\n$z_R$", ha="left", fontsize=8)
+    label(ax, z_bs, y_ref + 0.35, "reference mirror", va="bottom", fontsize=9)
+    # sample arm (right): lens focusing into a layered sample
+    z_l, z_s = 3.6, 4.6
+    band(ax, [z_bs, z_l, z_s], [w, w, 0.03], [z_bs, z_l, z_s], [-w, -w, -0.03], color=ILLUMINATION)
+    lens(ax, z_l, 0.4, text=None)
+    layers = (("#f2e6d8", 0.18), ("#e6cfb8", 0.22), ("#d9b99b", 0.14), ("#cfa98a", 0.35))
+    z0 = z_s - 0.05
+    for col, d in layers:
+        ax.add_patch(mpatches.Rectangle((z0, -0.75), d, 1.5, facecolor=col, edgecolor="0.5",
+                                        lw=0.6, zorder=3))
+        z0 += d
+    label(ax, z_s + 0.4, -0.9, "layered sample", va="top")
+    arrow(ax, z_s - 0.05, 0.95, z0, 0.95, style="-|>", color="0.3")
+    label(ax, (z_s + z0)/2, 1.05, "depth z", va="bottom", fontsize=8)
+    beam_splitter(ax, z_bs, 0.0, 0.8, "/", text=None)
+    label(ax, z_bs - 0.55, 0.45, "beam\nsplitter", ha="right", fontsize=8)
+    # detection (down)
+    if kind == "time":
+        band(ax, [z_bs - w, z_bs - w], [0.0, -1.5], [z_bs + w, z_bs + w], [0.0, -1.5], color="#8e5ba8")
+        rotated_detector(ax, z_bs, -1.6, 0.3)
+        label(ax, z_bs - 0.45, -1.6, "photodiode", ha="right", fontsize=8)
+        d = np.linspace(-1.0, 1.0, 600)
+        env = sum(a*np.exp(-((d - c)/0.06)**2) for a, c in ((1.0, -0.6), (0.45, -0.1), (0.7, 0.5)))
+        ax.plot(z_bs + 1.6 + 0.9*d, -1.6 + 0.3*env*np.cos(2*np.pi*d/0.035), color="#8e5ba8", lw=0.6)
+        label(ax, z_bs + 1.6, -2.0, "signal vs. $z_R$: fringe packets\nat the reflector depths",
+              va="top", fontsize=8)
+    else:
+        band(ax, [z_bs - w, z_bs - w], [0.0, -1.1], [z_bs + w, z_bs + w], [0.0, -1.1], color="#8e5ba8")
+        # transmission grating and a fan of colours onto a line camera
+        ax.add_patch(mpatches.Rectangle((z_bs - 0.4, -1.18), 0.8, 0.08, facecolor="0.6",
+                                        edgecolor="0.3", hatch="||||", zorder=4))
+        label(ax, z_bs - 0.5, -1.15, "grating", ha="right", fontsize=8)
+        colours = ("#3a6fd8", "#2ca7a0", "#5aa469", "#e0a000", "#d6604d")
+        for i, c in enumerate(colours):
+            zc = z_bs + 0.25 + 0.38*i
+            ax.plot([z_bs, zc], [-1.18, -2.2], color=c, lw=1.6, alpha=0.9)
+        ax.add_patch(mpatches.Rectangle((z_bs + 0.1, -2.32), 1.85, 0.12, facecolor="0.35",
+                                        edgecolor="none", zorder=4))
+        label(ax, z_bs + 1.0, -2.4, "line camera: $I(k)$", va="top", fontsize=8)
+        k = np.linspace(0, 1, 500)
+        spec = np.exp(-((k - 0.5)/0.22)**2)*(1 + 0.5*np.cos(2*np.pi*14*k) + 0.3*np.cos(2*np.pi*31*k))
+        ax.plot(z_bs + 2.4 + 1.6*k, -2.0 + 0.4*spec/spec.max(), color="#8e5ba8", lw=0.8)
+        label(ax, z_bs + 3.2, -2.25, "spectrum: fringes,\nfrequency ∝ depth", va="top", fontsize=8)
+    _finish(ax, (-1.0, 6.2), (-3.0, 2.9), title)
 
 
 BEAD = "#e8eef5"

@@ -269,6 +269,18 @@ What each module does and how mature it is. Planned work is listed in
   and Twiss); checked against 2J1(v)/v, the limb darkening formula, the
   Siegert relation and random-phase sources propagated with
   `fresnel_scaled()` (notebook 74)
+- `oct`: new, tested: optical coherence tomography; spectral interferograms
+  of a Michelson interferometer with DC, autocorrelation and cross terms, a
+  spectrometer model (pixel averaging and Gaussian resolution), A-scans by
+  FFT with the depth axis and z_max = pi/(2 delta k), time-domain signals
+  for a scanned reference and their Hilbert demodulation, r_S(k) of layer
+  stacks via `thin_films` (dispersive, absorbing) and the single
+  reflection amplitudes, full range interferograms from a quarter wave
+  reference step, round trip dispersion phases, Taylor coefficients,
+  numerical compensation and its optimization by A-scan sharpness; checked
+  against the axial resolution 2 ln2/pi lambda^2/Delta lambda, the
+  sensitivity roll-off, the dispersion broadening of a Gaussian spectrum
+  and the SD/TD SNR ratio (notebook 82)
 - `holography`: digital holography, tested: off-axis and in-line holograms
   (tilted reference, phase shifts; camera noise via `processing.CameraNoiser`),
   sampling condition for the reference angle; reconstruction by sideband
