@@ -28,7 +28,7 @@ paths, the checks for the tracer:
   r(t) = r0 cos(t/R) + R T0 sin(t/R); a parallel bundle meets in the
   point of the surface opposite to where it entered.
 - MaxwellFishEye(R, n0=2): n = n0/(1 + (r/R)**2). All rays are circles;
-  the rays from r0 meet again in -r0 R**2/|r0|**2 with the same optical
+  the rays from r0 meet again in -r0 R**2/abs(r0)**2 with the same optical
   path (perfect imaging, Maxwell 1854).
 - ParabolicRod(n0, g): n**2 = n0**2 (1 - (g rho)**2) with the distance rho
   from the z axis. Meridional rays are exact sines, x(t) = x0 cos(n0 g t)
@@ -191,7 +191,7 @@ class MaxwellFishEye(_Radial):
         return (-2*self.n0**2/(self.R**2*q**3))[..., None]*d
 
     def image(self, r0):
-        """The point where all rays from r0 meet: -r0 R**2/|r0|**2 (relative
+        """The point where all rays from r0 meet: -r0 R**2/abs(r0)**2 (relative
         to the centre)."""
         d = self._rel(r0)
         c = 0.0 if self.center is None else self.center[:d.shape[-1]]
@@ -436,7 +436,7 @@ def trace(medium, position, direction, step, t_max=None, max_steps=100000, stop=
     record : bool, optional
         Keep every point (GRINRays.path, opl_path).
     tol : number, optional
-        Tolerance of |g| at the end point.
+        Tolerance of abs(g) at the end point.
 
     Returns
     -------
