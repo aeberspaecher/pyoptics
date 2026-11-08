@@ -207,6 +207,20 @@ What each module does and how mature it is. Planned work is listed in
   ptychography: LED array illumination, the low resolution forward model
   and the reconstruction by alternating projections with embedded pupil
   recovery (quasi-Newton or EPRY step), pupil overlap in k-space
+- `tweezers`: new, tested: optical forces on a dielectric sphere in a
+  focused beam (optical tweezers), as trapping efficiencies Q = Fc/(n P);
+  Ashkin's closed form ray efficiencies (checked against an explicit trace
+  of the internal reflections) and the ray optics force of a fan of rays
+  from an aplanatic pupil with s/p splitting per ray; the Richards-Wolf
+  focus as a plane wave quadrature (E, H, gradients, beam power); the exact
+  force on a sphere of any size (`MieTrap`: every plane wave scattered by
+  Mie theory, the force from the momentum lost in the far field, with an
+  optional numba kernel); the dipole force with the radiatively corrected
+  polarizability, the plane wave radiation pressure efficiency; equilibrium,
+  stiffness, overdamped Brownian motion and the Lorentzian power spectrum;
+  checked against the dipole force (deviation ∝ (ka)²), Mie radiation
+  pressure, the Poynting flux of the focus and ray optics for large beads
+  (notebook 75)
 - `superresolution`: new, tested: super-resolution fluorescence microscopy;
   SIM patterns and raw images, band separation from the pattern phases
   (`sim_bands()`), band shifts by any wave vector, the generalized Wiener

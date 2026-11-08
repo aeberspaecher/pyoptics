@@ -24,6 +24,7 @@ from . import vortices
 from . import wavefront_shaping
 from . import turbulence
 from . import coherence
+from . import tweezers
 from . import rainbow
 from . import grin
 from . import colour

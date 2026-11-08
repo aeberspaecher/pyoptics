@@ -90,6 +90,11 @@ Setup sketches for the other example notebooks:
   a car to the eye over a hot road, the inverted image (notebook 77).
 - lensless_camera(): a pinhole camera, a coded aperture camera and a
   diffuser camera (notebook 79).
+- optical_tweezers(): laser, beam expander overfilling a water immersion
+  objective, sample chamber with a bead, condenser and quadrant photodiode;
+  ashkin_rays(): two rays refracted by a sphere near the focus and the
+  forces they exert; momentum_balance(): the force from the momentum flux
+  through a sphere far away (notebook 75).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -140,7 +145,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "rainbow_observer", "glory_aircraft", "twinkling_star", "adaptive_optics_system",
            "wavefront_shaping_setup", "foucault_tester", "schlieren_system",
            "sim_microscope", "sted_microscope",
-           "grin_rod_imaging", "road_mirage", "lensless_camera"]
+           "grin_rod_imaging", "road_mirage", "lensless_camera", "optical_tweezers", "ashkin_rays",
+           "momentum_balance"]
 
 
 GLASS = "#cfe3f3"
@@ -3329,3 +3335,223 @@ def lensless_camera(ax, kind="pinhole", title=None):
         label(ax, z_sen + 0.5, -1.2, "bare sensor\n(z behind)", va="top")
         label(ax, z_sen + 0.95, 0.75, "caustics:\nthe PSF", fontsize=8)
         _finish(ax, (z_src - 0.6, z_sen + 1.4), (-1.6, 1.2), title)
+
+
+BEAD = "#e8eef5"
+
+
+def _refract2d(d, n_hat, n1, n2):
+    """Refract the unit direction d at a surface with unit normal n_hat
+    (pointing against d) from index n1 into n2 (None on total reflection)."""
+
+    cos_i = -np.dot(d, n_hat)
+    mu = n1/n2
+    k = 1 - mu**2*(1 - cos_i**2)
+    if k < 0:
+        return None
+    return mu*d + (mu*cos_i - np.sqrt(k))*n_hat
+
+
+def _ray_through_sphere(p0, d, c, R, n_rel):
+    """Points of a ray from p0 along d through a circle (centre c, radius R)
+    and its exit direction (refraction only, no reflections), or None if it
+    misses."""
+
+    p0, d, c = (np.asarray(v, dtype=float) for v in (p0, d, c))
+    oc = p0 - c
+    b = np.dot(oc, d)
+    disc = b**2 - (np.dot(oc, oc) - R**2)
+    if disc <= 0:
+        return None
+    p1 = p0 + (-b - np.sqrt(disc))*d
+    t = _refract2d(d, (p1 - c)/R, 1.0, n_rel)
+    p2 = p1 - 2*np.dot(p1 - c, t)*t
+    d_out = _refract2d(t, -(p2 - c)/R, n_rel, 1.0)
+    return p1, p2, d_out
+
+
+def optical_tweezers(ax, title=None):
+    """Sketch of an optical tweezers setup (notebook 75).
+
+    A laser beam is expanded so that it overfills the back aperture of a
+    high NA water immersion objective, which focuses it into a sample
+    chamber. A bead near the focus is trapped slightly beyond it. A
+    condenser collects the light behind the chamber; a quadrant photodiode
+    in its back focal plane measures the bead's displacement (back focal
+    plane interferometry). A dichroic mirror sends the image of the sample
+    to a camera.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    z_l1, f1 = 0.0, 0.45
+    z_l2, f2 = 1.35, 0.9
+    z_dic = 2.35
+    z_obj, f_o = 3.4, 0.75
+    z_foc = z_obj + f_o
+    z_cond, f_c = z_foc + 0.75, 0.75
+    z_qpd = z_cond + 1.0
+    w = 0.22
+    laser(ax, z_l1 - 0.35, 0.0, length=1.0, height=0.34, text="laser\n1064 nm", fontsize=8)
+    lenses = [(z_l1, f1), (z_l2, f2)]
+    zt, yt = paraxial_ray(lenses, z_l1 - 0.35, w, 0.0, z_obj)
+    zb, yb = paraxial_ray(lenses, z_l1 - 0.35, -w, 0.0, z_obj)
+    h_obj = 0.38                                       # back aperture, overfilled by the beam
+    band(ax, zt, yt, zb, yb, color=LASER, alpha=0.2)
+    ax.plot([z_obj, z_foc], [h_obj, 0.0], color=LASER, lw=0.8, zorder=2)
+    ax.plot([z_obj, z_foc], [-h_obj, 0.0], color=LASER, lw=0.8, zorder=2)
+    ax.add_patch(mpatches.Polygon([(z_obj, h_obj), (z_foc, 0), (z_obj, -h_obj)], closed=True,
+                                  facecolor=LASER, alpha=0.3, edgecolor="none", zorder=1))
+    # behind the focus: the diverging beam is collected by the condenser
+    ax.add_patch(mpatches.Polygon([(z_foc, 0), (z_cond, 0.75*h_obj/f_o*f_c + 0.0),
+                                   (z_qpd, 0.75*h_obj/f_o*f_c), (z_qpd, -0.75*h_obj/f_o*f_c),
+                                   (z_cond, -0.75*h_obj/f_o*f_c)], closed=True,
+                                  facecolor=LASER, alpha=0.14, edgecolor="none", zorder=1))
+    lens(ax, z_l1, 0.3, text="beam\nexpander", text_y=-0.5, fontsize=8)
+    lens(ax, z_l2, 0.6)
+    mirror(ax, z_dic, 0.0, 1.1, np.pi/4, dichroic=True)
+    label(ax, z_dic, -0.62, "dichroic", fontsize=8, va="top")
+    stop(ax, z_obj - 0.22, 0.75, openings=((0, h_obj),), width=0.04)
+    label(ax, z_obj - 0.22, 0.8, "back aperture\n(overfilled)", fontsize=8, va="bottom")
+    ax.add_patch(mpatches.Polygon([(z_obj - 0.15, -0.6), (z_obj + 0.25, -0.45), (z_obj + 0.25, 0.45),
+                                   (z_obj - 0.15, 0.6)], closed=True, facecolor="0.8", edgecolor="0.4",
+                                  zorder=3))
+    label(ax, z_obj + 0.05, -0.7, "objective\nNA 1.2 (water)", fontsize=8, va="top")
+    # sample chamber: coverslip, water, slide
+    ax.add_patch(mpatches.Rectangle((z_obj + 0.4, -0.75), 0.08, 1.5, facecolor=GLASS, edgecolor=EDGE,
+                                    lw=0.8, zorder=2))
+    ax.add_patch(mpatches.Rectangle((z_obj + 0.48, -0.75), 0.55, 1.5, facecolor="#eaf4fb",
+                                    edgecolor="none", zorder=0.5))
+    ax.add_patch(mpatches.Rectangle((z_obj + 1.03, -0.75), 0.08, 1.5, facecolor=GLASS, edgecolor=EDGE,
+                                    lw=0.8, zorder=2))
+    ax.add_patch(mpatches.Circle((z_foc + 0.05, 0.0), 0.09, facecolor=BEAD, edgecolor="0.3", lw=1,
+                                 zorder=5))
+    label(ax, z_obj + 0.75, 0.8, "sample in water", fontsize=8, va="bottom")
+    label(ax, z_foc + 0.05, -0.16, "bead", fontsize=8, va="top")
+    lens(ax, z_cond, 0.55)
+    label(ax, z_cond, -0.7, "condenser", fontsize=8, va="top")
+    ax.add_patch(mpatches.Rectangle((z_qpd, -0.32), 0.07, 0.64, facecolor="0.35", edgecolor="none",
+                                    zorder=4))
+    ax.plot([z_qpd + 0.035]*2, [-0.32, 0.32], color="white", lw=0.8, zorder=5)
+    label(ax, z_qpd + 0.04, -0.4, "QPD\n(back focal\nplane)", fontsize=8, va="top")
+    # imaging path: via the dichroic to a camera
+    ax.add_patch(mpatches.Rectangle((z_dic - 0.25, 1.15), 0.5, 0.1, facecolor="0.35", edgecolor="none",
+                                    zorder=4))
+    label(ax, z_dic + 0.32, 1.2, "camera", fontsize=8, ha="left")
+    for sgn in (-1, 1):
+        ax.plot([z_dic + sgn*0.12, z_dic + sgn*0.12], [sgn*0.12, 1.15], color=IMAGING, lw=0.8,
+                ls="--", zorder=2)
+    label(ax, z_dic - 0.2, 0.75, "image", fontsize=8, ha="right", color=IMAGING)
+    _finish(ax, (z_l1 - 1.45, z_qpd + 0.45), (-1.25, 1.45), title)
+
+
+def ashkin_rays(ax, offset=(0.6, 0.0), n_rel=1.35, title=None):
+    """Ashkin's picture of the forces on a sphere in a focus (notebook 75).
+
+    Two rays a and b from the edge of the objective's aperture converge
+    towards the focus f, are refracted by a sphere (index ratio n_rel; the
+    weaker reflections are omitted) and leave it in new directions. Each
+    ray loses the momentum d_in - d_out, which pushes the sphere (thin
+    arrows F_a, F_b); their sum (thick arrow) points back towards the focus.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    offset : (dz, dy), optional
+        Position of the sphere's centre relative to the focus, in sphere
+        radii. (0.6, 0): beyond the focus, (-0.6, 0): before it, (0, 0.6):
+        beside it.
+    n_rel : number, optional
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    R = 1.0
+    c = np.array(offset, dtype=float)*R
+    ax.add_patch(mpatches.Circle(tuple(c), R, facecolor=BEAD, edgecolor="0.3", lw=1.2, zorder=1))
+    ax.plot(0, 0, "+", color="0.2", ms=9, mew=1.5, zorder=5)
+    label(ax, -0.1, -0.12, "f", fontsize=11, ha="right", va="top", style="italic")
+    z_start = -2.6
+    F_sum = np.zeros(2)
+    for name, ang, col in [("a", 0.6, LASER), ("b", -0.6, "#b0413e")]:
+        d = np.array([np.cos(ang), np.sin(ang)])
+        p0 = -d*(-z_start/np.cos(ang))
+        res = _ray_through_sphere(p0, d, c, R, n_rel)
+        if res is None:
+            ax.plot([p0[0], 2.4], [p0[1], p0[1] + d[1]/d[0]*(2.4 - p0[0])], color=col, lw=1.4)
+            continue
+        p1, p2, d_out = res
+        if d_out is None:
+            continue
+        p3 = p2 + d_out*(2.6 - p2[0])/max(d_out[0], 0.2)
+        ax.plot([p0[0], p1[0], p2[0], p3[0]], [p0[1], p1[1], p2[1], p3[1]], color=col, lw=1.4, zorder=3)
+        ax.plot([p1[0], 0], [p1[1], 0], color=col, lw=0.8, ls=":", zorder=2)
+        arrow(ax, *(p0 + 0.35*d), *(p0 + 0.6*d), color=col, lw=1.4)
+        label(ax, p0[0] - 0.05, p0[1] + (0.18 if ang > 0 else -0.18), name, fontsize=10, color=col,
+              style="italic")
+        F = d - d_out
+        F_sum += F
+        tip = c + 3.0*F
+        arrow(ax, c[0], c[1], tip[0], tip[1], color=col, lw=1.3, mutation_scale=11)
+        e = F/np.linalg.norm(F)
+        label(ax, tip[0] + 0.2*e[0], tip[1] + 0.2*e[1], "F$_{}$".format(name), fontsize=10, color=col)
+    tip = c + 3.0*F_sum
+    arrow(ax, c[0], c[1], tip[0], tip[1], color="0.1", lw=2.6, mutation_scale=15)
+    ax.plot(*c, "o", color="0.1", ms=3, zorder=6)
+    e = F_sum/np.linalg.norm(F_sum)
+    label(ax, tip[0] + 0.22*e[0], tip[1] + 0.22*e[1], "F", fontsize=12, color="0.1")
+    _finish(ax, (z_start - 0.1, 2.7), (-2.0, 2.0), title)
+
+
+def momentum_balance(ax, title=None):
+    """The force on a scatterer from the momentum flux far away (notebook 75).
+
+    The focused beam comes in through the left part of a large sphere
+    around the focus and leaves through the right part. A bead near the
+    focus scatters light into all directions and changes the outgoing
+    beam; the force on the bead is the momentum that comes in minus the
+    momentum that goes out, the Maxwell stress tensor integrated over the
+    large sphere.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    Rs = 2.0
+    th = np.linspace(0, 2*np.pi, 300)
+    ax.plot(Rs*np.cos(th), Rs*np.sin(th), color="0.45", lw=1, ls="--")
+    a = np.deg2rad(55)
+    ax.add_patch(mpatches.Polygon([(-Rs*np.cos(a), Rs*np.sin(a)), (0, 0), (-Rs*np.cos(a), -Rs*np.sin(a))],
+                                  closed=True, facecolor=LASER, alpha=0.28, edgecolor="none"))
+    b = np.deg2rad(46)
+    ax.add_patch(mpatches.Polygon([(0, 0), (Rs*np.cos(b), Rs*np.sin(b)), (Rs*np.cos(b), -Rs*np.sin(b))],
+                                  closed=True, facecolor=LASER, alpha=0.22, edgecolor="none"))
+    ax.add_patch(mpatches.Circle((0.18, 0), 0.22, facecolor=BEAD, edgecolor="0.3", lw=1, zorder=4))
+    for r in (0.55, 0.85, 1.15, 1.45):
+        ax.plot(0.18 + r*np.cos(th), r*np.sin(th), color="#2a7ab9", lw=0.7, alpha=0.6, zorder=2)
+    for ang in (180 - 35, 180, 180 + 35):
+        t = np.deg2rad(ang)
+        arrow(ax, 1.55*Rs*np.cos(t)*0.7 + 0.0, 1.55*Rs*np.sin(t)*0.7, 1.05*Rs*np.cos(t)*0.7,
+              1.05*Rs*np.sin(t)*0.7, color=LASER, lw=1.4)
+    for ang in (-28, 0, 28):
+        t = np.deg2rad(ang)
+        arrow(ax, 1.03*Rs*np.cos(t), 1.03*Rs*np.sin(t), 1.33*Rs*np.cos(t), 1.33*Rs*np.sin(t),
+              color=LASER, lw=1.4)
+    for ang in (75, 120, -75, -120, 160):
+        t = np.deg2rad(ang)
+        arrow(ax, 1.03*Rs*np.cos(t), 1.03*Rs*np.sin(t), 1.22*Rs*np.cos(t), 1.22*Rs*np.sin(t),
+              color="#2a7ab9", lw=1.0)
+    label(ax, -2.95, 1.5, "incoming\nbeam", fontsize=9, color=LASER)
+    label(ax, 2.95, 1.25, "outgoing beam\n+ scattered", fontsize=9, color=LASER)
+    label(ax, 0.0, 2.55, "scattered light (all directions)", fontsize=9, color="#2a7ab9")
+    label(ax, 0.0, -2.5, "F = (momentum in) − (momentum out)\n= ∮ T·n dA on a sphere far away",
+          fontsize=9, va="top")
+    label(ax, 0.18, -0.32, "bead", fontsize=8, va="top")
+    _finish(ax, (-3.6, 3.6), (-3.1, 2.8), title)
