@@ -78,6 +78,10 @@ Setup sketches for the other example notebooks:
   a multimode fibre, a camera behind it and the feedback loop, optionally
   with the flat reference frame for measuring the transmission matrix
   (notebook 73).
+- foucault_tester(): the Foucault knife-edge (or wire, or Ronchi) test of
+  a concave mirror at its centre of curvature; schlieren_system(): a lens
+  type Toepler schlieren system with a slit source and a knife edge, and a
+  direct shadowgraph (notebook 76).
 - grin_rod_imaging(): sine rays in a GRIN rod, inverted and upright
   images at half and full pitch; road_mirage(): direct and bent rays from
   a car to the eye over a hot road, the inverted image (notebook 77).
@@ -111,6 +115,8 @@ Electronic Imaging", 2nd ed., Wiley-Blackwell (2012).
 
 I. M. Vellekoop and A. P. Mosk, "Focusing coherent light through opaque
 strongly scattering media", Opt. Lett. 32, 2309-2311 (2007).
+
+G. S. Settles, "Schlieren and Shadowgraph Techniques", Springer (2001).
 """
 
 import numpy as np
@@ -127,7 +133,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "axicon_bessel", "cubic_phase_airy", "young_extended_source", "vcz_setup",
            "stellar_interferometer", "michelson_interferometer", "hbt_interferometer",
            "rainbow_observer", "glory_aircraft", "twinkling_star", "adaptive_optics_system",
-           "wavefront_shaping_setup", "grin_rod_imaging", "road_mirage"]
+           "wavefront_shaping_setup", "foucault_tester", "schlieren_system",
+           "grin_rod_imaging", "road_mirage"]
 
 
 GLASS = "#cfe3f3"
@@ -2736,6 +2743,164 @@ def wavefront_shaping_setup(ax, medium="diffuser", reference=False, feedback=Tru
               "intensity in the target → SLM phases (feedback)" if not reference else
               "phase-stepped camera frames → transmission matrix", fontsize=8, va="bottom")
     _finish(ax, (-1.4, z_cam + 0.8), (-1.7 if not reference else -2.0, 1.75), title)
+
+
+def _knife(ax, z, y_edge, h, from_below=True, color=METAL, zorder=6):
+    """A knife blade in section, its edge at height y_edge."""
+
+    s = -1 if from_below else 1
+    ax.add_patch(_patches().Polygon([(z - 0.05, y_edge + s*h), (z + 0.05, y_edge + s*h),
+                                     (z + 0.05, y_edge + s*0.08), (z, y_edge)],
+                                    closed=True, facecolor=color, edgecolor="none",
+                                    zorder=zorder))
+
+
+def _ronchi_bars(ax, z, y, h, n=9, zorder=6):
+    for yb in np.linspace(y - h, y + h, n):
+        ax.add_patch(_patches().Rectangle((z - 0.025, yb - h/(2*n)), 0.05, h/n, facecolor=METAL,
+                                          edgecolor="none", zorder=zorder))
+
+
+def foucault_tester(ax, test="knife", title=None):
+    """Sketch of the Foucault knife-edge test of a concave mirror (notebook
+    76).
+
+    A pinhole source next to the centre of curvature C of the mirror is
+    imaged back onto the other side of C. A knife edge (or a wire, a slit,
+    a Ronchi ruling) is moved into this image, and the eye or a camera
+    behind it, focused on the mirror, sees the mirror lit by the light that
+    passes. A ray from a zone that bends the wavefront (red) misses the focus
+    and is blocked or passed depending on its side: the zone turns dark or
+    bright.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    test : {"knife", "wire", "ronchi"}, optional
+        The element in the focus. Defaults to "knife".
+    title : str, optional
+    """
+
+    R = 5.6
+    z_c = 0.0
+    z_m = z_c + R
+    h = 1.4
+    s = 0.12
+    sphere(ax, z_m, 0.0, -R, h, color="0.3", lw=3, text="concave mirror\nunder test",
+           text_y=-h - 0.15)
+    yy = np.linspace(-h, h, 9)
+    z_surf = z_m - R + np.sqrt(R**2 - yy**2)
+    for yi, zi in zip(yy, z_surf):
+        ax.plot([z_c, zi], [-s, yi], color=ILLUMINATION, lw=0.7, alpha=0.7, zorder=2)
+        ax.plot([zi, z_c, z_c - 1.2], [yi, s, s - (yi - s)/(zi - z_c)*1.2], color=IMAGING,
+                lw=0.7, alpha=0.7, zorder=2)
+    # a zone with a slope error: its reflected ray misses the focus
+    yz = 0.9
+    zz = z_m - R + np.sqrt(R**2 - yz**2)
+    y_miss = s + 0.2
+    u_err = (y_miss - yz)/(z_c - zz)
+    ax.plot([zz, z_c], [yz, y_miss], color=STRAY, lw=1.3, zorder=3)
+    if test == "knife":
+        _knife(ax, z_c, s, 0.7, from_below=False)
+        label(ax, z_c + 0.12, s + 0.75, "knife edge", ha="left", fontsize=8)
+    elif test == "wire":
+        ax.plot([z_c], [s], "o", color=METAL, ms=5, zorder=6)
+        ax.plot([z_c, z_c], [s, s + 0.7], color=METAL, lw=1, zorder=6)
+        label(ax, z_c + 0.12, s + 0.75, "wire", ha="left", fontsize=8)
+    else:
+        _ronchi_bars(ax, z_c, s + 0.25, 0.45)
+        label(ax, z_c + 0.12, s + 0.75, "Ronchi ruling", ha="left", fontsize=8)
+    if test == "ronchi":
+        ax.plot([z_c, z_c - 1.2], [y_miss, y_miss + u_err*(-1.2)], color=STRAY, lw=1.3,
+                zorder=3)
+    point_source(ax, z_c, -s, size=50)
+    ax.add_patch(_patches().Rectangle((z_c + 0.03, -0.75), 0.04, 0.75 - s - 0.03,
+                                      facecolor=METAL, edgecolor="none", zorder=5))
+    label(ax, z_c + 0.12, -0.8, "pinhole source", ha="left", va="top", fontsize=8)
+    # eye / camera focused on the mirror
+    lens(ax, z_c - 1.2, 0.4, text="camera lens\n(focused on\nthe mirror)", text_y=-0.5)
+    detector(ax, z_c - 1.9, 0.3)
+    arrow(ax, z_c, -h - 0.35, z_m, -h - 0.35, style="<->", text="R",
+          text_pos=((z_c + z_m)/2, -h - 0.42), va="top")
+    _finish(ax, (z_c - 2.3, z_m + 0.5), (-h - 0.7, h + 0.25), title)
+
+
+def _candle_plume(ax, z, y_base, height, width=0.3, color="#c0392b"):
+    mpatches = _patches()
+    ax.add_patch(mpatches.Rectangle((z - 0.1, y_base - 0.6), 0.2, 0.6, facecolor="#f3ead3",
+                                    edgecolor="0.4", lw=0.8, zorder=5))
+    ax.add_patch(mpatches.Ellipse((z, y_base + 0.12), 0.1, 0.26, facecolor="#f5a623",
+                                  edgecolor="none", zorder=6))
+    t = np.linspace(0, 1, 60)
+    for s in (-1, 1):
+        ax.plot(z + s*width*(0.25 + 0.75*np.sqrt(t)) + 0.08*np.sin(9*t)*t, y_base + 0.25 + t*height,
+                color=color, lw=0.8, alpha=0.7, zorder=5)
+
+
+def schlieren_system(ax, method="schlieren", title=None):
+    """Sketch of a lens type Toepler schlieren system and of a direct
+    shadowgraph (notebook 76).
+
+    A lamp and condenser light a slit source in the focus of the first lens,
+    which makes a parallel beam through the test section (a candle plume).
+    The second lens forms an image of the slit on the knife edge, and the
+    camera images the test section. A ray deflected by the angle eps in the
+    plume (red) arrives f2*eps beside the slit image and passes or is
+    blocked. In the shadowgraph the parallel beam falls directly onto a
+    screen at the distance L, where the deflected rays have moved by L*eps.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    method : {"schlieren", "shadowgraph"}, optional
+        Defaults to "schlieren".
+    title : str, optional
+    """
+
+    f1, f2 = 2.0, 2.6
+    z_s = 0.0
+    z_l1 = z_s + f1
+    z_t = z_l1 + 1.6
+    z_l2 = z_t + 1.6
+    z_k = z_l2 + f2
+    h = 0.75
+    point_source(ax, z_s - 0.9, 0.0, size=70, text="lamp", text_dy=-0.2)
+    lens(ax, z_s - 0.5, 0.25)
+    stop(ax, z_s, 0.45, openings=((0, 0.04),), width=0.04, text="slit\nsource", text_y=-0.5)
+    band(ax, [z_s, z_l1, z_t + (1.6 if method == "schlieren" else 2.6)], [0.0, h, h],
+         [z_s, z_l1, z_t + (1.6 if method == "schlieren" else 2.6)], [0.0, -h, -h],
+         color=ILLUMINATION, alpha=0.18)
+    lens(ax, z_l1, 1.1*h, text="lens 1 (f₁)")
+    _candle_plume(ax, z_t, -h - 0.15, 2*h + 0.3)
+    label(ax, z_t, -h - 0.85, "test section:\ncandle plume", va="top", fontsize=8)
+    eps = 0.09
+    yr = 0.25
+    if method == "schlieren":
+        z_cam = z_k + 1.4
+        band(ax, [z_l2, z_k, z_cam], [h, 0.0, -h*1.4/f2], [z_l2, z_k, z_cam],
+             [-h, 0.0, h*1.4/f2], color=ILLUMINATION, alpha=0.18)
+        lens(ax, z_l2, 1.1*h, text="lens 2 (f₂)")
+        y_l2 = yr + eps*(z_l2 - z_t)
+        u2 = eps - y_l2/f2
+        ax.plot([z_t, z_l2, z_cam], [yr, y_l2, y_l2 + u2*(z_cam - z_l2)], color=STRAY, lw=1.3,
+                zorder=4)
+        ax.plot([z_l1 - 0.6, z_t], [yr, yr], color=STRAY, lw=1.3, zorder=4)
+        _knife(ax, z_k, 0.0, 0.6)
+        label(ax, z_k, -0.7, "knife edge in\nthe slit image", va="top", fontsize=8)
+        arrow(ax, z_k + 0.3, eps*f2 + 0.25, z_k + 0.03, eps*f2 + 0.02, color=STRAY,
+              text="f₂ ε", text_pos=(z_k + 0.33, eps*f2 + 0.27), ha="left", va="bottom")
+        lens(ax, z_cam, 0.6, text="camera lens", text_y=0.95)
+        detector(ax, z_cam + 1.0, 0.5, text="camera\n(focused on the\ntest section)",
+                 text_y=-0.6)
+        _finish(ax, (z_s - 1.2, z_cam + 1.6), (-1.8, 1.2), title)
+    else:
+        z_scr = z_t + 2.6
+        ax.plot([z_l1 - 0.6, z_t, z_scr], [yr, yr, yr + eps*(z_scr - z_t)], color=STRAY, lw=1.3,
+                zorder=4)
+        detector(ax, z_scr, 1.1*h, text="screen or camera", text_y=-0.95)
+        arrow(ax, z_t, h + 0.3, z_scr, h + 0.3, style="<->", text="L",
+              text_pos=((z_t + z_scr)/2, h + 0.35), va="bottom")
+        _finish(ax, (z_s - 1.2, z_scr + 0.6), (-1.8, 1.2), title)
 
 
 ROAD = "#5b5b5b"
