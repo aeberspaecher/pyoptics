@@ -333,6 +333,19 @@ notebooks/71_rainbows_and_glories
 notebooks/72_twinkling_stars_adaptive_optics
 ```
 
+## Photography
+
+The optics of cameras: the out-of-focus image of a lens (bokeh).
+
+- {doc}`notebooks/90_bokeh`
+
+```{toctree}
+:hidden:
+:caption: Photography
+
+notebooks/90_bokeh
+```
+
 ## Running the notebooks
 
 ```{include} ../notebooks/README.md

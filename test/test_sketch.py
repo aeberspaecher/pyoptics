@@ -141,6 +141,11 @@ def test_paraxial_ray_imaging():
     sketch.flattop_beam_shaper,
     sketch.freeform_projection,
     lambda ax: sketch.freeform_projection(ax, image=np.ones((8, 8))),
+    sketch.bokeh_formation,
+    sketch.spherical_aberration_bokeh,
+    sketch.cats_eye_vignetting,
+    sketch.rippled_asphere,
+    sketch.apodized_lens,
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()
@@ -206,4 +211,13 @@ def test_led_collimator_rejects_unknown_kind():
     fig, ax = plt.subplots()
     with pytest.raises(ValueError):
         sketch.led_collimator(ax, "tir")
+    plt.close(fig)
+
+
+def test_bokeh_formation_blur_disks():
+    fig, ax = plt.subplots()
+    sketch.bokeh_formation(ax)
+    # two blur disks (background and foreground), the subject is sharp
+    bars = [p for p in ax.patches if type(p).__name__ == "Rectangle" and p.get_alpha() == 0.85]
+    assert len(bars) == 2
     plt.close(fig)

@@ -135,6 +135,13 @@ Setup sketches for the other example notebooks:
   flat top; flattop_beam_shaper(): the two-lens refractive Gaussian to
   flat-top shaper; freeform_projection(): a plano-freeform lens that
   projects an image (notebook 89).
+- bokeh_formation(): blur disks of a background and a foreground point
+  around a sharp subject; spherical_aberration_bokeh(): bright and soft
+  edged blurs on the two sides of an undercorrected focus;
+  cats_eye_vignetting(): an oblique beam cut by the front and rear rims
+  and the cat's eye pupil; rippled_asphere(): onion rings from a surface
+  ripple; apodized_lens(): a graded filter at the stop and the soft blur
+  it gives (notebook 90).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -192,7 +199,9 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "light_pipe_images", "cpc_edge_rays", "cpc_skew_ray", "cpc_secondary", "koehler_critical",
            "fly_eye_homogenizer", "speckle_formation", "speckle_diversity", "laser_projector",
            "led_above_plane", "photometric_distance", "led_collimator",
-           "beam_shaping_ray_map", "flattop_beam_shaper", "freeform_projection"]
+           "beam_shaping_ray_map", "flattop_beam_shaper", "freeform_projection",
+           "bokeh_formation", "spherical_aberration_bokeh", "cats_eye_vignetting",
+           "rippled_asphere", "apodized_lens"]
 
 
 GLASS = "#cfe3f3"
@@ -5617,3 +5626,244 @@ def freeform_projection(ax, image=None, title=None):
     arrow(ax, 0.5, H + 0.15, L, H + 0.15, style="<->", text="L", text_pos=(L/2 + 0.2, H + 0.3),
           va="bottom", fontsize=9)
     _finish(ax, (-2.0, x_max), (-H - 1.1, H + 0.9), title)
+
+
+BACKGROUND_COLOR = "#2a7ab9"
+FOREGROUND_COLOR = "#d6604d"
+SUBJECT_COLOR = "0.2"
+
+
+def _blur_bar(ax, z, y0, y1, color, width=0.12):
+    """A blur disk on a sensor, drawn as a bar beside it."""
+
+    lo, hi = min(y0, y1), max(y0, y1)
+    ax.add_patch(_patches().Rectangle((z + 0.08, lo), width, hi - lo, facecolor=color,
+                                      edgecolor="none", alpha=0.85, zorder=5))
+
+
+def bokeh_formation(ax, title=None):
+    """Sketch of the blur of points in front of and behind the focused
+    distance (notebook 90): a lens focused on a subject images it sharply
+    onto the sensor; a point farther away (background) comes to a focus in
+    front of the sensor, a nearer one (foreground) behind it, and both cut
+    the sensor in a blur disk, the circle of confusion. Thin lens, f = 2.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    f, h = 2.0, 1.0
+    z_sensor = 1/(1/f - 1/5.0)          # subject 5 in front of the lens
+    lens(ax, 0.0, h, text="lens\n(the pupil)", text_y=-1.3)
+    detector(ax, z_sensor, 1.15, text="sensor", width=0.08, text_y=-1.3)
+    for z_obj, y_obj, color, name in ((-10.0, 0.9, BACKGROUND_COLOR, "background"),
+                                      (-5.0, 0.0, SUBJECT_COLOR, "subject"),
+                                      (-3.3, -0.8, FOREGROUND_COLOR, "foreground")):
+        z_img = 1/(1/f + 1/z_obj)
+        hits = []
+        for y_l in (h, -h):
+            u = (y_l - y_obj)/(0.0 - z_obj)
+            z, y = draw_ray(ax, [(0.0, f)], z_obj, y_obj, u, z_sensor, color=color, lw=0.9,
+                            arrow=False)
+            hits.append(y[-1])
+            if z_img > z_sensor:  # continue to the focus behind the sensor, dashed
+                u2 = (y[-1] - y[-2])/(z[-1] - z[-2])
+                ax.plot([z_sensor, z_img], [y[-1], y[-1] + u2*(z_img - z_sensor)], color=color,
+                        lw=0.8, ls=":")
+        point_source(ax, z_obj, y_obj, color=color, size=70, text=name, text_dy=-0.22,
+                     fontsize=8)
+        if abs(hits[0] - hits[1]) > 0.05:
+            _blur_bar(ax, z_sensor, hits[0], hits[1], color)
+    label(ax, z_sensor + 0.35, 1.0, "blur disks\n(circles of\nconfusion)", fontsize=8,
+          ha="left", va="bottom")
+    _finish(ax, (-10.8, z_sensor + 2.2), (-1.85, 1.95), title)
+
+
+def spherical_aberration_bokeh(ax, title=None):
+    """Sketch of why spherical aberration makes the blur bright edged on one
+    side of the focus and soft on the other (notebook 90). A lens with
+    undercorrected spherical aberration focuses the marginal rays short of
+    the paraxial focus. In front of the foci (the sensor plane of a
+    foreground point, whose image lies behind the sensor) the outer rays
+    crowd towards the rim of the blur; behind them (a background point) they
+    spread out. Tick marks show where rays equally spaced in the pupil
+    cross each plane.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    h, F, k = 1.0, 6.0, 0.9                       # paraxial focus F, marginal focus F - k
+    lens(ax, 0.0, h, thickness=0.3)
+    ys = np.linspace(-h, h, 15)
+    z_end = F + 2.2
+    planes = ((F - 2.4, FOREGROUND_COLOR, "foreground:\nbright rim"),
+              (F + 1.6, BACKGROUND_COLOR, "background:\nsoft edge"))
+    for y in ys:
+        zf = F - k*y**2/h**2
+        u = -y/zf
+        ax.plot([-1.2, 0.0, z_end], [y, y, y + u*z_end], color="0.45", lw=0.6, zorder=2)
+    ax.plot([F, F], [-0.08, 0.08], color="k", lw=1)
+    label(ax, F, -0.18, "paraxial\nfocus", fontsize=7, va="top")
+    ax.plot([F - k, F - k], [-0.08, 0.08], color="k", lw=1)
+    label(ax, F - k, 0.18, "marginal\nfocus", fontsize=7, va="bottom")
+    for zp, color, text in planes:
+        ax.plot([zp, zp], [-0.85, 0.85], color=color, lw=1.2, zorder=3)
+        for y in np.linspace(-h, h, 41):
+            zf = F - k*y**2/h**2
+            yp = y*(1 - zp/zf)
+            if abs(yp) < 0.85:
+                ax.plot([zp + 0.04, zp + 0.24], [yp, yp], color=color, lw=0.7, zorder=4)
+        label(ax, zp, -0.95, text, fontsize=8, va="top", color=color)
+    label(ax, 0.0, -1.2, "undercorrected\nlens", fontsize=8, va="top")
+    _finish(ax, (-1.5, z_end + 0.3), (-1.75, 1.25), title)
+
+
+def cats_eye_vignetting(ax, angle=0.22, title=None):
+    """Sketch of mechanical vignetting (notebook 90): a lens with a front
+    group, a stop and a rear group. The axial beam fills the stop; an
+    oblique beam is cut at the top by the front rim and at the bottom by
+    the rear rim (rays lost there dashed). Seen from the off-axis point,
+    the pupil is the intersection of the stop with the images of the two
+    rims, which are shifted in opposite directions: the cat's eye (inset).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    angle : number, optional
+        Field angle of the oblique beam (radians).
+    title : str, optional
+    """
+
+    mp = _patches()
+    elements = [(0.0, 1.0, 9.0), (2.0, 0.62, None), (4.0, 0.9, 7.0)]  # z, half height, f
+    lenses = [(z, f) for z, _, f in elements if f is not None]
+    for z, hh, f in elements:
+        if f is None:
+            stop(ax, z, 1.05, openings=((0.0, hh),), text="stop", text_y=-1.2)
+        else:
+            lens(ax, z, hh, thickness=0.25)
+    label(ax, 0.0, -1.2, "front rim", fontsize=8, va="top")
+    label(ax, 4.0, -1.2, "rear rim", fontsize=8, va="top")
+    z0, z_end = -2.5, 7.0
+    for field, color in ((0.0, "0.55"), (angle, BACKGROUND_COLOR)):
+        u0 = np.tan(field)
+        for y_front in np.linspace(-1.35, 1.35, 19):
+            y0 = y_front - u0*(0.0 - z0)          # height at z0 for the height y_front at the front lens
+            zz, yy = paraxial_ray(lenses, z0, y0, u0, z_end)
+            lost_at = None
+            for z, hh, f in elements:
+                if abs(np.interp(z, zz, yy)) > hh*(1 + 1e-9):
+                    lost_at = z
+                    break
+            if lost_at is None:
+                ax.plot(zz, yy, color=color, lw=0.8, zorder=2)
+            elif field != 0.0 and lost_at > 0.0 or (field != 0.0 and abs(y_front) <= 1.2):
+                m = zz < lost_at
+                zc = np.r_[zz[m], lost_at]
+                yc = np.r_[yy[m], np.interp(lost_at, zz, yy)]
+                ax.plot(zc, yc, color=color, lw=0.7, ls="--", alpha=0.6, zorder=2)
+    # inset: the pupil seen from the oblique point
+    cz, cy, s = 9.3, 0.0, 0.75
+    t = np.tan(angle)
+    circles = [((2.0 - 0.0)*t, 1.0, "0.35", "front rim"), (0.0, 0.62, "k", "stop"),
+               ((2.0 - 4.0)*t, 0.9, "0.35", "rear rim")]
+    X, Y = np.meshgrid(np.linspace(-1, 1, 301), np.linspace(-1, 1, 301))
+    inside = np.ones(X.shape, bool)
+    for c, r, col, name in circles:
+        inside &= (X**2 + (Y - c)**2) <= r**2
+    ax.contourf(cz + s*X, cy + s*Y, inside.astype(float), levels=[0.5, 1.5],
+                colors=[BACKGROUND_COLOR], alpha=0.5, zorder=3)
+    for c, r, col, name in circles:
+        ax.add_patch(mp.Circle((cz, cy + s*c), s*r, fill=False, edgecolor=col, lw=1.0,
+                               ls="-" if name == "stop" else "--", zorder=4))
+    label(ax, cz, -1.2, "pupil seen from\nthe oblique point", fontsize=8, va="top")
+    _finish(ax, (z0 - 0.2, cz + 1.3), (-1.65, 1.6), title)
+
+
+def rippled_asphere(ax, title=None):
+    """Sketch of onion rings (notebook 90): a lens surface with a small
+    radial ripple (exaggerated) tilts the rays a little, alternately
+    inwards and outwards. Near the focus that does not matter, but on a
+    sensor far from the focus (a strongly blurred point) the rays have
+    bunched into rings; the irradiance across the blur is drawn beside it.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    h, f, n_r, amp = 1.0, 5.0, 3.0, 1.2e-4
+    yy = np.linspace(-h, h, 400)
+    ripple = 300*amp*np.cos(2*np.pi*n_r*yy/h)  # drawn exaggerated
+    front = 0.12*(1 - yy**2) + ripple
+    mp = _patches()
+    pts = np.r_[np.c_[-front, yy], np.c_[np.full(len(yy), 0.15), yy[::-1]]]
+    ax.add_patch(mp.Polygon(pts, closed=True, facecolor=GLASS, edgecolor=EDGE, lw=1, zorder=3))
+    z_sensor = f + 2.4
+    ys = np.linspace(-0.97, 0.97, 41)
+    slope = -amp*2*np.pi*n_r/h*np.sin(2*np.pi*n_r*ys/h)
+    u = -ys/f + 0.75*slope
+    for y, ui in zip(ys, u):
+        ax.plot([-1.0, 0.0, z_sensor + 0.6], [y, y, y + ui*(z_sensor + 0.6)], color="0.45",
+                lw=0.55, zorder=2)
+    ax.plot([z_sensor, z_sensor], [-0.75, 0.75], color=BACKGROUND_COLOR, lw=1.4, zorder=4)
+    # irradiance from the ray density, 1/|d(hit)/dy|
+    y_many = np.linspace(-h, h, 4001)
+    sl = -amp*2*np.pi*n_r/h*np.sin(2*np.pi*n_r*y_many/h)
+    hit = y_many + (-y_many/f + 0.75*sl)*z_sensor
+    E = 1/np.abs(np.gradient(hit, y_many))
+    keep = np.abs(hit) < 0.75
+    yc, E = hit[keep], E[keep]/E[keep].max()
+    ax.plot(z_sensor + 1.0 + 0.9*E, yc, color=BACKGROUND_COLOR, lw=1.0)
+    ax.plot([z_sensor + 1.0]*2, [-0.75, 0.75], color="0.6", lw=0.6)
+    label(ax, 0.0, -1.15, "rippled\nasphere", fontsize=8, va="top")
+    label(ax, z_sensor, -0.85, "sensor\n(far from focus)", fontsize=8, va="top")
+    label(ax, z_sensor + 1.45, 0.85, "irradiance:\nonion rings", fontsize=8, va="bottom")
+    label(ax, f, 0.1, "focus", fontsize=7, va="bottom")
+    _finish(ax, (-1.2, z_sensor + 2.2), (-1.5, 1.25), title)
+
+
+def apodized_lens(ax, title=None):
+    """Sketch of an apodized lens (notebook 90): a radially graded neutral
+    density filter at the stop, clear in the middle and dark towards the
+    rim (as in the STF and APD portrait lenses). The blur of an
+    out-of-focus point is a shadow of the pupil transmission: a flat disk
+    with a hard edge for a clear lens, a soft Gaussian for the apodized one
+    (profiles beside the sensor).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mp = _patches()
+    h = 1.0
+    lens(ax, -0.6, h, thickness=0.25)
+    lens(ax, 0.6, h, thickness=0.25)
+    for y in np.linspace(-h, h, 61)[:-1]:
+        dy = 2*h/60
+        T = np.exp(-((y + dy/2)/(0.55*h))**2)
+        ax.add_patch(mp.Rectangle((-0.06, y), 0.12, dy, facecolor=str(0.15 + 0.8*T),
+                                  edgecolor="none", zorder=4))
+    label(ax, 0.0, 1.1, "apodizer at the stop", fontsize=8, va="bottom")
+    z_s = 5.0
+    for y in np.linspace(-0.9, 0.9, 13):
+        T = np.exp(-(y/0.55)**2)
+        ax.plot([-2.0, 0.6, z_s], [y, y, -0.25*y], color="0.3", lw=0.4 + 1.2*T, alpha=0.3 + 0.6*T,
+                zorder=2)
+    ax.plot([z_s, z_s], [-0.6, 0.6], color="0.35", lw=2.0, zorder=4)
+    r = np.linspace(-0.4, 0.4, 201)
+    clear = np.where(np.abs(r) < 0.25, 1.0, 0.0)
+    apod = np.exp(-(r/(0.25*0.55))**2)*(np.abs(r) <= 0.25)
+    ax.plot(z_s + 0.4 + 0.8*clear, r + 0.0, color="0.55", lw=1.0, ls="--")
+    ax.plot(z_s + 0.4 + 0.8*apod, r, color=BACKGROUND_COLOR, lw=1.3)
+    label(ax, z_s + 0.85, -0.5, "blur profile:\nclear (dashed),\napodized", fontsize=8, va="top")
+    label(ax, z_s, 0.7, "sensor", fontsize=8, va="bottom")
+    _finish(ax, (-2.2, z_s + 2.0), (-1.45, 1.4), title)
