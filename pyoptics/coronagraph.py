@@ -38,7 +38,7 @@ Masks:
 - Vortex coronagraph: the focal plane phase exp(i l theta) of charge l
   (Mawet et al. 2005; Foo et al. 2005). For even l and a clear circular
   pupil the field in the Lyot plane is zero inside the pupil, and an
-  aberration Z_n^m passes only if n + |m| >= |l|. The focal field is
+  aberration Z_n^m passes only if n + abs(m) >= abs(l). The focal field is
   singular at the centre and extends to large u, so its transform is
   evaluated with nested grids, fine near the centre and coarse far out,
   joined by smooth windows that add up to one (after Krist et al. 2011).
@@ -601,10 +601,10 @@ def vortex_blocks(charge, n, m):
 
     A pupil field R_n^m(r) exp(i m theta) has the focal field
     J_{n+1}(2 pi R rho)/rho exp(i m phi). The vortex adds exp(i l phi), and
-    the transform of order |m + l| back into the pupil is a
+    the transform of order abs(m + l) back into the pupil is a
     Weber-Schafheitlin integral that vanishes inside the pupil when
-    |m + l| - (n + 1) is odd and positive. For a real Zernike term (both
-    signs of m) and even l this means it is blocked if n + |m| < |l|.
+    abs(m + l) - (n + 1) is odd and positive. For a real Zernike term (both
+    signs of m) and even l this means it is blocked if n + abs(m) < abs(l).
 
     Parameters
     ----------
@@ -911,7 +911,7 @@ def efc_jacobian(coronagraph, E0, modes, u, v, select, batch=64):
 def efc_step(G, E, regularization=1e-3):
     """Electric field conjugation: commands that cancel the dark hole field.
 
-    Minimizes ||E + G c||^2 + alpha ||c||^2 over real commands c, with
+    Minimizes norm(E + G c)^2 + alpha norm(c)^2 over real commands c, with
     alpha = regularization times the largest eigenvalue of Re(G^H G)
     (Tikhonov regularization).
 
