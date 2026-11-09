@@ -177,6 +177,10 @@ Setup sketches for the other example notebooks:
   or Ritchey-Chrétien (concave primary with a hole, convex secondary) and
   Schmidt camera (corrector plate at the centre of curvature of a
   spherical mirror, curved focal surface) (notebook 97).
+- segment_phasing_layout(): a segmented primary with a pistoned segment
+  imaged onto a pupil mask, a grism and a detector with dispersed fringes
+  (coarse phasing), or weak lenses and defocused images for phase
+  retrieval (fine phasing) (notebook 98).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -241,7 +245,7 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "flare_scene", "pixel_sampling", "bayer_cfa", "olpf_plates", "microlens_pixels",
            "depth_of_field", "defocus_and_diffraction", "scheimpflug_hinge", "dof_wedge",
            "plenoptic_camera", "subaperture_parallax", "light_field_refocus", "plenoptic_tradeoff",
-           "coronagraph_layout", "telescope_layout"]
+           "coronagraph_layout", "telescope_layout", "segment_phasing_layout"]
 
 
 GLASS = "#cfe3f3"
@@ -6920,3 +6924,91 @@ def telescope_layout(ax, kind="cassegrain", title=None):
         _finish(ax, (-1.1, R + 0.3), (-2.1, 1.75), title)
     else:
         raise ValueError("kind must be 'newtonian', 'cassegrain' or 'schmidt'")
+
+
+def segment_phasing_layout(ax, method="dfs", title=None):
+    """Sketch of the phasing of a segmented telescope (notebook 98).
+
+    The segmented primary is drawn as a lens made of segments (one of them
+    displaced: a piston error). A collimator forms an image of the pupil.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    method : str, optional
+        "dfs": a mask in the pupil image selects two segments across the
+        step, a grism disperses their image perpendicular to the baseline
+        and the detector records fringes whose number across the spectrum
+        is the piston in wavelengths. "pr": weak lenses of known defocus
+        are put into the beam in turn and the detector records defocused
+        images, from which phase retrieval finds the pupil phase.
+    title : str, optional
+    """
+
+    mp = _patches()
+    h = 1.0
+    f1 = 3.0
+    zf = f1
+    zc = zf + 1.0                       # collimator, f = 1
+    fc = 1.0
+    zp = zc + fc*(f1 + fc)/f1           # image of the primary
+    zcam, fcam = zp + 1.0, 1.2
+    zd = zcam + fcam
+    lenses = [(0.0, f1), (zc, fc), (zcam, fcam)]
+    if method == "dfs":
+        zt, yt = paraxial_ray(lenses, -1.0, 0.9*h, 0.0, zp)
+        zb, yb = paraxial_ray(lenses, -1.0, -0.9*h, 0.0, zp)
+        band(ax, zt, yt, zb, yb, color=STAR_COLOR, alpha=0.18)
+        for y0, y1 in ((0.55*0.9*h, 1.02*0.9*h), (-1.02*0.9*h, -0.55*0.9*h)):
+            zt, yt = paraxial_ray(lenses, zp, -y1*fc/f1, 0.0, zd)
+            zb, yb = paraxial_ray(lenses, zp, -y0*fc/f1, 0.0, zd)
+            band(ax, zt, yt, zb, yb, color=STAR_COLOR, alpha=0.3)
+    else:
+        zt, yt = paraxial_ray(lenses, -1.0, 0.9*h, 0.0, zd)
+        zb, yb = paraxial_ray(lenses, -1.0, -0.9*h, 0.0, zd)
+        band(ax, zt, yt, zb, yb, color=STAR_COLOR, alpha=0.18)
+    # segmented primary: five segments, the top one pistoned
+    edges = np.linspace(-h, h, 6)
+    for k, (a, b) in enumerate(zip(edges[:-1], edges[1:])):
+        dz = 0.12 if k == 4 else 0.0
+        ax.add_patch(mp.Rectangle((-0.06 + dz, a + 0.02), 0.12, b - a - 0.04, facecolor=GLASS,
+                                  edgecolor=EDGE, lw=1, zorder=3))
+    arrow(ax, -0.25, 0.8, -0.13, 0.8, style="-|>", color=STRAY)
+    label(ax, -0.3, 1.25, "segmented primary\n(one segment pistoned)", fontsize=8.5)
+    plane(ax, zf, 0.35)
+    label(ax, zf, -0.5, "focus", fontsize=8, va="top")
+    lens(ax, zc, 0.75, text="collimator")
+    r_img = 0.9*h*fc/f1
+    if method == "dfs":
+        stop(ax, zp, 0.6, openings=((0.55*r_img, 1.02*r_img),), width=0.05,
+             text="pupil mask:\ntwo segments", text_y=-0.7)
+        prism(ax, zp + 0.45, 0.4, width=0.22)
+        label(ax, zp + 0.45, 0.5, "grism", fontsize=9, va="bottom")
+        lens(ax, zcam, 0.5, text="camera")
+        detector(ax, zd, 0.55, width=0.08)
+        # dispersed fringes: wavelength up, position across
+        yy = np.linspace(-0.55, 0.55, 80)
+        xx = np.linspace(0, 0.9, 60)
+        Xg, Yg = np.meshgrid(xx, yy)
+        sig = 1/(1.4 + Yg)                       # wavenumber along the dispersion
+        img = np.exp(-((Xg - 0.45)/0.3)**2)*(1 + np.cos(2*np.pi*(6*sig - 4*(Xg - 0.45))))
+        ax.imshow(img, extent=(zd + 0.2, zd + 1.1, -0.55, 0.55), origin="lower", cmap="inferno",
+                  aspect="auto", zorder=3)
+        label(ax, zd + 0.65, -0.65, "dispersed fringes", fontsize=8, va="top")
+        arrow(ax, zd + 1.22, -0.5, zd + 1.22, 0.5, style="-|>", text="λ", text_pos=(zd + 1.34, 0.0),
+              fontsize=8)
+        _finish(ax, (-1.1, zd + 1.5), (-1.25, 1.55), title)
+    elif method == "pr":
+        lens(ax, zp + 0.3, 0.45, text="weak lens\n(± defocus)", text_y=-0.6)
+        lens(ax, zcam, 0.5, text="camera")
+        detector(ax, zd, 0.55, width=0.08)
+        t = np.linspace(0, 2*np.pi, 7)
+        for k, (yc, r) in enumerate(((0.32, 0.2), (-0.32, 0.2))):
+            ax.add_patch(mp.Circle((zd + 0.55, yc), r, facecolor="0.85", edgecolor="0.3", lw=0.8,
+                                   zorder=3))
+            ax.plot(zd + 0.55 + 0.12*np.cos(t + np.pi/6), yc + 0.12*np.sin(t + np.pi/6),
+                    color="0.45", lw=0.6, zorder=4)
+        label(ax, zd + 0.55, -0.65, "defocused\nimages", fontsize=8, va="top")
+        _finish(ax, (-1.1, zd + 1.0), (-1.25, 1.55), title)
+    else:
+        raise ValueError("method must be 'dfs' or 'pr'")

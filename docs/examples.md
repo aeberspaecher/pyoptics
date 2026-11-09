@@ -366,10 +366,12 @@ Optics for imaging planets next to their stars: coronagraphs with
 apodized pupils, occulting disks, vortex masks and Lyot stops, and a dark
 hole dug with a deformable mirror; and the telescopes themselves: the
 Newtonian, the classical Cassegrain, the Ritchey–Chrétien and the Schmidt
-camera against the third order theory of conic mirrors.
+camera against the third order theory of conic mirrors, and segmented
+primaries with their diffraction spikes and phasing.
 
 - {doc}`notebooks/96_coronagraphs`
 - {doc}`notebooks/97_telescope_zoo`
+- {doc}`notebooks/98_segmented_mirrors`
 
 ```{toctree}
 :hidden:
@@ -377,6 +379,7 @@ camera against the third order theory of conic mirrors.
 
 notebooks/96_coronagraphs
 notebooks/97_telescope_zoo
+notebooks/98_segmented_mirrors
 ```
 
 ## Running the notebooks

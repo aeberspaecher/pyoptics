@@ -613,6 +613,20 @@ What each module does and how mature it is. Planned work is listed in
   (`spot()`) and best focus (`best_focus()`); checked against the Seidel
   sums, the coma and astigmatism formulas, the medial image surface and
   the chromatic blur of the plate (notebook 97)
+- `segmented`: new, tested: segmented telescope apertures: hexagonal
+  segments in rings (`hex_centres()`, `hexagon_vertices()`,
+  `segment_masks()`), antialiased convex polygons and struts
+  (`polygon_mask()`, `strut_mask()`), a JWST-like aperture
+  (`jwst_like_pupil()`), the closed form Fourier transform of a polygon
+  (`polygon_ft()`) and the array factor, pupil fields with segment piston
+  and tip-tilt (`segment_field()`) and their far fields by MFT
+  (`far_field()`); coarse phasing with a dispersed fringe sensor
+  (`dispersed_fringes()` with finite spectral channels, `dfs_piston()`)
+  and fine phasing by multi-plane Gerchberg–Saxton phase retrieval from
+  defocused images (`diversity_psfs()`, `misell()`, `fit_segments()`);
+  checked against the polygon transform, the phasor sum Strehl ratio, the
+  random piston halo, sinc(p dsigma) and the unique range 1/(2 dsigma)
+  (notebook 98)
 - `wpm`: wave propagation method (Cython extension) for inhomogeneous, also
   absorbing media, 2D and y-invariant 1D fields, multi-step driver; direct
   O(N^2) sum (OpenMP) or the fast "levels" variant (one FFT pair per distinct
