@@ -250,3 +250,130 @@ def test_apodizer_t_number():
     assert ph.t_number(2.8, ph.apodizer_mean_transmission(s45)) == pytest.approx(4.5)
     with pytest.raises(ValueError):
         ph.apodizer_for_t_number(2.8, 2.0)
+
+
+# --- sunstars (notebook 91) ---
+
+def test_iris_geometry():
+    for n in (5, 6, 9):
+        v = ph.iris(n, 1.0)
+        assert ph.polygon_area(v) == pytest.approx(n*np.tan(np.pi/n))
+        assert ph.iris_edge_length(n, 1.0) == pytest.approx(2*np.tan(np.pi/n))
+        assert ph.iris_apothem(n, ph.polygon_area(v)) == pytest.approx(1.0)
+    # rounded blades at the opening they are made for: a circle
+    v = ph.iris(9, 2.0, 2.0, n_arc=2000)
+    assert ph.polygon_area(v) == pytest.approx(4*np.pi, rel=1e-5)
+    assert ph.polygon_perimeter(v) == pytest.approx(4*np.pi, rel=1e-5)
+    assert np.allclose(np.hypot(*v.T), 2.0)
+    # closed further: between the circle and the straight polygon of the same apothem
+    h = ph.iris_apothem(9, np.pi*0.5**2, blade_radius=2.0)
+    v = ph.iris(9, h, 2.0)
+    assert ph.polygon_area(v) == pytest.approx(np.pi*0.25, rel=1e-6)
+    assert np.pi*h**2 < ph.polygon_area(v) < 9*np.tan(np.pi/9)*h**2
+    assert np.min(np.hypot(*v.T)) == pytest.approx(h, rel=1e-4)
+    with pytest.raises(ValueError):
+        ph.iris(9, 2.0, 1.0)
+    with pytest.raises(ValueError):
+        ph.iris(2, 1.0)
+
+
+def test_polygon_transform():
+    v = ph.iris(7, 1.0, rotation=0.3)
+    assert ph.polygon_transform(v, 0.0, 0.0) == pytest.approx(ph.polygon_area(v))
+    # against a sum over the antialiased opening
+    x = np.linspace(-1.3, 1.3, 1301)
+    X, Y = np.meshgrid(x, x)
+    dx = x[1] - x[0]
+    T = ph.iris_coverage(X, Y, 7, 1.0, rotation=0.3, dx=dx)
+    assert T.sum()*dx**2 == pytest.approx(ph.polygon_area(v), rel=1e-5)
+    for kx, ky in ((3.0, 1.0), (0.0, 15.0), (-12.0, 7.0)):
+        F_num = np.sum(T*np.exp(-1j*(kx*X + ky*Y)))*dx**2
+        assert abs(ph.polygon_transform(v, kx, ky) - F_num) < 2e-3*ph.polygon_area(v)
+    # a fine polygon approximating the unit circle: the Airy amplitude 2 pi J1(k)/k
+    from scipy.special import j1
+    k = np.array([0.5, 3.0, 9.0])
+    F = ph.polygon_transform(ph.iris(9, 1.0, 1.0, n_arc=2000), k, 0*k)
+    assert np.allclose(F.real, 2*np.pi*j1(k)/k, atol=1e-5)
+
+
+def test_spike_count_and_edge_spike():
+    from scipy.signal import find_peaks
+    th = np.linspace(0, 2*np.pi, 3600, endpoint=False)
+    kb = np.linspace(60, 90, 16)[:, None]
+    for n in (5, 6, 7, 8):
+        h = ph.iris_apothem(n, np.pi)
+        v = ph.iris(n, h, rotation=0.1)
+        prof = np.mean(abs(ph.polygon_transform(v, kb*np.cos(th), kb*np.sin(th)))**2, axis=0)
+        prof = np.roll(prof, -np.argmin(prof))
+        assert len(find_peaks(prof, prominence=0.3*prof.max())[0]) == ph.spike_count(n)
+        # along the spike (normal of the first edge, rotation 0): k^2 I averages to (L/A)^2,
+        # twice that for even n
+        k = np.linspace(30, 300, 4000)
+        I = abs(ph.polygon_transform(ph.iris(n, h), k, 0*k)/np.pi)**2
+        L = ph.iris_edge_length(n, h)
+        model = ph.edge_spike(k, L, np.pi, 2 if n % 2 == 0 else 1, 2*h)
+        assert np.mean(I*k**2) == pytest.approx(np.mean(model*k**2), rel=0.05)
+    assert [ph.spike_count(n) for n in range(3, 9)] == [6, 4, 10, 6, 14, 8]
+
+
+def test_iris_psf_against_exact_transform():
+    h = ph.iris_apothem(7, np.pi)
+    k, I = ph.iris_psf(7, h, n=1024, dx=np.pi/160)
+    c = len(k)//2
+    assert I[c, c] == pytest.approx(1.0, rel=1e-3)
+    v = ph.iris(7, h)
+    for kk in (5.0, 10.0, 20.0):
+        i = c + int(round(kk/(k[1] - k[0])))
+        exact = abs(ph.polygon_transform(v, k[i], 0.0)/np.pi)**2
+        assert I[c, i] == pytest.approx(exact, rel=0.02)
+
+
+def test_rounded_edge_spike():
+    A, L, rho = np.pi, 0.7, 4.0
+    # limits of the Fresnel edge integral
+    assert ph.curved_edge_spike(1e-3, L, rho, A) == pytest.approx(ph.edge_spike(1e-3, L, A), rel=1e-4)
+    k = 1e6
+    assert ph.curved_edge_spike(k, L, rho, A) == pytest.approx(2*np.pi*rho/(k**3*A**2), rel=0.01)
+    assert ph.curved_edge_spike(10.0, L, np.inf, A) == ph.edge_spike(10.0, L, A)
+    kc = ph.rounded_edge_crossover(L, rho)
+    assert kc == pytest.approx(2*np.pi*rho/L**2)
+    # the exact pattern of nine rounded blades follows the model beyond the crossover
+    h = ph.iris_apothem(9, A, rho)
+    v = ph.iris(9, h, rho, n_arc=400)
+    Le = ph.iris_edge_length(9, h, rho)
+    kc = ph.rounded_edge_crossover(Le, rho)
+    KB = np.geomspace(3*kc, 900, 40)[:, None]*np.linspace(0.9, 1.1, 7)
+    I = np.mean(abs(ph.polygon_transform(v, KB, 0*KB)/A)**2, axis=1)
+    model = np.mean(ph.curved_edge_spike(KB, Le, rho, A), axis=1)
+    assert np.mean(I/model) == pytest.approx(1.0, abs=0.1)
+
+
+def test_power_outside_matches_airy():
+    from scipy.special import j0, j1
+    for kR in (30.0, 100.0):
+        exact = j0(kR)**2 + j1(kR)**2              # 1 - encircled energy of the Airy pattern
+        assert ph.power_outside(kR, 2*np.pi, np.pi) == pytest.approx(exact, rel=0.05)
+
+
+def test_sunstar_spike_level():
+    f, N, lam = 24.0, 16, 550e-6
+    x, E = ph.sunstar(7, N, lam, focal_length=f, rotation=0.0, half_width=1.2)
+    c = len(x)//2
+    assert E.shape == (1, len(x), len(x))
+    assert E[0, c, c] == pytest.approx(1.0, abs=0.03)          # inside the Sun's disk
+    a = f*np.tan(ph.SUN_RADIUS)
+    A = np.pi*(f/(2*N))**2
+    L = ph.iris_edge_length(7, ph.iris_apothem(7, A))
+    for r in (0.5, 0.8):
+        i = c + int(round(r/(x[1] - x[0])))
+        theory = a*L*lam*f/(2*np.pi**2*x[i]**2*A)
+        assert E[0, c, i] == pytest.approx(theory, rel=0.08)
+    # a point source: relative to the centre of the pattern, lowered by the average over the
+    # pixel (an odd number of pixels puts one at the centre)
+    x, E = ph.sunstar(7, N, lam, focal_length=f, source_radius=0.0, half_width=0.102)
+    c = len(x)//2
+    assert x[c] == pytest.approx(0.0, abs=1e-12)
+    assert E[0, c, c] == E[0].max()
+    assert 0.85 < E[0, c, c] < 1.0
+    with pytest.raises(ValueError):
+        ph.sunstar(7, N, lam, half_width=1.0, n=64)

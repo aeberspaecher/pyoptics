@@ -381,7 +381,15 @@ What each module does and how mature it is. Planned work is listed in
   FFT of the pupil, a rippled surface for the ray trace (onion rings) with
   the ring contrast from rays and from the Talbot effect, Gaussian
   apodizers and the T-number; checked against the paraxial trace, ray
-  histograms, wave optics and the Airy pattern (notebook 90)
+  histograms, wave optics and the Airy pattern (notebook 90); sunstars:
+  iris openings with straight or rounded blades (`iris()`, area from the
+  F-number), the exact Fourier transform of a polygon as a sum over its
+  edges (`polygon_transform()`), the far field of the antialiased opening
+  by FFT (`iris_psf()`), the spike laws (2n spikes for odd n, n for even
+  n; (L/kA)² along a spike; the crossover 2πρ/L² of rounded blades and
+  their fans; power outside k, P/(πAk), for any shape) and colour images
+  of the Sun through an iris on a sensor (`sunstar()`); checked against
+  the exact transform, the Airy pattern and the edge theory (notebook 91)
 - `fresnel`: Fresnel lenses, tested: a parent surface (sphere, conic,
   even asphere) collapsed into zones of constant pitch, constant depth or
   given radii, with curved or flat (conical) facets and drafted risers

@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
-"""Photographic optics: the out-of-focus image of a point (bokeh) and the
-lens that makes it.
+"""Photographic optics: the out-of-focus image of a point (bokeh), the lens
+that makes it, and the star that its iris makes of a bright point
+(sunstars).
 
 A camera lens focused at one distance images a point at another distance
 as a blur, the shape and brightness distribution of which photographers
@@ -52,6 +53,16 @@ Contents:
 - `gaussian_apodizer()`, `apodizer_mean_transmission()`, `t_number()`,
   `apodizer_for_t_number()`: a Gaussian radial apodizer and the T-number
   it costs.
+- Sunstars (notebook 91): `iris()`, the opening of an iris diaphragm with
+  straight or rounded blades, `iris_apothem()` for a given area (F-number),
+  `polygon_area()`, `polygon_perimeter()`, `iris_edge_length()`;
+  `polygon_transform()`, the exact Fourier transform of a polygon (a sum
+  over its edges), `iris_coverage()` and `iris_psf()`, the antialiased
+  opening and its far field by FFT; the spike laws `spike_count()` (2 n
+  for odd n, n for even n), `edge_spike()`, `curved_edge_spike()` and
+  `rounded_edge_crossover()` for rounded blades, `power_outside()` (the
+  wings depend on perimeter and area only); `sunstar()`, the image of the
+  Sun (or a point) through an iris on a sensor, by wavelength.
 
 Conventions are those of `raytrace`: lengths in mm, light along +z, the
 optical path difference OPD > 0 where the wavefront leads, so that a sensor
@@ -84,7 +95,19 @@ solution", J. Opt. Soc. Am. 73, 1434-1441 (1983), on the transport of
 intensity.
 
 M. Born and E. Wolf, "Principles of Optics", 7th ed., Cambridge University
-Press (1999), sections 8.8 (defocused images) and 9.2 (aberrations).
+Press (1999), sections 8.5 (Fraunhofer diffraction at apertures), 8.8
+(defocused images) and 9.2 (aberrations).
+
+S.-W. Lee and R. Mittra, "Fourier transform of a polygonal shape function
+and its application in electromagnetics", IEEE Trans. Antennas Propag. 31,
+99-103 (1983).
+
+J. B. Keller, "Geometrical theory of diffraction", J. Opt. Soc. Am. 52,
+116-130 (1962).
+
+J. E. Harvey and C. Ftaclas, "Diffraction effects of telescope secondary
+mirror spiders on various image-quality criteria", Appl. Opt. 34,
+6337-6349 (1995).
 """
 
 from collections import namedtuple
@@ -98,7 +121,10 @@ __all__ = ["double_gauss", "focus", "blur_diameter", "blur_diameter_pupils", "po
            "relative_illumination", "vignetting_circles", "vignetted_fraction",
            "defocus_profile", "defocused_psf", "RippledSurface", "onion_ring_contrast",
            "converging_beam_equivalent", "gaussian_apodizer", "apodizer_mean_transmission",
-           "t_number", "apodizer_for_t_number", "DOUBLE_GAUSS_F", "D_LINE"]
+           "t_number", "apodizer_for_t_number", "DOUBLE_GAUSS_F", "D_LINE",
+           "iris", "polygon_area", "polygon_perimeter", "iris_apothem", "polygon_transform",
+           "iris_coverage", "iris_psf", "edge_spike", "spike_count", "rounded_edge_crossover",
+           "iris_edge_length", "power_outside", "curved_edge_spike", "sunstar", "SUN_RADIUS"]
 
 
 D_LINE = 587.5618e-6  # mm
@@ -907,3 +933,463 @@ def apodizer_for_t_number(f_number, t):
         raise ValueError("The T-number must be larger than the F-number.")
 
     return brentq(lambda s: apodizer_mean_transmission(s) - tau, 1e-3, 1e3)
+
+
+# --- Sunstars: diffraction at the iris (notebook 91) ----------------------
+
+def _iris_centres(n_blades, apothem, blade_radius, rotation):
+    phi = rotation + 2*np.pi*np.arange(n_blades)/n_blades
+    normals = np.c_[np.cos(phi), np.sin(phi)]
+
+    return normals, -(blade_radius - apothem)*normals if np.isfinite(blade_radius) else None
+
+
+def iris(n_blades, apothem, blade_radius=np.inf, rotation=0.0, n_arc=256):
+    """Outline of the opening of an iris diaphragm with n_blades blades.
+
+    Straight blades leave a regular polygon with the inscribed radius
+    (apothem) h; the edge j has its outward normal at the angle
+    rotation + 2 pi j/n_blades. Rounded blades have edges that are circular
+    arcs of radius blade_radius (rho >= h): the opening is the intersection
+    of n_blades disks of radius rho centred at -(rho - h) n_j, a polygon with
+    bulged sides, round (a circle of radius h) for h = rho, i.e. at the
+    opening the blades were made for, and more and more polygonal when the
+    iris is closed further (h < rho).
+
+    Parameters
+    ----------
+    n_blades : int
+        Number of blades (>= 3).
+    apothem : number
+        Distance h of the edges from the centre.
+    blade_radius : number, optional
+        Radius of curvature rho of the blade edges, np.inf for straight
+        blades.
+    rotation : number, optional
+        Angle of the normal of the first edge (radians).
+    n_arc : int, optional
+        Points per rounded edge.
+
+    Returns
+    -------
+    vertices : array (M, 2)
+        Counter-clockwise outline (not closed: the last point is not
+        repeated). For straight blades the n_blades corners.
+    """
+
+    N = int(n_blades)
+    if N < 3:
+        raise ValueError("An iris needs at least three blades.")
+    h = float(apothem)
+    rho = float(blade_radius)
+    if rho < h*(1 - 1e-12):
+        raise ValueError("The blade radius must be at least the apothem.")
+    normals, centres = _iris_centres(N, h, rho, rotation)
+    if centres is None:
+        psi = rotation + (2*np.arange(N) + 1)*np.pi/N
+        R = h/np.cos(np.pi/N)
+
+        return R*np.c_[np.cos(psi), np.sin(psi)]
+    out = []
+    for j in range(N):
+        c = centres[j]
+        ends = []
+        for s in (-1, 1):
+            psi = rotation + (2*j + s)*np.pi/N
+            u = np.array([np.cos(psi), np.sin(psi)])
+            cu = c @ u
+            t = cu + np.sqrt(max(cu**2 - c @ c + rho**2, 0.0))
+            p = t*u - c
+            ends.append(np.arctan2(p[1], p[0]))
+        a0, a1 = ends
+        a1 = a0 + np.mod(a1 - a0, 2*np.pi)
+        a = np.linspace(a0, a1, n_arc, endpoint=False)
+        out.append(c + rho*np.c_[np.cos(a), np.sin(a)])
+
+    return np.concatenate(out)
+
+
+def polygon_area(vertices):
+    """Area of a polygon given by its counter-clockwise vertices (shoelace)."""
+
+    x, y = np.asarray(vertices, float).T
+
+    return 0.5*np.sum(x*np.roll(y, -1) - np.roll(x, -1)*y)
+
+
+def polygon_perimeter(vertices):
+    """Perimeter of a closed polygon given by its vertices."""
+
+    v = np.asarray(vertices, float)
+
+    return np.sum(np.hypot(*(np.roll(v, -1, axis=0) - v).T))
+
+
+def iris_apothem(n_blades, area, blade_radius=np.inf, n_arc=256):
+    """Apothem h of the iris of `iris()` whose opening has the given area.
+    Lenses calibrate their F-numbers by the area of the opening, so an f/N
+    stop has the area of a circle of diameter f/N.
+
+    Parameters
+    ----------
+    n_blades : int
+    area : number
+    blade_radius : number, optional
+    n_arc : int, optional
+
+    Returns
+    -------
+    h : number
+    """
+
+    from scipy.optimize import brentq
+
+    N = int(n_blades)
+    h_poly = np.sqrt(area/(N*np.tan(np.pi/N)))           # straight blades
+    if not np.isfinite(blade_radius):
+        return h_poly
+    if area >= np.pi*blade_radius**2*(1 - 1e-12):
+        raise ValueError("The opening is larger than the circle the blades are made for.")
+
+    return brentq(lambda h: polygon_area(iris(N, h, blade_radius, n_arc=n_arc)) - area,
+                  np.sqrt(area/np.pi), h_poly)
+
+
+def polygon_transform(vertices, kx, ky):
+    """Fourier transform of the indicator function of a polygon,
+    F(k) = integral over the polygon of exp(-i k.r) dA, exactly.
+
+    With exp(-i k.r) = div(i k exp(-i k.r)/k**2), the area integral becomes
+    a sum over the edges (Gauss' theorem). The edge j from a_j to b_j, with
+    the vector e_j = b_j - a_j, the outward normal times length
+    N_j = (e_y, -e_x) and the midpoint m_j, contributes ::
+
+        F(k) = i/k**2 sum_j (k.N_j) exp(-i k.m_j) sinc(k.e_j/2),
+
+    sinc(x) = sin(x)/x. Along the normal of an edge (k parallel to N_j)
+    the sinc is 1 and the edge gives a streak with amplitude L_j/k: the
+    diffraction spikes. At k = 0, F is the area.
+
+    Parameters
+    ----------
+    vertices : array (M, 2)
+        Counter-clockwise vertices.
+    kx, ky : arrays
+        Spatial angular frequencies (any broadcastable shape).
+
+    Returns
+    -------
+    F : complex array
+    """
+
+    v = np.asarray(vertices, float)
+    kx, ky = np.broadcast_arrays(np.asarray(kx, float), np.asarray(ky, float))
+    e = np.roll(v, -1, axis=0) - v
+    m = v + 0.5*e
+    k2 = kx**2 + ky**2
+    size = np.max(np.hypot(*(v - v.mean(axis=0)).T))
+    small = k2*size**2 < 1e-6
+    k2s = np.where(small, 1.0, k2)
+    F = np.zeros(kx.shape, complex)
+    for (ex, ey), (mx, my) in zip(e, m):
+        F += (kx*ey - ky*ex)*np.exp(-1j*(kx*mx + ky*my))*np.sinc((kx*ex + ky*ey)/(2*np.pi))
+    F = 1j*F/k2s
+    if np.any(small):
+        A = polygon_area(v)
+        w = v[:, 0]*np.roll(v[:, 1], -1) - np.roll(v[:, 0], -1)*v[:, 1]
+        c = np.sum((v + np.roll(v, -1, axis=0))*w[:, None], axis=0)/(6*A)      # centroid
+        F = np.where(small, A*np.exp(-1j*(kx*c[0] + ky*c[1])), F)
+
+    return F
+
+
+def iris_coverage(x, y, n_blades, apothem, blade_radius=np.inf, rotation=0.0, dx=None):
+    """Transmission of the iris opening on a grid, antialiased: the fraction
+    of each pixel inside the opening, from the signed distance to the
+    edges, so that a sampled opening has no staircase edges that would
+    diffract on their own.
+
+    Parameters
+    ----------
+    x, y : arrays
+        Coordinates (broadcastable, e.g. from np.meshgrid).
+    n_blades, apothem, blade_radius, rotation
+        As in `iris()`.
+    dx : number, optional
+        Pixel size; default from x.
+
+    Returns
+    -------
+    T : array
+    """
+
+    x, y = np.broadcast_arrays(np.asarray(x, float), np.asarray(y, float))
+    if dx is None:
+        dx = np.max(np.abs(np.diff(x, axis=-1))) if x.shape[-1] > 1 else 1.0
+    normals, centres = _iris_centres(int(n_blades), float(apothem), float(blade_radius), rotation)
+    d = np.full(x.shape, -np.inf)
+    for j, n in enumerate(normals):
+        if centres is None:
+            dj = x*n[0] + y*n[1] - apothem
+        else:
+            dj = np.hypot(x - centres[j, 0], y - centres[j, 1]) - blade_radius
+        d = np.maximum(d, dj)
+
+    return np.clip(0.5 - d/dx, 0.0, 1.0)
+
+
+def edge_spike(k, edge_length, area, n_parallel=1, separation=0.0):
+    """Normalized intensity I(k)/I(0) = abs(F(k)/A)**2 along the diffraction
+    spike of a straight edge of length L of an opening of area A, at
+    spatial angular frequency k along its normal: (L/(k A))**2 for one edge
+    (odd number of blades), 4 sin**2(k s/2) (L/(k A))**2 for two parallel
+    opposite edges a distance s apart (even number of blades), which on
+    average is twice as bright.
+
+    Parameters
+    ----------
+    k : array
+    edge_length, area : numbers
+    n_parallel : 1 or 2
+    separation : number
+        Distance of the two parallel edges (2 h for a regular polygon).
+
+    Returns
+    -------
+    I : array
+    """
+
+    k = np.asarray(k, float)
+    I1 = (edge_length/(k*area))**2
+    if n_parallel == 1:
+        return I1
+    if n_parallel == 2:
+        return 4*np.sin(k*separation/2)**2*I1
+    raise ValueError("n_parallel must be 1 or 2.")
+
+
+def spike_count(n_blades):
+    """Number of diffraction spikes of an iris with n_blades straight blades:
+    every edge streaks both ways along its normal, so 2 n for an odd number
+    of blades; for an even number the opposite edges are parallel and their
+    streaks coincide, n spikes."""
+
+    n = int(n_blades)
+
+    return n if n % 2 == 0 else 2*n
+
+
+def rounded_edge_crossover(edge_length, blade_radius):
+    """Spatial angular frequency k_c = 2 pi rho/L**2 up to which a rounded
+    blade edge (chord L, radius rho) still diffracts like a straight edge:
+    the straight edge streak L/k equals the stationary phase amplitude
+    sqrt(2 pi rho/k)/k of a curved edge there. Beyond k_c the spike fades
+    into a fan of angular width about L/rho and decays as 1/k**3, like the
+    rings of a circular opening, instead of 1/k**2."""
+
+    return 2*np.pi*blade_radius/edge_length**2
+
+
+def iris_edge_length(n_blades, apothem, blade_radius=np.inf):
+    """Chord length L of one edge of the iris of `iris()`, corner to corner:
+    2 R_c sin(pi/n) with the distance R_c of the corners from the centre
+    (2 h tan(pi/n) for straight blades)."""
+
+    R_c = np.hypot(*iris(n_blades, apothem, blade_radius, n_arc=2)[0])
+
+    return 2*R_c*np.sin(np.pi/int(n_blades))
+
+
+def power_outside(k, perimeter, area):
+    """Fraction of the power of the far field pattern of an opening outside
+    the spatial angular frequency k (the radius r = k lambda f/(2 pi) in
+    the focal plane), for k much larger than 2 pi over the size of the
+    opening: P/(pi A k), with perimeter P and area A, whatever the shape.
+    The far wings come from the edges, each length of edge sending the
+    same power out; a polygon bunches it into spikes, a circle spreads it
+    into rings (2/(pi k R), the familiar tail of the encircled energy of
+    the Airy pattern).
+
+    Parameters
+    ----------
+    k : array
+    perimeter, area : numbers
+
+    Returns
+    -------
+    fraction : array
+    """
+
+    return perimeter/(np.pi*area*np.asarray(k, float))
+
+
+def iris_psf(n_blades, apothem, blade_radius=np.inf, rotation=0.0, n=1024, dx=None):
+    """Far field (Fraunhofer) intensity of an iris opening by FFT, normalized
+    to its centre, I(k)/I(0) = abs(F(k)/A)**2, on the centred grid of spatial
+    angular frequencies k = 2 pi m/(n dx). In the focal plane of a lens of
+    focal length f this is the point spread function at r = k lambda f/(2 pi).
+
+    The opening is sampled with `iris_coverage()`, whose antialiased edges
+    act like a box of width dx across each edge; its transfer
+    sinc(k dx/2) is divided out. The spikes then agree with
+    `polygon_transform()` to a few percent up to about a quarter of the
+    sampling limit pi/dx; towards that limit the edge waves alias (about
+    15 % low at half of it).
+
+    Parameters
+    ----------
+    n_blades, apothem, blade_radius, rotation
+        As in `iris()`.
+    n : int, optional
+        Grid size.
+    dx : number, optional
+        Pupil sampling; default 2.5 times the corner radius over n/2.
+
+    Returns
+    -------
+    k : array (n,)
+        Spatial angular frequencies (both axes).
+    I : array (n, n)
+        Normalized intensity, indexed [ky, kx].
+    """
+
+    from . import fft as _fft
+
+    R_c = np.max(np.hypot(*iris(n_blades, apothem, blade_radius, rotation, n_arc=8).T))
+    if dx is None:
+        dx = 2.5*R_c/(n/2)
+    x = (np.arange(n) - n//2)*dx
+    T = iris_coverage(x[None, :], x[:, None], n_blades, apothem, blade_radius, rotation, dx=dx)
+    A = T.sum()*dx**2
+    k = 2*np.pi*(np.arange(n) - n//2)/(n*dx)
+    K = np.hypot(k[None, :], k[:, None])
+    F = _fft.FT(T)*dx**2/np.sinc(K*dx/(2*np.pi))
+
+    return k, np.abs(F/A)**2
+
+
+def curved_edge_spike(k, edge_length, blade_radius, area):
+    """Normalized intensity I(k)/I(0) along the normal through the middle of
+    a rounded blade edge (chord L, radius rho) of an opening of area A, from
+    the edge integral with the phase of the arc in the parabolic
+    (Fresnel) approximation, the edge alone ::
+
+        F = 1/k int_{-L/2}^{L/2} exp(-i k t**2/(2 rho)) dt,
+
+    a Fresnel integral: the straight edge streak (L/(k A))**2 for
+    k << k_c = 2 pi rho/L**2 (`rounded_edge_crossover()`), the stationary
+    phase limit 2 pi rho/(k**3 A**2) of a smooth curve for k >> k_c, with
+    Fresnel wiggles in between. Straight blades are rho = np.inf.
+
+    Parameters
+    ----------
+    k : array
+    edge_length, blade_radius, area : numbers
+
+    Returns
+    -------
+    I : array
+    """
+
+    from scipy.special import fresnel
+
+    k = np.asarray(k, float)
+    if not np.isfinite(blade_radius):
+        return (edge_length/(k*area))**2
+    w = np.sqrt(np.pi*blade_radius/k)
+    S, C = fresnel(edge_length/2/w)
+    amp = 2*w*np.hypot(C, S)
+
+    return (amp/(k*area))**2
+
+
+SUN_RADIUS = np.radians(0.533/2)  # angular radius of the Sun (rad)
+
+
+def sunstar(n_blades, f_number, wavelength, focal_length=24.0, blade_radius=np.inf, rotation=0.0,
+            source_radius=None, pixel=0.004, half_width=1.5, n=None, oversampling=2.2):
+    """Image of a bright source through an iris: the diffraction pattern of
+    the opening (`iris_psf()`, FFT), convolved with the image of the source
+    (a uniform disk, the Sun by default) and with the sensor pixels (boxes),
+    sampled at the pixel centres. The opening of an f/N stop has the area
+    of a circle of diameter f/N.
+
+    Parameters
+    ----------
+    n_blades : int
+    f_number : number
+    wavelength : number or array
+        Wavelength(s) in mm.
+    focal_length : number, optional
+        In mm (default 24 mm, a wide angle lens).
+    blade_radius : number, optional
+        Radius of the blade edges in mm (np.inf: straight blades).
+    rotation : number, optional
+    source_radius : number, optional
+        Radius of the geometric image of the source in mm; default the Sun,
+        f tan(0.267 deg); 0 for a point source.
+    pixel : number, optional
+        Pixel pitch in mm.
+    half_width : number, optional
+        Half width of the image in mm.
+    n : int, optional
+        FFT grid (one for all wavelengths); the image plane sampling is
+        min(wavelength) N/oversampling,
+        so the grid spans n of those, which must exceed 2 half_width. Default:
+        the smallest power of 2 that spans 4 half_width (at least 1024, at
+        most 4096), so that the folded-back tail of the pattern (the FFT is
+        periodic) stays below about 10 % at the edge of the image. (Below
+        about f/8 the cap makes the grid smaller than that.)
+    oversampling : number, optional
+
+    Returns
+    -------
+    x : array
+        Pixel centres in mm (both axes).
+    E : array (n_wavelengths, n_pixels, n_pixels)
+        Irradiance relative to that of the geometric image of the source
+        (inside the disk of an extended source, about 1); for a point source
+        relative to the centre of the diffraction pattern, I/I(0).
+    """
+
+    from scipy.special import j1
+    from scipy.ndimage import map_coordinates
+    from . import fft as _fft
+
+    lam = np.atleast_1d(np.asarray(wavelength, float))
+    f = float(focal_length)
+    a = f*np.tan(SUN_RADIUS) if source_radius is None else float(source_radius)
+    A_stop = np.pi*(f/(2*f_number))**2
+    h = iris_apothem(n_blades, A_stop, blade_radius)
+    step0 = lam.min()*f_number/oversampling            # image sampling at the shortest wavelength
+    if n is None:
+        n = int(np.clip(2**int(np.ceil(np.log2(4*half_width/step0))), 1024, 4096))
+    if n*step0 < 2*half_width:
+        raise ValueError("The FFT grid is too small for the image; increase n.")
+    # One pupil grid for all wavelengths: the pattern in k is the same, only
+    # its scale in the image, r = k lambda f/(2 pi), grows with the wavelength.
+    dx = lam.min()*f/(n*step0)
+    _, I0 = iris_psf(n_blades, h, blade_radius, rotation, n=n, dx=dx)     # I/I(0) on the k grid
+    otf = _fft.FT(I0)
+    m = np.arange(n) - n//2
+    n_px = int(round(2*half_width/pixel))
+    x = (np.arange(n_px) - (n_px - 1)/2)*pixel
+    out = []
+    for lw in lam:
+        step = lw*f/(n*dx)
+        nu = m/(n*step)                                # cycles/mm in the image
+        transfer = np.sinc(nu[None, :]*pixel)*np.sinc(nu[:, None]*pixel)
+        if a > 0:
+            NU = np.hypot(nu[None, :], nu[:, None])
+            arg = 2*np.pi*a*np.where(NU == 0, 1.0, NU)
+            transfer = transfer*np.where(NU == 0, 1.0, 2*j1(arg)/arg)
+        E = np.real(_fft.inv_FT(otf*transfer))         # I/I(0), averaged over source and pixel
+        # I/I(0) times the peak of the unit power PSF, A/(lambda f)**2, is the
+        # irradiance per unit power; relative to the source disk times pi a**2
+        if a > 0:
+            E = E*A_stop/(lw*f)**2*np.pi*a**2
+        idx = x/step + n//2
+        I, J = np.meshgrid(idx, idx, indexing="ij")
+        out.append(map_coordinates(E, [I, J], order=1))
+
+    return x, np.array(out)

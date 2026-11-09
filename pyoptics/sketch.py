@@ -142,6 +142,12 @@ Setup sketches for the other example notebooks:
   and the cat's eye pupil; rippled_asphere(): onion rings from a surface
   ripple; apodized_lens(): a graded filter at the stop and the soft blur
   it gives (notebook 90).
+- iris_diffraction(): a plane wave through a lens and its iris, and the
+  star in the focal plane; iris_spikes(): which spike comes from which
+  blade, 2n spikes for odd n and n for even n; rounded_iris(): rounded
+  blades as arcs and the fans they make; iris_stop_down(): a rounded iris
+  at three F-numbers and the stars it makes; sunstar_scene(): the Sun
+  imaged through a stopped down lens (notebook 91).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -201,7 +207,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "led_above_plane", "photometric_distance", "led_collimator",
            "beam_shaping_ray_map", "flattop_beam_shaper", "freeform_projection",
            "bokeh_formation", "spherical_aberration_bokeh", "cats_eye_vignetting",
-           "rippled_asphere", "apodized_lens"]
+           "rippled_asphere", "apodized_lens", "iris_diffraction", "iris_spikes", "rounded_iris",
+           "iris_stop_down", "sunstar_scene"]
 
 
 GLASS = "#cfe3f3"
@@ -5867,3 +5874,222 @@ def apodized_lens(ax, title=None):
     label(ax, z_s + 0.85, -0.5, "blur profile:\nclear (dashed),\napodized", fontsize=8, va="top")
     label(ax, z_s, 0.7, "sensor", fontsize=8, va="bottom")
     _finish(ax, (-2.2, z_s + 2.0), (-1.45, 1.4), title)
+
+
+SPIKE_COLORS = ["#2a7ab9", "#d6604d", "#5aa469", "#e0a000", "#8e5ba8", "#3a9fa0", "#b5651d",
+                "#c44e8a", "#6b8e23"]
+
+
+def _iris_outline(n_blades, h, blade_radius=np.inf, rotation=np.pi/2, n_arc=40):
+    """Outline of an iris opening as in photography.iris() (copied here so
+    that the sketches do not import the photography module)."""
+
+    phi = rotation + 2*np.pi*np.arange(n_blades)/n_blades
+    if not np.isfinite(blade_radius):
+        psi = rotation + (2*np.arange(n_blades) + 1)*np.pi/n_blades
+        R = h/np.cos(np.pi/n_blades)
+
+        return R*np.c_[np.cos(psi), np.sin(psi)]
+    out = []
+    for j in range(n_blades):
+        c = -(blade_radius - h)*np.array([np.cos(phi[j]), np.sin(phi[j])])
+        ends = []
+        for s in (-1, 1):
+            u = np.array([np.cos(phi[j] + s*np.pi/n_blades), np.sin(phi[j] + s*np.pi/n_blades)])
+            cu = c @ u
+            p = (cu + np.sqrt(max(cu**2 - c @ c + blade_radius**2, 0.0)))*u - c
+            ends.append(np.arctan2(p[1], p[0]))
+        a1 = ends[0] + np.mod(ends[1] - ends[0], 2*np.pi)
+        a = np.linspace(ends[0], a1, n_arc, endpoint=False)
+        out.append(c + blade_radius*np.c_[np.cos(a), np.sin(a)])
+
+    return np.concatenate(out)
+
+
+def _star(ax, z, y, angles, length, color="0.2", lw=2.0, alpha=0.9, zorder=3):
+    for a in angles:
+        ax.plot([z, z + length*np.cos(a)], [y, y + length*np.sin(a)], color=color, lw=lw,
+                alpha=alpha, solid_capstyle="round", zorder=zorder)
+
+
+def iris_diffraction(ax, title=None):
+    """Sketch of how an iris makes a star (notebook 91): a plane wave from a
+    distant point passes the lens and its iris diaphragm (front view
+    above); in the focal plane the light is the Fraunhofer diffraction
+    pattern of the opening, abs(FT of the opening)**2, a bright core with
+    streaks perpendicular to the straight edges of the blades.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    h = 1.0
+    for y in np.linspace(-0.8, 0.8, 7):
+        ax.plot([-3.0, 0.0, 3.6], [y, y, 0.0], color=ILLUMINATION, lw=1.0, alpha=0.8, zorder=2)
+    lens(ax, 0.0, h, thickness=0.25)
+    stop(ax, 0.3, h, openings=((0.0, 0.82),), text="iris", text_y=-1.2)
+    v = _iris_outline(7, 0.5)
+    ax.add_patch(_patches().Polygon(v + [0.15, 2.0], closed=True, facecolor="#fff6dc",
+                                    edgecolor=METAL, lw=1.5, zorder=3))
+    ax.add_patch(_patches().Circle((0.15, 2.0), 0.72, facecolor="none", edgecolor=METAL, lw=6,
+                                   alpha=0.5, zorder=2))
+    label(ax, 1.2, 2.0, "iris, 7 blades\n(front view)", fontsize=8, ha="left")
+    plane(ax, 3.6, 1.1, text="focal plane", text_y=-1.25)
+    _star(ax, 3.6, 2.0, np.pi/2 + np.pi/7 + 2*np.pi*np.arange(14)/14, 0.55, color=ILLUMINATION,
+          lw=1.6)
+    ax.add_patch(_patches().Circle((3.6, 2.0), 0.12, color=ILLUMINATION, zorder=4))
+    arrow(ax, 3.6, 1.3, 3.6, 0.15, color="0.4")
+    label(ax, 4.35, 2.0, "14 spikes", fontsize=8, ha="left")
+    label(ax, -1.6, 1.15, "plane wave from\na distant point", fontsize=8)
+    _finish(ax, (-3.2, 5.6), (-1.6, 2.9), title)
+
+
+def iris_spikes(ax, n_blades=7, title=None):
+    """Sketch of which spike comes from which blade (notebook 91): each
+    straight edge of the iris (left) diffracts light into a streak along its
+    normal, in both directions (right, same colours). For an odd number of
+    blades no two edges are parallel and the iris makes 2 n spikes; for an
+    even number opposite edges are parallel, their streaks fall on top of
+    each other, and there are n spikes.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    n_blades : int, optional
+    title : str, optional
+    """
+
+    mp = _patches()
+    N = int(n_blades)
+    h = 0.9
+    v = _iris_outline(N, h, rotation=0.0)
+    z0 = -1.6
+    ax.add_patch(mp.Polygon(v + [z0, 0.0], closed=True, facecolor="#fff6dc", edgecolor="none",
+                            zorder=2))
+    for j in range(N):
+        a, b = v[j - 1], v[j]
+        c = SPIKE_COLORS[j % N % len(SPIKE_COLORS)] if N % 2 else SPIKE_COLORS[j % (N//2)]
+        ax.plot([z0 + a[0], z0 + b[0]], [a[1], b[1]], color=c, lw=3, solid_capstyle="round",
+                zorder=3)
+        phi = 2*np.pi*j/N
+        m = 0.5*(a + b)
+        arrow(ax, z0 + m[0], m[1], z0 + m[0] + 0.35*np.cos(phi), m[1] + 0.35*np.sin(phi), color=c)
+        _star(ax, 1.9, 0.0, [phi, phi + np.pi], 1.1, color=c, lw=2.2, alpha=0.85)
+    ax.add_patch(mp.Circle((1.9, 0.0), 0.1, color=ILLUMINATION, zorder=4))
+    n_spikes = N if N % 2 == 0 else 2*N
+    label(ax, z0, -1.45, "iris, {} blades".format(N), fontsize=9)
+    label(ax, 1.9, -1.45, "{} spikes".format(n_spikes), fontsize=9)
+    _finish(ax, (-3.0, 3.3), (-1.7, 1.4), title)
+
+
+def rounded_iris(ax, title=None):
+    """Sketch of an iris with rounded blades (notebook 91): every blade edge
+    is an arc of radius rho (dashed circles); the opening is where all the
+    disks overlap, a circle of radius rho at the opening the blades are made
+    for and a polygon with bulged sides when closed further (left; straight
+    blades dotted). A rounded edge has a range of normals, about L/rho wide,
+    so its streak spreads into a fan (right) that fades faster than the
+    spike of a straight edge.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mp = _patches()
+    N, h, rho = 9, 0.9, 3.0
+    z0 = -1.7
+    v = _iris_outline(N, h, rho, rotation=0.0)
+    vs = _iris_outline(N, h, rotation=0.0)
+    for j in (0, 3, 6):
+        phi = 2*np.pi*j/N
+        c = -(rho - h)*np.array([np.cos(phi), np.sin(phi)])
+        ax.add_patch(mp.Arc((z0 + c[0], c[1]), 2*rho, 2*rho, theta1=np.degrees(phi) - 13,
+                            theta2=np.degrees(phi) + 13, edgecolor="0.4", lw=1.0, ls="--", zorder=3))
+        ax.plot([z0, z0 + 1.15*np.cos(phi)], [0, 1.15*np.sin(phi)], color="0.55", lw=0.6, ls="--", zorder=3)
+    ax.add_patch(mp.Polygon(v + [z0, 0.0], closed=True, facecolor="#fff6dc", edgecolor=METAL, lw=1.6,
+                            zorder=2))
+    ax.add_patch(mp.Polygon(vs + [z0, 0.0], closed=True, facecolor="none", edgecolor="0.4", lw=0.8,
+                            ls=":", zorder=3))
+    L = 2*np.hypot(*v[0])*np.sin(np.pi/N)
+    fan = np.degrees(L/rho)
+    for j in range(N):
+        phi = np.degrees(2*np.pi*j/N)
+        for d in (0, 180):
+            ax.add_patch(mp.Wedge((2.0, 0.0), 1.15, phi + d - fan/2, phi + d + fan/2,
+                                  facecolor=ILLUMINATION, alpha=0.35, edgecolor="none", zorder=2))
+        _star(ax, 2.0, 0.0, [np.radians(phi), np.radians(phi) + np.pi], 0.55, color=ILLUMINATION,
+              lw=1.5)
+    ax.add_patch(mp.Circle((2.0, 0.0), 0.1, color=ILLUMINATION, zorder=4))
+    label(ax, z0, -1.85, "rounded blades: arcs of radius rho (dashed)", fontsize=8)
+    label(ax, 2.0, -1.85, "spikes fade into fans ~ L/rho wide", fontsize=8)
+    _finish(ax, (-3.6, 3.7), (-2.1, 1.75), title)
+
+
+def iris_stop_down(ax, title=None):
+    """Sketch of an iris with rounded blades being stopped down (notebook
+    91): round at the opening the blades are made for (here f/2.8), with
+    corners and nearly straight sides at f/8 and f/16, where the arcs are
+    long compared to the opening; and the star grows: its spikes reach out
+    the farther, the smaller the opening.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mp = _patches()
+    N, rho = 9, 1.0
+    for z, f_number, spikes in ((-2.6, 2.8, 0.0), (0.0, 8, 0.55), (2.6, 16, 0.8)):
+        h0 = rho*2.8/f_number
+        # area of the rounded opening, scaled to that of a circle of diameter f/N
+        v = _iris_outline(N, h0, rho, rotation=np.pi/2)
+        ax.add_patch(mp.Circle((z, 0.0), 1.05, facecolor="0.3", edgecolor="none", zorder=1))
+        ax.add_patch(mp.Polygon(v + [z, 0.0], closed=True, facecolor="#fff6dc", edgecolor="none",
+                                zorder=2))
+        label(ax, z, -1.3, "f/{:g}".format(f_number), fontsize=10)
+        if spikes:
+            _star(ax, z, 1.95, np.pi/2 + np.pi/N + 2*np.pi*np.arange(2*N)/(2*N), spikes,
+                  color=ILLUMINATION, lw=1.4)
+        ax.add_patch(mp.Circle((z, 1.95), 0.12 + 0.05*(f_number > 3), color=ILLUMINATION, alpha=0.9,
+                               zorder=4))
+    label(ax, -3.9, 1.95, "star", fontsize=9, ha="left")
+    label(ax, -3.9, 0.0, "iris", fontsize=9, ha="left")
+    _finish(ax, (-4.0, 3.8), (-1.55, 2.9), title)
+
+
+def sunstar_scene(ax, title=None):
+    """Sketch of a sunstar (notebook 91): the Sun, 0.53 deg across, is imaged
+    by a wide angle lens stopped down to a small iris as a disk a few
+    hundred micrometres across, far brighter than the rest of the scene
+    (about 10^5 times the white of a sunlit page); the diffraction streaks
+    of the iris edges are faint copies of that disk, and those parts of
+    them that are still brighter than the white level make the star.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mp = _patches()
+    ax.add_patch(mp.Circle((-3.4, 0.0), 0.45, color="#ffd23f", zorder=3))
+    for a in np.linspace(0, 2*np.pi, 12, endpoint=False):
+        ax.plot([-3.4 + 0.55*np.cos(a), -3.4 + 0.75*np.cos(a)], [0.55*np.sin(a), 0.75*np.sin(a)],
+                color="#ffd23f", lw=1.5)
+    label(ax, -3.4, -0.95, "Sun, 0.53 deg", fontsize=8)
+    for y in np.linspace(-0.6, 0.6, 5):
+        ax.plot([-2.5, 0.0, 2.4], [y, y, 0.0], color=ILLUMINATION, lw=1.0, alpha=0.8, zorder=2)
+    lens(ax, 0.0, 0.9, thickness=0.22)
+    stop(ax, 0.25, 0.9, openings=((0.0, 0.3),), text="iris at f/16", text_y=-1.05)
+    detector(ax, 2.4, 0.9, text="sensor", text_y=-1.05)
+    _star(ax, 3.6, 0.0, np.pi/2 + np.pi/7 + 2*np.pi*np.arange(14)/14, 0.7, color=ILLUMINATION,
+          lw=1.8)
+    ax.add_patch(mp.Circle((3.6, 0.0), 0.2, color="#fff2b0", ec=ILLUMINATION, zorder=4))
+    arrow(ax, 2.5, 0.0, 3.3, 0.0, color="0.4")
+    label(ax, 3.6, 0.95, "image: disk + spikes", fontsize=8)
+    _finish(ax, (-4.3, 4.5), (-1.35, 1.15), title)
