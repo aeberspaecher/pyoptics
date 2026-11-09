@@ -146,6 +146,12 @@ def test_paraxial_ray_imaging():
     sketch.cats_eye_vignetting,
     sketch.rippled_asphere,
     sketch.apodized_lens,
+    sketch.iris_diffraction,
+    sketch.iris_spikes,
+    lambda ax: sketch.iris_spikes(ax, 8),
+    sketch.rounded_iris,
+    sketch.iris_stop_down,
+    sketch.sunstar_scene,
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()
