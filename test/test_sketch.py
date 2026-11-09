@@ -175,6 +175,8 @@ def test_paraxial_ray_imaging():
     lambda ax: sketch.telescope_layout(ax, "schmidt"),
     sketch.segment_phasing_layout,
     lambda ax: sketch.segment_phasing_layout(ax, "pr"),
+    sketch.lensing_geometry,
+    lambda ax: sketch.lensing_geometry(ax, ring=True),
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()

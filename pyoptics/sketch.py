@@ -181,6 +181,10 @@ Setup sketches for the other example notebooks:
   imaged onto a pupil mask, a grism and a detector with dispersed fringes
   (coarse phasing), or weak lenses and defocused images for phase
   retrieval (fine phasing) (notebook 98).
+- lensing_geometry(): observer, lens and source planes of a gravitational
+  lens with the two images of a point mass, the angles beta, theta and
+  alpha and the distances D_l, D_s, D_ls; or (ring=True) a source behind
+  the lens seen as an Einstein ring (notebook 99).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -245,7 +249,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "flare_scene", "pixel_sampling", "bayer_cfa", "olpf_plates", "microlens_pixels",
            "depth_of_field", "defocus_and_diffraction", "scheimpflug_hinge", "dof_wedge",
            "plenoptic_camera", "subaperture_parallax", "light_field_refocus", "plenoptic_tradeoff",
-           "coronagraph_layout", "telescope_layout", "segment_phasing_layout"]
+           "coronagraph_layout", "telescope_layout", "segment_phasing_layout",
+           "lensing_geometry"]
 
 
 GLASS = "#cfe3f3"
@@ -7012,3 +7017,68 @@ def segment_phasing_layout(ax, method="dfs", title=None):
         _finish(ax, (-1.1, zd + 1.0), (-1.25, 1.55), title)
     else:
         raise ValueError("method must be 'dfs' or 'pr'")
+
+
+def lensing_geometry(ax, ring=False, title=None):
+    """Sketch of a thin gravitational lens (notebook 99).
+
+    The observer (left), the lens plane and the source plane; the rays of a
+    point mass lens are bent in the lens plane by the angle alpha-hat and
+    reach the observer from the image angles theta (two images, on both
+    sides of the lens). The angles are exaggerated.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    ring : bool, optional
+        Source exactly behind the lens: the rays arrive from a cone of half
+        angle theta_E (drawn as two rays), the Einstein ring.
+    title : str, optional
+    """
+
+    D_l, D_s = 4.0, 9.0
+    D_ls = D_s - D_l
+    tE = 0.17                                   # Einstein radius (rad, exaggerated)
+    u = 0.0 if ring else 0.55
+    beta = u*tE
+    s = np.sqrt(u**2 + 4)
+    thetas = [tE*(u + s)/2, tE*(u - s)/2]
+    colors = [STAR_COLOR, "#c27c0e"]
+    ax.plot([-0.4, D_s + 0.4], [0, 0], color="0.6", lw=0.7, ls=":")
+    for th, col in zip(thetas, colors):
+        y_l = th*D_l
+        ax.plot([D_s, D_l, 0], [beta*D_s, y_l, 0], color=col, lw=1.4, zorder=3)
+        # apparent direction, continued behind the lens plane
+        ax.plot([D_l, D_s], [y_l, th*D_s], color=col, lw=0.9, ls="--", zorder=2)
+        if not ring:
+            point_source(ax, D_s, th*D_s, color=col, size=55)
+    point_source(ax, D_s, beta*D_s, color="#e0a000", size=140)
+    ax.plot([D_l], [0], "o", color="0.1", ms=9, zorder=4)
+    plane(ax, D_l, 1.75)
+    plane(ax, D_s, 1.75)
+    ax.plot([0], [0], "o", color=PLANET_COLOR, ms=6, zorder=4)
+    label(ax, -0.15, -0.25, "observer", fontsize=9, ha="center", va="top")
+    label(ax, D_l, -1.95, "lens plane\n(mass M)", fontsize=9, va="top")
+    label(ax, D_s, -1.95, "source plane", fontsize=9, va="top")
+    # distances
+    arrow(ax, 0, -1.25, D_l, -1.25, style="<->", text="$D_l$", text_pos=(D_l/2, -1.12), fontsize=9)
+    arrow(ax, D_l, -1.25, D_s, -1.25, style="<->", text="$D_{ls}$", text_pos=(D_l + D_ls/2, -1.12),
+          fontsize=9)
+    arrow(ax, 0, -1.6, D_s, -1.6, style="<->", text="$D_s$", text_pos=(D_s/2, -1.47), fontsize=9)
+    # angles at the observer
+    t = np.linspace(0, thetas[0], 20)
+    ax.plot(1.3*np.cos(t), 1.3*np.sin(t), color="0.3", lw=0.8)
+    label(ax, 1.42, 0.5*thetas[0]*1.3 + 0.04, r"$\theta$", fontsize=10, ha="left")
+    if not ring:
+        t = np.linspace(0, beta, 20)
+        ax.plot(2.2*np.cos(t), 2.2*np.sin(t), color="0.3", lw=0.8)
+        ax.plot([0, D_s], [0, beta*D_s], color="0.5", lw=0.7, ls=":")
+        label(ax, 2.32, 0.5*beta*2.2 + 0.02, r"$\beta$", fontsize=10, ha="left")
+        label(ax, D_l + 0.25, thetas[0]*D_l + 0.12, r"$\hat\alpha$", fontsize=10, ha="left")
+        label(ax, D_s + 0.25, thetas[0]*D_s, "image 1", fontsize=8, ha="left")
+        label(ax, D_s + 0.25, thetas[1]*D_s, "image 2", fontsize=8, ha="left")
+        label(ax, D_s + 0.25, beta*D_s, "source", fontsize=8, ha="left")
+    else:
+        label(ax, D_s + 0.25, tE*D_s, "ring of\nradius $\\theta_E$", fontsize=8, ha="left")
+        label(ax, D_s + 0.25, 0.0, "source", fontsize=8, ha="left")
+    _finish(ax, (-0.8, D_s + 1.4), (-2.4, 1.95), title)
