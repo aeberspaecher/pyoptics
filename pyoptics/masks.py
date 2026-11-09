@@ -4,6 +4,8 @@
 """Masks useful for optical applications.
 """
 
+import warnings
+
 import numpy as np
 
 from .utils import ensure_meshgrid, wavenumber
@@ -56,8 +58,8 @@ def annular_mask(x, y, R_outer, R_inner, x0=0.0, y0=0.0):
     return mask
 
 
-def rectangluar_mask(x, y, a, b, x0=0.0, y0=0.0, include_1d_output=False):
-    """Create rectangluar mask.
+def rectangular_mask(x, y, a, b, x0=0.0, y0=0.0, include_1d_output=False):
+    """Create rectangular mask.
 
     Parameters
     ----------
@@ -86,6 +88,12 @@ def rectangluar_mask(x, y, a, b, x0=0.0, y0=0.0, include_1d_output=False):
         return mask, mask_x, mask_y
     else:
         return mask
+
+
+def rectangluar_mask(*args, **kwargs):
+    """Deprecated misspelling of :func:`rectangular_mask`, kept for old code."""
+    warnings.warn("rectangluar_mask() is deprecated, use rectangular_mask()", DeprecationWarning, stacklevel=2)
+    return rectangular_mask(*args, **kwargs)
 
 
 def elliptical_mask(x, y, a, b, x0=0.0, y0=0.0):
