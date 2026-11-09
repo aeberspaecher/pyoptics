@@ -257,7 +257,7 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "depth_of_field", "defocus_and_diffraction", "scheimpflug_hinge", "dof_wedge",
            "plenoptic_camera", "subaperture_parallax", "light_field_refocus", "plenoptic_tradeoff",
            "coronagraph_layout", "telescope_layout", "segment_phasing_layout",
-           "lensing_geometry", "echelle_layout"]
+           "lensing_geometry", "echelle_layout", "sine_herschel_conditions"]
 
 
 GLASS = "#cfe3f3"
