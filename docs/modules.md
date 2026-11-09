@@ -601,6 +601,18 @@ What each module does and how mature it is. Planned work is listed in
   (`efc_jacobian()`, `efc_step()`); checked against the Airy and Sonine
   PSFs, J_0(pi a), the prolate eigenvalue, the analytic vortex fields,
   the tip-tilt leak laws and the Zernike selection rule (notebook 96)
+- `telescopes`: new, tested: reflecting telescopes as `raytrace` systems:
+  Newtonian (`newtonian()`), classical Cassegrain and Ritchey–Chrétien
+  from primary focal length, system focal length and back focus
+  (`two_mirror_telescope()`, `two_mirror_geometry()`, Schwarzschild's
+  conics `rc_conics()`, `cassegrain_conic()`), the Schmidt camera with a
+  corrector plate refined on the traced wavefront (`schmidt_camera()`,
+  `schmidt_plate()`); closed form third order results
+  (`mirror_aberrations()`, `two_mirror_aberrations()`,
+  `schmidt_chromatic_blur()`), spot diagrams over an obscured pupil
+  (`spot()`) and best focus (`best_focus()`); checked against the Seidel
+  sums, the coma and astigmatism formulas, the medial image surface and
+  the chromatic blur of the plate (notebook 97)
 - `wpm`: wave propagation method (Cython extension) for inhomogeneous, also
   absorbing media, 2D and y-invariant 1D fields, multi-step driver; direct
   O(N^2) sum (OpenMP) or the fast "levels" variant (one FFT pair per distinct

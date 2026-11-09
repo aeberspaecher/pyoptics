@@ -170,6 +170,9 @@ def test_paraxial_ray_imaging():
     sketch.plenoptic_tradeoff,
     sketch.coronagraph_layout,
     lambda ax: sketch.coronagraph_layout(ax, mask="vortex", dm=True),
+    lambda ax: sketch.telescope_layout(ax, "newtonian"),
+    sketch.telescope_layout,
+    lambda ax: sketch.telescope_layout(ax, "schmidt"),
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()

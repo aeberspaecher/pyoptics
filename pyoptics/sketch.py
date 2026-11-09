@@ -173,6 +173,10 @@ Setup sketches for the other example notebooks:
   vortex), Lyot stop and camera, with the starlight that the mask throws
   to the rim of the pupil image and the planet light that passes
   (notebook 96).
+- telescope_layout(): Newtonian (paraboloid and flat diagonal), Cassegrain
+  or Ritchey-Chrétien (concave primary with a hole, convex secondary) and
+  Schmidt camera (corrector plate at the centre of curvature of a
+  spherical mirror, curved focal surface) (notebook 97).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -237,7 +241,7 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "flare_scene", "pixel_sampling", "bayer_cfa", "olpf_plates", "microlens_pixels",
            "depth_of_field", "defocus_and_diffraction", "scheimpflug_hinge", "dof_wedge",
            "plenoptic_camera", "subaperture_parallax", "light_field_refocus", "plenoptic_tradeoff",
-           "coronagraph_layout"]
+           "coronagraph_layout", "telescope_layout"]
 
 
 GLASS = "#cfe3f3"
@@ -6787,3 +6791,132 @@ def coronagraph_layout(ax, mask="lyot", dm=False, title=None):
     label(ax, zl + 0.05, r_img + 0.38, "starlight at the\nrim of the pupil", fontsize=7.5,
           color=STRAY, va="bottom")
     _finish(ax, (z0 - 0.1, zd + 0.4), (-1.6, 1.45), title)
+
+
+def _mirror_arc(ax, z_vertex, R, y0, y1, color="0.25", lw=3.0, zorder=4):
+    """Draw a spherical mirror between the heights y0 and y1 (radius as in
+    sphere(): the centre is at z_vertex + R)."""
+
+    yy = np.linspace(y0, y1, 41)
+    ax.plot(z_vertex + R - np.sign(R)*np.sqrt(R**2 - yy**2), yy, color=color, lw=lw,
+            zorder=zorder)
+
+
+def _sag(z_vertex, R, y):
+    return z_vertex + R - np.sign(R)*np.sqrt(R**2 - y**2)
+
+
+def telescope_layout(ax, kind="cassegrain", title=None):
+    """Sketch of a reflecting telescope (notebook 97).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : str, optional
+        "newtonian": a paraboloid primary and a flat diagonal that sends the
+        focus to the side of the tube; "cassegrain": a concave primary with a
+        central hole and a convex secondary in front of its focus (classical
+        Cassegrain and Ritchey-Chrétien differ only in the conic constants);
+        "schmidt": a spherical mirror with an aspheric corrector plate at its
+        centre of curvature, on and off axis beams, and the curved focal
+        surface (a sphere concentric with the mirror).
+    title : str, optional
+    """
+
+    h = 1.0
+    if kind == "newtonian":
+        f = 4.0
+        zp = f
+        zf = zp - f
+        zd = zf + 1.6                     # diagonal, focus sent up to (zd, zd - zf)
+        focus = (zd, zd - zf)
+        for y in np.linspace(-0.85*h, 0.85*h, 5):
+            z_m = zp + y**2/(4*f)
+            ax.plot([-0.6, z_m], [y, y], color=STAR_COLOR, lw=1.0, zorder=2)
+            # towards the axial focus until the diagonal y = -(z - zd)
+            t = (zd - z_m - y)/((zf - z_m) - y)
+            zq, yq = z_m + t*(zf - z_m), y - t*y
+            ax.plot([z_m, zq, focus[0]], [y, yq, focus[1]], color=STAR_COLOR, lw=1.0, zorder=2)
+        yy = np.linspace(-h, h, 41)
+        ax.plot(zp + yy**2/(4*f), yy, color="0.25", lw=3, zorder=4)
+        mirror(ax, zd, 0.0, 1.0, -np.pi/4)
+        ax.plot([-0.6, zp + 0.3], [h + 0.05, h + 0.05], color="0.6", lw=1)
+        ax.plot([-0.6, zp + 0.3], [-h - 0.05, -h - 0.05], color="0.6", lw=1)
+        ax.plot([focus[0] - 0.25, focus[0] + 0.25], [focus[1], focus[1]], color="0.35", lw=3)
+        label(ax, zp + 0.1, -h - 0.25, "paraboloid\nprimary", fontsize=9, va="top")
+        label(ax, zd + 0.35, -0.35, "flat\ndiagonal", fontsize=9, ha="left")
+        label(ax, focus[0] + 0.35, focus[1], "focus", fontsize=9, ha="left")
+        _finish(ax, (-0.8, zp + 0.6), (-1.6, focus[1] + 0.4), title)
+    elif kind == "cassegrain":
+        f1, m, b = 3.0, 3.0, 0.7
+        p = (f1 + b)/(m + 1)
+        d = f1 - p
+        q = d + b
+        R2 = 2*p*q/(q - p)
+        zp, zs = d, 0.0
+        zf = zp + b
+        hs = 1.05*h*p/f1
+        hole = 0.18
+        for y in (-0.9, -0.62, -0.38, 0.38, 0.62, 0.9):
+            z_m = _sag(zp, -2*f1, y)
+            ys = y*p/f1
+            z_s = _sag(zs, -R2, ys)
+            ax.plot([-1.0, z_m], [y, y], color=STAR_COLOR, lw=1.0, zorder=2)
+            ax.plot([z_m, z_s, zf], [y, ys, 0.0], color=STAR_COLOR, lw=1.0, zorder=2)
+        _mirror_arc(ax, zp, -2*f1, hole, h)
+        _mirror_arc(ax, zp, -2*f1, -h, -hole)
+        _mirror_arc(ax, zs, -R2, -hs, hs)
+        ax.add_patch(_patches().Rectangle((zs - 0.25, -0.03), 0.22, 0.06, facecolor="0.5",
+                                          edgecolor="none", zorder=3))
+        ax.plot([zf, zf], [-0.25, 0.25], color="0.35", lw=3)
+        label(ax, zp, -h - 0.2, "concave primary\n(hole in the centre, the stop)", fontsize=9,
+              va="top")
+        label(ax, zs, -0.6, "convex\nsecondary", fontsize=9, va="top")
+        label(ax, zf, 0.4, "focus", fontsize=9, va="bottom")
+        arrow(ax, zp, -0.12, zf, -0.12, text="b", text_pos=((zp + zf)/2, -0.22), fontsize=8,
+              style="<->")
+        arrow(ax, zs, 0.75, zp, 0.75, text="d", text_pos=((zs + zp)/2, 0.84), fontsize=8,
+              style="<->", color="0.45")
+        label(ax, -0.9, 1.25, "classical Cassegrain: paraboloid + hyperboloid;\n"
+              "Ritchey-Chrétien: two hyperboloids (no coma)", fontsize=8, ha="left",
+              va="bottom")
+        _finish(ax, (-1.1, zf + 0.5), (-1.6, 1.75), title)
+    elif kind == "schmidt":
+        f = 2.0
+        R = 2*f
+        hm = 1.6
+        theta = np.radians(7.0)
+        for th, color, alpha in ((0.0, STAR_COLOR, 1.0), (theta, PLANET_COLOR, 1.0)):
+            fz, fy = f*np.cos(th), f*np.sin(th)
+            for y0 in np.linspace(-0.85*h, 0.85*h, 5):
+                # ray through the plate at height y0 with the slope tan(th)
+                k = np.tan(th)
+                # intersection with the sphere z^2 + y^2 = R^2 (centre at the plate)
+                a2 = 1 + k**2
+                bq = 2*y0*k
+                c = y0**2 - R**2
+                z_m = (-bq + np.sqrt(bq**2 - 4*a2*c))/(2*a2)
+                y_m = y0 + k*z_m
+                z0 = -1.0
+                ax.plot([z0, z_m], [y0 + k*z0, y_m], color=color, lw=0.9, zorder=2, alpha=alpha)
+                ax.plot([z_m, fz], [y_m, fy], color=color, lw=0.9, zorder=2, alpha=alpha)
+        _mirror_arc(ax, R, -R, -hm, hm)
+        # corrector plate (profile exaggerated): thickness ~ r^4 - 1.5 r^2 + const
+        yy = np.linspace(-h, h, 61)
+        r = yy/h
+        t = 0.05 + 0.12*(r**4 - 1.5*r**2 + 0.5625)
+        pts = np.r_[np.c_[-t, yy], [[0.04, h], [0.04, -h]]]
+        ax.add_patch(_patches().Polygon(pts, closed=True, facecolor=GLASS, edgecolor=EDGE, lw=1,
+                                        zorder=3))
+        # curved focal surface, concentric with the mirror
+        a = np.linspace(-0.3, 0.3, 41)
+        ax.plot(f*np.cos(a), f*np.sin(a), color="0.35", lw=2.5, zorder=4)
+        ax.plot([0, R], [0, 0], color="0.6", lw=0.6, ls=":", zorder=1)
+        label(ax, 0.0, -h - 0.15, "aspheric\ncorrector plate\n(the stop)", fontsize=9, va="top")
+        label(ax, R - 0.1, -hm - 0.12, "spherical\nmirror", fontsize=9, va="top")
+        label(ax, f - 0.05, -0.75, "curved focal\nsurface (radius f)", fontsize=8.5, va="top")
+        label(ax, 0.3, -0.04, "centre of\ncurvature", fontsize=7, ha="left", va="top",
+              color="0.4")
+        _finish(ax, (-1.1, R + 0.3), (-2.1, 1.75), title)
+    else:
+        raise ValueError("kind must be 'newtonian', 'cassegrain' or 'schmidt'")
