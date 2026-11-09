@@ -373,13 +373,15 @@ primaries with their diffraction spikes and phasing; and gravity as a
 lens: light bending traced through the index of a mass, Einstein rings,
 microlensing light curves and the Einstein cross; and the echelle
 spectrograph of the planet hunters, with its blaze, stacked orders and
-resolving power.
+resolving power; and the atmospheric dispersion corrector that undoes the
+rainbow the air makes of every star.
 
 - {doc}`notebooks/96_coronagraphs`
 - {doc}`notebooks/97_telescope_zoo`
 - {doc}`notebooks/98_segmented_mirrors`
 - {doc}`notebooks/99_einstein_rings`
 - {doc}`notebooks/100_echelle_spectrograph`
+- {doc}`notebooks/101_atmospheric_dispersion_corrector`
 
 ```{toctree}
 :hidden:
@@ -390,6 +392,7 @@ notebooks/97_telescope_zoo
 notebooks/98_segmented_mirrors
 notebooks/99_einstein_rings
 notebooks/100_echelle_spectrograph
+notebooks/101_atmospheric_dispersion_corrector
 ```
 
 ## Running the notebooks
