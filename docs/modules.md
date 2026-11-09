@@ -587,6 +587,20 @@ What each module does and how mature it is. Planned work is listed in
   propagation through layers and frozen flow screens; checked against the
   Kolmogorov structure function, Noll's table, the 19.12 λ^(-7/6) formula and
   a split-step simulation (notebook 72)
+- `coronagraph`: new, tested: stellar coronagraphs in the four planes
+  pupil, focal plane mask, Lyot stop and camera; telescope pupils with
+  obscuration and spiders (`telescope_pupil()`), the matrix Fourier
+  transform (`mft()`), Sonine and circular prolate apodizers
+  (`sonine_apodizer()`, `sonine_psf()`, `prolate_apodizer()`), occulting
+  disks by Babinet's principle (`occulter_lyot_field()`,
+  `occulter_lyot_analytic()`), vortex masks of any charge with nested,
+  smoothly windowed focal grids (`vortex_lyot_field()`,
+  `vortex_lyot_analytic()`, `vortex_blocks()`), the `Coronagraph` class
+  with contrast normalization, power law aberration screens, deformable
+  mirror influence functions and electric field conjugation
+  (`efc_jacobian()`, `efc_step()`); checked against the Airy and Sonine
+  PSFs, J_0(pi a), the prolate eigenvalue, the analytic vortex fields,
+  the tip-tilt leak laws and the Zernike selection rule (notebook 96)
 - `wpm`: wave propagation method (Cython extension) for inhomogeneous, also
   absorbing media, 2D and y-invariant 1D fields, multi-step driver; direct
   O(N^2) sum (OpenMP) or the fast "levels" variant (one FFT pair per distinct

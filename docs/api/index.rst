@@ -121,8 +121,8 @@ Interfaces, thin films and polarization
    pyoptics.polarization.jones
    pyoptics.polarization.mueller
 
-Atmospheric optics and colour
------------------------------
+Atmospheric optics, astronomy and colour
+----------------------------------------
 
 .. autosummary::
    :toctree: generated
@@ -130,6 +130,7 @@ Atmospheric optics and colour
    pyoptics.rainbow
    pyoptics.colour
    pyoptics.turbulence
+   pyoptics.coronagraph
 
 Measurement and phase retrieval
 -------------------------------

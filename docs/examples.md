@@ -360,6 +360,21 @@ notebooks/94_tilt_shift_depth_of_field
 notebooks/95_light_field_camera
 ```
 
+## Astronomy
+
+Optics for imaging planets next to their stars: coronagraphs with
+apodized pupils, occulting disks, vortex masks and Lyot stops, and a dark
+hole dug with a deformable mirror.
+
+- {doc}`notebooks/96_coronagraphs`
+
+```{toctree}
+:hidden:
+:caption: Astronomy
+
+notebooks/96_coronagraphs
+```
+
 ## Running the notebooks
 
 ```{include} ../notebooks/README.md
