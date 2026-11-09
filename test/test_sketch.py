@@ -137,6 +137,10 @@ def test_paraxial_ray_imaging():
     lambda ax: sketch.led_collimator(ax, "lens"),
     lambda ax: sketch.led_collimator(ax, "reflector"),
     sketch.led_collimator,
+    sketch.beam_shaping_ray_map,
+    sketch.flattop_beam_shaper,
+    sketch.freeform_projection,
+    lambda ax: sketch.freeform_projection(ax, image=np.ones((8, 8))),
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()

@@ -131,6 +131,10 @@ Setup sketches for the other example notebooks:
   irradiance; photometric_distance(): a Lambertian disk and the inverse
   square law; led_collimator(): a lens, a paraboloid and both together
   in front of an LED (notebook 88).
+- beam_shaping_ray_map(): equal power strips of a Gaussian mapped onto a
+  flat top; flattop_beam_shaper(): the two-lens refractive Gaussian to
+  flat-top shaper; freeform_projection(): a plano-freeform lens that
+  projects an image (notebook 89).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -187,7 +191,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "phase_space_portraits", "liouville_lens", "burning_glass", "etendue_diffuser",
            "light_pipe_images", "cpc_edge_rays", "cpc_skew_ray", "cpc_secondary", "koehler_critical",
            "fly_eye_homogenizer", "speckle_formation", "speckle_diversity", "laser_projector",
-           "led_above_plane", "photometric_distance", "led_collimator"]
+           "led_above_plane", "photometric_distance", "led_collimator",
+           "beam_shaping_ray_map", "flattop_beam_shaper", "freeform_projection"]
 
 
 GLASS = "#cfe3f3"
@@ -5480,3 +5485,135 @@ def led_collimator(ax, kind="hybrid", title=None):
     if use_refl:
         label(ax, z_rim, -r_rim - 1.5, "paraboloid,\nF = 4 mm", va="top", fontsize=8)
     _finish(ax, (-13.0, z_end + 1.0), (-r_rim - 7.0, r_rim + 4.0), title)
+
+
+def beam_shaping_ray_map(ax, title=None):
+    """Sketch of the ray map of a beam shaper (notebook 89).
+
+    A Gaussian beam is cut into rings (here: strips) of equal power, dense
+    in the centre, sparse in the wings; the shaper sends each of them to a
+    ring of equal power of the target, here a flat top, where they are
+    evenly spaced: int I_in dA = int E_out dA, ring by ring.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    from scipy.special import erfinv
+    n = 9
+    q = (np.arange(n) + 0.5)/n
+    w, R0, L = 1.0, 2.0, 5.0
+    y_in = w/np.sqrt(2)*np.sqrt(2)*erfinv(2*q - 1)*0.9      # equal power strips of a Gaussian
+    y_out = R0*(2*q - 1)
+    yy = np.linspace(-2.4, 2.4, 200)
+    ax.plot(-1.4 - 0.9*np.exp(-2*yy**2/w**2), yy, color=ILLUMINATION, lw=1.5)
+    ax.fill_betweenx(yy, -1.4 - 0.9*np.exp(-2*yy**2/w**2), -1.4, color=ILLUMINATION, alpha=0.2)
+    label(ax, -1.85, 2.6, "Gaussian input", fontsize=8)
+    E = (np.abs(yy) <= R0).astype(float)
+    ax.plot(L + 1.4 + 0.5*E, yy, color="#b40426", lw=1.5)
+    label(ax, L + 1.7, 2.6, "flat-top target", fontsize=8, color="#b40426")
+    for a_, b_ in zip(y_in, y_out):
+        ax.plot([-1.2, 0.0, L, L + 1.2], [a_, a_, b_, b_], color=IMAGING, lw=0.9)
+    ax.plot([0, 0], [-2.4, 2.4], color="0.55", ls=":", lw=1)
+    ax.plot([L, L], [-2.4, 2.4], color="0.55", ls=":", lw=1)
+    label(ax, 0.0, -2.6, "input plane", va="top", fontsize=8, color="0.4")
+    label(ax, L, -2.6, "target plane", va="top", fontsize=8, color="0.4")
+    label(ax, L/2, 3.0, "equal power between neighbouring rays", fontsize=8, color="0.3")
+    label(ax, L/2, -3.15, r"$I_\mathrm{in}(x)\,dx = E_\mathrm{out}(T(x))\,dT$", fontsize=10)
+    _finish(ax, (-2.6, L + 2.3), (-3.5, 3.3), title)
+
+
+def flattop_beam_shaper(ax, title=None):
+    """Sketch of the two-lens refractive Gaussian to flat-top shaper
+    (notebook 89): a plano-aspheric lens spreads the centre of the beam and
+    bends the wings in, a second lens at the distance D collimates the rays
+    again. The equal optical path of all rays keeps the output wavefront
+    plane. The sags are exaggerated.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    from scipy.special import erfinv
+    mpatches = _patches()
+    n_r = 7
+    q = (np.arange(n_r) + 0.5)/n_r
+    w, R0, D = 0.8, 1.6, 4.0
+    y_in = w*np.sqrt(2)*erfinv(2*q - 1)*0.75
+    y_out = R0*(2*q - 1)*0.95
+    h = 2.0
+    yy = np.linspace(-h, h, 101)
+    # surface shapes drawn from the ray slopes (exaggerated)
+    prof = 0.5*(yy/h)**2 - 0.45*(yy/h)**4         # concave centre, wings turned back
+    z1 = 0.45 + prof
+    z2 = D - 0.45 - prof
+    ax.add_patch(mpatches.Polygon(np.r_[[[-0.6, -h], [-0.6, h]], np.c_[z1[::-1], yy[::-1]]],
+                                  closed=True, facecolor=GLASS, edgecolor=EDGE, lw=1, zorder=3))
+    ax.add_patch(mpatches.Polygon(np.r_[np.c_[z2, yy], [[D + 0.6, h], [D + 0.6, -h]]],
+                                  closed=True, facecolor=GLASS, edgecolor=EDGE, lw=1, zorder=3))
+    z1f = lambda y: np.interp(y, yy, z1)
+    z2f = lambda y: np.interp(y, yy, z2)
+    for a_, b_ in zip(y_in, y_out):
+        ax.plot([-1.6, z1f(a_), z2f(b_), D + 1.6], [a_, a_, b_, b_], color=IMAGING, lw=0.9,
+                zorder=4)
+    yp = np.linspace(-h, h, 200)
+    ax.plot(-2.0 - 0.7*np.exp(-2*yp**2/w**2), yp, color=ILLUMINATION, lw=1.5)
+    label(ax, -2.35, h + 0.15, "Gaussian,\ncollimated", va="bottom", fontsize=8)
+    ax.plot(D + 2.0 + 0.45*(np.abs(yp) <= R0), yp, color="#b40426", lw=1.5)
+    label(ax, D + 2.3, h + 0.15, "flat top,\ncollimated", va="bottom", fontsize=8, color="#b40426")
+    arrow(ax, 0.6, -h - 0.3, D - 0.6, -h - 0.3, style="<->", text="D", text_pos=(D/2, -h - 0.45),
+          va="top", fontsize=9)
+    label(ax, 0.0, h + 0.15, "lens 1", va="bottom", fontsize=8)
+    label(ax, D, h + 0.15, "lens 2", va="bottom", fontsize=8)
+    label(ax, D/2, h + 0.7, "equal optical path for all rays: plane wavefront out",
+          fontsize=8, color="0.3")
+    _finish(ax, (-3.0, D + 3.0), (-h - 1.0, h + 1.1), title)
+
+
+def freeform_projection(ax, image=None, title=None):
+    """Sketch of a plano-freeform lens that projects a prescribed
+    irradiance (notebook 89): a collimated beam, the lens with its freeform
+    exit surface and the rays to the target plane at the distance L, where
+    an image (optional 2D array) forms.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    image : 2d array, optional
+        Irradiance drawn on the target plane (axis 0 horizontal).
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    a, L, H = 1.2, 6.0, 2.4
+    yy = np.linspace(-a, a, 101)
+    rng = np.random.default_rng(2)
+    bumps = 0.08*np.sin(3.1*yy + 0.4) + 0.05*np.cos(5.3*yy) + 0.12*(yy/a)**2
+    z_s = 0.5 + bumps
+    ax.add_patch(mpatches.Polygon(np.r_[[[0.0, -a], [0.0, a]], np.c_[z_s[::-1], yy[::-1]]],
+                                  closed=True, facecolor=GLASS, edgecolor=EDGE, lw=1, zorder=3))
+    ys = np.linspace(-0.9*a, 0.9*a, 11)
+    targets = np.sort(rng.uniform(-H, H, len(ys)))
+    targets = 0.5*targets + 0.5*np.linspace(-H, H, len(ys))
+    for y0, yt in zip(ys, targets):
+        zs = np.interp(y0, yy, z_s)
+        ax.plot([-1.5, zs, L], [y0, y0, yt], color=IMAGING, lw=0.8, zorder=2)
+    ax.plot([L, L], [-H - 0.3, H + 0.3], color="0.3", lw=1.5)
+    if image is not None:
+        img = np.asarray(image, float)
+        ax.imshow(img.T, extent=[L + 0.3, L + 0.3 + 2*H, -H, H], origin="lower", cmap="inferno",
+                  zorder=5)
+        label(ax, L + 0.3 + H, -H - 0.15, "target irradiance", va="top", fontsize=8)
+        x_max = L + 0.6 + 2*H
+    else:
+        x_max = L + 0.8
+    label(ax, -1.5, a + 0.2, "collimated\nbeam", va="bottom", fontsize=8)
+    label(ax, 0.25, -a - 0.15, "plano-freeform\nlens", va="top", fontsize=8)
+    label(ax, L, -H - 0.45, "target plane", va="top", fontsize=8)
+    arrow(ax, 0.5, H + 0.15, L, H + 0.15, style="<->", text="L", text_pos=(L/2 + 0.2, H + 0.3),
+          va="bottom", fontsize=9)
+    _finish(ax, (-2.0, x_max), (-H - 1.1, H + 0.9), title)

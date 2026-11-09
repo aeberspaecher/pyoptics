@@ -295,7 +295,7 @@ notebooks/50_magnification_distortion_telecentricity
 ## Illumination optics
 
 Étendue, nonimaging concentrators, microscope illumination, homogenizers,
-speckle reduction and LED optics.
+speckle reduction, LED optics and freeform beam shaping.
 
 - {doc}`notebooks/83_etendue_brightness_theorem`
 - {doc}`notebooks/84_nonimaging_concentrators`
@@ -303,6 +303,7 @@ speckle reduction and LED optics.
 - {doc}`notebooks/86_homogenizers`
 - {doc}`notebooks/87_speckle_reduction`
 - {doc}`notebooks/88_led_optics_monte_carlo`
+- {doc}`notebooks/89_freeform_beam_shaping`
 
 ```{toctree}
 :hidden:
@@ -314,6 +315,7 @@ notebooks/85_koehler_critical_illumination
 notebooks/86_homogenizers
 notebooks/87_speckle_reduction
 notebooks/88_led_optics_monte_carlo
+notebooks/89_freeform_beam_shaping
 ```
 
 ## Atmospheric optics

@@ -122,6 +122,7 @@ that it uses.
 | 6 | {doc}`51 Fresnel lenses <notebooks/51_fresnel_lenses>` | Fresnel lenses and solar concentrators. |
 | 7 | {doc}`42 KrF illuminator <notebooks/42_litho_illuminator>` | A complete illuminator, ray traced. |
 | 8 | {doc}`87 Speckle reduction <notebooks/87_speckle_reduction>` | Speckle, when the source is a laser. |
+| 9 | {doc}`89 Freeform beam shaping <notebooks/89_freeform_beam_shaping>` | Flat-top shapers, optimal transport and freeform lenses. |
 
 **Side trips:** {doc}`10 Interfaces and thin films <notebooks/10_interfaces_thin_films>` and {doc}`20 Polarization ray tracing <notebooks/20_polarization_raytrace>` for coatings and Fresnel losses.
 
@@ -138,11 +139,12 @@ For readers who build laser heads, fibre couplings or beam shapers.
 | 5 | {doc}`56 Gaussian beam decomposition <notebooks/56_gaussian_beam_decomposition>` | A spatial filter with Gaussian beam decomposition. |
 | 6 | {doc}`14 Coated laser mirror <notebooks/14_coated_laser_mirror>` | A coated 45° fold mirror: retardance and its effect on the focus. |
 | 7 | {doc}`30 IFTA beam shaping <notebooks/30_IFTA>` | Designing a phase-only DOE with IFTA. |
-| 8 | {doc}`48 Laser head DOE <notebooks/48_laser_head_doe>` | A diffractive 5 × 5 spot splitter in a processing head. |
-| 9 | {doc}`68 Bessel and Airy beams <notebooks/68_bessel_airy_self_healing>` | Bessel and Airy beams. |
-| 10 | {doc}`69 Optical vortices <notebooks/69_optical_vortices>` | Vortex beams and mode converters. |
-| 11 | {doc}`81 Ultrashort pulses <notebooks/81_ultrashort_pulses_lenses>` | Femtosecond pulses through lenses, prisms and gratings. |
-| 12 | {doc}`75 Optical tweezers <notebooks/75_optical_tweezers>` | Optical forces in a tight focus. |
+| 8 | {doc}`89 Freeform beam shaping <notebooks/89_freeform_beam_shaping>` | Refractive flat-top shapers and freeform lenses. |
+| 9 | {doc}`48 Laser head DOE <notebooks/48_laser_head_doe>` | A diffractive 5 × 5 spot splitter in a processing head. |
+| 10 | {doc}`68 Bessel and Airy beams <notebooks/68_bessel_airy_self_healing>` | Bessel and Airy beams. |
+| 11 | {doc}`69 Optical vortices <notebooks/69_optical_vortices>` | Vortex beams and mode converters. |
+| 12 | {doc}`81 Ultrashort pulses <notebooks/81_ultrashort_pulses_lenses>` | Femtosecond pulses through lenses, prisms and gratings. |
+| 13 | {doc}`75 Optical tweezers <notebooks/75_optical_tweezers>` | Optical forces in a tight focus. |
 
 **Side trips:** {doc}`02 Vectorial diffraction <notebooks/02_vectorial_diffraction>` (high NA foci), {doc}`03 Tilted planes <notebooks/03_tilted_planes>`, {doc}`04 Chirp-z transform <notebooks/04_chirp_z_transform>`.
 
