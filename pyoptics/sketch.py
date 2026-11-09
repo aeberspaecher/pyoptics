@@ -164,6 +164,11 @@ Setup sketches for the other example notebooks:
   the aperture; scheimpflug_hinge(): a tilted lens, the Scheimpflug line
   and the hinge line; dof_wedge(): the wedge of sharp focus of a tilted
   lens (notebook 94).
+- plenoptic_camera(): main lens, microlens array and sensor of a light
+  field camera; subaperture_parallax(): pixels at the same place under the
+  microlenses form a view, out of focus points move between views;
+  light_field_refocus(): refocusing on a virtual sensor; plenoptic_tradeoff():
+  positions against directions on the same sensor (notebook 95).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -226,7 +231,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "rippled_asphere", "apodized_lens", "iris_diffraction", "iris_spikes", "rounded_iris",
            "iris_stop_down", "sunstar_scene", "ghost_reflections", "ar_coating_layers", "ghost_focus",
            "flare_scene", "pixel_sampling", "bayer_cfa", "olpf_plates", "microlens_pixels",
-           "depth_of_field", "defocus_and_diffraction", "scheimpflug_hinge", "dof_wedge"]
+           "depth_of_field", "defocus_and_diffraction", "scheimpflug_hinge", "dof_wedge",
+           "plenoptic_camera", "subaperture_parallax", "light_field_refocus", "plenoptic_tradeoff"]
 
 
 GLASS = "#cfe3f3"
@@ -6544,3 +6550,156 @@ def dof_wedge(ax, title=None):
     label(ax, -2.0, -h + 1.75, "top of a near post\nleaves the wedge", fontsize=7.5, color=STRAY)
     label(ax, -10.5, -h + 0.35, "ground in focus", fontsize=8, color=FOCUS_COLOR, ha="left")
     _finish(ax, (-11.8, 1.2), (-h - 1.8, 1.0), title)
+
+
+VIEW_COLORS = ("#d62728", "#5aa469", "#2a7ab9")
+
+
+def _plenoptic_parts(ax, n_lenslets=5, h=1.0, z_mla=2.0, gap=0.5, labels=True):
+    """Main lens, microlens array and sensor of the plenoptic sketches;
+    returns the lenslet centres."""
+
+    lens(ax, 0.0, 0.85, thickness=0.18)
+    centres = lenslet_array(ax, z_mla, h, n_lenslets)
+    zs = z_mla + gap
+    ax.plot([zs, zs], [-h, h], color="0.3", lw=2.5, solid_capstyle="butt")
+    if labels:
+        label(ax, 0.0, -1.1, "main lens", fontsize=8)
+        label(ax, z_mla, h + 0.15, "microlenses", fontsize=8)
+        label(ax, zs + 0.1, -h - 0.2, "sensor", fontsize=8, ha="left")
+    return centres
+
+
+def _plenoptic_ray(ax, zo, yo, u, f, z_mla, gap, centres, color, lw=1.0, ls="-", pixel=True):
+    """Ray from an object point (zo, yo) through the main lens (focal length
+    f, at z = 0) at the height u, to the microlens array and the sensor;
+    marks the pixel it lands on. Returns (x on the array, x on the sensor)."""
+
+    so = -zo
+    vi = 1/(1/f - 1/so)
+    yi = -yo*vi/so
+    x = u + (yi - u)*z_mla/vi
+    pitch = centres[1] - centres[0]
+    c = centres[np.argmin(np.abs(centres - x))]
+    xs = c + gap*(x - u)/z_mla
+    ax.plot([zo, 0.0, z_mla, z_mla + gap], [yo, u, x, xs], color=color, lw=lw, ls=ls, alpha=0.9)
+    if pixel:
+        ax.add_patch(_patches().Rectangle((z_mla + gap + 0.02, xs - pitch/8), 0.12, pitch/4,
+                                          facecolor=color, edgecolor="none", zorder=4))
+    return x, xs
+
+
+def plenoptic_camera(ax, title=None):
+    """Sketch of a plenoptic camera (notebook 95): a microlens array in the
+    image plane of the main lens and a sensor one microlens focal length
+    behind it. Light from an object point in focus meets on one microlens,
+    which spreads it over the pixels behind it by direction: each pixel
+    sees one part of the main lens aperture (reversed). The microlens
+    gives the position x, the pixel under it the aperture position u.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    f, z_mla, gap = 1/(1/3.2 + 1/2.0), 2.0, 0.5
+    centres = _plenoptic_parts(ax, z_mla=z_mla, gap=gap)
+    for u, col in zip((0.75, 0.0, -0.75), VIEW_COLORS):
+        _plenoptic_ray(ax, -3.2, 0.0, u, f, z_mla, gap, centres, col)
+    ax.plot([-3.2], [0.0], "o", color="k", ms=4)
+    label(ax, -3.2, 0.3, "object point\nin focus", fontsize=8)
+    label(ax, 0.12, 0.85, "u", fontsize=9, ha="left", color=VIEW_COLORS[0])
+    label(ax, z_mla + gap + 0.35, 0.0, "one pixel for each\npart of the aperture", fontsize=8,
+          ha="left")
+    label(ax, z_mla - 0.15, 0.62, "x", fontsize=9, ha="right")
+    _finish(ax, (-3.7, 4.3), (-1.3, 1.3), title)
+
+
+def subaperture_parallax(ax, title=None):
+    """Sketch of sub-aperture views (notebook 95): the pixels at the same
+    place under every microlens see the scene through the same part of
+    the aperture, they form one view. A point in focus (grey) is seen by
+    all views on the same microlens; a point out of focus (here a near
+    one, imaged behind the microlenses) lands on different microlenses in
+    the views through the top and the bottom of the aperture: parallax.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    f, z_mla, gap = 1/(1/3.2 + 1/2.0), 2.0, 0.5
+    centres = _plenoptic_parts(ax, z_mla=z_mla, gap=gap)
+    for u in (0.75, -0.75):
+        _plenoptic_ray(ax, -3.2, 0.6, u, f, z_mla, gap, centres, "0.6", lw=0.9, pixel=False)
+    ax.plot([-3.2], [0.6], "o", color="0.45", ms=4)
+    label(ax, -3.2, 0.85, "in focus", fontsize=8, color="0.45")
+    for u, col in zip((0.75, -0.75), (VIEW_COLORS[0], VIEW_COLORS[2])):
+        _plenoptic_ray(ax, -2.0, 0.0, u, f, z_mla, gap, centres, col)
+    ax.plot([-2.0], [0.0], "o", color="k", ms=4)
+    label(ax, -2.0, -0.3, "near point", fontsize=8)
+    label(ax, z_mla + gap + 0.3, 0.45, "view through the\ntop of the aperture", fontsize=7.5,
+          ha="left", color=VIEW_COLORS[0])
+    label(ax, z_mla + gap + 0.3, -0.45, "view through the\nbottom of the aperture", fontsize=7.5,
+          ha="left", color=VIEW_COLORS[2])
+    _finish(ax, (-3.7, 4.6), (-1.3, 1.3), title)
+
+
+def light_field_refocus(ax, title=None):
+    """Sketch of refocusing (notebook 95): a far point is imaged in front of
+    the microlenses; its rays meet in a virtual image plane and spread
+    over several microlenses. Adding up the pixels that these rays reach,
+    one from each view at a shifted position, gives the photograph a
+    sensor in the virtual plane would have taken: shift and add.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    f, z_mla, gap = 1/(1/3.2 + 1/2.0), 2.0, 0.5
+    centres = _plenoptic_parts(ax, z_mla=z_mla, gap=gap)
+    zo = -8.0
+    vi = 1/(1/f - 1/(-zo))
+    for u, col in zip((0.75, 0.0, -0.75), VIEW_COLORS):
+        _plenoptic_ray(ax, zo, 0.0, u, f, z_mla, gap, centres, col)
+    ax.plot([zo], [0.0], "o", color="k", ms=4)
+    label(ax, zo, 0.3, "far point", fontsize=8)
+    ax.plot([vi, vi], [-0.8, 0.8], color=FOCUS_COLOR, lw=1.5, ls="--")
+    label(ax, vi, -1.05, "virtual\nsensor", fontsize=8, color=FOCUS_COLOR)
+    label(ax, z_mla + gap + 0.3, 0.0, "add these pixels:\nthe same point\nin every view",
+          fontsize=8, ha="left")
+    _finish(ax, (-8.5, 4.4), (-1.3, 1.4), title)
+
+
+def plenoptic_tradeoff(ax, title=None):
+    """Sketch of the trade-off of a plenoptic camera (notebook 95): the same
+    sensor behind few large microlenses (many directions, few positions)
+    or many small ones (many positions, few directions).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mp = _patches()
+    h = 1.0
+    for z0, n_l, txt in ((0.0, 3, "3 microlenses x 9 pixels:\nfew positions, many directions"),
+                         (3.2, 9, "9 microlenses x 3 pixels:\nmany positions, few directions")):
+        centres = lenslet_array(ax, z0, h, n_l)
+        n_p = 27//n_l
+        q = 2*h/27
+        for k in range(27):
+            ax.add_patch(mp.Rectangle((z0 + 0.5, -h + k*q), 0.15, q, facecolor=VIEW_COLORS[(k % n_p)*3//n_p],
+                                      alpha=0.25 + 0.5*((k % n_p) + 0.5)/n_p, edgecolor="white",
+                                      lw=0.4))
+        p = 2*h/n_l
+        for c in centres:
+            ax.plot([z0 + 0.04, z0 + 0.5], [c, c - p/2], color="0.6", lw=0.5)
+            ax.plot([z0 + 0.04, z0 + 0.5], [c, c + p/2], color="0.6", lw=0.5)
+        label(ax, z0 + 0.3, -h - 0.35, txt, fontsize=7.5, va="top")
+    _finish(ax, (-1.2, 4.6), (-2.0, 1.2), title)

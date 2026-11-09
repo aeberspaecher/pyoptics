@@ -419,6 +419,19 @@ What each module does and how mature it is. Planned work is listed in
   (`trace_pixel()`); checked against sinc and diffraction MTFs, the
   folding of frequencies, the carrier positions, the tensor walk-off and
   the paraxial pupil image (notebook 93)
+- `lightfield`: new, tested: the light field (plenoptic) camera; a thin
+  main lens, a microlens array in its image plane and a sensor matched to
+  the grid of microlens images (`plenoptic_camera()`, `pixel_pitch()`), raw
+  images of scenes of textured planes sampled with rays (`render_raw()`),
+  sub-aperture views and flat fielding (`subaperture_views()`), the
+  disparity between views against distance (`disparity()`,
+  `depth_from_disparity()`), shift-and-add refocusing with Fourier shifts
+  (`refocus()`), sub-pixel image registration (`view_shift()`), disparity
+  maps by photo consistency (`disparity_map()`), the geometric MTF of a
+  refocused image (`refocused_mtf()`) and the exit pupil images of a real
+  lens behind the microlenses (`microlens_images()`); checked against the
+  disk overlap, the disparity of rendered planes, slanted edge MTFs, the
+  depth of field of f/(nN) and the paraxial exit pupil (notebook 95)
 - `fresnel`: Fresnel lenses, tested: a parent surface (sphere, conic,
   even asphere) collapsed into zones of constant pitch, constant depth or
   given radii, with curved or flat (conical) facets and drafted risers
