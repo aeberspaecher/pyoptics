@@ -179,6 +179,8 @@ def test_paraxial_ray_imaging():
     lambda ax: sketch.segment_phasing_layout(ax, "pr"),
     sketch.lensing_geometry,
     lambda ax: sketch.lensing_geometry(ax, ring=True),
+    sketch.echelle_layout,
+    lambda ax: sketch.echelle_layout(ax, kind="grooves"),
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()

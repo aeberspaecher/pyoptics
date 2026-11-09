@@ -188,6 +188,10 @@ Setup sketches for the other example notebooks:
   lens with the two images of a point mass, the angles beta, theta and
   alpha and the distances D_l, D_s, D_ls; or (ring=True) a source behind
   the lens seen as an Einstein ring (notebook 99).
+- echelle_layout(): slit, collimator, echelle, cross-disperser, camera and
+  the echellogram of stacked orders; or (kind="grooves") the right-angle
+  grooves of an echelle in Littrow with theta_B, d and the facet width
+  (notebook 100).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -253,7 +257,7 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "depth_of_field", "defocus_and_diffraction", "scheimpflug_hinge", "dof_wedge",
            "plenoptic_camera", "subaperture_parallax", "light_field_refocus", "plenoptic_tradeoff",
            "coronagraph_layout", "telescope_layout", "segment_phasing_layout",
-           "lensing_geometry"]
+           "lensing_geometry", "echelle_layout"]
 
 
 GLASS = "#cfe3f3"
@@ -7154,3 +7158,111 @@ def sine_herschel_conditions(ax, kind="sine", title=None):
     label(ax, 0.85, 0.16, "U", fontsize=9)
     label(ax, z_pi - 0.95, 0.2, "U′", fontsize=9)
     _finish(ax, (-1.4, z_pi + 1.4), (-3.1, 2.6), title)
+
+
+def echelle_layout(ax, kind="instrument", title=None):
+    """Sketch of an echelle spectrograph (notebook 100).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"instrument", "grooves"}, optional
+        "instrument": slit, collimator, echelle, cross-disperser, camera and
+        detector (unfolded, the echelle drawn in transmission), with the
+        echellogram of stacked orders on the detector. "grooves": the
+        right-angle grooves of an echelle in Littrow with the blaze angle
+        theta_B, the period d, the facet width b = d cos(theta_B) and the
+        step d sin(theta_B) along the beam.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    if kind == "grooves":
+        th = np.arctan(2.0)                             # R2
+        d = 1.0
+        n = 4
+        pts = []
+        for i in range(n):
+            x0 = i*d
+            pts += [(x0, 0.0), (x0 + d*np.cos(th)**2, -d*np.sin(th)*np.cos(th))]
+        pts += [(n*d, 0.0), (n*d, -0.9), (0.0, -0.9)]
+        ax.add_patch(mpatches.Polygon(pts, closed=True, facecolor="#d9d9d9", edgecolor="0.3",
+                                      lw=1.2, zorder=3))
+        nrm = np.array([np.sin(th), np.cos(th)])
+        ax.plot([-0.3, n*d + 0.3], [0.0, 0.0], color="0.6", lw=0.6, ls=":")       # grating plane
+        # Littrow beam onto the facets: incident and returned along the facet normal
+        for i in range(n):
+            c = np.array([i*d + 0.5*d*np.cos(th)**2, -0.5*d*np.sin(th)*np.cos(th)])
+            a = c + 1.9*nrm
+            arrow(ax, a[0], a[1], c[0] + 0.05*nrm[0], c[1] + 0.05*nrm[1], color=ILLUMINATION,
+                  lw=1.2, style="<|-|>")
+        # grating normal and facet normal at facet 1
+        c = np.array([d + 0.5*d*np.cos(th)**2, -0.5*d*np.sin(th)*np.cos(th)])
+        ax.plot([c[0], c[0]], [c[1], c[1] + 1.3], color="0.4", lw=0.8, ls="--")
+        t = np.linspace(0, th, 30)
+        ax.plot(c[0] + 0.85*np.sin(t), c[1] + 0.85*np.cos(t), color="0.3", lw=0.8)
+        label(ax, c[0] + 0.25, c[1] + 1.05, r"$\theta_B$", fontsize=10)
+        label(ax, c[0] - 0.05, c[1] + 1.45, "grating\nnormal", fontsize=8, va="bottom")
+        # period d
+        arrow(ax, 2*d, 0.35, 3*d, 0.35, style="<->", text="$d$", text_pos=(2.5*d, 0.5),
+              fontsize=10)
+        ax.plot([2*d, 2*d], [0.0, 0.42], color="0.5", lw=0.6)
+        ax.plot([3*d, 3*d], [0.0, 0.42], color="0.5", lw=0.6)
+        # facet width b along the facet of groove 3
+        p0 = np.array([3*d, 0.0])
+        p1 = p0 + d*np.cos(th)*np.array([np.cos(th), -np.sin(th)])
+        off = -0.28*nrm
+        arrow(ax, *(p0 + off), *(p1 + off), style="<->")
+        label(ax, p1[0] + off[0] + 0.1, p1[1] + off[1] - 0.12, r"facet $b = d\cos\theta_B$",
+              fontsize=9, ha="left")
+        label(ax, n*d + 0.2, 0.5, "light in and out\nalong the facet normal\n"
+              "(Littrow): facets $d\\sin\\theta_B$ apart\nalong the beam,\n"
+              r"$2 d \sin\theta_B = m\lambda$", fontsize=8, ha="left")
+        _finish(ax, (-0.4, n*d + 2.6), (-1.1, 2.3), title)
+        return
+    if kind != "instrument":
+        raise ValueError("kind must be 'instrument' or 'grooves'")
+    h = 0.6
+    z_slit, z_col, z_ech, z_cd, z_cam, z_det = 0.0, 2.0, 3.6, 5.0, 6.4, 8.4
+    stop(ax, z_slit, 1.0, openings=((0.0, 0.06),), text="slit", text_y=-1.2)
+    band(ax, [z_slit, z_col], [0.0, h], [z_slit, z_col], [0.0, -h], color="0.6", alpha=0.25)
+    lens(ax, z_col, 0.8, text="collimator", text_y=-1.2)
+    band(ax, [z_col, z_ech], [h, h], [z_col, z_ech], [-h, -h], color="0.6", alpha=0.25)
+    # echelle drawn as a sawtooth in transmission (unfolded)
+    yy = np.linspace(-0.8, 0.8, 9)
+    zz = np.where(np.arange(9) % 2 == 0, z_ech - 0.08, z_ech + 0.08)
+    ax.plot(zz, yy, color="0.25", lw=1.4, zorder=4)
+    label(ax, z_ech, -1.2, "echelle\n(order m)", fontsize=9, va="top")
+    cols = ["#3b5bdb", "#2f9e44", "#e03131"]
+    tilts = [-0.12, 0.0, 0.12]
+    for col, t in zip(cols, tilts):
+        y_cd = np.array([h, -h]) + t*(z_cd - z_ech)
+        y_cam = y_cd + t*(z_cam - z_cd)
+        band(ax, [z_ech, z_cd, z_cam], [h, y_cd[0], y_cam[0]], [z_ech, z_cd, z_cam],
+             [-h, y_cd[1], y_cam[1]], color=col, alpha=0.12, lw=0.6)
+        ax.plot([z_cam, z_det], [y_cam.mean(), 3.2*t], color=col, lw=0.6)
+        band(ax, [z_cam, z_det], [y_cam[0], 3.2*t], [z_cam, z_det], [y_cam[1], 3.2*t], color=col,
+             alpha=0.15, lw=0.6)
+    ax.add_patch(mpatches.Polygon([(z_cd - 0.3, -0.95), (z_cd + 0.3, -0.95), (z_cd, 0.95)],
+                                  closed=True, facecolor=GLASS, edgecolor=EDGE, lw=1, zorder=4))
+    label(ax, z_cd, -1.2, "cross-\ndisperser", fontsize=9, va="top")
+    lens(ax, z_cam, 1.1, text="camera", text_y=-1.4)
+    detector(ax, z_det, 0.9, width=0.08, text="detector", text_y=-1.2)
+    # echellogram: stacked orders, longer and more widely spaced in the red
+    x0 = z_det + 0.9
+    ax.add_patch(mpatches.Rectangle((x0, -1.0), 2.2, 2.0, facecolor="0.12", edgecolor="0.3",
+                                    zorder=3))
+    lam = np.linspace(390, 680, 11)
+    yo = -0.85 + 1.7*((lam/lam[0])**2 - 1)/((lam[-1]/lam[0])**2 - 1)
+    for lm, y in zip(lam, yo):
+        half = 0.45*lm/lam[-1]*2.0/2*1.6
+        f = (lm - 390)/290
+        col = (0.25 + 0.75*f, 0.35 + 0.4*np.sin(np.pi*f), 1.0 - 0.8*f)
+        ax.plot([x0 + 1.1 - half, x0 + 1.1 + half], [y - 0.03, y + 0.03], color=col, lw=1.6,
+                zorder=4)
+    label(ax, x0 + 1.1, -1.2, "echellogram\n(orders stacked)", fontsize=9, va="top")
+    arrow(ax, x0 + 2.35, -0.9, x0 + 2.35, 0.9, text="cross-\ndispersion", text_pos=(x0 + 2.75, 0.0),
+          fontsize=7)
+    arrow(ax, x0 + 0.1, 1.15, x0 + 2.1, 1.15, text=r"echelle dispersion $\lambda/m$ per order",
+          text_pos=(x0 + 1.1, 1.35), fontsize=7)
+    _finish(ax, (-0.5, x0 + 3.2), (-1.9, 1.6), title)

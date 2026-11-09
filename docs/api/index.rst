@@ -134,6 +134,7 @@ Atmospheric optics, astronomy and colour
    pyoptics.telescopes
    pyoptics.segmented
    pyoptics.lensing
+   pyoptics.echelle
 
 Measurement and phase retrieval
 -------------------------------
