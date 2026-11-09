@@ -7015,7 +7015,7 @@ def segment_phasing_layout(ax, method="dfs", title=None):
         _finish(ax, (-1.1, zd + 1.5), (-1.25, 1.55), title)
     elif method == "pr":
         lens(ax, zp + 0.3, 0.45, text="weak lens\n(± defocus)", text_y=-0.6)
-        lens(ax, zcam, 0.5, text="camera")
+        lens(ax, zcam, 0.5, text="camera", text_y=0.75)
         detector(ax, zd, 0.55, width=0.08)
         t = np.linspace(0, 2*np.pi, 7)
         for k, (yc, r) in enumerate(((0.32, 0.2), (-0.32, 0.2))):

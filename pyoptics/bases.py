@@ -38,7 +38,7 @@ from .utils import (kronecker_delta, weight_grid, simpson_weights, sgn,
                     scalar_product_without_weights,
                     scalar_product, ensure_meshgrid,
                     )
-from .masks import (circular_mask, rectangluar_mask, annular_mask, to_bool)
+from .masks import (circular_mask, rectangular_mask, annular_mask, to_bool)
 
 # TODO: reintroduce scalar/inner product in BasisSet? this allowed for inner products that respected the mask/support automatically
 
@@ -683,7 +683,7 @@ class TensorProductBasis(BasisSet, metaclass=ABCMeta):
             # axis parallel: the basis functions are outer products of 1D
             # arrays, which is faster to evaluate
             self.x_scaled, self.y_scaled = (x-x0)/a, (y-y0)/b
-            self.mask, self.mask_x, self.mask_y = rectangluar_mask(x, y, a, b, x0, y0, True)
+            self.mask, self.mask_x, self.mask_y = rectangular_mask(x, y, a, b, x0, y0, True)
         else:
             self.x_scaled = self.y_scaled = None
             self.mask_x = self.mask_y = None

@@ -350,7 +350,6 @@ def disk_resonance(m, radius, n_disk, wavelength, n_medium=1.0, polarization="E"
     """
 
     from scipy.special import jv, jvp, hankel1, h1vp
-    from scipy.optimize import newton
 
     if polarization not in ("E", "H"):
         raise ValueError("polarization must be 'E' or 'H'")
@@ -363,21 +362,33 @@ def disk_resonance(m, radius, n_disk, wavelength, n_medium=1.0, polarization="E"
 
     if np.iscomplexobj(wavelength):   # a complex guess: Newton from there
         x0 = 2*np.pi*n_medium*radius/complex(wavelength)
-        x = newton(f, x0, x1=x0*(1 + 1e-6) - 1e-6j, tol=1e-14, maxiter=200)
-        return complex(x)/(n_medium*radius)
+        return _newton_resonance(f, x0)/(n_medium*radius)
     # start from the zero crossing of Re f on the real axis nearest to the
     # guess (not a pole of the Bessel ratio), then Newton in the complex plane
     x_g = 2*np.pi*n_medium*radius/wavelength
     xs = np.linspace(0.8*x_g, 1.2*x_g, 4001)
-    v = np.real(f(xs + 0j))
+    with np.errstate(invalid="ignore", divide="ignore", over="ignore"):
+        v = np.real(f(xs + 0j))
     i = np.nonzero((np.sign(v[:-1]) != np.sign(v[1:])) & (np.abs(v[:-1]) + np.abs(v[1:]) < 5))[0]
     if len(i) == 0:
         raise RuntimeError("no resonance near the given wavelength")
     i = i[np.argmin(np.abs(xs[i] - x_g))]
     x0 = xs[i] - v[i]*(xs[i + 1] - xs[i])/(v[i + 1] - v[i]) + 0j
-    x = newton(f, x0, x1=x0*(1 + 1e-6) - 1e-6j, tol=1e-14, maxiter=200)
+    return _newton_resonance(f, x0)/(n_medium*radius)
 
-    return complex(x)/(n_medium*radius)
+
+def _newton_resonance(f, x0):
+    """Complex root of f by the secant method from x0. A step that leaves the
+    domain of the Bessel ratios (overflow, a pole) ends as RuntimeError
+    rather than as a NaN with floating point warnings."""
+
+    from scipy.optimize import newton
+
+    with np.errstate(invalid="ignore", divide="ignore", over="ignore"):
+        x = complex(newton(f, x0, x1=x0*(1 + 1e-6) - 1e-6j, tol=1e-14, maxiter=200))
+    if not np.isfinite(x):
+        raise RuntimeError("Newton's method did not converge to a resonance")
+    return x
 
 
 def sphere_coefficients(radius, n_sph, wl, n_medium=1.0, num_orders=None):

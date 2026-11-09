@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 from pyoptics import propagators as prop
 from pyoptics import raytrace as rt
-from pyoptics.masks import rectangluar_mask
+from pyoptics.masks import rectangular_mask
 from pyoptics.utils import grid2d
 from pyoptics.litho import Illumination, MaskLayout, ThinMask, Projector, LithoSimulation
 from pyoptics.litho.plot import plot_image
@@ -26,7 +26,7 @@ wl, a, N = 0.5, 250.0, 1024
 dx = 2*a/251
 x, y, _, _ = grid2d(-N*dx/2, N*dx/2, -N*dx/2, N*dx/2, N)
 z = a**2/(wl*5)
-U, _, _ = prop.propagate_padded(prop.fresnel_TF, rectangluar_mask(x, y, a, a).astype(complex),
+U, _, _ = prop.propagate_padded(prop.fresnel_TF, rectangular_mask(x, y, a, a).astype(complex),
                                 x, y, z, wl, pad_factor=2)
 ax = fig.add_subplot(gs[0])
 ax.imshow(np.abs(U)**2, extent=(x[0], x[-1], y[0], y[-1]), cmap="inferno")
