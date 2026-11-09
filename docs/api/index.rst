@@ -132,6 +132,7 @@ Atmospheric optics, astronomy and colour
    pyoptics.turbulence
    pyoptics.coronagraph
    pyoptics.telescopes
+   pyoptics.segmented
 
 Measurement and phase retrieval
 -------------------------------

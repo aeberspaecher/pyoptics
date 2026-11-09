@@ -66,6 +66,7 @@ figures without running the code. No order is needed.
 | {doc}`94 Depth of field and tilt-shift <notebooks/94_tilt_shift_depth_of_field>` | How much is sharp, when stopping down stops helping, and how a tilted lens puts a whole landscape in focus at f/2.8. |
 | {doc}`95 The light field camera <notebooks/95_light_field_camera>` | How a camera with microlenses in front of the sensor can be focused after the picture was taken, and what it pays for that. |
 | {doc}`96 Coronagraphs <notebooks/96_coronagraphs>` | How a telescope can see a planet ten billion times fainter than the star next to it. |
+| {doc}`98 Segmented mirrors <notebooks/98_segmented_mirrors>` | Where the six plus two spikes of JWST images come from, and how 18 mirror segments are aligned to a few nanometres. |
 | {doc}`97 Telescope zoo <notebooks/97_telescope_zoo>` | Why big telescopes are Ritchey–Chrétiens, why a Newtonian has comet-shaped stars at the edge, and how the Schmidt camera sees a wide field with a spherical mirror. |
 
 ## Lens designer
@@ -183,7 +184,7 @@ computation. Three shorter paths share this section.
 
 **Scattering, turbulence and lensless imaging:** {doc}`73 Wavefront shaping <notebooks/73_wavefront_shaping>`, {doc}`72 Twinkling stars and AO <notebooks/72_twinkling_stars_adaptive_optics>`, {doc}`79 Lensless imaging <notebooks/79_lensless_coded_aperture_imaging>`.
 
-**Astronomical instruments:** {doc}`96 Coronagraphs <notebooks/96_coronagraphs>` (Lyot, APLC and vortex coronagraphs, pointing and aberration sensitivity, a dark hole with a deformable mirror), {doc}`97 Telescope zoo <notebooks/97_telescope_zoo>` (Newtonian, Cassegrain, Ritchey–Chrétien and Schmidt camera against the Seidel and Schwarzschild formulas).
+**Astronomical instruments:** {doc}`96 Coronagraphs <notebooks/96_coronagraphs>` (Lyot, APLC and vortex coronagraphs, pointing and aberration sensitivity, a dark hole with a deformable mirror), {doc}`97 Telescope zoo <notebooks/97_telescope_zoo>` (Newtonian, Cassegrain, Ritchey–Chrétien and Schmidt camera against the Seidel and Schwarzschild formulas), {doc}`98 Segmented mirrors <notebooks/98_segmented_mirrors>` (hexagon diffraction, piston and tip-tilt errors, dispersed fringe sensing and phase retrieval).
 
 ## Nanophotonics and computational electromagnetics
 
