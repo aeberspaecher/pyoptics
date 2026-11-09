@@ -1105,6 +1105,47 @@ surface, the tangential one three times as far away (Welford;
 Kingslake and Johnson, ch. 4).
 """
 
+SineCondition = namedtuple("SineCondition", ["py", "height", "sin_u", "sin_u_prime",
+                                             "axis_crossing", "osc", "sine_defect",
+                                             "herschel_defect"])
+SineCondition.__doc__ = """Abbe's sine condition and Herschel's condition along real
+rays from the axial object point (see `System.sine_condition()`).
+
+Attributes
+----------
+py : (N,) array of the normalized pupil coordinates of the rays
+height : (N,) array, the ray heights y in object space (object at
+    infinity: the height of the collimated ray, otherwise the height at the
+    first vertex plane)
+sin_u, sin_u_prime : (N,) arrays of the direction sines (y direction
+    cosines) in object and image space; sin_u = 0 for an object at infinity
+axis_crossing : (N,) array, the z position where the image space ray
+    crosses the axis (global z)
+osc : (N,) array, Conrady's offence against the sine condition, the
+    relative sagittal coma, coma_s = osc*eta' for small image heights
+    eta'::
+
+        osc = M/m * (l' - z_xp)/(L' - z_xp) - 1,
+
+    with the "marginal magnification" M/m = (sin U/sin U')/(u/u') (finite
+    object) or (h/sin U')/(h_p/u'_p) (object at infinity, h_p and u'_p of
+    the paraxial marginal ray), the paraxial image l', the paraxial exit
+    pupil z_xp and the axis crossing L' of the ray (the second factor
+    accounts for the spherical aberration; 1 for an image space
+    telecentric system)
+sine_defect : (N,) array, M/m - 1 alone: zero at every aperture if the
+    sine condition n h sin U = n' h' sin U' holds
+herschel_defect : (N,) array, (sin^2(U/2)/sin^2(U'/2))/(u^2/u'^2) - 1,
+    zero at every aperture if Herschel's condition
+    n dz sin^2(U/2) = n' dz' sin^2(U'/2) holds, i.e. if the axial point
+    stays sharp when the object moves along the axis (NaN for an object at
+    infinity)
+
+The direction sines and paraxial slopes are taken along the direction of
+travel, so mirrors need no special treatment; the refractive indices
+cancel in the ratios.
+"""
+
 ChromaticSeidel = namedtuple("ChromaticSeidel", ["C", "total", "axial", "lateral", "delta_n"])
 ChromaticSeidel.__doc__ = """Primary (first order) chromatic aberrations.
 
@@ -1763,6 +1804,84 @@ class System:
         return ThirdOrder(P, radius(-n_k*P), radius(-n_k*(S_III + S_IV)/H2),
                           radius(-n_k*(3*S_III + S_IV)/H2), radius(-n_k*(2*S_III + S_IV)/H2),
                           S_V/(2*nu*p.image_height))
+
+    def lagrange_invariants(self, field=None):
+        """Lagrange invariant H = n (u_chief y_marginal - u_marginal y_chief)
+        behind every surface, from the paraxial marginal and chief rays.
+
+        Parameters
+        ----------
+        field : number, optional
+            Field of the chief ray (default: the maximum field).
+
+        Returns
+        -------
+        H : (S,) array
+            Equal to `paraxial().lagrange` behind every surface (the
+            paraxial trace conserves it to rounding).
+        """
+
+        (y_m, u_m), (y_c, u_c) = self._paraxial_rays(field)
+        ym, um = self._paraxial_trace(y_m, u_m)
+        yc, uc = self._paraxial_trace(y_c, u_c)
+        n_s = (self.n*self.sigma)[1:]
+
+        return n_s*(uc*ym - um*yc)
+
+    def sine_condition(self, py=None, N=20, clip=True):
+        """Abbe's sine condition and Herschel's condition along real rays
+        from the axial object point, see `SineCondition`.
+
+        Parameters
+        ----------
+        py : array, optional
+            Normalized pupil coordinates of the meridional rays (default:
+            N points in (0, 1]).
+        N : int, optional
+            Number of rays if py is not given.
+        clip : bool, optional
+            Vignette rays outside the semi diameters.
+
+        Returns
+        -------
+        SineCondition
+
+        Notes
+        -----
+        For centred systems (the axis crossing and the pupils are those of
+        the unfolded nominal axis). The paraxial reference rays are the
+        marginal ray of `paraxial()`.
+        """
+
+        py = np.linspace(0.0, 1.0, N + 1)[1:] if py is None else np.atleast_1d(np.asarray(py, float))
+        bundle = self.trace_pupil(0.0, 0.0, py, clip=clip)
+        d0, dL = bundle.directions[0], bundle.directions[-1]
+        P = bundle.points[-1]
+        sign = self.sigma[-1]
+        p = self.paraxial(0.0)
+        (y_m, u_m), _ = self._paraxial_rays(0.0)
+        u_p = sign*p.marginal[-1, 1]  # image space slope along the direction of travel
+        sin_up = dL[:, 1]
+        with np.errstate(invalid="ignore", divide="ignore"):
+            crossing = P[:, 2] - P[:, 1]*dL[:, 2]/dL[:, 1]
+            if self.infinite_object:
+                height = bundle.points[0][:, 1]
+                sin_u = np.zeros_like(height)
+                M = (height/sin_up)/(y_m/u_p)
+                herschel = np.full_like(M, np.nan)
+            else:
+                sin_u = d0[:, 1]
+                height = bundle.points[1][:, 1]
+                M = (sin_u/sin_up)/(u_m/u_p)
+                U, U_p = np.arcsin(sin_u), np.arcsin(sin_up)
+                herschel = (np.sin(U/2)**2/np.sin(U_p/2)**2)/(u_m**2/u_p**2) - 1
+            l_p = self.vertex_z[-1] + p.image_distance
+            if np.isfinite(p.xp_z):
+                factor = (l_p - p.xp_z)/(crossing - p.xp_z)
+            else:
+                factor = np.ones_like(M)
+
+        return SineCondition(py, height, sin_u, sin_up, crossing, M*factor - 1, M - 1, herschel)
 
     def chromatic_seidel(self, d_wavelength, field=None):
         """Primary axial and lateral colour from the paraxial rays, see

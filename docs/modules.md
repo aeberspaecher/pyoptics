@@ -451,7 +451,12 @@ What each module does and how mature it is. Planned work is listed in
   vector Snell's law, total internal reflection; ray aiming at the real
   stop; paraxial
   marginal and chief rays, cardinal points, entrance and exit pupils (system
-  matrix identical to `abcd`, `to_abcd()`), Seidel sums; OPD maps over the
+  matrix identical to `abcd`, `to_abcd()`), Seidel sums, the Lagrange
+  invariant behind every surface (`lagrange_invariants()`), Abbe's sine
+  condition and Herschel's condition along real rays (`sine_condition()`:
+  Conrady's OSC, checked against tan^2(U'/2) of a paraboloid, the focal
+  radii of an ellipsoid, the aplanatic sphere and traced sagittal coma,
+  notebook 102); OPD maps over the
   pupil relative to the reference sphere on the chief ray, Fringe Zernike
   fits, RMS OPD and Strehl ratio; PSF and MTF via `imaging`; spot diagrams,
   ray fans and layout plots; example: Caldwell's all fused silica KrF

@@ -112,6 +112,8 @@ def test_paraxial_ray_imaging():
     sketch.eikonal_wavefronts,
     sketch.phase_space_portraits,
     sketch.liouville_lens,
+    sketch.sine_herschel_conditions,
+    lambda ax: sketch.sine_herschel_conditions(ax, "herschel"),
     sketch.burning_glass,
     lambda ax: sketch.burning_glass(ax, lens="ideal"),
     sketch.etendue_diffuser,
