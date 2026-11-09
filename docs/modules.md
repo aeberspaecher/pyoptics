@@ -657,6 +657,19 @@ What each module does and how mature it is. Planned work is listed in
   sinc^2(m - m_B), R = m N, 2 tan(theta_B) f/s, the order lengths
   2 f tan(theta_B)/m and the lambda^2 order spacing of a grating
   cross-disperser (notebook 100)
+- `adc`: new, tested: atmospheric refraction and dispersion and the
+  atmospheric dispersion corrector: the index of air after Edlén (Birch
+  and Downs) with temperature, pressure and humidity (`edlen_index()`),
+  refraction in plane layers, the A tan z - B tan^3 z formula, the exact
+  integral of a spherical isothermal atmosphere and a ray trace through it
+  as a GRIN medium (`refraction_integral()`, `atmosphere_medium()`,
+  `trace_refraction()`), the dispersion against the zenith angle
+  (`atmospheric_dispersion()`), Amici prisms (thin and exact,
+  `AmiciPrism`), two counter-rotating prisms (`adc_dispersion()`,
+  `adc_residual()`), the search of a glass catalogue for pairs matched to
+  the dispersion of air (`best_glass_pairs()`) and the image of a
+  dispersed star (`smeared_star()`); checked against Ciddor's formula,
+  the exact refraction integral and the thin prism formula (notebook 101)
 - `wpm`: wave propagation method (Cython extension) for inhomogeneous, also
   absorbing media, 2D and y-invariant 1D fields, multi-step driver; direct
   O(N^2) sum (OpenMP) or the fast "levels" variant (one FFT pair per distinct

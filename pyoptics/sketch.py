@@ -192,6 +192,9 @@ Setup sketches for the other example notebooks:
   the echellogram of stacked orders; or (kind="grooves") the right-angle
   grooves of an echelle in Littrow with theta_B, d and the facet width
   (notebook 100).
+- adc_layout(): atmospheric refraction of a star above the curved Earth,
+  blue lifted more than red; or (kind="adc") two counter-rotating Amici
+  prisms and the vector sum of their dispersions (notebook 101).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -257,7 +260,7 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "depth_of_field", "defocus_and_diffraction", "scheimpflug_hinge", "dof_wedge",
            "plenoptic_camera", "subaperture_parallax", "light_field_refocus", "plenoptic_tradeoff",
            "coronagraph_layout", "telescope_layout", "segment_phasing_layout",
-           "lensing_geometry", "echelle_layout", "sine_herschel_conditions"]
+           "lensing_geometry", "echelle_layout", "sine_herschel_conditions", "adc_layout"]
 
 
 GLASS = "#cfe3f3"
@@ -7266,3 +7269,101 @@ def echelle_layout(ax, kind="instrument", title=None):
     arrow(ax, x0 + 0.1, 1.15, x0 + 2.1, 1.15, text=r"echelle dispersion $\lambda/m$ per order",
           text_pos=(x0 + 1.1, 1.35), fontsize=7)
     _finish(ax, (-0.5, x0 + 3.2), (-1.9, 1.6), title)
+
+
+def adc_layout(ax, kind="adc", title=None):
+    """Sketch of atmospheric refraction or of an atmospheric dispersion
+    corrector (notebook 101).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"adc", "refraction"}, optional
+        "refraction": light of a star bent in a layered atmosphere above
+        the curved Earth; the star appears higher (apparent zenith angle z)
+        than it is, blue more than red (exaggerated). "adc": two Amici
+        prisms (two glasses cemented with opposed wedges) in the beam,
+        turned by +phi and -phi about the axis, and the addition of their
+        dispersions to 2 delta cos(phi) along one direction.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    if kind == "refraction":
+        Rg = 6.0
+        t = np.linspace(np.radians(60), np.radians(120), 200)
+        ax.add_patch(mpatches.Polygon(np.r_[np.c_[Rg*np.cos(t), Rg*np.sin(t) - Rg],
+                                            [[Rg*np.cos(t[-1]), -2.0], [Rg*np.cos(t[0]), -2.0]]],
+                                      closed=True, facecolor="#c8b48a", edgecolor="0.4", zorder=2))
+        for k, h in enumerate(np.linspace(0.3, 2.4, 7)):
+            ax.plot((Rg + h)*np.cos(t), (Rg + h)*np.sin(t) - Rg, color="#7fb7d9",
+                    lw=2.2*np.exp(-h/1.2), alpha=0.8, zorder=1)
+        label(ax, 3.4, 2.15, "atmosphere\n(n - 1 ~ exp(-h/H))", fontsize=8, ha="left")
+        # ray from the star, bending towards the ground
+        z_app = np.radians(55.0)
+        s = np.linspace(0, 3.6, 200)
+        for col, k in (("#3b5bdb", 0.11), ("#e03131", 0.075)):
+            ang = z_app + k*(1 - np.exp(-s/1.4))*1.0
+            dx = np.cumsum(np.sin(ang))*(s[1] - s[0])
+            dy = np.cumsum(np.cos(ang))*(s[1] - s[0])
+            ax.plot(-dx, dy, color=col, lw=1.4, zorder=3)
+        ax.plot([0, -3.4*np.sin(z_app)], [0, 3.4*np.cos(z_app)], color="0.3", lw=0.8, ls="--")
+        z_true = z_app + 0.1
+        ax.plot([-2.4*np.sin(z_true), -3.6*np.sin(z_true)], [2.4*np.cos(z_true), 3.6*np.cos(z_true)],
+                color="0.5", lw=0.8, ls=":")
+        ax.plot([0, 0], [0, 3.4], color="0.5", lw=0.7, ls="-.")
+        label(ax, 0.1, 3.5, "zenith", fontsize=8, ha="left")
+        tt = np.linspace(0, z_app, 30)
+        ax.plot(-1.1*np.sin(tt), 1.1*np.cos(tt), color="0.3", lw=0.8)
+        label(ax, -0.45, 1.3, "$z$", fontsize=10)
+        point_source(ax, -2.9, 2.1, color="#e0a000", size=90)
+        label(ax, -3.0, 1.85, "star", fontsize=8, ha="right", va="top")
+        label(ax, -2.75, 2.85, "apparent\ndirection", fontsize=8, ha="right", color="0.3")
+        label(ax, -1.9, 3.4, "blue is lifted\nmore than red", fontsize=8, ha="right")
+        ax.plot([0], [0], "o", color="0.15", ms=5, zorder=4)
+        label(ax, 0.15, -0.3, "telescope", fontsize=8, ha="left")
+        _finish(ax, (-4.4, 4.8), (-0.9, 3.9), title)
+        return
+    if kind != "adc":
+        raise ValueError("kind must be 'adc' or 'refraction'")
+    h = 0.75
+    z0, z1, z2, zl, zf = 0.0, 2.0, 3.3, 5.2, 7.2
+    band(ax, [z0, z1 - 0.3], [h, h], [z0, z1 - 0.3], [-h, -h], color="0.6", alpha=0.25)
+    for zc, sgn in ((z1, 1), (z2, -1)):
+        w = 0.55
+        ax.add_patch(mpatches.Polygon([(zc - w/2, -0.95), (zc + w/2, -0.95), (zc - w/2, 0.95)],
+                                      closed=True, facecolor="#cfe3f3", edgecolor=EDGE, lw=1,
+                                      zorder=3))
+        ax.add_patch(mpatches.Polygon([(zc + w/2, -0.95), (zc + w/2, 0.95), (zc - w/2, 0.95)],
+                                      closed=True, facecolor="#e8d9f3", edgecolor="#6a4c93", lw=1,
+                                      zorder=3))
+        t = np.linspace(-0.9, 0.9, 30)*sgn
+        ax.plot(zc + 0.35*np.sin(t), 1.25 + 0.12*np.cos(t), color="0.3", lw=0.9)
+        arrow(ax, zc + 0.35*np.sin(t[-2]), 1.25 + 0.12*np.cos(t[-2]), zc + 0.35*np.sin(t[-1]),
+              1.25 + 0.12*np.cos(t[-1]))
+        label(ax, zc, 1.55, r"$+\varphi$" if sgn > 0 else r"$-\varphi$", fontsize=10)
+    label(ax, (z1 + z2)/2, -1.2, "two Amici prisms\n(glass 1 | glass 2)", fontsize=9, va="top")
+    cols = ["#3b5bdb", "#2f9e44", "#e03131"]
+    for col, dy in zip(cols, (0.05, 0.0, -0.05)):
+        band(ax, [z2 + 0.3, zl], [h, h + dy*3], [z2 + 0.3, zl], [-h, -h + dy*3], color=col,
+             alpha=0.08, lw=0.5)
+        band(ax, [zl, zf], [h + dy*3, 0.0], [zl, zf], [-h + dy*3, 0.0], color=col, alpha=0.1,
+             lw=0.5)
+    band(ax, [z1 + 0.3, z2 - 0.3], [h, h], [z1 + 0.3, z2 - 0.3], [-h, -h], color="0.6", alpha=0.25)
+    lens(ax, zl, 0.95, text="camera /\ntelescope", text_y=-1.2)
+    detector(ax, zf, 0.6, width=0.08, text="focus:\none spot", text_y=-0.8)
+    label(ax, z0 + 0.2, -1.2, "starlight,\ndispersed by\nthe air", fontsize=9, va="top")
+    # vector addition of the two deviations
+    xo, yo = zf + 1.2, -0.2
+    L = 1.0
+    phi = np.radians(40.0)
+    for sgn, col in ((1, "#1f77b4"), (-1, "#d62728")):
+        arrow(ax, xo, yo, xo + L*np.cos(phi), yo + sgn*L*np.sin(phi), color=col)
+    arrow(ax, xo, yo, xo + 2*L*np.cos(phi), yo, color="0.15", lw=1.3)
+    ax.plot([xo + L*np.cos(phi), xo + 2*L*np.cos(phi)], [yo + L*np.sin(phi), yo], color="#d62728",
+            lw=0.7, ls=":")
+    ax.plot([xo + L*np.cos(phi), xo + 2*L*np.cos(phi)], [yo - L*np.sin(phi), yo], color="#1f77b4",
+            lw=0.7, ls=":")
+    label(ax, xo + 0.9, yo + 1.0, r"dispersions $\delta$ at $\pm\varphi$", fontsize=8)
+    label(ax, xo + 1.0, yo - 1.0, r"sum $2\delta\cos\varphi$", fontsize=8)
+    _finish(ax, (-0.4, xo + 2.2), (-2.0, 1.9), title)
