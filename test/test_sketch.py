@@ -168,6 +168,8 @@ def test_paraxial_ray_imaging():
     sketch.subaperture_parallax,
     sketch.light_field_refocus,
     sketch.plenoptic_tradeoff,
+    sketch.coronagraph_layout,
+    lambda ax: sketch.coronagraph_layout(ax, mask="vortex", dm=True),
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()

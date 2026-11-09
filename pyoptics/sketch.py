@@ -169,6 +169,10 @@ Setup sketches for the other example notebooks:
   microlenses form a view, out of focus points move between views;
   light_field_refocus(): refocusing on a virtual sensor; plenoptic_tradeoff():
   positions against directions on the same sensor (notebook 95).
+- coronagraph_layout(): telescope, focal plane mask (occulting disk or
+  vortex), Lyot stop and camera, with the starlight that the mask throws
+  to the rim of the pupil image and the planet light that passes
+  (notebook 96).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -232,7 +236,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "iris_stop_down", "sunstar_scene", "ghost_reflections", "ar_coating_layers", "ghost_focus",
            "flare_scene", "pixel_sampling", "bayer_cfa", "olpf_plates", "microlens_pixels",
            "depth_of_field", "defocus_and_diffraction", "scheimpflug_hinge", "dof_wedge",
-           "plenoptic_camera", "subaperture_parallax", "light_field_refocus", "plenoptic_tradeoff"]
+           "plenoptic_camera", "subaperture_parallax", "light_field_refocus", "plenoptic_tradeoff",
+           "coronagraph_layout"]
 
 
 GLASS = "#cfe3f3"
@@ -6703,3 +6708,82 @@ def plenoptic_tradeoff(ax, title=None):
             ax.plot([z0 + 0.04, z0 + 0.5], [c, c + p/2], color="0.6", lw=0.5)
         label(ax, z0 + 0.3, -h - 0.35, txt, fontsize=7.5, va="top")
     _finish(ax, (-1.2, 4.6), (-2.0, 1.2), title)
+
+
+STAR_COLOR = "#e0a000"
+PLANET_COLOR = "#2a7ab9"
+
+
+def coronagraph_layout(ax, mask="lyot", dm=False, title=None):
+    """Sketch of a Lyot-style coronagraph (notebook 96).
+
+    The telescope (drawn as a lens, its aperture is the entrance pupil)
+    focuses the star onto a focal plane mask; a second lens images the pupil
+    onto the Lyot stop, and a third lens forms the final image. The mask
+    takes the core of the star image out (an occulting disk) or turns it
+    into a field that the second lens sends to the rim of the pupil image
+    (a vortex); the Lyot stop, slightly smaller than the pupil image,
+    blocks this light at the rim. The planet (blue) is focused beside the
+    mask and passes.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    mask : str, optional
+        "lyot" (an occulting disk) or "vortex" (a spiral phase mask).
+    dm : bool, optional
+        Draw a deformable mirror in front of the telescope (in a pupil
+        plane), as used for the dark hole.
+    title : str, optional
+    """
+
+    f1, f2, f3 = 3.0, 1.5, 1.5
+    z1, zm = 0.0, 3.0
+    z2 = zm + f2
+    zl = z2 + 1/(1/f2 - 1/(z2 - z1))           # image of the entrance pupil
+    z3 = zl + 0.75
+    zd = z3 + f3
+    lenses = [(z1, f1), (z2, f2), (z3, f3)]
+    h = 0.9
+    z0 = -1.6
+    # the star: on axis, stopped at the mask
+    zt, yt = paraxial_ray(lenses[:1], z0, h, 0.0, zm)
+    zb, yb = paraxial_ray(lenses[:1], z0, -h, 0.0, zm)
+    band(ax, zt, yt, zb, yb, color=STAR_COLOR, alpha=0.25)
+    # the planet: off axis, focused beside the mask, passes the Lyot stop
+    u0 = 0.075
+    zt, yt = paraxial_ray(lenses, z0, 0.62*h - u0*(z1 - z0), u0, zd)
+    zb, yb = paraxial_ray(lenses, z0, -0.62*h - u0*(z1 - z0), u0, zd)
+    band(ax, zt, yt, zb, yb, color=PLANET_COLOR, alpha=0.18)
+    # starlight sent to the rim of the pupil image, blocked by the Lyot stop
+    r_img = h*f2/f1
+    for sgn in (1, -1):
+        for d in (0.0, 0.06):
+            y_end = sgn*(r_img + d)
+            ax.plot([zm, z2, zl], [0.0, y_end, y_end], color=STRAY, lw=0.9,
+                    ls="--", zorder=2)
+    lens(ax, z1, 1.05*h, text="telescope\n(entrance pupil)")
+    lens(ax, z2, 0.75, text="collimator")
+    lens(ax, z3, 0.75, text="camera\nlens")
+    if mask == "vortex":
+        _spiral_plate(ax, zm - 0.07, 0.35, step=0.14, base=0.04, text="vortex\nphase mask",
+                      text_y=-0.62)
+    else:
+        ax.add_patch(_patches().Rectangle((zm - 0.04, -0.09), 0.08, 0.18, facecolor="k",
+                                          edgecolor="none", zorder=5))
+        plane(ax, zm, 0.55)
+        label(ax, zm, -0.62, "occulting\ndisk", fontsize=9, va="top")
+    stop(ax, zl, 0.75, openings=((0, 0.8*r_img),), width=0.06, text="Lyot stop\n(pupil image)",
+         text_y=-0.85)
+    detector(ax, zd, 0.5, text="final\nimage", width=0.08)
+    if dm:
+        zdm = -1.05
+        yy = np.linspace(-h, h, 41)
+        ax.plot(zdm + 0.04*np.sin(9*yy), yy, color="0.25", lw=2.2, zorder=4)
+        label(ax, zdm + 0.3, 1.2*h, "deformable mirror", fontsize=8.5, ha="left", va="bottom")
+    label(ax, z0 + 0.1, 1.1*h, "star (on axis)", fontsize=8, ha="left", color="#9a6d00")
+    label(ax, z0 + 0.1, -1.1*h - 0.05, "planet (off axis)", fontsize=8, ha="left",
+          color=PLANET_COLOR)
+    label(ax, zl + 0.05, r_img + 0.38, "starlight at the\nrim of the pupil", fontsize=7.5,
+          color=STRAY, va="bottom")
+    _finish(ax, (z0 - 0.1, zd + 0.4), (-1.6, 1.45), title)
