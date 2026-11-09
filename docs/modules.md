@@ -399,6 +399,19 @@ What each module does and how mature it is. Planned work is listed in
   spectral ghost images (`ghost_spectra()`); checked against the product
   of the Fresnel factors, the paraxial ghost irradiance and the full
   polarization trace (notebook 92)
+- `sensor`: new, tested: image sensors; the pixel aperture MTF and the
+  sampling of the image (`sensor_image()`: lens diffraction, an optical
+  low pass filter and the pixel aperture on a fine grid), the slanted edge
+  MTF of ISO 12233 (`slanted_edge_mtf()`), the Bayer mosaic with bilinear
+  and Malvar–He–Cutler demosaicing and its chrominance carriers, the zone
+  plate, the walk-off of the extraordinary ray in a uniaxial crystal
+  (closed form and from the dielectric tensor), birefringent low pass
+  filters of plates and wave plates as displaced Jones vectors
+  (`olpf_spots()`, `olpf_otf()`), and a ray trace of a pixel with a
+  microlens against the chief ray angle with microlens shift
+  (`trace_pixel()`); checked against sinc and diffraction MTFs, the
+  folding of frequencies, the carrier positions, the tensor walk-off and
+  the paraxial pupil image (notebook 93)
 - `fresnel`: Fresnel lenses, tested: a parent surface (sphere, conic,
   even asphere) collapsed into zones of constant pitch, constant depth or
   given radii, with curved or flat (conical) facets and drafted risers

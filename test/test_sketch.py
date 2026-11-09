@@ -156,6 +156,10 @@ def test_paraxial_ray_imaging():
     sketch.ar_coating_layers,
     sketch.ghost_focus,
     sketch.flare_scene,
+    sketch.pixel_sampling,
+    sketch.bayer_cfa,
+    sketch.olpf_plates,
+    sketch.microlens_pixels,
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()

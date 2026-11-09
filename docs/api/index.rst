@@ -78,6 +78,7 @@ Imaging and ray tracing
    pyoptics.speckle
    pyoptics.freeform
    pyoptics.photography
+   pyoptics.sensor
    pyoptics.delano
    pyoptics.lens_optimization
    pyoptics.tolerancing
