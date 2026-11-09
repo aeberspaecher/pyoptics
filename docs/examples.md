@@ -364,15 +364,19 @@ notebooks/95_light_field_camera
 
 Optics for imaging planets next to their stars: coronagraphs with
 apodized pupils, occulting disks, vortex masks and Lyot stops, and a dark
-hole dug with a deformable mirror.
+hole dug with a deformable mirror; and the telescopes themselves: the
+Newtonian, the classical Cassegrain, the Ritchey–Chrétien and the Schmidt
+camera against the third order theory of conic mirrors.
 
 - {doc}`notebooks/96_coronagraphs`
+- {doc}`notebooks/97_telescope_zoo`
 
 ```{toctree}
 :hidden:
 :caption: Astronomy
 
 notebooks/96_coronagraphs
+notebooks/97_telescope_zoo
 ```
 
 ## Running the notebooks
