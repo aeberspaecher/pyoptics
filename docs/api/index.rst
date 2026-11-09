@@ -133,6 +133,7 @@ Atmospheric optics, astronomy and colour
    pyoptics.coronagraph
    pyoptics.telescopes
    pyoptics.segmented
+   pyoptics.lensing
 
 Measurement and phase retrieval
 -------------------------------

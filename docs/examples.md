@@ -367,11 +367,14 @@ apodized pupils, occulting disks, vortex masks and Lyot stops, and a dark
 hole dug with a deformable mirror; and the telescopes themselves: the
 Newtonian, the classical Cassegrain, the Ritchey–Chrétien and the Schmidt
 camera against the third order theory of conic mirrors, and segmented
-primaries with their diffraction spikes and phasing.
+primaries with their diffraction spikes and phasing; and gravity as a
+lens: light bending traced through the index of a mass, Einstein rings,
+microlensing light curves and the Einstein cross.
 
 - {doc}`notebooks/96_coronagraphs`
 - {doc}`notebooks/97_telescope_zoo`
 - {doc}`notebooks/98_segmented_mirrors`
+- {doc}`notebooks/99_einstein_rings`
 
 ```{toctree}
 :hidden:
@@ -380,6 +383,7 @@ primaries with their diffraction spikes and phasing.
 notebooks/96_coronagraphs
 notebooks/97_telescope_zoo
 notebooks/98_segmented_mirrors
+notebooks/99_einstein_rings
 ```
 
 ## Running the notebooks

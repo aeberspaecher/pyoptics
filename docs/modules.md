@@ -627,6 +627,18 @@ What each module does and how mature it is. Planned work is listed in
   checked against the polygon transform, the phasor sum Strehl ratio, the
   random piston halo, sinc(p dsigma) and the unique range 1/(2 dsigma)
   (notebook 98)
+- `lensing`: new, tested: gravitational lensing: light bending in the weak
+  field index n = 1 + R_s/r and in the exact Schwarzschild metric as a
+  medium for `grin.trace()` (`weak_field_medium()`,
+  `schwarzschild_medium()`), the exact deflection integral
+  (`schwarzschild_deflection()`), Schwarzschild and Einstein radii; thin
+  lenses (`PointMass`, `SIS`, `ExternalShear`, `Composite`) with the lens
+  map, Jacobian and magnification, image finding by Newton iteration
+  (`find_images()`), critical curves and caustics, the Fermat potential
+  and inverse ray shooting of extended sources (`ray_shoot()`); checked
+  against the point mass images and the Paczynski curve, the Witt–Mao
+  disk magnification, the SIS images and time delay and the cusps of the
+  SIS plus shear caustic (notebook 99)
 - `wpm`: wave propagation method (Cython extension) for inhomogeneous, also
   absorbing media, 2D and y-invariant 1D fields, multi-step driver; direct
   O(N^2) sum (OpenMP) or the fast "levels" variant (one FFT pair per distinct
