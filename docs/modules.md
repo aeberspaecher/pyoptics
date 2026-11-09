@@ -369,6 +369,19 @@ What each module does and how mature it is. Planned work is listed in
   radial or x–y sag for the ray tracer; checked against the closed-form
   map, collimation and equal optical path, separable maps and traced
   irradiance (notebook 89)
+- `photography`: new, tested: camera lens optics, the out-of-focus image
+  (bokeh); a 50 mm f/1.8 double Gauss with clear apertures that vignette
+  (`double_gauss()`), focusing to the smallest spot (`focus()`), blur
+  diameters from the thin lens formula and from the pupils (exact in
+  first order), rays from a point through the whole aperture with the
+  vignetting of all apertures and an optional apodizer, binned into images
+  (`point_footprint()`, `splat()`, `relative_illumination()`), the
+  paraxial vignetting circles and the cat's eye, the geometric irradiance
+  of a blur with defocus and spherical aberration and the same from the
+  FFT of the pupil, a rippled surface for the ray trace (onion rings) with
+  the ring contrast from rays and from the Talbot effect, Gaussian
+  apodizers and the T-number; checked against the paraxial trace, ray
+  histograms, wave optics and the Airy pattern (notebook 90)
 - `fresnel`: Fresnel lenses, tested: a parent surface (sphere, conic,
   even asphere) collapsed into zones of constant pitch, constant depth or
   given radii, with curved or flat (conical) facets and drafted risers
