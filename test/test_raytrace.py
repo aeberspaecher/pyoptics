@@ -719,3 +719,80 @@ def test_draw_xz_plane_of_a_rotated_system():
     with pytest.raises(ValueError):
         build((0.0, 0.0)).draw(a, plane="xy")
     plt.close(fig)
+
+
+# Lagrange invariant, sine and Herschel conditions:
+def test_lagrange_invariants_constant_through_a_lens():
+    system = rt.System([rt.Surface(40.0, 5.0, n_after=1.6, semi_diameter=10.0),
+                        rt.Surface(-60.0, 3.0, n_after=1.0),
+                        rt.Surface(np.inf, 4.0, semi_diameter=5.0),
+                        rt.Surface(-30.0, 3.0, n_after=1.5),
+                        rt.Surface(-45.0, 50.0, n_after=1.0)],
+                       2, WL, object_distance=120.0, object_height=3.0)
+    H = system.lagrange_invariants()
+    p = system.paraxial()
+    assert H.shape == (5,)
+    assert np.allclose(H, p.lagrange, rtol=1e-12)
+    # Helmholtz form between the conjugate planes: n u eta = n' u' eta'
+    u0 = system._object_slopes()[0]
+    assert np.isclose(p.lagrange, -u0*3.0, rtol=1e-12)
+
+
+def test_sine_condition_of_a_paraboloid():
+    # h = 2 f tan(U'/2) instead of f sin U': OSC = tan^2(U'/2), and OSC*eta' is the sagittal coma
+    f, D = 100.0, 160.0
+    system = rt.System([rt.Surface(-2*f, -f, conic=-1.0, mirror=True, semi_diameter=D/2)], 0, WL)
+    sc = system.sine_condition(N=8)
+    U = np.arcsin(np.abs(sc.sin_u_prime))
+    assert np.allclose(sc.osc, np.tan(U/2)**2, atol=1e-12)
+    assert np.allclose(sc.sine_defect, sc.osc)        # no spherical aberration
+    assert np.allclose(np.abs(sc.height), sc.py*D/2)
+    assert np.all(np.isnan(sc.herschel_defect))       # object at infinity
+    field = 1e-5
+    bundle = system.trace_pupil(field, sc.py, 0.0)    # sagittal rays
+    eta = system.paraxial(field).image_height
+    assert np.allclose((bundle.points[-1][:, 1] - eta)/eta, sc.osc, atol=1e-6)
+
+
+def test_sine_condition_of_the_aplanatic_sphere():
+    # object in glass at R/n beyond the centre: stigmatic, sin U/sin U' = n, m = n^2
+    n, R = 1.5, 2.0
+    system = rt.System([rt.Surface(-R, 0.0, n_after=1.0, semi_diameter=0.99*R)], 0, WL,
+                       object_distance=R + R/n, object_height=1e-3, n_object=n).at_paraxial_focus()
+    assert np.isclose(system.paraxial().magnification, n**2)
+    sc = system.sine_condition(N=10)
+    assert np.allclose(sc.sin_u/sc.sin_u_prime, n)
+    assert np.max(np.abs(sc.osc)) < 1e-12
+    # Herschel defect of an aplanat with sin U' = c sin U
+    c = 1/n
+    U, Up = np.arcsin(sc.sin_u), np.arcsin(c*sc.sin_u)
+    assert np.allclose(sc.herschel_defect, c**2*np.sin(U/2)**2/np.sin(Up/2)**2 - 1, atol=1e-12)
+    assert sc.herschel_defect[-1] > 0.1
+
+
+def test_symmetric_stigmatic_pair_satisfies_sine_and_herschel():
+    # two plano-hyperbolic lenses (K = -n^2) at unit magnification: U' = -U for every ray
+    n, f, a = 1.5, 50.0, 25.0
+    Rh, K = (n - 1)*f, -n**2
+    system = rt.System([rt.Surface(Rh, 12.0, n_after=n, conic=K, semi_diameter=a),
+                        rt.Surface(np.inf, 5.0, n_after=1.0, semi_diameter=a),
+                        rt.Surface(np.inf, 5.0, semi_diameter=a),
+                        rt.Surface(np.inf, 12.0, n_after=n, semi_diameter=a),
+                        rt.Surface(-Rh, f, n_after=1.0, conic=K, semi_diameter=a)],
+                       2, WL, object_distance=f, object_height=0.1).at_paraxial_focus()
+    sc = system.sine_condition(N=10)
+    assert np.isclose(system.paraxial().magnification, -1.0)
+    assert np.allclose(sc.sin_u_prime, -sc.sin_u, atol=1e-12)
+    assert np.max(np.abs(sc.osc)) < 1e-10
+    assert np.max(np.abs(sc.herschel_defect)) < 1e-10
+
+
+def test_osc_matches_sagittal_coma_of_a_singlet_with_spherical_aberration():
+    system = singlet(R1=51.68, R2=np.inf, sd=12.5)
+    sc = system.sine_condition(py=[0.5, 1.0])
+    field = 1e-5
+    bundle = system.trace_pupil(field, sc.py, 0.0)
+    eta = system.paraxial(field).image_height
+    coma = (bundle.points[-1][:, 1] - eta)/eta
+    assert np.allclose(coma, sc.osc, atol=5e-4)
+    assert np.all(np.abs(sc.sine_defect - sc.osc) > 1e-3)   # the spherical aberration factor matters

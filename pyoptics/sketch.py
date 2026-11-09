@@ -107,6 +107,9 @@ Setup sketches for the other example notebooks:
   the two mirror conventions; diffraction_geometry(): the Rayleigh-Sommerfeld
   integral; eikonal_wavefronts(): wavefronts of constant optical path and
   the rays normal to them (notebook 00).
+- sine_herschel_conditions(): a lens that images an axial point and its
+  neighbour in the object plane (sine condition) or on the axis (Herschel
+  condition), with the path differences of one ray (notebook 102).
 - phase_space_portraits(): a strip source through free space, a singlet
   and a glass rod, and the phase space behind each; liouville_lens(): field
   and NA through a reducing lens; burning_glass(): the paraxial ideal lens
@@ -7082,3 +7085,72 @@ def lensing_geometry(ax, ring=False, title=None):
         label(ax, D_s + 0.25, tE*D_s, "ring of\nradius $\\theta_E$", fontsize=8, ha="left")
         label(ax, D_s + 0.25, 0.0, "source", fontsize=8, ha="left")
     _finish(ax, (-0.8, D_s + 1.4), (-2.4, 1.95), title)
+
+
+def sine_herschel_conditions(ax, kind="sine", title=None):
+    """Sketch of the sine condition or the Herschel condition (notebook 102).
+
+    A lens images the axial point P perfectly onto P'. kind="sine": the
+    neighbouring point Q a small height eta above P is imaged onto Q' at
+    eta' (inverted); along a ray at the angle U the optical path from Q
+    differs from that from P by -n eta sin U, in the image by
+    n' eta' sin U', and Q' is perfect for all rays only if
+    n eta sin U = n' eta' sin U'. kind="herschel": Q lies a distance dz
+    behind P on the axis; the path differences are n dz cos U and
+    n' dz' cos U', and Q' stays perfect only if
+    n dz sin^2(U/2) = n' dz' sin^2(U'/2).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"sine", "herschel"}, optional
+    title : str, optional
+    """
+
+    if kind not in ("sine", "herschel"):
+        raise ValueError("kind must be 'sine' or 'herschel'")
+    z_p, z_l, z_pi = 0.0, 3.2, 7.0
+    U, Up = np.radians(26.0), np.radians(30.0)
+    h_lens = z_l*np.tan(U)
+    lens(ax, z_l, 1.6*h_lens, thickness=0.5)
+    ax.plot([-0.9, z_pi + 0.9], [0, 0], color="0.6", lw=0.8, ls="-.", zorder=1)
+    if kind == "sine":
+        eta = 0.55
+        q, qi = (z_p, eta), (z_pi, -eta*0.8)
+    else:
+        dz = 0.75
+        q, qi = (z_p - dz, 0.0), (z_pi + dz*0.7, 0.0)
+    # rays from P (blue) and Q (red) at the angle U, meeting the lens and converging to P', Q'
+    for (z0, y0), (z1, y1), col in (((z_p, 0.0), (z_pi, 0.0), IMAGING), (q, qi, STRAY)):
+        for sgn in (1, -1):
+            yl = y0 + (z_l - z0)*np.tan(sgn*U)
+            ax.plot([z0, z_l, z1], [y0, yl, y1], color=col, lw=1.1, zorder=2)
+        ax.plot([z0, z_l, z1], [y0, y0, y1], color=col, lw=0.8, ls=":", zorder=2)
+        ax.plot([z0, z1], [y0, y1], "o", color=col, ms=5, zorder=5)
+    label(ax, z_p + 0.15, -0.28, "P", fontsize=10, color=IMAGING)
+    label(ax, z_pi - 0.05, 0.3, "P′", fontsize=10, color=IMAGING)
+    if kind == "sine":
+        label(ax, q[0] - 0.3, q[1], "Q", fontsize=10, color=STRAY)
+        label(ax, qi[0] + 0.3, qi[1], "Q′", fontsize=10, color=STRAY)
+        # projection of PQ on the upper ray: eta sin U
+        d = np.array([np.cos(U), np.sin(U)])
+        foot = np.dot(np.array(q), d)*d
+        ax.plot([q[0], foot[0]], [q[1], foot[1]], color="0.3", lw=0.8, ls="--")
+        arrow(ax, -0.55, 0.0, -0.55, q[1], style="<|-|>", text="η", text_pos=(-0.8, q[1]/2),
+              fontsize=10)
+        label(ax, 0.6, 2.35, "path from Q shorter by n η sin U", fontsize=8, color="0.3")
+        label(ax, (z_p + z_pi)/2, -2.9, "neighbour in the plane is sharp for all U:  "
+              "n η sin U = n′ η′ sin U′  (Abbe's sine condition)", fontsize=9)
+    else:
+        label(ax, q[0], -0.3, "Q", fontsize=10, color=STRAY)
+        label(ax, qi[0] + 0.05, -0.3, "Q′", fontsize=10, color=STRAY)
+        arrow(ax, q[0], -0.62, z_p, -0.62, style="<|-|>", text="δz", text_pos=((q[0] + z_p)/2, -0.85),
+              fontsize=10)
+        arrow(ax, z_pi, -0.62, qi[0], -0.62, style="<|-|>", text="δz′",
+              text_pos=((z_pi + qi[0])/2, -0.85), fontsize=10)
+        label(ax, 0.6, 2.35, "path from Q longer by n δz cos U", fontsize=8, color="0.3")
+        label(ax, (z_p + z_pi)/2, -2.9, "neighbour on the axis is sharp for all U:  "
+              "n δz sin²(U/2) = n′ δz′ sin²(U′/2)  (Herschel)", fontsize=9)
+    label(ax, 0.85, 0.16, "U", fontsize=9)
+    label(ax, z_pi - 0.95, 0.2, "U′", fontsize=9)
+    _finish(ax, (-1.4, z_pi + 1.4), (-3.1, 2.6), title)

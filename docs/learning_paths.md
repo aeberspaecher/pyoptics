@@ -58,6 +58,7 @@ figures without running the code. No order is needed.
 | {doc}`79 Lensless imaging <notebooks/79_lensless_coded_aperture_imaging>` | Cameras without lenses: pinholes, masks and diffusers. |
 | {doc}`87 Speckle reduction <notebooks/87_speckle_reduction>` | Why a laser spot glitters, and how to stop it. |
 | {doc}`83 Étendue <notebooks/83_etendue_brightness_theorem>` | Why a burning glass cannot make anything hotter than the Sun. |
+| {doc}`102 Sine and Herschel conditions <notebooks/102_sine_herschel_lagrange>` | Why a paraboloid has comet-shaped stars, why a microscope sees one plane sharply, and how remote focusing gets around it. |
 | {doc}`80 Carpet cloak <notebooks/80_carpet_cloak>` | Hiding a bump under a carpet with a graded material. |
 | {doc}`90 Bokeh <notebooks/90_bokeh>` | Why the background of a fast lens shows cat's eyes, soap bubbles and onion rings. |
 | {doc}`91 Sunstars <notebooks/91_sunstars>` | Why a stopped down lens turns the Sun into a star, and how many rays it gets. |
@@ -83,11 +84,12 @@ pyoptics with it, or go from the ray trace to the wave optical image.
 | 4 | {doc}`19 Ray tracing to OPD <notebooks/19_ray_tracing>` | Exact ray tracing, OPD maps, Zernikes over the field. |
 | 5 | {doc}`61 Glass catalogues <notebooks/61_glass_catalogues>` | Glass maps, partial dispersion and an apochromat. |
 | 6 | {doc}`44 Seidel aberrations <notebooks/44_seidel_caldwell_lens>` | Seidel sums surface by surface: where correction and tension come from. |
-| 7 | {doc}`58 Lens optimization <notebooks/58_lens_optimization>` | Damped least squares optimization, from a singlet to a microscope objective. |
-| 8 | {doc}`45 Zernike aberration gallery <notebooks/45_zernike_aberration_gallery>` | What each Zernike term looks like in a real lens. |
-| 9 | {doc}`17 PSF, MTF, Strehl <notebooks/17_psf_mtf_strehl>` | PSF, MTF and Strehl from the pupil. |
-| 10 | {doc}`50 Magnification, distortion, telecentricity <notebooks/50_magnification_distortion_telecentricity>` | Magnification, distortion and telecentricity as Zernikes. |
-| 11 | {doc}`70 Monte Carlo tolerancing <notebooks/70_monte_carlo_tolerancing>` | Monte Carlo tolerancing. |
+| 7 | {doc}`102 Sine and Herschel conditions <notebooks/102_sine_herschel_lagrange>` | The Lagrange invariant, Conrady's OSC, aplanatic points and why the sine and Herschel conditions exclude each other. |
+| 8 | {doc}`58 Lens optimization <notebooks/58_lens_optimization>` | Damped least squares optimization, from a singlet to a microscope objective. |
+| 9 | {doc}`45 Zernike aberration gallery <notebooks/45_zernike_aberration_gallery>` | What each Zernike term looks like in a real lens. |
+| 10 | {doc}`17 PSF, MTF, Strehl <notebooks/17_psf_mtf_strehl>` | PSF, MTF and Strehl from the pupil. |
+| 11 | {doc}`50 Magnification, distortion, telecentricity <notebooks/50_magnification_distortion_telecentricity>` | Magnification, distortion and telecentricity as Zernikes. |
+| 12 | {doc}`70 Monte Carlo tolerancing <notebooks/70_monte_carlo_tolerancing>` | Monte Carlo tolerancing. |
 
 **From rays to waves:** {doc}`21 Lens focus from rays to waves <notebooks/21_lens_focus_waves>`, {doc}`47 Rays and waves <notebooks/47_rays_and_waves>`, {doc}`46 Analytic phase propagation <notebooks/46_analytic_phase_propagation>` (propagating strongly curved
 wavefronts), {doc}`56 Gaussian beam decomposition <notebooks/56_gaussian_beam_decomposition>`.
