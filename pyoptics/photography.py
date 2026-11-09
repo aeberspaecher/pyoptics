@@ -291,7 +291,7 @@ def blur_diameter_pupils(f, ep_diameter, pupil_magnification, sensor_x, x):
     the exit pupil (diameter m_p D at m_p f in front of F', m_p the pupil
     magnification), cuts the sensor in a disk of diameter
 
-        c = m_p D |x_s - x'|/(x' + m_p f).
+        c = m_p D abs(x_s - x')/(x' + m_p f).
 
     For m_p = 1 and the sensor focused at s_f this is the thin lens formula
     of `blur_diameter()` (distances from the principal planes).
@@ -590,13 +590,13 @@ def defocus_profile(r, W020, W040=0.0, apodization=None):
 
     The pupil has the wavefront W(rho) = W020 rho**2 + W040 rho**4 (waves)
     and the intensity transmission T(rho). A ray through rho lands at the
-    radius |dW/drho| = |2 W020 rho + 4 W040 rho**3| (in lambda/NA), and the
+    radius abs(dW/drho) = abs(2 W020 rho + 4 W040 rho**3) (in lambda/NA), and the
     rays of the annulus 2 rho d rho spread over 2 pi r dr, so
 
-        E(r) = sum over the rays that land at r of T(rho) rho/(pi r |dr/drho|),
+        E(r) = sum over the rays that land at r of T(rho) rho/(pi r abs(dr/drho)),
 
     normalized to the power through the pupil (integral of E over the plane
-    = 1). Where dr/drho = 0 (a caustic, when |W020| < 6 |W040| with opposite
+    = 1). Where dr/drho = 0 (a caustic, when abs(W020) < 6 abs(W040) with opposite
     signs) E diverges.
 
     Parameters
@@ -645,7 +645,7 @@ def defocused_psf(W020, W040=0.0, amplitude=None, wavefront=None, n_pupil=512, n
         Further wavefront W(rho) in waves (e.g. a ripple).
     n_pupil : int, optional
         Samples across the pupil diameter. The image spans n_pupil/2 lambda/NA,
-        the blur radius is about 2 |W020| + 4 |W040| lambda/NA.
+        the blur radius is about 2 abs(W020) + 4 abs(W040) lambda/NA.
     n : int, optional
         FFT size (pupil zero padded to n x n).
 
@@ -808,7 +808,7 @@ def converging_beam_equivalent(R, z):
     Behind the focus (z > R), M < 0 (the image is inverted) and z_eff < 0.
     A sensor at the distance Delta behind (or in front of, Delta < 0) the
     focus therefore sees the pupil plane ripples as if propagated by
-    |z_eff| = R (R + Delta)/|Delta|, about R**2/|Delta|.
+    abs(z_eff) = R (R + Delta)/abs(Delta), about R**2/abs(Delta).
 
     Parameters
     ----------
