@@ -644,6 +644,19 @@ What each module does and how mature it is. Planned work is listed in
   against the point mass images and the Paczynski curve, the Witt–Mao
   disk magnification, the SIS images and time delay and the cusps of the
   SIS plus shear caustic (notebook 99)
+- `echelle`: new, tested: echelle spectrographs: the grating equation
+  with the off-plane angle, Littrow orders, blaze wavelengths, the free
+  spectral range and the scalar blaze function (`Echelle`), grating and
+  prism cross-dispersers, positions in the echellogram and its image for
+  a spectrum (`order_position()`, `echellogram()`), the staircase
+  wavefront of the facets and its far field by FFT
+  (`staircase_far_field()`, `order_efficiencies()`), the instrument
+  profile of a slit and a diffraction limited beam and the slit limited
+  resolving power (`instrument_profile()`, `slit_resolving_power()`),
+  and a sunlike spectrum with Fraunhofer lines; checked against
+  sinc^2(m - m_B), R = m N, 2 tan(theta_B) f/s, the order lengths
+  2 f tan(theta_B)/m and the lambda^2 order spacing of a grating
+  cross-disperser (notebook 100)
 - `wpm`: wave propagation method (Cython extension) for inhomogeneous, also
   absorbing media, 2D and y-invariant 1D fields, multi-step driver; direct
   O(N^2) sum (OpenMP) or the fast "levels" variant (one FFT pair per distinct
