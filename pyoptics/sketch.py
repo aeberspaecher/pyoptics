@@ -153,6 +153,12 @@ Setup sketches for the other example notebooks:
   reflections; ghost_focus(): near-focused and defocused ghosts;
   flare_scene(): ghosts on the line through the Sun and the centre of the
   frame (notebook 92).
+- pixel_sampling(): pixels integrating a fine sine and the alias they
+  report; bayer_cfa(): the Bayer mosaic and its chrominance carriers in the
+  frequency plane; olpf_plates(): two birefringent plates and a quarter
+  wave plate splitting a ray into four; microlens_pixels(): microlenses
+  focusing the light of the lens onto photodiodes, on and off the axis
+  (notebook 93).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -214,7 +220,7 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "bokeh_formation", "spherical_aberration_bokeh", "cats_eye_vignetting",
            "rippled_asphere", "apodized_lens", "iris_diffraction", "iris_spikes", "rounded_iris",
            "iris_stop_down", "sunstar_scene", "ghost_reflections", "ar_coating_layers", "ghost_focus",
-           "flare_scene"]
+           "flare_scene", "pixel_sampling", "bayer_cfa", "olpf_plates", "microlens_pixels"]
 
 
 GLASS = "#cfe3f3"
@@ -6231,3 +6237,158 @@ def flare_scene(ax, title=None):
     label(ax, sx, sy + 0.45, "Sun", fontsize=8, color="0.9")
     label(ax, 0.0, -2.75, "ghosts on the line through the Sun and the centre", fontsize=8)
     _finish(ax, (-3.8, 3.8), (-3.0, 2.6), title)
+
+
+BAYER_COLORS = {"R": "#d6604d", "G": "#5aa469", "B": "#2a7ab9"}
+
+
+def pixel_sampling(ax, title=None):
+    """Sketch of sampling by pixels (notebook 93): each pixel integrates the
+    irradiance over its aperture and reports one value; a pattern finer than
+    two pixels per period (above the Nyquist frequency 1/2p) gives the same
+    values as a coarser one, its alias.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mp = _patches()
+    n, f = 10, 0.8                       # pixels, frequency in cycles per pixel
+    for k in range(n):
+        ax.add_patch(mp.Rectangle((k, -1.6), 0.96, 0.35, facecolor=GLASS, edgecolor=EDGE, lw=0.8))
+    x = np.linspace(0, n, 800)
+    ax.plot(x, 0.6*np.cos(2*np.pi*f*x), color=IMAGING, lw=1.3)
+    xc = np.arange(n) + 0.5
+    vals = 0.6*np.cos(2*np.pi*f*xc)*np.sinc(f)
+    ax.plot(x, 0.6*np.sinc(f)*np.cos(2*np.pi*(1 - f)*x), color=STRAY, lw=1.2, ls="--")
+    ax.plot(xc, vals, "o", color=STRAY, ms=5, zorder=4)
+    for k in range(n):
+        ax.plot([xc[k], xc[k]], [vals[k], -1.25], color="0.75", lw=0.6, ls=":")
+    label(ax, 0.0, -1.95, "pixels, pitch p", fontsize=8, ha="left")
+    label(ax, n + 0.2, 0.6, "image: 0.8 cycles per pixel", fontsize=8, ha="left", color=IMAGING)
+    label(ax, n + 0.2, -0.2, "pixel values = alias:\n0.2 cycles per pixel", fontsize=8, ha="left",
+          color=STRAY)
+    _finish(ax, (-0.3, n + 4.2), (-2.2, 1.0), title)
+
+
+def bayer_cfa(ax, title=None):
+    """Sketch of the Bayer colour filter array (notebook 93): left, the
+    mosaic of red, green and blue filters (RGGB); right, its frequency plane:
+    luminance at the centre, the chrominance R - B on the carriers
+    (1/2p, 0) and (0, 1/2p), and G - (R + B)/2 on the corners (1/2p, 1/2p),
+    where fine grey detail turns into false colour.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mp = _patches()
+    pat = ("RG", "GB")
+    for i in range(6):
+        for j in range(6):
+            c = pat[i % 2][j % 2]
+            ax.add_patch(mp.Rectangle((j*0.5, 2.5 - i*0.5), 0.46, 0.46, facecolor=BAYER_COLORS[c],
+                                      edgecolor="white", lw=0.5, alpha=0.85))
+    label(ax, 1.5, -0.35, "RGGB mosaic, pitch p", fontsize=8)
+    cx, cy, q = 6.3, 1.5, 1.2
+    ax.add_patch(mp.Rectangle((cx - q, cy - q), 2*q, 2*q, facecolor="none", edgecolor="0.5", lw=0.8,
+                              ls="--"))
+    ax.plot([cx - 1.6, cx + 1.6], [cy, cy], color="0.6", lw=0.6)
+    ax.plot([cx, cx], [cy - 1.6, cy + 1.6], color="0.6", lw=0.6)
+    ax.add_patch(mp.Circle((cx, cy), 0.35, color="0.45", alpha=0.6))
+    label(ax, cx + 0.05, cy + 0.55, "luminance", fontsize=7.5)
+    for sx, sy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        ax.add_patch(mp.Circle((cx + sx*q, cy + sy*q), 0.2, color="#b04a9a", alpha=0.75))
+    for sx in (1, -1):
+        for sy in (1, -1):
+            ax.add_patch(mp.Circle((cx + sx*q, cy + sy*q), 0.2, color=BAYER_COLORS["G"], alpha=0.75))
+    label(ax, cx + q + 0.3, cy - 0.3, "R - B", fontsize=7.5, ha="left", color="#b04a9a")
+    label(ax, cx + q + 0.3, cy + q + 0.1, "G - (R+B)/2", fontsize=7.5, ha="left", color=BAYER_COLORS["G"])
+    label(ax, cx, cy - q - 0.45, "frequency plane: Nyquist square 1/2p", fontsize=8)
+    _finish(ax, (-0.2, 9.2), (-0.7, 3.3), title)
+
+
+def olpf_plates(ax, title=None):
+    """Sketch of a birefringent optical low pass filter (notebook 93): the
+    first plate splits a ray into an ordinary ray and an extraordinary ray
+    displaced by d; a quarter wave plate turns both linear polarizations
+    into circular ones, so that the second plate, its optic axis turned by
+    90 degrees, splits each again: four spots on a square of side d.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mp = _patches()
+    plates = ((0.0, 1.0, "plate 1:\nsplit in y"), (1.4, 0.35, "λ/4"), (2.15, 1.0, "plate 2:\nsplit in x"))
+    for z, w, txt in plates:
+        ax.add_patch(mp.Rectangle((z, -0.9), w, 2.1, facecolor=GLASS, edgecolor=EDGE, lw=0.8))
+        label(ax, z + w/2, -1.25, txt, fontsize=8, va="top")
+    for k in range(4):
+        ax.plot([0.15 + 0.2*k, 0.35 + 0.2*k], [0.85, 1.05], color=EDGE, lw=0.6)
+    label(ax, 0.5, 1.35, "optic axis at 45°", fontsize=7.5)
+    ax.plot([2.65], [1.0], "o", mfc="none", mec=EDGE, ms=7)
+    ax.plot([2.65], [1.0], ".", color=EDGE, ms=3)
+    ax.plot([-1.0, 0.0], [0.0, 0.0], color=ILLUMINATION, lw=1.6)
+    ax.plot([0.0, 1.0, 3.15, 4.0], [0.0, 0.0, 0.0, 0.0], color=ILLUMINATION, lw=1.4)
+    ax.plot([0.0, 1.0, 3.15, 4.0], [0.0, 0.55, 0.55, 0.55], color=STRAY, lw=1.4)
+    label(ax, 4.1, 0.0, "o", fontsize=8, ha="left", color=ILLUMINATION)
+    label(ax, 4.1, 0.55, "e", fontsize=8, ha="left", color=STRAY)
+    arrow(ax, 3.75, 0.0, 3.75, 0.55, style="<->", color="0.3")
+    label(ax, 3.6, 0.28, "d", fontsize=8, ha="right")
+    # front view of the four spots
+    cx, cy, d = 5.6, 0.0, 0.55
+    ax.add_patch(mp.Rectangle((cx - 0.5, cy - 0.5), 1.6, 1.6, facecolor="0.97", edgecolor="0.6", lw=0.6))
+    for dx in (0, d):
+        for dy in (0, d):
+            ax.add_patch(mp.Circle((cx + dx, cy + dy), 0.12, color=GHOST_COLOR, alpha=0.85))
+    label(ax, cx + 0.3, cy - 0.8, "four spots, 1/4 each", fontsize=8)
+    _finish(ax, (-1.1, 7.0), (-1.9, 1.6), title)
+
+
+def microlens_pixels(ax, title=None):
+    """Sketch of pixels with microlenses (notebook 93): each microlens images
+    the exit pupil of the camera lens onto the photodiode below the colour
+    filter. For light from the centre of the frame (left) the image lands
+    on the photodiode; for a large chief ray angle (right) it walks off,
+    the pixel loses light and some of it reaches the neighbour (crosstalk).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mp = _patches()
+    cols = ("G", "R", "G", "R")
+    for k, c in enumerate(cols):
+        x0 = 2.0*k
+        ax.add_patch(mp.Rectangle((x0, 0.0), 2.0, 0.35, facecolor=BAYER_COLORS[c], alpha=0.6,
+                                  edgecolor="white", lw=0.5))
+        th = np.linspace(0, np.pi, 50)
+        ax.fill(x0 + 1.0 + 1.0*np.cos(th), 0.35 + 0.45*np.sin(th), facecolor=GLASS, edgecolor=EDGE,
+                lw=0.8)
+        ax.add_patch(mp.Rectangle((x0, -3.0), 2.0, 3.0, facecolor="#eef3f7", edgecolor="none"))
+        ax.add_patch(mp.Rectangle((x0 + 0.5, -3.3), 1.0, 0.3, facecolor="0.3", edgecolor="none"))
+        for y in (-1.0, -2.0):
+            ax.add_patch(mp.Rectangle((x0 - 0.15, y), 0.3, 0.15, facecolor="0.65", edgecolor="none"))
+    label(ax, 8.2, -3.15, "photodiodes", fontsize=8, ha="left")
+    label(ax, 8.2, 0.2, "colour filters", fontsize=8, ha="left")
+    label(ax, 8.2, 0.85, "microlenses", fontsize=8, ha="left")
+    label(ax, 8.2, -1.5, "metal wiring", fontsize=8, ha="left")
+    # on axis: converge onto the photodiode of pixel 0
+    for x in (0.25, 1.0, 1.75):
+        ax.plot([x, x, 1.0 + 0.4*(x - 1.0)], [1.9, 0.5, -3.0], color=ILLUMINATION, lw=1.0)
+    # oblique: chief ray angle, focus walks off towards the neighbour
+    sh = 1.0
+    for x in (4.25, 5.0, 5.75):
+        ax.plot([x - 0.8, x, 5.0 + sh + 0.4*(x - 5.0)], [1.9, 0.5, -3.0], color=STRAY, lw=1.0)
+    label(ax, 1.0, 2.2, "centre of frame", fontsize=8)
+    label(ax, 4.6, 2.2, "large chief ray angle", fontsize=8, color=STRAY)
+    _finish(ax, (-0.3, 10.6), (-3.6, 2.5), title)

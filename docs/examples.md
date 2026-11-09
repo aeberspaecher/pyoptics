@@ -336,12 +336,13 @@ notebooks/72_twinkling_stars_adaptive_optics
 ## Photography
 
 The optics of cameras: the out-of-focus image of a lens (bokeh), the
-star its iris makes of a bright light (sunstars) and the ghosts its
-surfaces make of it (flare).
+star its iris makes of a bright light (sunstars), the ghosts its
+surfaces make of it (flare), and what the sensor does to the image.
 
 - {doc}`notebooks/90_bokeh`
 - {doc}`notebooks/91_sunstars`
 - {doc}`notebooks/92_flare_ghosts`
+- {doc}`notebooks/93_sensor`
 
 ```{toctree}
 :hidden:
@@ -350,6 +351,7 @@ surfaces make of it (flare).
 notebooks/90_bokeh
 notebooks/91_sunstars
 notebooks/92_flare_ghosts
+notebooks/93_sensor
 ```
 
 ## Running the notebooks
