@@ -61,6 +61,7 @@ figures without running the code. No order is needed.
 | {doc}`80 Carpet cloak <notebooks/80_carpet_cloak>` | Hiding a bump under a carpet with a graded material. |
 | {doc}`90 Bokeh <notebooks/90_bokeh>` | Why the background of a fast lens shows cat's eyes, soap bubbles and onion rings. |
 | {doc}`91 Sunstars <notebooks/91_sunstars>` | Why a stopped down lens turns the Sun into a star, and how many rays it gets. |
+| {doc}`92 Flare and ghosts <notebooks/92_flare_ghosts>` | Where the coloured polygons come from when the Sun is in the frame, and what lens coatings do about them. |
 
 ## Lens designer
 
@@ -85,7 +86,7 @@ pyoptics with it, or go from the ray trace to the wave optical image.
 wavefronts), {doc}`56 Gaussian beam decomposition <notebooks/56_gaussian_beam_decomposition>`.
 **Polarization and coatings:** {doc}`20 Polarization ray tracing <notebooks/20_polarization_raytrace>`, {doc}`14 Coated laser mirror <notebooks/14_coated_laser_mirror>`.
 **Broadband light:** {doc}`81 Ultrashort pulses <notebooks/81_ultrashort_pulses_lenses>`.
-**Camera lenses:** {doc}`90 Bokeh <notebooks/90_bokeh>` (a double Gauss, vignetting, out-of-focus rendering), {doc}`91 Sunstars <notebooks/91_sunstars>` (diffraction at the iris).
+**Camera lenses:** {doc}`90 Bokeh <notebooks/90_bokeh>` (a double Gauss, vignetting, out-of-focus rendering), {doc}`91 Sunstars <notebooks/91_sunstars>` (diffraction at the iris), {doc}`92 Flare and ghosts <notebooks/92_flare_ghosts>` (double reflections, coatings).
 
 ## Lithography and semiconductor engineer
 

@@ -148,6 +148,11 @@ Setup sketches for the other example notebooks:
   blades as arcs and the fans they make; iris_stop_down(): a rounded iris
   at three F-numbers and the stars it makes; sunstar_scene(): the Sun
   imaged through a stopped down lens (notebook 91).
+- ghost_reflections(): a double reflection ghost path in a lens;
+  ar_coating_layers(): an antireflection multilayer and its interfering
+  reflections; ghost_focus(): near-focused and defocused ghosts;
+  flare_scene(): ghosts on the line through the Sun and the centre of the
+  frame (notebook 92).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -208,7 +213,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "beam_shaping_ray_map", "flattop_beam_shaper", "freeform_projection",
            "bokeh_formation", "spherical_aberration_bokeh", "cats_eye_vignetting",
            "rippled_asphere", "apodized_lens", "iris_diffraction", "iris_spikes", "rounded_iris",
-           "iris_stop_down", "sunstar_scene"]
+           "iris_stop_down", "sunstar_scene", "ghost_reflections", "ar_coating_layers", "ghost_focus",
+           "flare_scene"]
 
 
 GLASS = "#cfe3f3"
@@ -6093,3 +6099,135 @@ def sunstar_scene(ax, title=None):
     arrow(ax, 2.5, 0.0, 3.3, 0.0, color="0.4")
     label(ax, 3.6, 0.95, "image: disk + spikes", fontsize=8)
     _finish(ax, (-4.3, 4.5), (-1.35, 1.15), title)
+
+
+GHOST_COLOR = "#8e5ba8"
+
+
+def ghost_reflections(ax, title=None):
+    """Sketch of a ghost path in a camera lens (notebook 92): most of the
+    light passes the lens to its image on the sensor; a little is reflected
+    at a surface j, travels back, is reflected forward again at an earlier
+    surface i and reaches the sensor as a second, out-of-focus image, the
+    ghost. Every pair i < j of reflecting surfaces (and the sensor) makes
+    one.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    zs = (-1.6, -0.2, 1.2)
+    for z in zs:
+        lens(ax, z, 1.0, thickness=0.3)
+    stop(ax, 0.5, 1.0, openings=((0.0, 0.7),))
+    detector(ax, 3.6, 1.1, text="sensor", text_y=-1.3)
+    for y in (0.6, -0.6):
+        ax.plot([-3.2, -1.6, 3.6], [y, y, 0.0], color=ILLUMINATION, lw=1.4, alpha=0.9, zorder=2)
+    # the ghost: forward to j (rear lens), back to i (front lens), forward again
+    y0 = 0.45
+    zj, zi = zs[2] + 0.15, zs[0] - 0.15
+    ax.plot([-3.2, zj], [y0, y0*0.62], color=GHOST_COLOR, lw=1.3, zorder=3)
+    ax.plot([zj, zi], [y0*0.62, 0.95*y0], color=GHOST_COLOR, lw=1.3, ls="--", zorder=3)
+    ax.plot([zi, 3.6], [0.95*y0, -0.95], color=GHOST_COLOR, lw=1.3, zorder=3)
+    arrow(ax, 0.5*(zj + zi) + 0.3, 0.5*(0.62 + 0.95)*y0 + 0.02, 0.5*(zj + zi) - 0.3,
+          0.5*(0.62 + 0.95)*y0 + 0.05, color=GHOST_COLOR)
+    ax.plot([zj], [y0*0.62], "o", color=GHOST_COLOR, ms=4, zorder=4)
+    ax.plot([zi], [0.95*y0], "o", color=GHOST_COLOR, ms=4, zorder=4)
+    label(ax, zj + 0.1, -1.25, "reflection\nat j", fontsize=8, color=GHOST_COLOR)
+    label(ax, zi - 0.1, -1.25, "reflection\nat i < j", fontsize=8, color=GHOST_COLOR)
+    label(ax, 4.45, 0.0, "image", fontsize=8, ha="left")
+    label(ax, 4.45, -0.85, "ghost", fontsize=8, ha="left", color=GHOST_COLOR)
+    _finish(ax, (-3.4, 5.4), (-1.6, 1.3), title)
+
+
+def ar_coating_layers(ax, title=None):
+    """Sketch of an antireflection coating (notebook 92): thin films on the
+    glass, each a fraction of a wavelength thick; the weak reflections at
+    their interfaces come back with phases that nearly cancel, over a band
+    of wavelengths for a multilayer. A ghost is reflected twice, so it
+    scales with the square of the reflectance.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mp = _patches()
+    layers = (("MgF$_2$, n = 1.38", "#e8f2fa", 0.35), ("ZrO$_2$, n = 2.05", "#b9d4ea", 0.45),
+              ("Al$_2$O$_3$, n = 1.63", "#d4e5f2", 0.55))
+    y = 0.0
+    for name, col, h in layers:
+        ax.add_patch(mp.Rectangle((-2.0, y - h), 4.0, h, facecolor=col, edgecolor=EDGE, lw=0.8))
+        label(ax, 2.15, y - h/2, name, fontsize=8, ha="left")
+        y -= h
+    ax.add_patch(mp.Rectangle((-2.0, y - 0.9), 4.0, 0.9, facecolor=GLASS, edgecolor=EDGE, lw=0.8))
+    label(ax, 2.15, y - 0.45, "glass, n = 1.69", fontsize=8, ha="left")
+    ax.plot([-1.8, -0.9], [1.3, 0.0], color=ILLUMINATION, lw=1.6)
+    ax.plot([-0.9, -0.55, -0.25, 0.05], [0.0, -0.35, -0.8, -1.35], color=ILLUMINATION, lw=1.4)
+    ax.plot([0.05, 0.35], [-1.35, -2.25], color=ILLUMINATION, lw=1.4)
+    for zr, yr, ls in ((-0.9, 0.0, "-"), (-0.55, -0.35, "--"), (-0.25, -0.8, "--"), (0.05, -1.35, "--")):
+        ax.plot([zr, zr + 0.9 - 0.4*yr], [yr, 1.3], color=GHOST_COLOR, lw=1.0, ls=ls, alpha=0.8)
+    label(ax, 0.6, 1.45, "reflected waves interfere\n(nearly cancel)", fontsize=8, color=GHOST_COLOR)
+    label(ax, -1.9, 1.45, "light", fontsize=8, ha="left")
+    _finish(ax, (-2.3, 4.4), (-2.5, 1.9), title)
+
+
+def ghost_focus(ax, title=None):
+    """Sketch of the paraxial ghost analysis (notebook 92): a beam of height
+    y_in through a ghost path ends as a blur of radius abs(a) y_in on the
+    sensor. A ghost focused near the sensor (a close to 0, top) piles its
+    light into a small, bright spot; a ghost focused far from it (bottom)
+    spreads the light thin. The ghost irradiance is R_i R_j T/a**2 times the
+    irradiance of the source at the lens, whatever the aperture.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    for z0, a, txt in ((0.0, 0.05, "near-focused ghost:\nsmall and bright"),
+                       (6.2, 0.42, "defocused ghost:\nlarge and faint")):
+        lens(ax, z0 - 1.0, 0.75, thickness=0.22)
+        detector(ax, z0 + 3.0, 0.8, text="sensor", text_y=-0.95)
+        for y in (0.6, -0.6):
+            ax.plot([z0 - 2.4, z0 - 1.0, z0 + 3.0], [y, y, a*np.sign(y)], color=GHOST_COLOR, lw=1.2)
+        ax.add_patch(_patches().Rectangle((z0 + 3.1, -a), 0.16, 2*a, facecolor=GHOST_COLOR,
+                                          alpha=min(1.0, 0.05/a), edgecolor="none"))
+        label(ax, z0 + 0.6, 1.05, txt, fontsize=8)
+    arrow(ax, -2.2, 0.0, -2.2, 0.6, style="<->", color="0.3", text="y$_{in}$", text_pos=(-2.55, 0.3))
+    arrow(ax, 9.55, 0.0, 9.55, 0.42, style="<->", color="0.3")
+    label(ax, 9.7, 0.21, "|a| y$_{in}$", fontsize=8, ha="left")
+    _finish(ax, (-2.9, 10.6), (-1.3, 1.5), title)
+
+
+def flare_scene(ax, title=None):
+    """Sketch of where ghosts appear (notebook 92): for a centred lens, every
+    ghost of a bright source lies on the line through the source's image and
+    the centre of the frame, on either side of the centre, as copies of the
+    iris (when the ghost path passes the stop) of different sizes and
+    brightness.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mp = _patches()
+    ax.add_patch(mp.Rectangle((-3.6, -2.4), 7.2, 4.8, facecolor="0.12", edgecolor="0.3", zorder=1))
+    sx, sy = -2.2, 1.5
+    ax.plot([sx, -sx*1.3], [sy, -sy*1.3], color="0.6", lw=0.8, ls=":", zorder=2)
+    ax.add_patch(mp.Circle((sx, sy), 0.22, color="#fff2b0", zorder=5))
+    for t, r, a in ((-0.35, 0.18, 0.7), (0.25, 0.55, 0.35), (0.6, 0.3, 0.55), (0.9, 0.8, 0.2),
+                    (1.15, 0.12, 0.9)):
+        v = _iris_outline(7, r, rotation=np.pi/2)
+        ax.add_patch(mp.Polygon(v + [-sx*t, -sy*t], closed=True, facecolor=GHOST_COLOR, alpha=a,
+                                edgecolor="none", zorder=3))
+    ax.plot([0], [0], "+", color="0.8", ms=8, zorder=4)
+    label(ax, sx, sy + 0.45, "Sun", fontsize=8, color="0.9")
+    label(ax, 0.0, -2.75, "ghosts on the line through the Sun and the centre", fontsize=8)
+    _finish(ax, (-3.8, 3.8), (-3.0, 2.6), title)

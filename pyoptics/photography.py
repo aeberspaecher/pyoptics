@@ -2,8 +2,8 @@
 #-*- coding:utf-8 -*-
 
 """Photographic optics: the out-of-focus image of a point (bokeh), the lens
-that makes it, and the star that its iris makes of a bright point
-(sunstars).
+that makes it, the star that its iris makes of a bright point (sunstars),
+and the ghosts that its surfaces make of it by double reflection (flare).
 
 A camera lens focused at one distance images a point at another distance
 as a blur, the shape and brightness distribution of which photographers
@@ -63,6 +63,18 @@ Contents:
   `rounded_edge_crossover()` for rounded blades, `power_outside()` (the
   wings depend on perimeter and area only); `sunstar()`, the image of the
   Sun (or a point) through an iris on a sensor, by wavelength.
+- Flare and ghosts (notebook 92): `ghost_paths()`, every double
+  reflection (j, i) of a lens, including those off the sensor;
+  `ghost_system()`, a ghost path unfolded into a `raytrace.System` with
+  the reflecting surfaces as mirrors; `flare_rays()` and `trace_flare()`,
+  the polarization ray trace of a path with the thin film coatings of its
+  surfaces; `AR_DESIGNS` and `ar_coatings()`, uncoated, single layer MgF2
+  and a three layer antireflection coating on every air-glass surface;
+  `ghost_footprint()`, an adaptively sampled ghost of a point or of the
+  Sun, through a polygonal iris, with its spectrum; `ghost_spectra()` the
+  same for several coatings at once; `ghost_analysis()`, the paraxial
+  ghost analysis (blur, focus and irradiance relative to a white surface
+  for every path).
 
 Conventions are those of `raytrace`: lengths in mm, light along +z, the
 optical path difference OPD > 0 where the wavefront leads, so that a sensor
@@ -108,6 +120,18 @@ J. B. Keller, "Geometrical theory of diffraction", J. Opt. Soc. Am. 52,
 J. E. Harvey and C. Ftaclas, "Diffraction effects of telescope secondary
 mirror spiders on various image-quality criteria", Appl. Opt. 34,
 6337-6349 (1995).
+
+H. A. Macleod, "Thin-Film Optical Filters", 4th ed., CRC Press (2010),
+chapters 2 and 4 (antireflection coatings).
+
+W. J. Smith, "Modern Optical Engineering", 4th ed., McGraw-Hill (2008),
+section 14.6 (ghost images).
+
+R. A. Chipman, W. S. T. Lam and G. Young, "Polarized Light and Optical
+Systems", CRC Press (2018), chapters 9 and 10 (polarization ray tracing).
+
+M. Hullin, E. Eisemann, H.-P. Seidel and S. Lee, "Physically-based
+real-time lens flare rendering", ACM Trans. Graph. 30, 108 (2011).
 """
 
 from collections import namedtuple
@@ -124,7 +148,9 @@ __all__ = ["double_gauss", "focus", "blur_diameter", "blur_diameter_pupils", "po
            "t_number", "apodizer_for_t_number", "DOUBLE_GAUSS_F", "D_LINE",
            "iris", "polygon_area", "polygon_perimeter", "iris_apothem", "polygon_transform",
            "iris_coverage", "iris_psf", "edge_spike", "spike_count", "rounded_edge_crossover",
-           "iris_edge_length", "power_outside", "curved_edge_spike", "sunstar", "SUN_RADIUS"]
+           "iris_edge_length", "power_outside", "curved_edge_spike", "sunstar", "SUN_RADIUS",
+           "ghost_paths", "ghost_system", "flare_rays", "trace_flare", "AR_DESIGNS", "ar_coatings",
+           "GhostFootprint", "ghost_footprint", "GhostInfo", "ghost_analysis", "ghost_spectra"]
 
 
 D_LINE = 587.5618e-6  # mm
@@ -1393,3 +1419,582 @@ def sunstar(n_blades, f_number, wavelength, focal_length=24.0, blade_radius=np.i
         out.append(map_coordinates(E, [I, J], order=1))
 
     return x, np.array(out)
+
+
+# --- Flare and ghosts (notebook 92) ----------------------------------------
+
+def _medium_index(system, k):
+    """Refractive index in front of surface k of a system (k = len: image space)."""
+
+    return float(np.real(system.n[k]))
+
+
+def ghost_paths(system, sensor=True):
+    """All double reflection ghost paths of a system: light passes the
+    surfaces up to j, is reflected back at surface j, reflected forward again
+    at an earlier surface i < j and then goes on to the image. Only surfaces
+    that change the medium reflect (not stops or dummy surfaces).
+
+    Parameters
+    ----------
+    system : raytrace.System
+    sensor : bool, optional
+        Include the sensor (image plane) as a reflecting surface j =
+        len(system.surfaces).
+
+    Returns
+    -------
+    list of (j, i)
+    """
+
+    N = len(system.surfaces)
+    refl = [k for k in range(N) if system.n[k] != system.n[k + 1]]
+    js = refl + ([N] if sensor else [])
+
+    return [(j, i) for j in js for i in refl if i < j]
+
+
+def ghost_system(system, j, i, coatings=None, sensor_index=1.65):
+    """The unfolded system of the ghost path (j, i): the surfaces of `system`
+    up to j, a reflection at j, the surfaces back to i in reverse order, a
+    reflection at i and the surfaces from i + 1 to the image.
+
+    The reflections and transmissions go through the coatings
+    (`coatings.Coating`) of the surfaces, seen from the side the light comes
+    from (`Coating.reversed()` on the way back); a reflection is the
+    coating on the medium behind it as its substrate. The sensor (j = the
+    number of surfaces) is a plane mirror at the image plane, a bare
+    surface of index sensor_index (R = 6 % for 1.65) unless coatings[j]
+    is given (with its substrate).
+
+    Parameters
+    ----------
+    system : raytrace.System
+        Monochromatic system (the indices are taken at its wavelength).
+    j, i : int
+        Ghost path, i < j (from `ghost_paths()`).
+    coatings : dict {k: Coating}, optional
+        Coatings of the surfaces k (in the orientation of the system); by
+        default those of the surfaces.
+    sensor_index : number, optional
+
+    Returns
+    -------
+    ghost : raytrace.System
+    stops : list of int
+        Indices of the copies of the stop in the unfolded system (one to
+        three, where the ray passes the stop).
+    """
+
+    from copy import copy
+    from .coatings import Coating
+
+    S = system.surfaces
+    N = len(S)
+    if not 0 <= i < j <= N:
+        raise ValueError("A ghost path needs 0 <= i < j <= number of surfaces.")
+    coatings = {} if coatings is None else coatings
+    n = [_medium_index(system, k) for k in range(N + 1)]
+
+    def coat(k):
+        return coatings.get(k, S[k].coating if k < N else None)
+
+    def layers(k):
+        c = coat(k)
+        return [] if c is None else list(c.layers)
+
+    def plain(k, n_after=None):
+        s = copy(S[k])
+        s.material, s.index_offset = None, 0.0
+        s.n_after = n_after if n_after is not None else (n[k + 1] if n[k + 1] != n[k] else None)
+        s.coating = coat(k)
+        return s
+
+    out, stops = [], []
+    for k in range(min(j, N)):
+        out.append(plain(k))
+        if k == system.stop_index:
+            stops.append(len(out) - 1)
+    # reflection at j, seen from the medium in front of it
+    if j == N:
+        c = coat(N)
+        m = rt.Surface(np.inf, mirror=True, label="sensor",
+                       coating=c if c is not None else Coating((), substrate=sensor_index))
+    else:
+        m = copy(S[j])
+        m.material, m.n_after, m.index_offset, m.mirror = None, None, 0.0, True
+        m.coating = Coating(layers(j), substrate=n[j + 1])
+    m.thickness = -S[j - 1].thickness
+    out.append(m)
+    # back to i
+    for k in range(j - 1, i, -1):
+        s = plain(k, n_after=n[k] if n[k] != n[k + 1] else None)
+        s.coating = None if coat(k) is None else coat(k).reversed()
+        s.thickness = -S[k - 1].thickness
+        out.append(s)
+        if k == system.stop_index:
+            stops.append(len(out) - 1)
+    # reflection at i, from behind
+    m = copy(S[i])
+    m.material, m.n_after, m.index_offset, m.mirror = None, None, 0.0, True
+    m.coating = Coating(layers(i)[::-1], substrate=n[i])
+    m.thickness = S[i].thickness
+    out.append(m)
+    for k in range(i + 1, N):
+        out.append(plain(k))
+        if k == system.stop_index:
+            stops.append(len(out) - 1)
+    ghost = rt.System(out, stops[0] if stops else 0, system.wavelength, n_object=system.n_object,
+                      entrance_pupil_radius=None)
+
+    return ghost, stops
+
+
+def flare_rays(system, field, n=201, radius=None):
+    """A collimated beam from a distant bright source (field angle in
+    radians, or (x, y) angles) that fills the whole front of the lens, not
+    only the entrance pupil: ghost light can take any path. A square grid of
+    n x n rays across radius (default the clear semi-diameter of the first
+    surface plus the shift of an oblique beam).
+
+    Returns
+    -------
+    rays : raytrace.Rays
+    weight : array
+        Power of each ray (irradiance 1 across the beam: area of a grid
+        cell projected onto the beam cross section).
+    """
+
+    fx, fy = rt._field_xy(field)
+    d = np.array([np.tan(fx), np.tan(fy), 1.0])
+    d = d/np.linalg.norm(d)
+    s0 = system.surfaces[0]
+    if radius is None:
+        sd = s0.semi_diameter if s0.semi_diameter is not None else 1.5*system.paraxial().ep_radius
+        radius = sd + 10.0*np.hypot(d[0], d[1])/d[2]
+    u = np.linspace(-radius, radius, n)
+    X, Y = np.meshgrid(u, u)
+    X, Y = X.ravel(), Y.ravel()
+    z0 = -10.0
+    P = np.column_stack([X - 10.0*d[0]/d[2], Y - 10.0*d[1]/d[2], np.full(X.size, z0)])
+    D = np.tile(d, (X.size, 1))
+    cell = (u[1] - u[0])**2
+
+    return rt.Rays(P, D, np.zeros(X.size)), np.full(X.size, cell*d[2])
+
+
+def _in_iris(bundle, stops, iris_shape):
+    if iris_shape is None:
+        return np.ones(len(bundle.valid), bool)
+    n_blades, apothem, blade_radius, rotation = iris_shape
+    ok = np.ones(len(bundle.valid), bool)
+    for k in stops:
+        P = bundle.points[k + 1]
+        cov = iris_coverage(P[:, 0], P[:, 1], n_blades, apothem, blade_radius, rotation, dx=1e-6)
+        ok &= np.nan_to_num(cov) > 0.5
+    return ok
+
+
+def trace_flare(system, rays, weight, path=None, coatings=None, iris_shape=None,
+                sensor_index=1.65):
+    """Trace a beam through the lens directly (path None) or along a ghost
+    path (j, i) with the polarization ray trace (`System.trace_polarization`,
+    unpolarized light), through the coatings.
+
+    Parameters
+    ----------
+    system : raytrace.System
+    rays, weight : from `flare_rays()`
+    path : (j, i), optional
+    coatings : dict {k: Coating}, optional
+    iris_shape : (n_blades, apothem, blade_radius, rotation), optional
+        An iris in the stop (see `iris()`): rays outside it are blocked at
+        every pass through the stop (the stop's semi-diameter must not cut
+        them first).
+    sensor_index : number, optional
+
+    Returns
+    -------
+    x, y : arrays
+        Where the rays that get through hit the image plane (image frame).
+    power : array
+        Their power (weight times the transmittance of the path).
+    """
+
+    if path is None:
+        sys_ = system
+        if coatings:
+            from copy import copy
+            surf = [copy(s) for s in system.surfaces]
+            for k, c in coatings.items():
+                if k < len(surf):
+                    surf[k].coating = c
+            sys_ = rt.System(surf, system.stop_index, system.wavelength, n_object=system.n_object)
+        stops = [system.stop_index]
+    else:
+        sys_, stops = ghost_system(system, *path, coatings=coatings, sensor_index=sensor_index)
+    pb = sys_.trace_polarization(rays)
+    T = pb.transmittance()
+    b = pb.bundle if hasattr(pb, "bundle") else pb
+    ok = np.isfinite(T) & _in_iris(b, stops, iris_shape)
+    P = b.points[-1][ok]
+    _, (o, R) = sys_.frames()
+    Q = (P - o) @ R
+
+    return Q[:, 0], Q[:, 1], weight[ok]*T[ok]
+
+
+# Antireflection coatings of notebook 92, layers from the air side; indices
+# of evaporated films (dispersion neglected): MgF2 1.38, ZrO2 2.05, Al2O3 1.63.
+AR_DESIGNS = {
+    "uncoated": [],
+    "MgF2": [(1.38, 99.6e-6)],                                       # quarter wave at 550 nm
+    "multilayer": [(1.38, 94.0e-6), (2.05, 126.7e-6), (1.63, 160.1e-6)],  # broadband, on n = 1.68
+}
+
+
+def ar_coatings(system, design="multilayer"):
+    """Antireflection coatings on all air-glass surfaces of a system,
+    oriented as `coatings.Coating` expects (layers from the medium in front
+    of the surface): from the air side on surfaces light enters glass, in
+    reverse on those where it leaves. Cemented surfaces stay bare.
+
+    Designs (`AR_DESIGNS`, constant film indices, thicknesses in mm):
+    "uncoated"; "MgF2", a quarter wave of MgF2 (n = 1.38) at 550 nm, about
+    0.35 % at 550 nm and 0.7 % averaged over 420-680 nm on N-LAK9; and
+    "multilayer", a three layer broadband coating (MgF2 / ZrO2 / Al2O3 from
+    the air side, a quarter-half-quarter design optimized for n = 1.68),
+    0.19 % averaged over 420-680 nm and below 0.4 % everywhere in it.
+
+    Parameters
+    ----------
+    system : raytrace.System
+    design : str or list of (index, thickness)
+
+    Returns
+    -------
+    dict {k: Coating or None}
+    """
+
+    from .coatings import Coating, Layer
+
+    layers = AR_DESIGNS[design] if isinstance(design, str) else design
+    out = {}
+    for k in range(len(system.surfaces)):
+        n1, n2 = _medium_index(system, k), _medium_index(system, k + 1)
+        if n1 == n2 or (n1 != 1.0 and n2 != 1.0):
+            continue
+        ls = [Layer(n, t) for n, t in layers]
+        out[k] = Coating(ls if n1 == 1.0 else ls[::-1]) if ls else None
+
+    return out
+
+
+def _sp_spectra(sys_, bundle, ok, wavelengths_nm, n_table=181):
+    """Transmittance of each ray along an (unfolded) system for s and p
+    polarization separately at the given wavelengths, from the angle of
+    incidence at every surface and the coatings' reflectance and
+    transmittance (tabulated over the angle). Neglects the mixing of s and p
+    between surfaces of different planes of incidence (skew rays) and the
+    dispersion of the glasses; see `ghost_footprint()`."""
+
+    from .coatings import Coating
+
+    lam_nm = np.atleast_1d(np.asarray(wavelengths_nm, float))
+    lam = lam_nm*1e-6
+    n = [_medium_index(sys_, k) for k in range(len(sys_.surfaces) + 1)]
+    frames = sys_.frames()[0]
+    Ts = np.ones((int(ok.sum()), lam.size))
+    Tp = np.ones_like(Ts)
+    th_grid = np.linspace(0.0, np.pi/2*0.999, n_table)
+    for m, s in enumerate(sys_.surfaces):
+        if isinstance(s, rt.CoordinateBreak):
+            continue
+        c = s.coating
+        if not s.mirror and n[m] == n[m + 1] and c is None:
+            continue
+        o, R = frames[m]
+        Q = (bundle.points[m + 1][ok] - o) @ R
+        cos_i = np.clip(np.abs(np.sum(s.normal(Q)*(bundle.directions[m][ok] @ R), axis=-1)), 0, 1)
+        th = np.arccos(cos_i)
+        c = Coating() if c is None else c
+        for q, (lw, lwn) in enumerate(zip(lam, lam_nm)):
+            if s.mirror:
+                p = c.power(th_grid, n[m], None, lw, lwn)
+                ks, kp = "R_s", "R_p"
+            else:
+                p = c.power(th_grid, n[m], n[m + 1], lw, lwn)
+                ks, kp = "T_s", "T_p"
+            Ts[:, q] *= np.interp(th, th_grid, np.nan_to_num(np.real(p[ks])))
+            Tp[:, q] *= np.interp(th, th_grid, np.nan_to_num(np.real(p[kp])))
+
+    return Ts, Tp
+
+
+def _path_system(system, path, coatings, sensor_index, iris_shape):
+    """The (unfolded) system of a path and the indices of its stop copies."""
+
+    from copy import copy
+
+    if path is None:
+        surf = [copy(s) for s in system.surfaces]
+        for k, c in (coatings or {}).items():
+            if k < len(surf):
+                surf[k].coating = c
+        sys_ = rt.System(surf, system.stop_index, system.wavelength, n_object=system.n_object)
+        stops = [system.stop_index]
+    else:
+        sys_, stops = ghost_system(system, *path, coatings=coatings, sensor_index=sensor_index)
+    if iris_shape is not None:
+        for k in stops:                     # the iris, not the round stop, limits the beam
+            sys_.surfaces[k] = copy(sys_.surfaces[k])
+            sys_.surfaces[k].semi_diameter = None
+
+    return sys_, stops
+
+
+def _flare_sample(system, sys_, stops, field, n_rays, rng, source_radius, iris_shape, n_coarse):
+    """Rays of a distant source that fill only the part of the front of the
+    lens that feeds the path of sys_ (coarse grid, then random points in the
+    cells that pass and their neighbours), with directions over the source
+    disk, and their powers (irradiance 1 across the beam)."""
+
+    from scipy.ndimage import binary_dilation
+
+    rays, _ = flare_rays(system, field, n=n_coarse)
+    b = sys_.trace(rays)
+    good = b.valid & _in_iris(b, stops, iris_shape)
+    P0 = rays.points
+    du = np.unique(P0[:, 0])[1] - np.unique(P0[:, 0])[0]
+    grid = binary_dilation(good.reshape(n_coarse, n_coarse), iterations=1)
+    cells = np.argwhere(grid)
+    if len(cells) == 0:
+        return None, None
+    pick = cells[rng.integers(len(cells), size=n_rays)]
+    base = P0.reshape(n_coarse, n_coarse, 3)[pick[:, 0], pick[:, 1]]
+    X = base[:, 0] + (rng.random(n_rays) - 0.5)*du
+    Y = base[:, 1] + (rng.random(n_rays) - 0.5)*du
+    fx, fy = rt._field_xy(field)
+    rr = source_radius*np.sqrt(rng.random(n_rays))
+    phi = 2*np.pi*rng.random(n_rays)
+    D = np.column_stack([np.tan(fx + rr*np.cos(phi)), np.tan(fy + rr*np.sin(phi)), np.ones(n_rays)])
+    D = D/np.linalg.norm(D, axis=1)[:, None]
+    z0 = base[0, 2]
+    d0 = rays.directions[0]
+    # each ray crosses z = 0 where the ray of the central direction would
+    x0 = X - z0*d0[0]/d0[2]
+    y0 = Y - z0*d0[1]/d0[2]
+    P = np.column_stack([x0 + z0*D[:, 0]/D[:, 2], y0 + z0*D[:, 1]/D[:, 2], np.full(n_rays, z0)])
+    weight = np.full(n_rays, len(cells)*du**2/n_rays*d0[2])
+
+    return rt.Rays(P, D, np.zeros(n_rays)), weight
+
+
+GhostFootprint = namedtuple("GhostFootprint", ["x", "y", "power", "spectrum", "rays"])
+GhostFootprint.__doc__ = """Rays of a bright source along one path (direct or ghost).
+
+- x, y: where they hit the sensor (mm, image frame).
+- power: power of each ray at the wavelength of the system, from the
+  polarization ray trace (unpolarized), in units of the irradiance of the
+  source at the lens times mm^2.
+- spectrum: (n, n_wavelengths) the same at other wavelengths (s and p
+  chains), or None.
+- rays: number of rays launched.
+"""
+
+
+def ghost_footprint(system, field, path=None, coatings=None, n_rays=20000, rng=None,
+                    source_radius=0.0, iris_shape=None, wavelengths_nm=None, sensor_index=1.65,
+                    n_coarse=81):
+    """Trace a bright distant source (a disk of angular radius source_radius
+    around the field angle, e.g. the Sun) along the direct path or a ghost
+    path (j, i) of a lens, sampling only the part of the front aperture that
+    feeds that path.
+
+    A coarse grid over the whole front of the lens (`flare_rays()`) finds
+    the cells whose rays reach the sensor along the path; n_rays rays then
+    fill those cells (and their neighbours) at random, with directions
+    spread over the source disk. They are traced with the polarization ray
+    trace through the coatings (unpolarized light). With wavelengths_nm,
+    the power of each ray is also evaluated at those wavelengths from s and
+    p chains of the coating reflectances and transmittances at the traced
+    angles of incidence (the ray geometry of the system's wavelength).
+
+    Parameters
+    ----------
+    system : raytrace.System
+    field : number or (x, y)
+        Direction of the source (radians).
+    path : (j, i), optional
+        Ghost path; None: the direct image.
+    coatings : dict {k: Coating}, optional
+        E.g. from `ar_coatings()`.
+    n_rays : int, optional
+    rng : numpy Generator, optional
+    source_radius : number, optional
+        Angular radius of the source (`SUN_RADIUS` for the Sun).
+    iris_shape : (n_blades, apothem, blade_radius, rotation), optional
+        See `trace_flare()`.
+    wavelengths_nm : array, optional
+    sensor_index : number, optional
+    n_coarse : int, optional
+
+    Returns
+    -------
+    GhostFootprint
+    """
+
+    rng = np.random.default_rng() if rng is None else rng
+    sys_, stops = _path_system(system, path, coatings, sensor_index, iris_shape)
+    dense, weight = _flare_sample(system, sys_, stops, field, n_rays, rng, source_radius, iris_shape,
+                                  n_coarse)
+    if dense is None:
+        return GhostFootprint(np.zeros(0), np.zeros(0), np.zeros(0),
+                              None if wavelengths_nm is None else np.zeros((0, len(wavelengths_nm))),
+                              0)
+    pb = sys_.trace_polarization(dense)
+    T = pb.transmittance()
+    ok = np.isfinite(T) & _in_iris(pb.bundle, stops, iris_shape)
+    _, (o, R) = sys_.frames()
+    Q = (pb.bundle.points[-1][ok] - o) @ R
+    spec = None
+    if wavelengths_nm is not None:
+        Ts, Tp = _sp_spectra(sys_, pb.bundle, ok, wavelengths_nm)
+        spec = weight[ok][:, None]*0.5*(Ts + Tp)
+
+    return GhostFootprint(Q[:, 0], Q[:, 1], weight[ok]*T[ok], spec, n_rays)
+
+
+def _normal_RT(coating, n1, n2, wavelength, substrate=None):
+    from .coatings import Coating
+    c = Coating() if coating is None else coating
+    if substrate is not None:
+        c = Coating(c.layers, substrate=substrate)
+        p = c.power(0.0, n1, None, wavelength)
+        return float(np.real(p["R_s"]))
+    p = c.power(0.0, n1, n2, wavelength)
+    return float(np.real(p["R_s"])), float(np.real(p["T_s"]))
+
+
+GhostInfo = namedtuple("GhostInfo", ["path", "R_j", "R_i", "transmittance", "magnification",
+                                     "focus", "irradiance"])
+GhostInfo.__doc__ = """Paraxial ghost analysis of one ghost path.
+
+- path: (j, i).
+- R_j, R_i: reflectances of the two ghost surfaces at normal incidence.
+- transmittance: R_j R_i times the transmittances of all surfaces passed.
+- magnification: a = y_image/y_in of a paraxial ray parallel to the axis
+  at height y_in; the ghost of a collimated beam of radius h is a blur of
+  radius abs(a) h on the sensor.
+- focus: axial distance of the ghost focus from the sensor (mm, > 0
+  behind it, inf for a collimated ghost).
+- irradiance: ghost irradiance relative to the image of a white diffuse
+  surface lit by the same source, 4 N**2 transmittance/(T a**2), with the
+  transmittance T of the direct path.
+"""
+
+
+def ghost_analysis(system, coatings=None, sensor=True, sensor_index=1.65, f_number=None):
+    """Paraxial ghost analysis (as in ghost focus programs): for every
+    double reflection path, the reflectances and transmittances at normal
+    incidence through the coatings, the paraxial blur of an axial
+    collimated beam and the resulting ghost irradiance.
+
+    A source of irradiance E_0 at the lens sends E_0 pi y_in**2 through a
+    ghost path into a blur of radius abs(a) y_in, whatever limits y_in (the
+    stop, at one of its passes): the ghost irradiance is E_0 R_i R_j T_g/a**2,
+    independent of the aperture. The image of a white diffuse surface lit
+    by the same source is E_0 T/(4 N**2). Their ratio grows as N**2: a lens
+    shows its ghosts more when it is stopped down (and the exposure made
+    longer).
+
+    Parameters
+    ----------
+    system : raytrace.System
+    coatings : dict {k: Coating}, optional
+    sensor : bool, optional
+    sensor_index : number, optional
+    f_number : number, optional
+        Default: the paraxial F-number of the system.
+
+    Returns
+    -------
+    list of GhostInfo, and the transmittance T of the direct path
+    """
+
+    from .coatings import Coating
+
+    coatings = {} if coatings is None else coatings
+    S = system.surfaces
+    N = len(S)
+    n = [_medium_index(system, k) for k in range(N + 1)]
+    wl = system.wavelength
+    R, T = {}, {}
+    for k in range(N):
+        if n[k] != n[k + 1]:
+            c = coatings.get(k, S[k].coating)
+            R[k], T[k] = _normal_RT(c, n[k], n[k + 1], wl)
+    if sensor:
+        c = coatings.get(N)
+        R[N] = _normal_RT(c if c is not None else Coating(), n[N], None, wl,
+                          substrate=sensor_index if c is None else c.substrate)
+    T_direct = np.prod([T[k] for k in T])
+    F = system.paraxial().f_number if f_number is None else f_number
+    out = []
+    for j, i in ghost_paths(system, sensor):
+        Tg = R[j]*R[i]
+        for k in list(range(min(j, N))) + list(range(i + 1, min(j, N))) + list(range(i + 1, N)):
+            Tg *= T.get(k, 1.0)
+        g, _ = ghost_system(system, j, i, coatings=coatings, sensor_index=sensor_index)
+        ys, us = g._paraxial_trace(1.0, 0.0)
+        a = ys[-1] + us[-1]*g.surfaces[-1].thickness
+        u = us[-1]
+        focus = -a/u if u != 0 else np.inf
+        irr = 4*F**2*Tg/(T_direct*a**2) if a != 0 else np.inf
+        out.append(GhostInfo((j, i), R[j], R[i], Tg, a, focus, irr))
+
+    return out, T_direct
+
+
+def ghost_spectra(system, field, path, coating_sets, wavelengths_nm, n_rays=20000, rng=None,
+                  source_radius=0.0, iris_shape=None, sensor_index=1.65, n_coarse=81):
+    """Like `ghost_footprint()`, for several sets of coatings at once and
+    only with the spectral s and p chains: the rays are traced once (the
+    coatings do not change their paths) and weighted with the reflectances
+    and transmittances of each set of coatings at each wavelength. Fast
+    enough for rendering all ghosts of a lens.
+
+    Parameters
+    ----------
+    system, field, path
+        As in `ghost_footprint()`.
+    coating_sets : list of dict {k: Coating}
+    wavelengths_nm : array
+    n_rays, rng, source_radius, iris_shape, sensor_index, n_coarse
+        As in `ghost_footprint()`.
+
+    Returns
+    -------
+    x, y : arrays
+        Sensor coordinates of the rays that get through (mm).
+    spectra : list of arrays (n, n_wavelengths)
+        Power of each ray at each wavelength, one array per coating set.
+    """
+
+    rng = np.random.default_rng() if rng is None else rng
+    sys0, stops = _path_system(system, path, coating_sets[0], sensor_index, iris_shape)
+    dense, weight = _flare_sample(system, sys0, stops, field, n_rays, rng, source_radius, iris_shape,
+                                  n_coarse)
+    if dense is None:
+        return np.zeros(0), np.zeros(0), [np.zeros((0, len(wavelengths_nm))) for _ in coating_sets]
+    b = sys0.trace(dense)
+    ok = b.valid & _in_iris(b, stops, iris_shape)
+    _, (o, R) = sys0.frames()
+    Q = (b.points[-1][ok] - o) @ R
+    spectra = []
+    for cs in coating_sets:
+        sys_c, _ = _path_system(system, path, cs, sensor_index, iris_shape)
+        Ts, Tp = _sp_spectra(sys_c, b, ok, wavelengths_nm)
+        spectra.append(weight[ok][:, None]*0.5*(Ts + Tp))
+
+    return Q[:, 0], Q[:, 1], spectra

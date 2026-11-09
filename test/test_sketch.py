@@ -152,6 +152,10 @@ def test_paraxial_ray_imaging():
     sketch.rounded_iris,
     sketch.iris_stop_down,
     sketch.sunstar_scene,
+    sketch.ghost_reflections,
+    sketch.ar_coating_layers,
+    sketch.ghost_focus,
+    sketch.flare_scene,
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()
