@@ -159,6 +159,11 @@ Setup sketches for the other example notebooks:
   wave plate splitting a ray into four; microlens_pixels(): microlenses
   focusing the light of the lens onto photodiodes, on and off the axis
   (notebook 93).
+- depth_of_field(): the blur of a near and a far point and the depth of
+  field; defocus_and_diffraction(): geometric blur and Airy disk against
+  the aperture; scheimpflug_hinge(): a tilted lens, the Scheimpflug line
+  and the hinge line; dof_wedge(): the wedge of sharp focus of a tilted
+  lens (notebook 94).
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -220,7 +225,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "bokeh_formation", "spherical_aberration_bokeh", "cats_eye_vignetting",
            "rippled_asphere", "apodized_lens", "iris_diffraction", "iris_spikes", "rounded_iris",
            "iris_stop_down", "sunstar_scene", "ghost_reflections", "ar_coating_layers", "ghost_focus",
-           "flare_scene", "pixel_sampling", "bayer_cfa", "olpf_plates", "microlens_pixels"]
+           "flare_scene", "pixel_sampling", "bayer_cfa", "olpf_plates", "microlens_pixels",
+           "depth_of_field", "defocus_and_diffraction", "scheimpflug_hinge", "dof_wedge"]
 
 
 GLASS = "#cfe3f3"
@@ -6392,3 +6398,149 @@ def microlens_pixels(ax, title=None):
     label(ax, 1.0, 2.2, "centre of frame", fontsize=8)
     label(ax, 4.6, 2.2, "large chief ray angle", fontsize=8, color=STRAY)
     _finish(ax, (-0.3, 10.6), (-3.6, 2.5), title)
+
+
+FOCUS_COLOR = "#5aa469"
+
+
+def depth_of_field(ax, title=None):
+    """Sketch of the depth of field (notebook 94): a lens focused on a point
+    images a nearer point behind the sensor and a farther point in front of
+    it; on the sensor both are disks. As long as the disks are smaller than
+    the acceptable circle of confusion c, the points look sharp.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    zl, zs, D = 0.0, 3.0, 0.7
+    lens(ax, zl, 0.85, thickness=0.25)
+    detector(ax, zs, 0.75, text="sensor", text_y=-1.05)
+    for zo, zi, col, txt in ((-5.0, 3.0, "0.3", "focused"), (-3.4, 3.65, STRAY, "near"),
+                             (-7.5, 2.55, IMAGING, "far")):
+        for y in (D, -D):
+            ax.plot([zo, zl, zi], [0.0, y, 0.0], color=col, lw=1.0, alpha=0.9)
+            if zi > zs:
+                pass
+            else:
+                ax.plot([zi, zs], [0.0, -y*(zs - zi)/(zi - zl)], color=col, lw=1.0, alpha=0.9)
+        ax.plot([zo], [0.0], "o", color=col, ms=4)
+        label(ax, zo, 0.25, txt, fontsize=8, color=col)
+    arrow(ax, -3.4, -1.1, -7.5, -1.1, style="<->", color=FOCUS_COLOR)
+    label(ax, -5.45, -1.35, "depth of field", fontsize=8, color=FOCUS_COLOR)
+    arrow(ax, zs + 0.35, -0.12, zs + 0.35, 0.12, style="<->", color="0.3")
+    label(ax, zs + 0.5, 0.0, "c", fontsize=9, ha="left")
+    _finish(ax, (-8.0, 4.4), (-1.6, 1.2), title)
+
+
+def defocus_and_diffraction(ax, title=None):
+    """Sketch of the optimum aperture (notebook 94): a point a little out of
+    focus gives a geometric blur that shrinks as the aperture closes (the
+    cone narrows), while the Airy disk of diffraction grows; their sum is
+    smallest where the two are about equal.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mp = _patches()
+    for z0, D, txt in ((0.0, 0.8, "wide open: large blur,\nsmall Airy disk"),
+                       (5.2, 0.25, "stopped down: small blur,\nlarge Airy disk")):
+        lens(ax, z0, 0.9, thickness=0.22)
+        stop(ax, z0 + 0.3, 0.9, openings=((0.0, D),))
+        zf, zs = z0 + 3.0, z0 + 3.6
+        for y in (D, -D):
+            ax.plot([z0 + 0.3, zf, zs], [y, 0.0, -y*0.6/2.7], color=ILLUMINATION, lw=1.0)
+        detector(ax, zs, 0.6)
+        ax.add_patch(mp.Ellipse((zs + 0.25, 0.0), 0.08, 2*D*0.6/2.7, color=ILLUMINATION, alpha=0.8))
+        a = 0.05/D
+        ax.add_patch(mp.Ellipse((zs + 0.42, 0.0), 0.08, 2*a, color=STRAY, alpha=0.8))
+        label(ax, z0 + 1.7, 1.15, txt, fontsize=8)
+    label(ax, 9.25, -0.85, "geometric blur", fontsize=7.5, color=ILLUMINATION, ha="right")
+    label(ax, 9.25, -1.05, "Airy disk", fontsize=7.5, color=STRAY, ha="right")
+    _finish(ax, (-0.6, 9.6), (-1.25, 1.55), title)
+
+
+def scheimpflug_hinge(ax, title=None):
+    """Sketch of a tilted lens (notebook 94), side view: the sensor plane,
+    the lens plane and the plane of sharp focus meet in one line (the
+    Scheimpflug line); the plane of focus also passes through the hinge
+    line, where the front focal plane of the lens meets the plane through
+    the lens parallel to the sensor, J = f/sin(tilt) below the lens.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    tilt = np.radians(25.0)
+    f, v = 1.6, 1.9
+    n = np.array([np.sin(tilt), np.cos(tilt)])          # (y, z) of the lens axis
+    lp = np.array([np.cos(tilt), -np.sin(tilt)])        # along the lens plane (y, z)
+    J = f/np.sin(tilt)
+    yS = -v/np.tan(tilt)
+    ax.plot([v, v], [yS - 0.4, 1.4], color="0.25", lw=2.2)
+    label(ax, v + 0.15, 1.25, "sensor", fontsize=8, ha="left")
+    t = np.array([-(abs(yS) + 0.5)/np.cos(tilt), 1.5])
+    ax.plot(t*lp[1], t*lp[0], color=EDGE, lw=0.9, ls="--")
+    ax.add_patch(_patches().Ellipse((0, 0), 0.22, 1.9, angle=np.degrees(tilt), facecolor=GLASS,
+                                    edgecolor=EDGE, lw=1))
+    label(ax, -0.75, 1.55, "lens plane", fontsize=8, color=EDGE, ha="right")
+    c0 = -f*n
+    t2 = np.array([-(J + 0.6)/np.cos(tilt), 1.6])
+    ax.plot(c0[1] + t2*lp[1], c0[0] + t2*lp[0], color=ILLUMINATION, lw=1.0, ls=":")
+    label(ax, -2.6, 1.05, "front focal plane", fontsize=8, color=ILLUMINATION, ha="right")
+    ax.plot([0, 0], [-J - 0.5, 1.4], color="0.6", lw=0.8, ls="-.")
+    label(ax, 0.15, 1.75, "parallel to the sensor", fontsize=8, color="0.45", ha="left")
+    zz = np.array([-10.0, v])
+    yy = -J + (yS + J)/v*zz
+    ax.plot(zz, yy, color=FOCUS_COLOR, lw=2)
+    label(ax, -7.5, -J + (yS + J)/v*(-7.5) + 0.35, "plane of sharp focus", fontsize=8.5, color=FOCUS_COLOR)
+    ax.plot([0], [-J], "o", color="k", ms=5)
+    label(ax, -0.2, -J - 0.4, "hinge line", fontsize=8, ha="right")
+    ax.plot([v], [yS], "o", color="k", ms=5)
+    label(ax, v + 0.2, yS - 0.15, "Scheimpflug line", fontsize=8, ha="left")
+    arrow(ax, 0.3, 0.0, 0.3, -J, style="<->", color="0.3")
+    label(ax, 0.45, -J/2 - 0.3, "J = f/sin(tilt)", fontsize=8, ha="left")
+    _finish(ax, (-10.3, 4.6), (yS - 0.8, 2.0), title)
+
+
+def dof_wedge(ax, title=None):
+    """Sketch of the depth of field of a tilted lens (notebook 94): the near
+    and far limits are planes through the hinge line too, so that the zone
+    of sharp focus is a wedge, about J high above and below the plane of
+    focus at the hyperfocal distance H; tall objects near the camera leave
+    it.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mp = _patches()
+    J, H, h = 1.0, 6.0, 1.0
+    ax.plot([0.3, 0.3], [-0.35, 0.35], color="0.25", lw=2.0)
+    ax.add_patch(mp.Ellipse((0.0, 0.0), 0.12, 0.6, angle=-8, facecolor=GLASS, edgecolor=EDGE))
+    z = np.array([0.0, -11.0])
+    ax.fill_between(z, -h + J/H*z, -h - J/H*z, color=FOCUS_COLOR, alpha=0.18, lw=0)
+    ax.plot(z, -h + 0*z, color=FOCUS_COLOR, lw=2)
+    ax.plot(z, -h - J/H*z, color=FOCUS_COLOR, lw=0.8, ls="--")
+    ax.plot(z, -h + J/H*z, color=FOCUS_COLOR, lw=0.8, ls="--")
+    ax.plot([-11.5, 0.6], [-h, -h], color="0.35", lw=0.8)
+    ax.plot([0], [-h], "o", color="k", ms=4)
+    label(ax, 0.2, -h - 0.25, "hinge", fontsize=8, ha="left")
+    arrow(ax, -H, -h, -H, -h + J, style="<->", color="0.3")
+    label(ax, -H + 0.15, -h + 0.5, "J", fontsize=9, ha="left")
+    ax.plot([-H, -H], [-h - 0.05, -h - 1.25], color="0.6", lw=0.6, ls=":")
+    label(ax, -H, -h - 1.45, "hyperfocal distance H", fontsize=8)
+    for zp, hp in ((-2.0, 1.5), (-8.5, 1.5)):
+        ax.add_patch(mp.Rectangle((zp - 0.1, -h), 0.2, hp, facecolor=STRAY, alpha=0.75, edgecolor="none"))
+    label(ax, -2.0, -h + 1.75, "top of a near post\nleaves the wedge", fontsize=7.5, color=STRAY)
+    label(ax, -10.5, -h + 0.35, "ground in focus", fontsize=8, color=FOCUS_COLOR, ha="left")
+    _finish(ax, (-11.8, 1.2), (-h - 1.8, 1.0), title)

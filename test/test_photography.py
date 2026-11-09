@@ -466,3 +466,71 @@ def test_ghost_spectra_shapes(lens8):
     assert all(s.shape == (len(x), 3) for s in specs)
     # the coating takes away more than 95 % of the ghost
     assert specs[1].sum() < 0.05*specs[0].sum()
+
+
+# depth of field and tilted lenses (notebook 94)
+
+def test_dof_limits_consistent_with_blur():
+    f, N, c = 50.0, 8, 0.03
+    H = ph.hyperfocal_distance(f, N, c)
+    for s_f in (1000.0, 3000.0, H):
+        near, far = ph.dof_limits(f, N, c, s_f)
+        assert ph.blur_diameter(f, N, s_f, near) == pytest.approx(c)
+        if np.isfinite(far):
+            assert ph.blur_diameter(f, N, s_f, far) == pytest.approx(c)
+    assert np.isinf(ph.dof_limits(f, N, c, H)[1])
+    assert ph.dof_limits(f, N, c, H)[0] == pytest.approx(H/2, rel=0.01)
+
+
+def test_dof_limits_against_trace():
+    lens = ph.double_gauss(8)
+    par = lens.paraxial()
+    Hz = par.cardinal_points.H
+    fs = ph.focus(lens, 3000.0 - Hz)
+    near, far = ph.dof_limits(par.efl, 8, 0.03, 3000.0)
+    for d in (near, far):
+        s = rt.System(fs.surfaces, fs.stop_index, fs.wavelength, object_distance=d - Hz, object_height=1.0)
+        fp = ph.point_footprint(s, 0.0, 3000, np.random.default_rng(0))
+        blur = 2*np.sqrt(2*np.average(fp.x**2 + fp.y**2, weights=fp.weight))
+        assert blur == pytest.approx(0.03, rel=0.03)
+
+
+def test_defocus_mtf_limits():
+    from pyoptics import sensor as se
+    f = np.linspace(0, 200, 81)
+    assert np.allclose(ph.defocus_mtf(f, 8, 0.0, 550e-6), se.diffraction_mtf(f, 550e-6, 8), atol=2e-3)
+    # many waves of defocus: the geometric blur disk at low frequencies
+    m = ph.defocus_mtf(f[:15], 2.8, 0.3, 550e-6, n_pupil=256)
+    assert np.allclose(m, ph.geometric_defocus_mtf(f[:15], 0.3/2.8), atol=0.03)
+    assert ph.optimum_f_number(1.282, 550e-6) == pytest.approx(21.9, abs=0.1)
+
+
+def test_tilted_thin_lens_rules():
+    f, h = 50.0, 1000.0
+    tilt = np.arcsin(f/h)
+    assert ph.hinge_distance(f, tilt) == pytest.approx(h)
+    Q = np.array([[0.0, -800.0, -7000.0]])
+    assert np.allclose(ph.tilted_conjugate(ph.tilted_conjugate(Q, f, tilt), f, tilt), Q)
+    for v in (50.0, 50.3, 51.0):
+        (y0, _), ang, yS = ph.plane_of_focus(f, tilt, v)
+        assert y0 == pytest.approx(-h)                                   # hinge rule
+        assert y0 - np.tan(ang)*v == pytest.approx(yS)                   # Scheimpflug rule
+    # the ground is in focus with v = h tan(tilt), so points on it have no blur
+    v = h*np.tan(tilt)
+    pts = np.array([[0.0, -h, -2000.0], [300.0, -h, -9000.0]])
+    assert np.all(ph.tilted_blur(pts, f, 8, tilt, v) < 1e-9)
+    # Merklinger: the depth of field limit J above the ground at the hyperfocal distance
+    H = ph.hyperfocal_distance(f, 8, 0.03)
+    assert ph.tilted_blur(np.array([[0.0, -h + h, -H]]), f, 8, tilt, v)[0] == pytest.approx(0.03, rel=0.02)
+
+
+def test_tilt_lens_untilted_is_original():
+    lens = ph.double_gauss(8)
+    t0 = ph.tilt_lens(lens, 0.0, 20.0)
+    x0, y0 = ph.trace_point(t0, (0.0, 100.0, -5000.0), 500, np.random.default_rng(1))
+    s = rt.System(lens.surfaces, lens.stop_index, lens.wavelength, object_distance=5000.0, object_height=100.0)
+    x1, y1 = ph.trace_point(s, (0.0, 100.0, -5000.0), 500, np.random.default_rng(1))
+    assert np.allclose(x0, x1) and np.allclose(y0, y1)
+    t = ph.tilt_lens(lens, np.radians(3), 20.0)
+    R = t.frames()[0][2][1]
+    assert np.allclose(R[:, 2], ph.lens_normal(np.radians(3)))
