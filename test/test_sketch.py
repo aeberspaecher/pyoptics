@@ -160,6 +160,10 @@ def test_paraxial_ray_imaging():
     sketch.bayer_cfa,
     sketch.olpf_plates,
     sketch.microlens_pixels,
+    sketch.depth_of_field,
+    sketch.defocus_and_diffraction,
+    sketch.scheimpflug_hinge,
+    sketch.dof_wedge,
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()

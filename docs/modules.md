@@ -398,7 +398,14 @@ What each module does and how mature it is. Planned work is listed in
   (`ar_coatings()`), the paraxial ghost analysis (`ghost_analysis()`) and
   spectral ghost images (`ghost_spectra()`); checked against the product
   of the Fresnel factors, the paraxial ghost irradiance and the full
-  polarization trace (notebook 92)
+  polarization trace (notebook 92); depth of field and tilted lenses:
+  thin lens depth of field limits and the hyperfocal distance
+  (`dof_limits()`), the wave optical MTF of defocus (`defocus_mtf()`) and
+  the optimum F-number, a tilted thin lens with the hinge and Scheimpflug
+  rules (`plane_of_focus()`, `tilted_blur()`), and a real lens tilted with
+  coordinate breaks (`tilt_lens()`, `trace_point()`); checked against the
+  traced double Gauss, the diffraction and geometric MTFs and Merklinger's
+  depth of field wedge (notebook 94)
 - `sensor`: new, tested: image sensors; the pixel aperture MTF and the
   sampling of the image (`sensor_image()`: lens diffraction, an optical
   low pass filter and the pixel aperture on a fine grid), the slanted edge

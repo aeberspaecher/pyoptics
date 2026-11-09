@@ -3,7 +3,8 @@
 
 """Photographic optics: the out-of-focus image of a point (bokeh), the lens
 that makes it, the star that its iris makes of a bright point (sunstars),
-and the ghosts that its surfaces make of it by double reflection (flare).
+the ghosts that its surfaces make of it by double reflection (flare), and
+what is sharp: depth of field, diffraction and tilted lenses.
 
 A camera lens focused at one distance images a point at another distance
 as a blur, the shape and brightness distribution of which photographers
@@ -75,6 +76,14 @@ Contents:
   same for several coatings at once; `ghost_analysis()`, the paraxial
   ghost analysis (blur, focus and irradiance relative to a white surface
   for every path).
+- Depth of field and tilt (notebook 94): `hyperfocal_distance()`,
+  `dof_limits()` (thin lens, consistent with `blur_diameter()`);
+  `defocus_mtf()`, the wave optical MTF of a defocused lens (Hopkins),
+  `geometric_defocus_mtf()`, the blur disk, and `optimum_f_number()`
+  (Hansma); a tilted thin lens: `lens_normal()`, `tilted_conjugate()`,
+  `hinge_distance()` (Merklinger), `plane_of_focus()` (with the
+  Scheimpflug line), `tilted_blur()`; a real lens tilted with coordinate
+  breaks, `tilt_lens()`, and `trace_point()` for finite object points.
 
 Conventions are those of `raytrace`: lengths in mm, light along +z, the
 optical path difference OPD > 0 where the wavefront leads, so that a sensor
@@ -121,6 +130,11 @@ J. E. Harvey and C. Ftaclas, "Diffraction effects of telescope secondary
 mirror spiders on various image-quality criteria", Appl. Opt. 34,
 6337-6349 (1995).
 
+H. M. Merklinger, "Focusing the View Camera", self-published (1993).
+
+H. H. Hopkins, "The frequency response of a defocused optical system",
+Proc. R. Soc. Lond. A 231, 91-103 (1955).
+
 H. A. Macleod, "Thin-Film Optical Filters", 4th ed., CRC Press (2010),
 chapters 2 and 4 (antireflection coatings).
 
@@ -134,6 +148,7 @@ M. Hullin, E. Eisemann, H.-P. Seidel and S. Lee, "Physically-based
 real-time lens flare rendering", ACM Trans. Graph. 30, 108 (2011).
 """
 
+import copy
 from collections import namedtuple
 
 import numpy as np
@@ -150,7 +165,10 @@ __all__ = ["double_gauss", "focus", "blur_diameter", "blur_diameter_pupils", "po
            "iris_coverage", "iris_psf", "edge_spike", "spike_count", "rounded_edge_crossover",
            "iris_edge_length", "power_outside", "curved_edge_spike", "sunstar", "SUN_RADIUS",
            "ghost_paths", "ghost_system", "flare_rays", "trace_flare", "AR_DESIGNS", "ar_coatings",
-           "GhostFootprint", "ghost_footprint", "GhostInfo", "ghost_analysis", "ghost_spectra"]
+           "GhostFootprint", "ghost_footprint", "GhostInfo", "ghost_analysis", "ghost_spectra",
+           "hyperfocal_distance", "dof_limits", "geometric_defocus_mtf", "defocus_mtf",
+           "optimum_f_number", "lens_normal", "tilted_conjugate", "hinge_distance", "plane_of_focus",
+           "tilted_blur", "tilt_lens", "trace_point"]
 
 
 D_LINE = 587.5618e-6  # mm
@@ -1998,3 +2016,242 @@ def ghost_spectra(system, field, path, coating_sets, wavelengths_nm, n_rays=2000
         spectra.append(weight[ok][:, None]*0.5*(Ts + Tp))
 
     return Q[:, 0], Q[:, 1], spectra
+
+
+# --- depth of field, diffraction and tilted lenses (notebook 94) ---
+
+def hyperfocal_distance(f, f_number, c):
+    """Thin lens hyperfocal distance f**2/(N c) + f: focused there, the far
+    limit of the depth of field is at infinity (distances from the lens).
+
+    Parameters
+    ----------
+    f : number
+        Focal length.
+    f_number : number
+    c : number
+        Acceptable circle of confusion (blur diameter on the sensor).
+    """
+
+    return f**2/(f_number*c) + f
+
+
+def dof_limits(f, f_number, c, focus_distance):
+    """Near and far limits of the depth of field of a thin lens: the
+    distances at which `blur_diameter()` reaches c,
+    1/s = 1/s_f +- (N c/f**2) (1 - f/s_f) (np.inf for a far limit beyond
+    infinity).
+
+    Returns
+    -------
+    near, far : numbers or arrays
+    """
+
+    s_f = np.asarray(focus_distance, float)
+    inv_sf = np.where(np.isinf(s_f), 0.0, 1/s_f)
+    k = f_number*c/f**2*(1 - f*inv_sf)
+    inv_far = inv_sf - k
+    with np.errstate(divide="ignore"):
+        far = np.where(inv_far > 0, 1/np.where(inv_far > 0, inv_far, 1.0), np.inf)
+
+    return 1/(inv_sf + k), far
+
+
+def geometric_defocus_mtf(freq, c):
+    """MTF of a uniform blur disk of diameter c: abs(2 J1(x)/x), x = pi c f
+    (the geometric limit of large defocus)."""
+
+    from scipy.special import j1
+
+    x = np.pi*c*np.abs(np.asarray(freq, float))
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return np.abs(np.where(x == 0, 1.0, 2*j1(x)/np.where(x == 0, 1.0, x)))
+
+
+def defocus_mtf(freq, f_number, defocus, wavelength, n_pupil=128):
+    """Wave optical MTF of an aberration free lens with the sensor moved by
+    `defocus` from the focus (Hopkins): the autocorrelation of the pupil
+    with the defocus W020 = defocus/(8 N**2) (paraxial), computed by FFT.
+
+    Parameters
+    ----------
+    freq : array
+        Spatial frequencies on the sensor (cycles per unit of length).
+    f_number : number
+        Image space F-number N = 1/(2 NA).
+    defocus : number
+        Axial distance of the sensor from the focus (same unit).
+    wavelength : number
+    n_pupil : int, optional
+        Samples across the pupil diameter.
+
+    Returns
+    -------
+    array
+        MTF at freq (radial; zero beyond the cut-off 1/(lambda N)).
+    """
+
+    R = n_pupil/2
+    n = 4*int(R) + 8
+    u = np.arange(n) - n/2
+    X, Y = np.meshgrid(u, u)
+    rho2 = (X**2 + Y**2)/R**2
+    W = defocus/(8*f_number**2)/wavelength*rho2
+    P = np.where(rho2 <= 1, np.exp(2j*np.pi*W), 0.0)
+    A = np.fft.ifft2(np.abs(np.fft.fft2(P))**2)
+    otf = np.abs(A[0, :n//2 + 1])/np.abs(A[0, 0])
+    shift = np.arange(n//2 + 1)                     # pupil shift in samples, 2 R at the cut-off
+    f_shift = shift/(2*R)/(wavelength*f_number)
+
+    return np.interp(np.abs(np.asarray(freq, float)), f_shift, otf, right=0.0)
+
+
+def optimum_f_number(image_depth, wavelength):
+    """F-number that balances defocus and diffraction for a depth image_depth
+    between the images of the nearest and farthest points (the sensor in
+    the middle): the geometric blur image_depth/(2 N) equals the Airy
+    diameter 2.44 lambda N, N = sqrt(image_depth/(4.88 lambda)) (Hansma)."""
+
+    return np.sqrt(image_depth/(4.88*wavelength))
+
+
+def lens_normal(tilt):
+    """Axis of a lens tilted by `tilt` about x, (0, sin, cos): the front
+    tips down, so that the plane of sharp focus turns towards the ground
+    (y < 0)."""
+
+    return np.array([0.0, np.sin(tilt), np.cos(tilt)])
+
+
+def tilted_conjugate(points, f, tilt):
+    """Conjugate points of a thin lens of focal length f at the origin,
+    tilted by `tilt` (`lens_normal()`): a point at the axial distance a from
+    the lens plane is imaged to a' = f a/(a - f) on the other side, on the
+    line through the lens centre. The map takes object points (in front,
+    z < 0) to image points and image points back to object points."""
+
+    Q = np.atleast_2d(np.asarray(points, float))
+    n = lens_normal(tilt)
+    a = np.abs(Q @ n)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ap = f*a/(a - f)
+        return -(ap/a)[:, None]*Q
+
+
+def hinge_distance(f, tilt):
+    """Merklinger's hinge rule: the plane of sharp focus of a lens tilted by
+    `tilt` always contains the line where the front focal plane meets the
+    plane through the lens parallel to the sensor, J = f/sin(tilt) below
+    the lens."""
+
+    return f/np.sin(tilt)
+
+
+def plane_of_focus(f, tilt, image_distance):
+    """Plane of sharp focus of a thin lens tilted by `tilt` with the sensor
+    plane z = image_distance (perpendicular to the camera axis z): the
+    object side image of the sensor plane, in the y-z plane.
+
+    Returns
+    -------
+    point : array (2,)
+        (y, z) of the point where it meets the plane z = 0 of the lens
+        centre (the hinge line, y = -J).
+    angle : float
+        Angle of the plane of focus to the camera axis (rad; 0: parallel
+        to the axis, pi/2: parallel to the sensor), > 0 when it rises with
+        distance in front of the camera (z < 0).
+    scheimpflug_y : float
+        Height of the line where the sensor and the lens plane meet,
+        -image_distance/tan(tilt) (the plane of focus passes through it).
+    """
+
+    P = np.array([[0.0, 0.0, image_distance], [0.0, 10.0, image_distance]])
+    Q = tilted_conjugate(P, f, tilt)
+    d = Q[1, 1:] - Q[0, 1:]
+    t = -Q[0, 2]/d[1]
+    y0 = Q[0, 1] + t*d[0]
+    angle = np.arctan2(d[0], -d[1])
+    angle = (angle + np.pi/2) % np.pi - np.pi/2
+
+    return np.array([y0, 0.0]), angle, -image_distance/np.tan(tilt)
+
+
+def tilted_blur(points, f, f_number, tilt, image_distance, n=64):
+    """Geometric blur of object points through a thin lens tilted by `tilt`
+    (aperture f/N, round, in the lens plane) on the sensor plane
+    z = image_distance: the rays from the aperture rim to the image point,
+    cut by the sensor (an ellipse). Returns its largest diameter."""
+
+    Q = np.atleast_2d(np.asarray(points, float))
+    P = tilted_conjugate(Q, f, tilt)
+    nrm = lens_normal(tilt)
+    e1 = np.array([1.0, 0.0, 0.0])
+    e2 = np.cross(nrm, e1)
+    phi = np.linspace(0, 2*np.pi, n, endpoint=False)
+    A = 0.5*f/f_number*(np.cos(phi)[:, None]*e1 + np.sin(phi)[:, None]*e2)     # (n, 3)
+    t = (image_distance - A[None, :, 2])/(P[:, None, 2] - A[None, :, 2])
+    S = A[None] + t[..., None]*(P[:, None, :] - A[None])
+    half = n//2
+    return np.max(np.linalg.norm(S[:, :half, :2] - S[:, half:, :2], axis=-1), axis=1)
+
+
+def tilt_lens(system, tilt, pivot, image_distance=None):
+    """Copy of a lens tilted by `tilt` about the x axis through the point
+    `pivot` on its axis (mm behind the first vertex), the sensor staying
+    perpendicular to the camera axis, image_distance behind the pivot
+    (default: where it was). Built with coordinate breaks; the tilt follows
+    `lens_normal()` (the front of the lens tips down for tilt > 0).
+
+    Returns
+    -------
+    raytrace.System
+        For finite object points traced with `trace_point()`.
+    """
+
+    S = [copy.copy(s) for s in system.surfaces]
+    L = sum(s.thickness for s in S[:-1])
+    if image_distance is None:
+        image_distance = L + S[-1].thickness - pivot
+    S[-1].thickness = pivot - L
+    surfaces = ([rt.CoordinateBreak(thickness=pivot), rt.CoordinateBreak(tilt=(-tilt, 0.0, 0.0),
+                                                                        thickness=-pivot)]
+                + S + [rt.CoordinateBreak(tilt=(tilt, 0.0, 0.0), thickness=image_distance)])
+
+    return rt.System(surfaces, system.stop_index + 2, system.wavelength, object_distance=1e4,
+                     object_height=0.0, entrance_pupil_radius=None)
+
+
+def trace_point(system, point, n_rays=4000, rng=None, search_radius=30.0, plane_z=0.0):
+    """Rays from an object point (x, y, z), z < 0 in front of the first
+    vertex, through a system (also a tilted one): a coarse search for the
+    part of the plane z = plane_z that leads through the system, then
+    n_rays random rays through it.
+
+    Returns
+    -------
+    x, y : arrays
+        Hits on the image plane (its local frame).
+    """
+
+    rng = np.random.default_rng() if rng is None else rng
+    O = np.asarray(point, float)
+
+    def launch(X, Y):
+        E = np.column_stack([X, Y, np.full(len(X), plane_z)])
+        D = E - O
+        D = D/np.linalg.norm(D, axis=1)[:, None]
+        return rt.Rays(np.tile(O, (len(X), 1)), D, np.zeros(len(X)))
+
+    g = np.linspace(-search_radius, search_radius, 81)
+    X, Y = [a.ravel() for a in np.meshgrid(g, g)]
+    ok = system.trace(launch(X, Y)).valid
+    if not np.any(ok):
+        return np.zeros(0), np.zeros(0)
+    h = g[1] - g[0]
+    X = rng.uniform(X[ok].min() - h, X[ok].max() + h, n_rays)
+    Y = rng.uniform(Y[ok].min() - h, Y[ok].max() + h, n_rays)
+    b = system.trace(launch(X, Y))
+    Q = system.to_image_frame(b.points[-1][b.valid])
+
+    return Q[:, 0], Q[:, 1]
