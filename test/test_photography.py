@@ -377,3 +377,92 @@ def test_sunstar_spike_level():
     assert 0.85 < E[0, c, c] < 1.0
     with pytest.raises(ValueError):
         ph.sunstar(7, N, lam, half_width=1.0, n=64)
+
+
+# flare and ghosts (notebook 92)
+
+def _R(a, b):
+    return ((a - b)/(a + b))**2
+
+
+@pytest.fixture(scope="module")
+def lens8():
+    return ph.double_gauss(8)
+
+
+def test_ghost_paths_count(lens8):
+    paths = ph.ghost_paths(lens8)
+    n_refl = sum(1 for k in range(len(lens8.surfaces)) if lens8.n[k] != lens8.n[k + 1])
+    assert len(paths) == n_refl*(n_refl - 1)//2 + n_refl
+    assert len(ph.ghost_paths(lens8, sensor=False)) == n_refl*(n_refl - 1)//2
+
+
+def test_ghost_power_is_product_of_fresnel_factors(lens8):
+    n = [float(np.real(v)) for v in lens8.n]
+    N = len(lens8.surfaces)
+    rays, w = ph.flare_rays(lens8, 0.0, n=21, radius=0.3)
+    _, _, p = ph.trace_flare(lens8, rays, w)
+    T = np.prod([1 - _R(n[k], n[k + 1]) for k in range(N)])
+    assert p.sum()/w.sum() == pytest.approx(T, rel=1e-5)
+    for j, i in [(4, 2), (10, 8), (11, 0), (len(lens8.surfaces), 3)]:
+        _, _, p = ph.trace_flare(lens8, rays, w, path=(j, i))
+        Tg = (_R(n[j], n[j + 1]) if j < N else _R(1.0, 1.65))*_R(n[i], n[i + 1])
+        for k in list(range(min(j, N))) + list(range(i + 1, min(j, N))) + list(range(i + 1, N)):
+            Tg *= 1 - _R(n[k], n[k + 1])
+        assert p.sum()/w.sum() == pytest.approx(Tg, rel=1e-5)
+
+
+def test_ar_coatings_reflectance(lens8):
+    from pyoptics.coatings import Coating, Layer
+    n_glass = float(np.real(lens8.n[1]))
+    lam = np.linspace(420, 680, 27)
+    mean = {}
+    for d in ("uncoated", "MgF2", "multilayer"):
+        st = Coating([Layer(nl, t) for nl, t in ph.AR_DESIGNS[d]])
+        mean[d] = np.mean([st.power(0.0, 1.0, n_glass, x*1e-6)["R_s"].real for x in lam])
+    assert mean["uncoated"] == pytest.approx(_R(1.0, n_glass), rel=1e-6)
+    assert 0.004 < mean["MgF2"] < 0.01
+    assert mean["multilayer"] < 0.003
+    c = ph.ar_coatings(lens8, "uncoated")
+    assert all(v is None for v in c.values())
+    c = ph.ar_coatings(lens8, "MgF2")
+    assert set(c) == {k for k in range(len(lens8.surfaces))
+                      if (lens8.n[k] == 1.0) != (lens8.n[k + 1] == 1.0)}
+
+
+def test_ghost_analysis_against_trace():
+    """Defocused ghosts at f/16: paraxial irradiance relative to white within
+    a few percent of the traced one; it grows as N**2."""
+    rng = np.random.default_rng(1)
+    s16 = ph.double_gauss(16)
+    info16 = {g.path: g for g in ph.ghost_analysis(s16)[0]}
+    info8 = {g.path: g for g in ph.ghost_analysis(ph.double_gauss(8))[0]}
+    d = ph.ghost_footprint(s16, 0.0, None, n_rays=4000, rng=rng)
+    E_w = d.power.sum()/(np.pi*ph.DOUBLE_GAUSS_F**2)
+    for path in [(11, 1), (4, 2), (8, 6)]:
+        fp = ph.ghost_footprint(s16, 0.0, path, n_rays=8000, rng=rng)
+        r2 = np.average(fp.x**2 + fp.y**2, weights=fp.power)
+        E = fp.power.sum()/(2*np.pi*r2)/E_w
+        assert E == pytest.approx(info16[path].irradiance, rel=0.06)
+        assert info16[path].irradiance/info8[path].irradiance == pytest.approx(4.0, rel=0.02)
+
+
+def test_sp_chains_match_polarization_trace(lens8):
+    rng = np.random.default_rng(2)
+    coat = ph.ar_coatings(lens8, "multilayer")
+    field = (np.radians(-9.0), np.radians(6.0))
+    fp = ph.ghost_footprint(lens8, field, (4, 2), coat, n_rays=3000, rng=rng,
+                            wavelengths_nm=[ph.D_LINE*1e6])
+    assert fp.spectrum.shape == (len(fp.x), 1)
+    assert fp.spectrum[:, 0].sum() == pytest.approx(fp.power.sum(), rel=0.01)
+
+
+def test_ghost_spectra_shapes(lens8):
+    rng = np.random.default_rng(3)
+    lam = [450.0, 550.0, 650.0]
+    sets = [ph.ar_coatings(lens8, d) for d in ("uncoated", "MgF2")]
+    x, y, specs = ph.ghost_spectra(lens8, 0.0, (10, 8), sets, lam, n_rays=2000, rng=rng)
+    assert len(specs) == 2
+    assert all(s.shape == (len(x), 3) for s in specs)
+    # the coating takes away more than 95 % of the ghost
+    assert specs[1].sum() < 0.05*specs[0].sum()

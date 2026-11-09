@@ -389,7 +389,16 @@ What each module does and how mature it is. Planned work is listed in
   n; (L/kA)² along a spike; the crossover 2πρ/L² of rounded blades and
   their fans; power outside k, P/(πAk), for any shape) and colour images
   of the Sun through an iris on a sensor (`sunstar()`); checked against
-  the exact transform, the Airy pattern and the edge theory (notebook 91)
+  the exact transform, the Airy pattern and the edge theory (notebook 91);
+  flare and ghosts: every double reflection path of a lens unfolded into
+  a `raytrace.System` (`ghost_system()`) and traced with the polarization
+  ray trace and the thin film coatings of its surfaces (`trace_flare()`,
+  `ghost_footprint()` with adaptive sampling, a polygonal iris and the
+  Sun's disk), uncoated, MgF2 and multilayer antireflection designs
+  (`ar_coatings()`), the paraxial ghost analysis (`ghost_analysis()`) and
+  spectral ghost images (`ghost_spectra()`); checked against the product
+  of the Fresnel factors, the paraxial ghost irradiance and the full
+  polarization trace (notebook 92)
 - `fresnel`: Fresnel lenses, tested: a parent surface (sphere, conic,
   even asphere) collapsed into zones of constant pitch, constant depth or
   given radii, with curved or flat (conical) facets and drafted risers
