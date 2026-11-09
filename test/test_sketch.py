@@ -164,6 +164,10 @@ def test_paraxial_ray_imaging():
     sketch.defocus_and_diffraction,
     sketch.scheimpflug_hinge,
     sketch.dof_wedge,
+    sketch.plenoptic_camera,
+    sketch.subaperture_parallax,
+    sketch.light_field_refocus,
+    sketch.plenoptic_tradeoff,
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()

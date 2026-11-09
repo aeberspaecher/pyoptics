@@ -337,14 +337,16 @@ notebooks/72_twinkling_stars_adaptive_optics
 
 The optics of cameras: the out-of-focus image of a lens (bokeh), the
 star its iris makes of a bright light (sunstars), the ghosts its
-surfaces make of it (flare), what the sensor does to the image, and
-what is sharp (depth of field and tilt-shift).
+surfaces make of it (flare), what the sensor does to the image,
+what is sharp (depth of field and tilt-shift), and how a light field
+camera focuses after the exposure.
 
 - {doc}`notebooks/90_bokeh`
 - {doc}`notebooks/91_sunstars`
 - {doc}`notebooks/92_flare_ghosts`
 - {doc}`notebooks/93_sensor`
 - {doc}`notebooks/94_tilt_shift_depth_of_field`
+- {doc}`notebooks/95_light_field_camera`
 
 ```{toctree}
 :hidden:
@@ -355,6 +357,7 @@ notebooks/91_sunstars
 notebooks/92_flare_ghosts
 notebooks/93_sensor
 notebooks/94_tilt_shift_depth_of_field
+notebooks/95_light_field_camera
 ```
 
 ## Running the notebooks
