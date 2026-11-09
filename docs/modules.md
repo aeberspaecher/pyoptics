@@ -359,6 +359,16 @@ What each module does and how mature it is. Planned work is listed in
   intensity of the illumination (0.678 NA_obs/NA_ill for large ratios) and
   C² = C∞² + (1 + C∞²)/M for M diffuser positions; checked against wave
   optics simulations (notebook 87)
+- `freeform`: new, tested: beam shaping by ray mapping; the radial ray map
+  from equal enclosed power, Fermi–Dirac flat tops, the two-lens Gaussian
+  to flat-top shaper (Kreuzer, Hoffnagle–Jefferson) from equal optical path
+  and Snell's law, the optimal transport map between two irradiances on
+  grids (log-domain Sinkhorn with a separable kernel), least squares
+  integration of a gradient field, a plano-freeform lens that sends a
+  collimated beam along a given map, and `TabulatedSurface`, a tabulated
+  radial or x–y sag for the ray tracer; checked against the closed-form
+  map, collimation and equal optical path, separable maps and traced
+  irradiance (notebook 89)
 - `fresnel`: Fresnel lenses, tested: a parent surface (sphere, conic,
   even asphere) collapsed into zones of constant pitch, constant depth or
   given radii, with curved or flat (conical) facets and drafted risers
@@ -541,7 +551,8 @@ What each module does and how mature it is. Planned work is listed in
   shadowgraph, pulses through lenses, prisms and gratings (pulse-front
   delay and tilt), and the formation and reduction of speckle (polarization,
   wavelength and moving diffuser diversity, a laser projector), LEDs above a
-  plane and LED collimators
+  plane and LED collimators, the ray map of a beam shaper, a two-lens
+  flat-top shaper and a freeform lens projecting a picture
 - Unfinished stubs: `interpolator.TrigInterpolator` cannot be evaluated yet,
   the functions in `polarization._polarization` are empty
 
