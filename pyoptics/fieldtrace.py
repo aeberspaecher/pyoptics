@@ -544,7 +544,7 @@ class Field(object):
         return tuple(self._user(S[:, :, i]) for i in range(3))
 
     def irradiance(self, include_z=False):
-        """|E_x|**2 + |E_y|**2 (+ |E_z|**2 if include_z)."""
+        """``|E_x|**2 + |E_y|**2`` (+ ``|E_z|**2`` if include_z)."""
         C = self._components()
         I = np.sum(np.abs(C)**2, axis=2)
         if include_z:
@@ -552,13 +552,13 @@ class Field(object):
         return self._user(I)
 
     def power(self):
-        """Integral of |E_x|**2 + |E_y|**2 over the grid (per unit length in y
+        """Integral of ``|E_x|**2 + |E_y|**2`` over the grid (per unit length in y
         for a one-dimensional field)."""
         dA = _spacing(self.x)*(1.0 if self.one_d else _spacing(self._y))
         return float(np.sum(self.irradiance())*dA)
 
     def ez_share(self):
-        """Share of |E_z|**2 in the total |E|**2 (cheap, local plane waves)."""
+        """Share of ``|E_z|**2`` in the total ``|E|**2`` (cheap, local plane waves)."""
         Ez = self._derived("local")[0]
         Ez2 = np.sum(np.abs(Ez)**2)
         return float(Ez2/(Ez2 + np.sum(np.abs(self._components())**2) + 1E-300))
@@ -1613,7 +1613,7 @@ class Detector(Step):
     ----------
     name : str
     quantities : sequence of str, optional
-        Any of "irradiance" (|E|**2, incl. |E_z|**2 if the chain is vectorial,
+        Any of "irradiance" (``|E|**2``, incl. ``|E_z|**2`` if the chain is vectorial,
         or, in "auto" mode, if E_z carries more than tol of the power),
         "E" (E_x, E_y), "Ez", "H", "poynting", "power".
     x, y : arrays, optional
