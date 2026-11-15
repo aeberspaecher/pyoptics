@@ -514,7 +514,7 @@ def fringe_zernike_sum(coeffs, x, y):
 def noll_to_n_m(j):
     """Map the Noll (ANSI "Standard" in Zemax) index j >= 1 to n, m.
 
-    Within a radial order n the azimuthal orders |m| increase, even j have
+    Within a radial order n the azimuthal orders abs(m) increase, even j have
     the cosine (m > 0), odd j the sine (m < 0): Z2 ~ x, Z3 ~ y, Z5 ~ sin 2 phi,
     Z6 ~ cos 2 phi, Z7 ~ y coma, Z8 ~ x coma, Z11 spherical (Noll 1976).
 
@@ -526,7 +526,7 @@ def noll_to_n_m(j):
     Returns
     -------
     n, m : ints
-        Radial and signed azimuthal order (m < 0: sin(|m| phi)).
+        Radial and signed azimuthal order (m < 0: sin(abs(m) phi)).
     """
 
     j = int(j)
@@ -550,7 +550,7 @@ def noll_zernike_norm_factor(n, m):
 
 @lru_cache(maxsize=None)
 def _zernike_P_coeffs(n, m):
-    """Coefficients of P with R_n^|m|(rho) = rho**|m| P(rho**2) (highest first)."""
+    """Coefficients of P with R_n^abs(m)(rho) = rho**abs(m) P(rho**2) (highest first)."""
 
     m = abs(int(m))
     R = _fringe_zernike_R_nm_coeffs(int(n), m)[::-1]  # lowest power first
@@ -561,8 +561,8 @@ def _zernike_P_coeffs(n, m):
 
 
 def zernike_nm(n, m, x, y):
-    """Unnormalized Zernike R_n^|m|(rho) cos(m phi) (m >= 0) or R_n^|m|(rho)
-    sin(|m| phi) (m < 0), peak value 1 on the unit circle, phi from the x axis.
+    """Unnormalized Zernike R_n^abs(m)(rho) cos(m phi) (m >= 0) or R_n^abs(m)(rho)
+    sin(abs(m) phi) (m < 0), peak value 1 on the unit circle, phi from the x axis.
 
     Evaluated as a polynomial in x and y (no arctan2), so it is smooth at the
     origin and pairs with `zernike_nm_gradient()`.
@@ -590,7 +590,7 @@ def zernike_nm(n, m, x, y):
 def zernike_nm_gradient(n, m, x, y):
     """Analytic gradient (dZ/dx, dZ/dy) of `zernike_nm()`.
 
-    With Z = P(s) A(x, y), s = x**2 + y**2 and A = Re or Im of (x + i y)**|m|:
+    With Z = P(s) A(x, y), s = x**2 + y**2 and A = Re or Im of (x + i y)**abs(m):
     dZ/dx = 2 x P'(s) A + P(s) dA/dx etc., without the singularity of the
     polar form at the origin.
 
