@@ -95,6 +95,7 @@ methods for Kramers-Kronig transformation", Appl. Spectrosc. 42, 952-957
 
 import numpy as np
 from numpy import pi
+from scipy.signal import fftconvolve
 from scipy.special import wofz
 
 from .radiometry import H, C, K_B
@@ -354,7 +355,7 @@ def convolve(x, y, kernel):
     k = kernel(dx)*h
     yp = np.concatenate([np.full(n - 1, y[0]), y, np.full(n - 1, y[-1])])
 
-    return np.convolve(yp, k, mode="same")[n - 1:2*n - 1]
+    return fftconvolve(yp, k, mode="same")[n - 1:2*n - 1]
 
 
 # Fourier transform spectroscopy:
