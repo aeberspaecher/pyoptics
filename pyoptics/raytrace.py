@@ -6,7 +6,9 @@
 A `System` is a sequence of `Surface` objects (spheres, conics and even
 aspheres, refracting or reflecting), optional `IdealLens` surfaces, cones
 (`Axicon`), surfaces with a Fringe Zernike departure (`ZernikeSurface`: figure
-errors, mount deformations, freeforms) and `CoordinateBreak` elements. Surfaces can be decentred and
+errors, mount deformations, freeforms), ruled diffraction gratings on plane
+or curved surfaces (`GratingSurface`, one order per trace) and
+`CoordinateBreak` elements. Surfaces can be decentred and
 tilted. Rays are traced exactly (exact intersections, vector law of refraction and
 reflection); paraxial marginal and chief rays, the pupils, the powers of
 the system, its surfaces and elements, the Seidel sums of every surface, the
@@ -772,6 +774,147 @@ class ZernikeSurface(Surface):
         N = np.stack([-gx, -gy, np.ones(len(Q))], axis=-1)
 
         return N/_norm(N)[:, None]
+
+
+class GratingSurface(Surface):
+    """Ruled diffraction grating on a plane or curved surface.
+
+    The grooves are the intersections of the surface with the planes
+    ``u = j*period`` (j integer) of the local frame, where u is the local
+    coordinate along the grating vector ``(cos(groove_angle'),
+    sin(groove_angle'))`` and groove_angle' = groove_angle + pi/2: with the
+    default groove_angle = 0 the grooves run along x and the grating
+    disperses in the y-z plane. This is how gratings are ruled (equal
+    spacing in projection, as on a Rowland or Offner grating).
+
+    A ray of unit direction d meeting the surface at Q with the unit normal
+    N leaves in the direction d' given by the vector grating equation on the
+    tangent plane ::
+
+        n' (d' - (d'.N) N) = n (d - (d.N) N) + m*wavelength/period * g_t,
+
+    with g_t the projection of the local grating vector onto the tangent
+    plane (the surface gradient of u, i.e. of the phase 2*pi*m*u/period).
+    The normal component follows from |d'| = 1: on the same side as d for a
+    transmission grating, on the other side for a reflection grating
+    (mirror=True). Orders that do not propagate give NaN (lost rays). For a
+    plane transmission grating in the y-z plane this is ::
+
+        n' sin(beta) = n sin(alpha) + m*wavelength/period,
+
+    with alpha, beta the angles of the rays from the normal, positive for
+    rays travelling towards +y of the local frame: order m > 0 is bent
+    towards +y. A reflection grating uses the sign of m of the classical
+    grating equation (as `echelle`) ::
+
+        m*wavelength = period*(sin(alpha) + sin(beta)),
+
+    with beta > 0 on the same side of the normal as alpha: the order m
+    replaces the tangential term by n*(d.u) - m*wavelength/period, so that
+    m = 0 is the specular ray and the Littrow order (alpha = beta, the light
+    sent back) has m > 0 for light travelling towards +y. The optical path
+    gains the grating phase (+-m*wavelength*u/period, the sign as for the
+    direction), so that OPDs, spot diagrams and ray maps behind a grating
+    are those of the diffracted wave.
+
+    Only the directions are traced, not the efficiency (see
+    `litho.rcwa` or `echelle.Echelle.efficiency()` for the power in an
+    order). Paraxial data (pupils, powers, Seidel sums) treat the grating
+    as its base mirror or refracting surface, without the anamorphic
+    magnification of the grating; place a `CoordinateBreak` behind it to
+    follow the diffracted beam. Polarization ray tracing treats it as the
+    base surface. The compiled kernel does not cover gratings; systems
+    with gratings are traced with NumPy.
+
+    Parameters
+    ----------
+    R, thickness, ... : optional
+        As for `Surface` (all keyword arguments are passed on), e.g.
+        mirror=True for a reflection grating.
+    period : number
+        Groove spacing d in the length unit of the system (e.g. 1/1200 mm).
+    order : int, optional
+        Diffraction order m.
+    groove_angle : number, optional
+        Angle (radians) of the grooves with the local x axis.
+    """
+
+    has_seidel = False
+
+    def __init__(self, R=np.inf, thickness=0.0, period=1e-3, order=1, groove_angle=0.0,
+                 **kwargs):
+        super().__init__(R, thickness, **kwargs)
+        if not period > 0:
+            raise ValueError("The grating period must be positive.")
+        self.period = float(period)
+        self.order = int(order)
+        self.groove_angle = float(groove_angle)
+
+    def __repr__(self):
+        kind = "reflection" if self.mirror else "transmission"
+        return ("GratingSurface(R={}, thickness={}, period={}, order={}, groove_angle={}, "
+                "{})".format(self.R, self.thickness, self.period, self.order,
+                             self.groove_angle, kind))
+
+    @property
+    def grating_vector(self):
+        """Unit vector (local frame) across the grooves."""
+
+        a = self.groove_angle + pi/2
+
+        return np.array([np.cos(a), np.sin(a), 0.0])
+
+    def with_order(self, order):
+        """Copy of the grating in another diffraction order."""
+
+        other = copy.copy(self)
+        other.order = int(order)
+
+        return other
+
+    def deflect(self, Q, d, n1, n2, wavelength=None):
+        """Diffract the directions d at the points Q into the order m.
+
+        Parameters
+        ----------
+        Q : (N, 3) array
+            Intersection points in the local frame of the surface.
+        d : (N, 3) array
+            Unit directions of the incident rays.
+        n1, n2 : numbers
+            Refractive indices in front of and behind the surface.
+        wavelength : number
+            Vacuum wavelength in the length unit of the system (passed by
+            `System.trace()`).
+
+        Returns
+        -------
+        d2 : array
+            New unit directions, NaN for evanescent orders.
+        dopl : array
+            Optical path m*wavelength*u/period of the grating phase.
+        """
+
+        if wavelength is None:
+            raise ValueError("A grating needs the wavelength.")
+        N = self.normal(Q)
+        g = self.grating_vector
+        mu = self.order*wavelength/self.period
+        cos_i = _dot(d, N)
+        # tangential parts (in units of k_0):
+        t_in = n1*(d - cos_i[:, None]*N)
+        g_t = g[None, :] - _dot(np.broadcast_to(g, N.shape), N)[:, None]*N
+        n_out = n1 if self.mirror else n2
+        if self.mirror:
+            mu = -mu
+        t_out = t_in + mu*g_t
+        with np.errstate(invalid="ignore"):
+            normal = np.sqrt(n_out**2 - _dot(t_out, t_out))
+        side = np.sign(cos_i)*(-1.0 if self.mirror else 1.0)
+        d2 = (t_out + (side*normal)[:, None]*N)/n_out
+        dopl = mu*_dot(Q, np.broadcast_to(g, Q.shape))
+
+        return d2, dopl
 
 
 class CoordinateBreak(Surface):
@@ -2365,7 +2508,10 @@ class System:
             opl = opl + n[i]*t
             if clip and s.semi_diameter is not None:
                 valid &= np.hypot(Q[:, 0], Q[:, 1]) <= s.semi_diameter*(1 + 1e-9)
-            d_l, dopl = s.deflect(Q, d_l, n[i], n[i + 1])
+            if isinstance(s, GratingSurface):
+                d_l, dopl = s.deflect(Q, d_l, n[i], n[i + 1], self.wavelength)
+            else:
+                d_l, dopl = s.deflect(Q, d_l, n[i], n[i + 1])
             P, d = o + Q @ R.T, d_l @ R.T
             opl = opl + dopl
             valid &= np.isfinite(t) & np.all(np.isfinite(d), axis=-1)
