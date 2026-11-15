@@ -106,7 +106,8 @@ a caustic, where several sheets overlap, the local phase gradient is an
 average direction weighted with the interference pattern and need not
 describe any ray.
 
-Local spectra and Wigner functions (local_spectrum_rays(), wigner()). Phase
+Local spectra, Wigner and Husimi functions (local_spectrum_rays(), wigner(),
+husimi()). Phase
 space distributions assign several directions to one point. The Wigner
 function ::
 
@@ -122,6 +123,12 @@ centre and every spectral component above a threshold is a ray, with the
 power of that component. It resolves crossing ray sheets at the price of the
 uncertainty relation (position to the window size, direction to
 2*pi/window), and the rays carry no phase (an incoherent ray set).
+husimi() computes the 1D Husimi function with a normalized Gaussian window
+of width sigma, the squared projection of the field on coherent states
+(Gaussian beamlets) centred at (x, k): the Wigner function smoothed with
+the Wigner function of the window, a Gaussian of widths sigma/sqrt(2) in x
+and 1/(sqrt(2) sigma) in k, hence nowhere negative, at the price of
+blurring by one uncertainty cell.
 
 Helpers: straight_rays() moves rays to another plane of a homogeneous
 medium, ray_irradiance() bins ray powers into an irradiance map.
@@ -173,7 +180,7 @@ from .utils import wavenumber
 
 
 __all__ = ["FieldRays", "straight_rays", "ray_irradiance", "rays_to_field", "GaussianBeamlets",
-           "field_to_rays", "local_spectrum_rays", "wigner"]
+           "field_to_rays", "local_spectrum_rays", "wigner", "husimi"]
 
 
 FieldRays = namedtuple("FieldRays", ["points", "directions", "opl", "power"])
@@ -1134,3 +1141,49 @@ def wigner(u, x, upsample=2):
     k = 2*np.pi*np.fft.fftfreq(2*L, 2*h)
     order = np.argsort(k)
     return k[order], np.real(R[:, order]).T
+
+
+def husimi(u, x, sigma, pad=2):
+    """Husimi function (Gaussian spectrogram) of a 1D field.
+
+    H(x, k) = abs(int u(x') g(x' - x) exp(-i k x') dx')**2 with the
+    normalized window g(s) = (pi sigma**2)**(-1/4) exp(-s**2/(2 sigma**2)),
+    i.e. the squared overlap of u with a coherent state (a Gaussian beamlet
+    of waist radius sqrt(2) sigma) at the position x and the transverse
+    wavenumber k. It is the Wigner function (wigner()) convolved with the
+    Wigner function of the window,
+
+        H(x, k) = int W_u(x', k') 2 exp(-(x' - x)**2/sigma**2 - sigma**2 (k' - k)**2) dx' dk'/(2 pi),
+
+    and therefore never negative. Normalization as for wigner():
+    ``int H dx dk/(2*pi) = int |u|**2 dx``; the marginal over k is the
+    intensity smoothed with abs(g)**2.
+
+    Parameters
+    ----------
+    u : array (N,)
+        Field.
+    x : array (N,)
+        Linear coordinates.
+    sigma : number
+        Width of the window (resolution in x; in k it is 1/sigma).
+    pad : int, optional
+        Zero padding factor of the FFTs (finer sampling in k).
+
+    Returns
+    -------
+    k : array (N*pad,)
+        Wavenumbers, ascending, from -pi/dx to pi/dx.
+    H : array (len(k), N)
+        Husimi function, H[i, j] at (x[j], k[i]).
+    """
+
+    x = _grid(x, "x")
+    u = np.asarray(u, dtype=complex)
+    N = len(u)
+    dx = x[1] - x[0]
+    g = (np.pi*sigma**2)**-0.25*np.exp(-(x[None, :] - x[:, None])**2/(2*sigma**2))
+    S = np.fft.fft(u[None, :]*g, N*pad, axis=1)*dx
+    k = 2*np.pi*np.fft.fftfreq(N*pad, dx)
+    order = np.argsort(k)
+    return k[order], (np.abs(S[:, order])**2).T
