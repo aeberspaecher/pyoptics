@@ -97,7 +97,7 @@ def grating_rotation(wavelength, groove_density, order=1, included_angle=0.0):
 
     K = included_angle/2
     s = order*wavelength*groove_density/(2*np.cos(K))
-    if abs(s) > 1:
+    if np.any(np.abs(s) > 1):
         raise ValueError("The order does not propagate at this included angle.")
     theta = np.arcsin(s)
 
