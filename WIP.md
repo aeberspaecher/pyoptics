@@ -11,7 +11,6 @@
 
 ## Medium
 
-* Finish the stub `interpolator.TrigInterpolator`
 * Lithography (DUV, see the roadmap in the project files): RCWA for 2D masks (the FDTD
   mask model covers them, slowly), ray traced stress birefringence
 * More tests for `TIE`
@@ -51,6 +50,9 @@
 
 ## DONE
 
+* Trigonometric interpolation (`interpolator`: 1D/2D Fourier interpolation,
+  FFT upsampling, Lanczos sigma factors and other windows against Gibbs,
+  exact threshold CDs from coarse grids; notebook 107)
 * Microscopy (`microscopy`: Abbe imaging with Köhler illumination, weak
   object transfer, Zernike phase contrast, Nomarski DIC, confocal PSFs and
   optical sectioning, Fourier ptychography with pupil recovery; notebooks
