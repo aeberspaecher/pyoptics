@@ -376,11 +376,15 @@ def ge_doped(x_core, x_clad=0.0):
             lambda wl: germania_silica_index(1E3*np.asarray(wl, dtype=float), x_clad))
 
 
-def smf28(x_core=0.036, a=4.1):
-    """A standard single-mode fibre like ITU-T G.652 (Corning SMF-28):
-    step index, core radius 4.1 µm, GeO2-doped core (3.6 mol-%, Delta about
-    0.36 %) in a pure silica cladding. Cutoff near 1.26 µm, zero
-    dispersion near 1.31 µm, D about 17 ps/(nm km) at 1550 nm."""
+def smf28(x_core=0.032, a=4.4):
+    """A standard single-mode fibre like ITU-T G.652 (Corning SMF-28) as a
+    step-index model: core radius 4.4 µm, GeO2-doped core (3.2 mol-%,
+    Delta about 0.33 %) in a pure silica cladding. The parameters are chosen
+    to match the data sheet: theoretical cutoff 1.35 µm (cabled cutoff below
+    1.26 µm), zero dispersion at 1.30 µm, D = 17.8 ps/(nm km) at 1550 nm,
+    mode field diameters 9.3 µm at 1310 nm and 10.5 µm at 1550 nm (Petermann
+    II). The real fibre has a nominal core radius of 4.1 µm and a profile
+    that is not quite a step."""
     return step_index(a, *ge_doped(x_core), name="SMF-28-like")
 
 
