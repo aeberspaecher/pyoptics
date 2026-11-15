@@ -76,6 +76,15 @@ What each module does and how mature it is. Planned work is listed in
   propagation onto tilted planes (spectrum rotation with only the smooth
   amplitude interpolated); pointwise homeomorphic Fourier transform and
   geometric propagation with amplitude transport and Gouy phase
+- `fieldtrace`: field tracing after Wyrowski and Kuhn (2011), new: a
+  `Field` of E_x, E_y as smooth amplitude times analytic phase (scalar with
+  a Jones vector while globally polarized, E_z, H and the Poynting vector
+  on demand); free-space operators (spectrum of plane waves and Fresnel via
+  the SFT, far field, geometrical optics) chosen automatically per step from
+  1D cuts (error against the converged SPW result, effort = converged
+  samples), components (thin lens, thin element, aperture, interface, Jones
+  matrices, any callable), detectors and a `Chain` with a step-by-step
+  report; polarization "auto" switches between scalar and vector fields
 - `fft`, `utils`, `masks`, `geometry`, `analytical`: mature and tested
   (`fft.czt()`: Bluestein's chirp-z transform; `fft.zoom_FT()` and
   `zoom_inv_FT()` evaluate `FT()` and `inv_FT()` on any equidistant grid)
