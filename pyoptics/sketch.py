@@ -295,7 +295,9 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "fresnel_interface", "kretschmann", "yee_grid", "lithography_scanner", "tcc_overlap",
            "mask_3d", "field_tracing_chain", "propagation_operators", "ball_lens_handover",
            "mach_zehnder_defect", "babinet_split", "diode_collimator", "fibre_coupling",
-           "resonator_unfolded", "resonator_types", "folded_resonator", "text_scale"]
+           "resonator_unfolded", "resonator_types", "folded_resonator",
+           "spectrometer_layout", "fts_layout", "fabry_perot_layout", "absorption_layout",
+           "imaging_spectrometer_layout", "text_scale"]
 
 
 GLASS = "#cfe3f3"
@@ -8473,3 +8475,629 @@ def folded_resonator(ax, theta=20.0, title=None):
     label(ax, x0 + 0.2, 0.2, r"$f_s = R/(2\cos\theta)$  (longer)", fontsize=9, ha="left",
           color=STRAY)
     _finish(ax, (-0.5, x0 + 3.6), (-1.35, Q[1] + 0.8), title)
+
+
+# ---------------------------------------------------------------------------
+# spectroscopy (notebooks 110, 111, 113, 114 and 122)
+# ---------------------------------------------------------------------------
+
+_SPECTRUM = {"blue": "#3b5bdb", "green": "#2f9e44", "red": "#e03131"}
+
+
+def _arc_through(ax, p0, p1, bulge, color="0.25", lw=3.0, zorder=4, n=41):
+    """Draw a circular arc from p0 to p1 whose middle is displaced by bulge
+    along the left normal of p0 -> p1 (a curved mirror seen edge on)."""
+
+    p0, p1 = np.asarray(p0, float), np.asarray(p1, float)
+    t = np.linspace(0.0, 1.0, n)
+    v = p1 - p0
+    nrm = np.array([-v[1], v[0]])/np.hypot(*v)
+    pts = p0[None] + t[:, None]*v[None] + (4*bulge*t*(1 - t))[:, None]*nrm[None]
+    ax.plot(pts[:, 0], pts[:, 1], color=color, lw=lw, zorder=zorder, solid_capstyle="butt")
+    return pts
+
+
+def _sawtooth(ax, p0, p1, n=9, depth=0.06, color="0.25", lw=1.4, zorder=4):
+    """A ruled grating seen edge on: a sawtooth from p0 to p1 with teeth on
+    the left of p0 -> p1."""
+
+    p0, p1 = np.asarray(p0, float), np.asarray(p1, float)
+    v = p1 - p0
+    nrm = np.array([-v[1], v[0]])/np.hypot(*v)
+    pts = [p0]
+    for i in range(n):
+        a = p0 + v*i/n
+        b = p0 + v*(i + 0.75)/n + depth*nrm
+        c = p0 + v*(i + 1)/n
+        pts += [b, c]
+    pts = np.array(pts)
+    ax.plot(pts[:, 0], pts[:, 1], color=color, lw=lw, zorder=zorder)
+    back = np.array([p0, p1, p1 - 0.08*nrm, p0 - 0.08*nrm])
+    ax.add_patch(_patches().Polygon(back, closed=True, facecolor="#d9d9d9", edgecolor="0.4",
+                                    lw=0.6, zorder=zorder - 0.5))
+
+
+def _reflect(d, nrm):
+    return d - 2*np.dot(d, nrm)*nrm
+
+
+def _circle_hit(p, d, c, R, far=False):
+    """Intersection of the ray p + t d (t > 0) with the circle (c, R)."""
+    q = p - c
+    b = np.dot(q, d)
+    disc = b*b - (np.dot(q, q) - R*R)
+    if disc < 0:
+        return None
+    ts = sorted([-b - np.sqrt(disc), -b + np.sqrt(disc)])
+    ts = [t for t in ts if t > 1e-9]
+    if not ts:
+        return None
+    return p + (ts[-1] if far else ts[0])*d
+
+
+def _segment_hit(p, d, a, b):
+    """Intersection of the ray p + t d with the segment a-b (or None)."""
+    v = b - a
+    m = np.array([[d[0], -v[0]], [d[1], -v[1]]])
+    if abs(np.linalg.det(m)) < 1e-12:
+        return None
+    t, s = np.linalg.solve(m, a - p)
+    if t <= 1e-9 or s < 0 or s > 1:
+        return None
+    return p + t*d
+
+
+def spectrometer_layout(ax, kind="czerny_turner", title=None):
+    """Sketch of a dispersive spectrometer (notebook 110).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"czerny_turner", "prism_grating"}, optional
+        "czerny_turner": the folded (W) Czerny-Turner with entrance slit,
+        collimating mirror, plane grating, camera mirror and detector, three
+        wavelengths dispersed. "prism_grating": a prism refracting the
+        colours by different angles (blue most) next to a reflection grating
+        with the angles alpha and beta of m lambda = d (sin alpha + sin beta)
+        and the orders 0 and 1 (red most).
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    cols = [_SPECTRUM["blue"], _SPECTRUM["green"], _SPECTRUM["red"]]
+    if kind == "prism_grating":
+        # prism: an apex-up triangle, rays traced with the law of refraction
+        apex, base_l, base_r = np.array([1.2, 1.1]), np.array([0.2, -0.6]), np.array([2.2, -0.6])
+        ax.add_patch(mpatches.Polygon([apex, base_l, base_r], closed=True, facecolor=GLASS,
+                                      edgecolor=EDGE, lw=1.2, zorder=3))
+        p0 = np.array([-1.0, -0.35])
+        d0 = np.array([np.cos(0.32), np.sin(0.32)])
+        hit = _segment_hit(p0, d0, base_l, apex)
+        ax.plot([p0[0], hit[0]], [p0[1], hit[1]], color="0.3", lw=2.0, zorder=4)
+        label(ax, -0.95, -0.15, "white\nlight", fontsize=8, ha="left", va="bottom")
+        for n_glass, c in zip((1.72, 1.66, 1.60), cols):
+            v = apex - base_l
+            nrm = np.array([-v[1], v[0]])/np.hypot(*v)      # outward, against d0
+            d1 = _refract(d0, nrm, 1.0, n_glass)
+            h2 = _segment_hit(hit, d1, apex, base_r)
+            v2 = base_r - apex
+            nrm2 = np.array([-v2[1], v2[0]])/np.hypot(*v2)  # outward
+            d2 = _refract(d1, -nrm2, n_glass, 1.0)
+            ax.plot([hit[0], h2[0]], [hit[1], h2[1]], color=c, lw=1.0, zorder=5)
+            ax.plot([h2[0], h2[0] + 2.0*d2[0]], [h2[1], h2[1] + 2.0*d2[1]], color=c, lw=1.6,
+                    zorder=5)
+        arrow(ax, 0.2, -0.85, 2.2, -0.85, style="<->", text="base $b$", text_pos=(1.2, -1.05),
+              fontsize=9)
+        label(ax, 1.2, -1.45, r"prism: $R = b\,dn/d\lambda$, blue bent most", fontsize=9)
+        # grating: horizontal, rays meet at g
+        g = np.array([6.2, 0.0])
+        _sawtooth(ax, (4.9, 0.0), (7.5, 0.0), n=12, depth=0.07)
+        ax.plot([g[0], g[0]], [0.0, 2.0], color="0.4", lw=0.8, ls="--")
+        label(ax, g[0] + 0.08, 1.9, "normal", fontsize=8, ha="left", rotation=90, va="top")
+        alpha = np.radians(35)
+        d_in = np.array([np.sin(alpha), -np.cos(alpha)])
+        p_in = g - 2.0*d_in
+        ax.plot([p_in[0], g[0]], [p_in[1], g[1]], color="0.3", lw=2.0, zorder=4)
+        t = np.linspace(-alpha, 0, 20)
+        ax.plot(g[0] + 0.9*np.sin(t), 0.9*np.cos(t), color="0.3", lw=0.8)
+        label(ax, g[0] - 0.42, 1.05, r"$\alpha$", fontsize=10)
+        # order 0: specular
+        d0r = np.array([np.sin(alpha), np.cos(alpha)])
+        ax.plot([g[0], g[0] + 2.0*d0r[0]], [0, 2.0*d0r[1]], color="0.55", lw=1.6, zorder=4)
+        label(ax, g[0] + 2.1*d0r[0] + 0.05, 2.1*d0r[1], "$m = 0$", fontsize=8, ha="left")
+        # order 1: m lambda/d = sin(alpha) + sin(beta), beta on the side of alpha when > 0
+        for lam_d, c in zip((0.45, 0.62, 0.80), cols):
+            sb = lam_d - np.sin(alpha)
+            beta = np.arcsin(sb)
+            d1 = np.array([-np.sin(beta), np.cos(beta)])
+            ax.plot([g[0], g[0] + 2.0*d1[0]], [0, 2.0*d1[1]], color=c, lw=1.6, zorder=5)
+        label(ax, g[0] - 0.55, 2.2, "$m = 1$", fontsize=8, ha="right")
+        bb = np.arcsin(0.80 - np.sin(alpha))
+        t = np.linspace(0, bb, 20)
+        ax.plot(g[0] - 1.25*np.sin(t), 1.25*np.cos(t), color=_SPECTRUM["red"], lw=0.8)
+        label(ax, g[0] - 0.45*np.sin(bb) - 0.55, 1.45, r"$\beta$", fontsize=10,
+              color=_SPECTRUM["red"])
+        label(ax, 6.2, -0.55, "reflection grating, period $d$", fontsize=9, va="top")
+        label(ax, 6.2, -1.45, r"$m\lambda = d(\sin\alpha + \sin\beta)$, $R = mN$, red bent most",
+              fontsize=9)
+        _finish(ax, (-1.2, 8.7), (-1.8, 2.6), title)
+        return
+    if kind != "czerny_turner":
+        raise ValueError("kind must be 'czerny_turner' or 'prism_grating'")
+    s = np.array([0.35, 0.0])
+    ma, mb = np.array([-0.65, 3.0]), np.array([0.65, 3.3])
+    v = np.array([2.35, -2.8])
+    ga, gb = ma + v, mb + v
+    # slit to collimator: diverging cone
+    band(ax, [s[0], ma[0]], [s[1], ma[1]], [s[0], mb[0]], [s[1], mb[1]], color="0.55", alpha=0.25)
+    band(ax, [ma[0], ga[0]], [ma[1], ga[1]], [mb[0], gb[0]], [mb[1], gb[1]], color="0.55",
+         alpha=0.25)
+    _arc_through(ax, ma, mb, -0.12)
+    label(ax, -1.05, 3.55, "collimating\nmirror", fontsize=9, va="bottom")
+    ax.plot([s[0] - 0.4, s[0] - 0.04], [0.0, 0.0], color=METAL, lw=4, solid_capstyle="butt")
+    ax.plot([s[0] + 0.04, s[0] + 0.4], [0.0, 0.0], color=METAL, lw=4, solid_capstyle="butt")
+    label(ax, s[0], -0.35, "entrance\nslit", fontsize=9, va="top")
+    _sawtooth(ax, ga, gb, n=8, depth=0.06)
+    label(ax, (ga[0] + gb[0])/2, -0.35, "plane grating", fontsize=9, va="top")
+    # dispersed collimated beams to the camera mirror and the foci
+    w0 = np.array([2.6, 2.75])
+    foci = [np.array([5.45, 0.15]), np.array([4.95, 0.15]), np.array([4.45, 0.15])]
+    m2 = []
+    for k, (c, f) in enumerate(zip(cols, foci)):
+        ang = np.radians((k - 1)*6.0)
+        rot = np.array([[np.cos(ang), -np.sin(ang)], [np.sin(ang), np.cos(ang)]])
+        w = rot @ w0
+        a2, b2 = ga + w, gb + w
+        m2 += [a2, b2]
+        band(ax, [ga[0], a2[0]], [ga[1], a2[1]], [gb[0], b2[0]], [gb[1], b2[1]], color=c,
+             alpha=0.10, lw=0.6)
+        band(ax, [a2[0], f[0]], [a2[1], f[1]], [b2[0], f[0]], [b2[1], f[1]], color=c, alpha=0.15,
+             lw=0.6)
+    m2 = np.array(m2)
+    lo, hi = m2[np.argmin(m2[:, 0])], m2[np.argmax(m2[:, 0])]
+    _arc_through(ax, lo - np.array([0.05, 0.0]), hi + np.array([0.05, 0.0]), -0.15)
+    label(ax, hi[0] + 0.35, hi[1] + 0.25, "camera\nmirror", fontsize=9, va="bottom")
+    ax.add_patch(mpatches.Rectangle((4.2, 0.0), 1.5, 0.1, facecolor="0.35", edgecolor="none",
+                                    zorder=4))
+    label(ax, 4.95, -0.35, "detector: spectrum\nalong the row", fontsize=9, va="top")
+    label(ax, 2.7, 3.9, "the slit lies across the page; its images\n"
+          "at each wavelength form the spectrum", fontsize=8, va="bottom")
+    _finish(ax, (-1.6, 7.0), (-1.2, 4.6), title)
+
+
+def fts_layout(ax, kind="michelson", title=None):
+    """Sketch of a Fourier transform spectrometer (notebook 111).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"michelson", "jacquinot"}, optional
+        "michelson": a Michelson with an infrared source, a scanned mirror
+        and a He-Ne reference laser through the same optics, whose fringes
+        (zero crossings) trigger the sampling of the infrared interferogram.
+        "jacquinot": the unfolded Michelson as an air plate of thickness x/2
+        between one mirror and the image of the other; a ray at the angle
+        theta behind the field stop (J-stop) sees the path difference
+        x cos(theta), which sets the largest stop for a resolving power R.
+    title : str, optional
+    """
+
+    if kind == "jacquinot":
+        f = 1.6
+        stop(ax, 0.0, 0.9, openings=((0.0, 0.32),), width=0.08)
+        label(ax, 0.0, -1.0, "J-stop\n(field stop)", fontsize=9, va="top")
+        point_source(ax, -0.8, 0.0, size=80, text="source", text_dy=-0.3)
+        lens(ax, f, 0.9, text="collimator", text_y=-1.0)
+        th = np.arctan(0.32/f)
+        z_m1, gap = 3.6, 0.45
+        for y0, c in ((0.0, ILLUMINATION), (0.32, _SPECTRUM["red"])):
+            ax.plot([0.0, f], [y0, 0.0 if y0 == 0 else -0.0], color=c, lw=0) if False else None
+        # axial beam
+        band(ax, [f, z_m1], [0.5, 0.5], [f, z_m1], [-0.5, -0.5], color=ILLUMINATION, alpha=0.15)
+        ax.plot([0, f], [0.0, 0.0], color=ILLUMINATION, lw=1.2)
+        # off-axis ray from the edge of the stop, through the lens centre
+        z_end = z_m1 + gap
+        ax.plot([0, f, z_end], [0.32, 0.0, -th*(z_end - f)], color=_SPECTRUM["red"], lw=1.2)
+        ax.plot([z_m1, z_m1], [-1.0, 1.0], color="0.3", lw=3)
+        ax.plot([z_end, z_end], [-1.0, 1.0], color="0.3", lw=3, ls=(0, (2, 1)))
+        label(ax, z_m1, 1.1, "mirror 1", fontsize=8, va="bottom")
+        label(ax, z_end + 0.05, 1.1, "image of\nmirror 2", fontsize=8, va="bottom", ha="left")
+        arrow(ax, z_m1, -1.15, z_end, -1.15, style="<->", text="$x/2$",
+              text_pos=((z_m1 + z_end)/2, -1.4), fontsize=9)
+        t = np.linspace(0, th, 10)
+        ax.plot(f + 0.9*np.cos(t), -0.9*np.sin(t), color=_SPECTRUM["red"], lw=0.8)
+        label(ax, f + 1.05, -0.12, r"$\theta$", fontsize=10, color=_SPECTRUM["red"])
+        label(ax, z_end + 0.4, 0.15, "path difference\non axis: $x$\nat $\\theta$: $x\\cos\\theta$",
+              fontsize=9, ha="left")
+        label(ax, 2.0, -1.85, r"stop solid angle $\Omega$ shifts and widens the line by "
+              r"$\tilde\nu\Omega/2\pi$: $\Omega \leq 2\pi/R$", fontsize=9)
+        _finish(ax, (-1.3, 7.2), (-2.2, 1.6), title)
+        return
+    if kind != "michelson":
+        raise ValueError("kind must be 'michelson' or 'jacquinot'")
+    w, z_bs, off = 0.3, 2.4, 0.62
+    point_source(ax, -0.6, 0.0, color=ILLUMINATION, size=90, text="infrared\nsource",
+                 text_dy=-0.3)
+    for y0 in (w, -w):
+        ax.plot([-0.6, 0.4], [0.0, y0], color=ILLUMINATION, lw=0.8)
+    lens(ax, 0.4, 0.45)
+    band(ax, [0.4, z_bs], [w, w], [0.4, z_bs], [-w, -w], color=ILLUMINATION)
+    band(ax, [z_bs - w, z_bs - w], [0.0, 2.0], [z_bs + w, z_bs + w], [0.0, 2.0], color=ILLUMINATION)
+    band(ax, [z_bs, 4.6], [w, w], [z_bs, 4.6], [-w, -w], color=ILLUMINATION)
+    band(ax, [z_bs - w, z_bs - w], [0.0, -1.6], [z_bs + w, z_bs + w], [0.0, -1.6], color="#8e5ba8")
+    # He-Ne reference along a parallel path
+    laser(ax, 1.3, off, length=0.9, height=0.22, text="He-Ne", fontsize=7)
+    red = _SPECTRUM["red"]
+    zr = z_bs + off
+    ax.plot([1.3, 4.6], [off, off], color=red, lw=1.0, zorder=5)
+    ax.plot([zr, zr], [off, 2.0], color=red, lw=1.0, zorder=5)
+    ax.plot([zr, zr], [off, -1.05], color=red, lw=1.0, zorder=5)
+    mirror(ax, z_bs + 0.15, 2.05, 1.6, np.pi/2, text="fixed mirror", text_dy=0.35)
+    mirror(ax, 4.65, 0.15, 1.6, 0.0)
+    label(ax, 4.65, -0.75, "scanned\nmirror", va="top")
+    arrow(ax, 4.85, 0.6, 5.35, 0.6, style="<|-|>", color="0.3")
+    label(ax, 5.1, 0.68, "$x/2$", va="bottom")
+    beam_splitter(ax, z_bs + 0.15, 0.15, 1.9, "/")
+    label(ax, z_bs + 1.25, -0.55, "beam splitter", fontsize=9)
+    rotated_detector(ax, z_bs, -1.7, 0.35)
+    rotated_detector(ax, zr, -1.12, 0.12)
+    label(ax, z_bs - 0.5, -1.75, "infrared\ndetector", ha="right", fontsize=8)
+    label(ax, zr + 0.2, -1.1, "reference\ndetector", ha="left", fontsize=8)
+    # interferogram sampled at the zero crossings of the reference fringes
+    xs = np.linspace(-1.0, 1.0, 600)
+    zc = 4.2
+    ax.plot(zc + xs, -1.75 + 0.3*np.exp(-(xs/0.25)**2)*np.cos(2*np.pi*xs/0.18), color="#8e5ba8",
+            lw=0.8)
+    ax.plot(zc + xs, -2.35 + 0.08*np.sin(2*np.pi*xs/0.1), color=red, lw=0.6)
+    for xk in np.arange(-1.0, 1.0001, 0.1):
+        ax.plot([zc + xk, zc + xk], [-2.35, -1.75 + 0.3*np.exp(-(xk/0.25)**2)*np.cos(2*np.pi*xk/0.18)],
+                color="0.6", lw=0.4)
+    label(ax, zc, -2.55, "samples at the zero crossings\nof the 632.8 nm fringes", fontsize=8,
+          va="top")
+    _finish(ax, (-1.1, 5.7), (-3.1, 2.6), title)
+
+
+def fabry_perot_layout(ax, kind="etalon", title=None):
+    """Sketch of a Fabry-Perot etalon or a Lyot filter (notebook 113).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"etalon", "lyot"}, optional
+        "etalon": a ray bouncing between two mirrors of reflectance R a
+        distance d apart, the transmitted beams (each weaker by R**2)
+        collected by a lens into one point of a ring; the round trip phase
+        4 pi n d cos(theta)/lambda. "lyot": a Lyot filter of three stages,
+        plates of thickness d, 2d and 4d with their axes at 45° between
+        parallel polarizers, each with its cos² transmission, and their
+        product.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    if kind == "lyot":
+        zs, h = [0.0, 1.0, 2.4, 4.6], 0.8
+        widths = [0.18, 0.36, 0.72]
+        lam = np.linspace(0, 1, 400)
+        for z in zs:
+            polarizer(ax, z, h, direction="vertical")
+        prod = np.ones_like(lam)
+        for k, (za, zb, wd) in enumerate(zip(zs[:-1], zs[1:], widths)):
+            zc = (za + zb)/2
+            ax.add_patch(mpatches.Rectangle((zc - wd/2, -h), wd, 2*h, facecolor="#e8d9f3",
+                                            edgecolor="#6a4c93", lw=1, zorder=3))
+            ax.plot([zc - 0.12, zc + 0.12], [-0.12, 0.12], color="#6a4c93", lw=1.2, zorder=4)
+            label(ax, zc, -h - 0.2, ["$d$", "$2d$", "$4d$"][k], fontsize=10, va="top")
+            T = np.cos(np.pi*2**k*3*(lam - 0.5))**2
+            prod *= T
+            ax.plot(zc - 0.45 + 0.9*lam, 1.45 + 0.45*T, color="#6a4c93", lw=0.9)
+            ax.plot([zc - 0.45, zc + 0.45], [1.45, 1.45], color="0.6", lw=0.5)
+        ax.add_patch(mpatches.Rectangle((-0.6, -0.12), 0.4, 0.24, facecolor=ILLUMINATION,
+                                        alpha=0.3, edgecolor="none"))
+        arrow(ax, -0.9, 0.0, -0.1, 0.0, color=ILLUMINATION, lw=1.5)
+        arrow(ax, 4.7, 0.0, 5.4, 0.0, color=_SPECTRUM["red"], lw=1.5)
+        ax.plot(5.6 + 1.4*lam, 1.45 + 0.45*prod, color=_SPECTRUM["red"], lw=1.1)
+        ax.plot([5.6, 7.0], [1.45, 1.45], color="0.6", lw=0.5)
+        label(ax, 6.3, 1.25, "product: one narrow peak\n(FWHM set by the thickest plate,\n"
+              "free spectral range by the thinnest)", fontsize=8, va="top")
+        label(ax, 2.3, 2.15, r"each stage: $\cos^2(\pi\,\Delta n\,d_k/\lambda)$ against $\lambda$",
+              fontsize=9, va="bottom")
+        label(ax, 2.3, -1.4, "parallel polarizers; birefringent plates with axes at 45°",
+              fontsize=9, va="top")
+        _finish(ax, (-1.1, 7.3), (-1.9, 2.6), title)
+        return
+    if kind != "etalon":
+        raise ValueError("kind must be 'etalon' or 'lyot'")
+    z1, z2, h = 1.0, 2.2, 1.4
+    for z, sgn in ((z1, -1), (z2, 1)):
+        ax.add_patch(mpatches.Rectangle((z if sgn > 0 else z - 0.25, -h), 0.25, 2*h,
+                                        facecolor=GLASS, edgecolor=EDGE, lw=1, zorder=3))
+        ax.plot([z, z], [-h, h], color="0.25", lw=2.5, zorder=4)
+    th = np.radians(11)
+    t = np.tan(th)*(z2 - z1)
+    y = -1.2
+    ax.plot([-0.4, z1], [y - t*(z1 + 0.4)/(z2 - z1), y], color=ILLUMINATION, lw=2.0, zorder=5)
+    z_lens, z_scr = 4.0, 5.4
+    f = z_scr - z_lens
+    y_focus = np.tan(th)*f
+    for k in range(4):
+        y_in = y + 2*k*t
+        alpha = 0.95*0.72**k
+        ax.plot([z1, z2], [y_in, y_in + t], color=ILLUMINATION, lw=1.4, alpha=alpha, zorder=5)
+        if k < 3:
+            ax.plot([z2, z1], [y_in + t, y_in + 2*t], color=ILLUMINATION, lw=1.4, alpha=alpha*0.85,
+                    zorder=5)
+        y_out = y_in + t
+        y_l = y_out + np.tan(th)*(z_lens - z2)
+        ax.plot([z2, z_lens, z_scr], [y_out, y_l, y_focus], color=_SPECTRUM["red"], lw=1.0,
+                alpha=alpha, zorder=5)
+    lens(ax, z_lens, 1.5)
+    ax.plot([z_scr, z_scr], [-1.5, 1.5], color="0.4", lw=1.5)
+    arrow(ax, z1, h + 0.2, z2, h + 0.2, style="<->", text="$d$", text_pos=((z1 + z2)/2, h + 0.42),
+          fontsize=10)
+    label(ax, z1 - 0.15, -h - 0.15, "mirror $R$", fontsize=8, va="top")
+    label(ax, z2 + 0.15, -h - 0.15, "mirror $R$", fontsize=8, va="top")
+    label(ax, -0.2, -1.65, r"$\theta$", fontsize=10, color=ILLUMINATION)
+    label(ax, 3.6, -2.15, r"round trip phase $\delta = 4\pi n d\cos\theta/\lambda$; "
+          "each pass weaker by $R^2$", fontsize=9, va="top")
+    # ring pattern
+    zc, r0 = 7.0, 0.0
+    for r in np.sqrt(np.arange(1, 6)*0.35):
+        ax.add_patch(mpatches.Circle((zc, 0.0), r, fill=False, edgecolor=_SPECTRUM["red"], lw=1.4))
+    label(ax, zc, -1.65, "rings in the focal plane\n(one per order)", fontsize=8, va="top")
+    _finish(ax, (-0.8, 8.6), (-2.6, 2.0), title)
+
+
+def absorption_layout(ax, kind="cell", title=None):
+    """Sketch of an absorption measurement or of the rotational structure of
+    a vibrational band (notebook 114).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"cell", "levels"}, optional
+        "cell": a lamp, a gas cell of length L, and a spectrometer whose
+        instrument function I smooths the transmittance exp(-sigma N L).
+        "levels": rotational levels B J(J + 1) of the lower and upper
+        vibrational state of a linear molecule (even J below, odd J above, as
+        for the CO2 nu3 band), the R (J -> J + 1) and P (J -> J - 1)
+        transitions, and the resulting stick spectrum with the gap at nu0.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    if kind == "levels":
+        B, s = 0.03, 1.0
+        lower = [0, 2, 4, 6, 8]
+        upper = [1, 3, 5, 7, 9]
+        y0, y1 = 0.0, 2.9
+        for J in lower:
+            y = y0 + B*J*(J + 1)
+            ax.plot([0.0, 6.4], [y, y], color="0.3", lw=1.0)
+            if J >= 4:
+                label(ax, -0.1, y, "$J = {}$".format(J), fontsize=8, ha="right")
+        label(ax, -0.1, 0.09, "$J = 0, 2$", fontsize=8, ha="right")
+        for J in upper:
+            y = y1 + 0.95*B*J*(J + 1)
+            ax.plot([0.0, 6.4], [y, y], color="0.3", lw=1.0)
+            label(ax, 6.5, y, "$J' = {}$".format(J), fontsize=8, ha="left")
+        label(ax, -1.4, 1.0, "$v = 0$\n(even $J$)", fontsize=9)
+        label(ax, -1.4, 4.0, "$v = 1$\n(odd $J$)", fontsize=9)
+        for k, J in enumerate(lower):
+            z = 3.4 + 0.42*k
+            arrow(ax, z, y0 + B*J*(J + 1), z, y1 + 0.95*B*(J + 1)*(J + 2), color=_SPECTRUM["blue"],
+                  lw=1.1)
+            if J > 0:
+                z = 2.8 - 0.42*k
+                arrow(ax, z, y0 + B*J*(J + 1), z, y1 + 0.95*B*(J - 1)*J, color=_SPECTRUM["red"],
+                      lw=1.1)
+        label(ax, 5.3, -1.2, "R branch, $J \\to J + 1$", fontsize=8, color=_SPECTRUM["blue"])
+        label(ax, 1.1, -1.2, "P branch, $J \\to J - 1$", fontsize=8, color=_SPECTRUM["red"])
+        # stick spectrum
+        yb = -2.2
+        ax.plot([0.0, 6.4], [yb, yb], color="0.3", lw=0.8)
+        nu0 = 3.2
+        for J in range(0, 30, 2):
+            S = (J + 1)*np.exp(-J*(J + 1)/180)
+            zr = nu0 + 0.11*(J + 1)
+            if zr < 6.3:
+                ax.plot([zr, zr], [yb, yb + 0.07*S], color=_SPECTRUM["blue"], lw=1.2)
+            if J > 0:
+                zp = nu0 - 0.11*J - 0.05
+                if zp > 0.1:
+                    ax.plot([zp, zp], [yb, yb + 0.07*J*np.exp(-J*(J + 1)/180)],
+                            color=_SPECTRUM["red"], lw=1.2)
+        arrow(ax, nu0, yb - 0.45, nu0, yb - 0.05, color="0.3")
+        label(ax, nu0, yb - 0.6, r"$\nu_0$ (no line)", fontsize=8, va="top")
+        label(ax, 6.5, yb, r"$\tilde\nu$", fontsize=10, ha="left")
+        label(ax, 3.2, yb - 1.15, "lines $4B$ apart: the odd $J$ of the ground state are missing",
+              fontsize=8)
+        _finish(ax, (-2.1, 7.4), (-3.7, 5.9), title)
+        return
+    if kind != "cell":
+        raise ValueError("kind must be 'cell' or 'levels'")
+    point_source(ax, -0.6, 0.0, size=90, text="lamp", text_dy=-0.35)
+    for yy in (0.35, -0.35):
+        ax.plot([-0.6, 0.4], [0.0, yy], color=ILLUMINATION, lw=0.8)
+    lens(ax, 0.4, 0.55)
+    band(ax, [0.4, 4.4], [0.35, 0.35], [0.4, 4.4], [-0.35, -0.35], color=ILLUMINATION, alpha=0.2)
+    ax.add_patch(mpatches.Rectangle((1.0, -0.6), 2.8, 1.2, facecolor="#eef6ee", edgecolor="0.35",
+                                    lw=1.2, zorder=2))
+    for zw in (1.0, 3.8):
+        ax.add_patch(mpatches.Rectangle((zw - 0.05, -0.6), 0.1, 1.2, facecolor=GLASS,
+                                        edgecolor=EDGE, lw=1, zorder=3))
+    rng = np.random.default_rng(4)
+    ax.scatter(rng.uniform(1.15, 3.65, 40), rng.uniform(-0.5, 0.5, 40), s=6, color="#2f9e44",
+               zorder=4)
+    arrow(ax, 1.0, -0.85, 3.8, -0.85, style="<->", text="$L$", text_pos=(2.4, -1.05), fontsize=10)
+    label(ax, 2.4, 0.8, "gas: $N$ molecules/cm³, cross section $\\sigma(\\nu)$", fontsize=8,
+          va="bottom")
+    lens(ax, 4.4, 0.55)
+    ax.plot([4.4, 5.2], [0.35, 0.0], color=ILLUMINATION, lw=0.8)
+    ax.plot([4.4, 5.2], [-0.35, 0.0], color=ILLUMINATION, lw=0.8)
+    ax.add_patch(mpatches.FancyBboxPatch((5.2, -0.55), 1.7, 1.1, boxstyle="round,pad=0.05",
+                                         facecolor="#f3f0e6", edgecolor="0.35", lw=1.2, zorder=3))
+    label(ax, 6.05, 0.0, "spectrometer\ninstrument\nfunction $I$", fontsize=8, zorder=4)
+    label(ax, 3.3, -1.5, r"$T(\nu) = e^{-\sigma(\nu) N L}$,   measured: "
+          r"$T_\mathrm{meas} = T \otimes I \neq e^{-(\sigma \otimes I) N L}$", fontsize=9)
+    _finish(ax, (-1.0, 7.2), (-1.9, 1.3), title)
+
+
+def imaging_spectrometer_layout(ax, kind="pushbroom", title=None):
+    """Sketch of an imaging spectrometer (notebook 122).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"pushbroom", "offner", "cassi"}, optional
+        "pushbroom": an aircraft images one line of the ground through a
+        slit; each frame is that line against the wavelength, and the motion
+        stacks the frames into the cube (x, y, lambda). "offner": the
+        concentric Offner spectrometer, traced: slit, concave primary,
+        convex grating (the stop, radius R/2), the same concave mirror again
+        and the dispersed image of the slit, three wavelengths.
+        "cassi": objective, coded mask in the image plane, relay, prism and
+        detector, which sees the masked bands sheared against each other.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    cols = [_SPECTRUM["blue"], _SPECTRUM["green"], _SPECTRUM["red"]]
+    if kind == "pushbroom":
+        # ground in oblique projection: x across track (to the right), y along track (up-right)
+        ox, oy = np.array([1.0, 0.0]), np.array([0.55, 0.35])
+        P = lambda x, y, h=0.0: np.array([0.0, 0.0]) + x*ox + y*oy + np.array([0.0, h])
+        ground = np.array([P(0, 0), P(4, 0), P(4, 4), P(0, 4)])
+        ax.add_patch(mpatches.Polygon(ground, closed=True, facecolor="#e6efe0", edgecolor="0.5",
+                                      lw=0.8, zorder=1))
+        for yy in np.arange(0.4, 4.0, 0.4):
+            a, b = P(0, yy), P(4, yy)
+            ax.plot([a[0], b[0]], [a[1], b[1]], color="0.75", lw=0.4, zorder=1.5)
+        line_y = 2.4
+        a, b = P(0, line_y), P(4, line_y)
+        ax.plot([a[0], b[0]], [a[1], b[1]], color=_SPECTRUM["red"], lw=2.5, zorder=3)
+        plane = P(2.0, line_y, 3.0)
+        ax.add_patch(mpatches.Polygon([plane + [-0.5, 0.05], plane + [0.5, 0.05], plane + [0.0, 0.35]],
+                                      closed=True, facecolor="0.3", zorder=4))
+        ax.add_patch(mpatches.Polygon([a, b, plane], closed=True, facecolor=_SPECTRUM["red"],
+                                      alpha=0.12, edgecolor="none", zorder=2))
+        label(ax, plane[0], plane[1] + 0.55, "imaging spectrometer\n(slit across track)",
+              fontsize=8, va="bottom")
+        arrow(ax, *P(4.4, 1.0), *P(4.4, 3.4), color="0.3", lw=1.2, text="flight",
+              text_pos=P(4.75, 2.2), fontsize=8)
+        label(ax, *P(2.0, -0.45), "ground: one line per frame", fontsize=8)
+        # data cube
+        o = np.array([7.0, 0.3])
+        cx, cy, cl = np.array([2.2, 0.0]), np.array([0.9, 0.6]), np.array([0.0, 2.0])
+        faces = [[o, o + cx, o + cx + cl, o + cl], [o + cx, o + cx + cy, o + cx + cy + cl, o + cx + cl],
+                 [o + cl, o + cx + cl, o + cx + cy + cl, o + cy + cl]]
+        for fc, colr in zip(faces, ("#dbe7f3", "#c9dbec", "#eef4fa")):
+            ax.add_patch(mpatches.Polygon(fc, closed=True, facecolor=colr, edgecolor="0.4",
+                                          lw=0.8, zorder=2))
+        k = 0.62
+        sl = [o + k*cy, o + k*cy + cx, o + k*cy + cx + cl, o + k*cy + cl]
+        ax.add_patch(mpatches.Polygon(sl, closed=True, facecolor=_SPECTRUM["red"], alpha=0.3,
+                                      edgecolor=_SPECTRUM["red"], lw=1.0, zorder=3))
+        label(ax, *(o + 0.5*cx - [0, 0.3]), "$x$ (along the slit)", fontsize=8, va="top")
+        label(ax, *(o + cx + 0.5*cy + [0.35, -0.1]), "$y$ (time)", fontsize=8, ha="left")
+        label(ax, *(o - [0.25, -1.0]), r"$\lambda$", fontsize=10, ha="right")
+        label(ax, *(o + 0.5*cx + k*cy + 0.5*cl), "one frame:\n$x$ × λ", fontsize=8)
+        label(ax, 8.4, 3.5, "data cube", fontsize=9)
+        _finish(ax, (-0.4, 10.6), (-0.8, 5.0), title)
+        return
+    if kind == "offner":
+        R = 4.0
+        c = np.array([0.0, 0.0])
+        th = np.linspace(-0.75, 0.75, 80)
+        ax.plot(R*np.cos(th), R*np.sin(th), color="0.25", lw=3, zorder=4)
+        tg = np.linspace(-0.28, 0.28, 30)
+        ax.plot(R/2*np.cos(tg), R/2*np.sin(tg), color="0.25", lw=2.5, zorder=4)
+        for t in np.linspace(-0.26, 0.26, 9):
+            p = R/2*np.array([np.cos(t), np.sin(t)])
+            ax.plot([p[0], p[0] - 0.08*np.cos(t)], [p[1], p[1] - 0.08*np.sin(t)], color="0.25",
+                    lw=0.8, zorder=4)
+        ax.plot([0, 0], [-2.6, 2.6], color="0.6", lw=0.6, ls=":")
+        ax.plot([0], [0], "+", color="0.3", ms=8)
+        label(ax, -0.15, 0.0, "common\ncentre", fontsize=8, ha="right")
+        ys = 1.3
+        stop(ax, 0.0, 0.25, openings=((ys, 0.04),), width=0.06) if False else None
+        ax.plot([-0.08, 0.08], [ys, ys], color="0.2", lw=3)
+        label(ax, -0.15, ys, "slit", fontsize=9, ha="right")
+        for k, col in enumerate(cols):
+            shift = (k - 1)*0.07
+            for ang in (-0.06, 0.0, 0.06):
+                p = np.array([0.0, ys])
+                d = np.array([np.cos(ang), np.sin(ang)])
+                q = _circle_hit(p, d, c, R, far=True)
+                nrm = (q - c)/R
+                d = _reflect(d, nrm)
+                pts = [p, q]
+                q2 = _circle_hit(q, d, c, R/2)
+                if q2 is None:
+                    continue
+                n2 = (q2 - c)/(R/2)
+                d = _reflect(d, n2)
+                tng = np.array([-n2[1], n2[0]])
+                d = d + shift*tng
+                d = d/np.hypot(*d)
+                q3 = _circle_hit(q2, d, c, R, far=True)
+                n3 = (q3 - c)/R
+                d = _reflect(d, n3)
+                tz = -q3[0]/d[0]
+                q4 = q3 + tz*d
+                pts += [q2, q3, q4]
+                pts = np.array(pts)
+                if k == 1 or ang == 0.0:
+                    ax.plot(pts[:2, 0], pts[:2, 1], color="0.5", lw=0.6, zorder=3)
+                ax.plot(pts[1:, 0], pts[1:, 1], color=col, lw=0.7, zorder=3, alpha=0.9)
+        label(ax, R*np.cos(0.55) + 0.15, R*np.sin(0.55) + 0.2, "concave mirror\n(primary)",
+              fontsize=8, ha="left")
+        label(ax, R*np.cos(-0.55) + 0.15, R*np.sin(-0.55) - 0.2, "same mirror\n(tertiary)",
+              fontsize=8, ha="left", va="top")
+        label(ax, R/2 - 0.2, 0.75, "convex grating,\nradius $R/2$ (stop)", fontsize=8, ha="right")
+        label(ax, -0.15, -1.3, "spectrum\n(image of the slit,\ndispersed)", fontsize=8, ha="right")
+        _finish(ax, (-2.0, 5.6), (-3.2, 3.2), title)
+        return
+    if kind != "cassi":
+        raise ValueError("kind must be 'pushbroom', 'offner' or 'cassi'")
+    h = 0.6
+    label(ax, -0.9, 0.0, "scene", fontsize=9)
+    for yy in (0.5, -0.5):
+        ax.plot([-0.5, 0.6], [yy, -yy*0.3], color="0.5", lw=0.8)
+    lens(ax, 0.6, 0.7, text="objective", text_y=-0.95)
+    ax.plot([0.6, 1.8], [0.15, -0.0], color="0.5", lw=0.8)
+    ax.plot([0.6, 1.8], [-0.15, 0.0], color="0.5", lw=0.8)
+    # coded mask: random binary column
+    rng = np.random.default_rng(2)
+    cells = rng.random(10) < 0.5
+    for i, op in enumerate(cells):
+        ax.add_patch(mpatches.Rectangle((1.75, -0.6 + 0.12*i), 0.1, 0.12,
+                                        facecolor="white" if op else "0.15", edgecolor="0.4",
+                                        lw=0.4, zorder=4))
+    label(ax, 1.8, -0.95, "coded mask\n(image plane)", fontsize=8, va="top")
+    band(ax, [1.85, 2.9], [0.0, 0.45], [1.85, 2.9], [0.0, -0.45], color="0.6", alpha=0.2)
+    lens(ax, 2.9, 0.6, text="relay", text_y=-0.95)
+    band(ax, [2.9, 3.8], [0.45, 0.45], [2.9, 3.8], [-0.45, -0.45], color="0.6", alpha=0.2)
+    ax.add_patch(mpatches.Polygon([(3.75, -0.65), (4.45, -0.65), (4.1, 0.65)], closed=True,
+                                  facecolor=GLASS, edgecolor=EDGE, lw=1.2, zorder=4))
+    label(ax, 4.1, -0.95, "prism", fontsize=8, va="top")
+    for k, col in enumerate(cols):
+        t = (1 - k)*0.08
+        band(ax, [4.4, 5.3], [0.45, 0.45 + 0.9*t], [4.4, 5.3], [-0.45, -0.45 + 0.9*t], color=col,
+             alpha=0.12, lw=0.5)
+        ax.plot([5.3, 6.4], [0.45 + 0.9*t, 1.9*t], color=col, lw=0.6)
+        ax.plot([5.3, 6.4], [-0.45 + 0.9*t, 1.9*t], color=col, lw=0.6)
+    lens(ax, 5.3, 0.65, text="relay", text_y=-0.95)
+    detector(ax, 6.4, 0.6, width=0.08, text="detector", text_y=-0.95)
+    # the detector picture: mask copies sheared per band
+    x0 = 7.0
+    for k, col in enumerate(cols):
+        for i, op in enumerate(cells):
+            if op:
+                ax.add_patch(mpatches.Rectangle((x0 + 0.25*k, -0.6 + 0.12*i), 0.25, 0.12,
+                                                facecolor=col, alpha=0.35, edgecolor="none",
+                                                zorder=4))
+    ax.add_patch(mpatches.Rectangle((x0, -0.6), 0.75, 1.2, fill=False, edgecolor="0.3", lw=0.8,
+                                    zorder=5))
+    label(ax, x0 + 0.4, -0.95, "detector: bands\nshifted and summed", fontsize=8, va="top")
+    _finish(ax, (-1.3, 8.2), (-1.6, 1.0), title)
