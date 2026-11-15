@@ -66,6 +66,14 @@ Setup sketches for the other example notebooks:
   with an extended source, the van Cittert-Zernike theorem, Michelson's
   stellar interferometer, a Michelson interferometer for temporal coherence
   and a Hanbury Brown-Twiss intensity interferometer (notebook 74).
+- fibre_types(), fibre_acceptance(), skew_ray_end_view(): step-index,
+  graded-index and single-mode fibres with their profiles and rays, the
+  acceptance cone and a skew ray seen along the axis (notebook 115);
+  slab_transverse_resonance(): the ray picture of a slab mode (notebook
+  116); dispersion_mechanisms(): intermodal, chromatic and polarization
+  mode dispersion (notebooks 117 and 118); fibre_bragg_grating(): a
+  grating in the core with its spectra (notebook 119); fibre_link(): a
+  basic intensity modulated link (notebook 120).
 - field_tracing_chain(), propagation_operators(), ball_lens_handover(),
   mach_zehnder_defect(), babinet_split(): a field tracing chain as a product
   of operators, what each free-space operator does, rays through a ball lens
@@ -295,6 +303,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "fresnel_interface", "kretschmann", "yee_grid", "lithography_scanner", "tcc_overlap",
            "mask_3d", "field_tracing_chain", "propagation_operators", "ball_lens_handover",
            "mach_zehnder_defect", "babinet_split", "diode_collimator", "fibre_coupling",
+           "fibre_types", "fibre_acceptance", "skew_ray_end_view", "slab_transverse_resonance",
+           "dispersion_mechanisms", "fibre_bragg_grating", "fibre_link",
            "resonator_unfolded", "resonator_types", "folded_resonator",
            "spectrometer_layout", "fts_layout", "fabry_perot_layout", "absorption_layout",
            "imaging_spectrometer_layout", "text_scale"]
@@ -8268,6 +8278,350 @@ def fibre_coupling(ax, lens="aspheric", title=None):
     label(ax, 0.4, -0.9, "Gaussian\nbeam E", fontsize=8, color=LASER, va="top")
     label(ax, z_f + 1.0, 1.05, "η = |∫ E·M* dA|² / (P_E P_M)", fontsize=9)
     _finish(ax, (-0.1, z_f + 2.1), (-1.25, 1.25), title)
+
+
+# ---------------------------------------------------------------- fibres (notebooks 115 to 120)
+
+CORE = "#cfe3f3"
+CLADDING = "#eef4f8"
+FIBRE_EDGE = "#4a6f8a"
+FIBRE_RAY = "#d6604d"
+
+
+def _fibre_body(ax, z0, z1, a, b, y0=0.0, core=CORE, clad=CLADDING, zorder=1):
+    """A longitudinal section of a fibre around y0: core |y - y0| < a,
+    cladding a < |y - y0| < b."""
+    P = _patches()
+    ax.add_patch(P.Rectangle((z0, y0 - b), z1 - z0, 2*b, facecolor=clad, edgecolor=FIBRE_EDGE, lw=0.8,
+                             zorder=zorder))
+    ax.add_patch(P.Rectangle((z0, y0 - a), z1 - z0, 2*a, facecolor=core, edgecolor="none",
+                             zorder=zorder))
+    for s in (-1, 1):
+        ax.plot([z0, z1], [y0 + s*a, y0 + s*a], color=FIBRE_EDGE, lw=0.6, ls="--", zorder=zorder + 1)
+
+
+def _zigzag(z0, z1, y0, slope, a):
+    """A meridional ray bouncing between y = -a and y = a."""
+    z = np.linspace(z0, z1, 800)
+    y = y0 + slope*(z - z0)
+    return z, _fold(y, a)
+
+
+def fibre_types(ax, title=None):
+    """Sketch of the three classic fibres (notebook 115).
+
+    For a step-index multimode, a graded-index multimode and a step-index
+    single-mode fibre: the cross section, the index profile n(r) and rays
+    in a longitudinal section. In the step-index core rays zigzag at
+    different angles and arrive at different times; in the graded core they
+    are bent back smoothly, the steep ones travel through the faster outer
+    glass and all arrive almost together; the single-mode core is so thin
+    that only one mode (no ray picture) propagates.
+    """
+
+    P = _patches()
+    rows = [("step-index multimode", 0.55, "step"), ("graded-index multimode", 0.55, "graded"),
+            ("single mode", 0.12, "step")]
+    for i, (name, a, kind) in enumerate(rows):
+        y0 = -2.0*i
+        b = 0.8
+        # cross section
+        ax.add_patch(P.Circle((0, y0), b, facecolor=CLADDING, edgecolor=FIBRE_EDGE, lw=0.8))
+        if kind == "graded":
+            for k, r in enumerate(np.linspace(a, 0.05, 8)):
+                c = np.array([0xee, 0xf4, 0xf8]) + (np.array([0x8f, 0xb8, 0xd8]) - [0xee, 0xf4, 0xf8])*(k + 1)/8
+                ax.add_patch(P.Circle((0, y0), r, facecolor="#%02x%02x%02x" % tuple(c.astype(int)),
+                                      edgecolor="none"))
+        else:
+            ax.add_patch(P.Circle((0, y0), a, facecolor="#8fb8d8", edgecolor=FIBRE_EDGE, lw=0.6))
+        label(ax, 0, y0 - 1.0, name, fontsize=9, va="top")
+        # index profile n(r), r vertical
+        zp = 1.4
+        r = np.linspace(-b, b, 401)
+        if kind == "graded":
+            n = np.where(np.abs(r) < a, 1 - (r/a)**2, 0.0)
+        else:
+            n = (np.abs(r) < a).astype(float)
+        ax.plot([zp, zp], [y0 - b, y0 + b], color="0.4", lw=0.7)
+        ax.plot(zp + 0.5*n, y0 + r, color=FIBRE_EDGE, lw=1.4)
+        label(ax, zp + 0.25, y0 + b + 0.12, "n(r)", fontsize=8)
+        # longitudinal section with rays
+        z0, z1 = 2.6, 8.6
+        _fibre_body(ax, z0, z1, a, b*0.85 if a < 0.3 else b, y0)
+        ax.plot([z0, z1], [y0, y0], color="0.6", lw=0.5, ls=":", zorder=2)
+        if kind == "step" and a > 0.3:
+            for s, c in ((0.0, IMAGING), (0.18, "#5aa469"), (0.36, FIBRE_RAY)):
+                z, y = _zigzag(z0, z1, 0.0, s, a)
+                ax.plot(z, y0 + y, color=c, lw=1.1, zorder=3)
+        elif kind == "graded":
+            z = np.linspace(z0, z1, 400)
+            for amp, c in ((0.0, IMAGING), (0.25, "#5aa469"), (0.48, FIBRE_RAY)):
+                ax.plot(z, y0 + amp*np.sin(2*np.pi*(z - z0)/2.0), color=c, lw=1.1, zorder=3)
+        else:
+            z = np.linspace(z0, z1, 400)
+            ax.plot(z, y0 + 0*z, color=FIBRE_RAY, lw=2.0, zorder=3)
+            ax.fill_between(z, y0 - 0.2, y0 + 0.2, color=FIBRE_RAY, alpha=0.15, lw=0, zorder=2)
+            label(ax, (z0 + z1)/2, y0 + 0.5, "one mode, field wider than the core", fontsize=8)
+        # pulses in and out
+        zi, zo = z1 + 0.35, z1 + 1.6
+        tt = np.linspace(-0.5, 0.5, 200)
+        width = {"step": 0.22, "graded": 0.08}[kind] if a > 0.3 else 0.05
+        ax.plot(zi + 0.4 + tt*0.9, y0 - 0.4 + 0.8*np.exp(-(tt/0.05)**2), color="0.3", lw=1.0)
+        ax.plot(zo + 0.4 + tt*0.9, y0 - 0.4 + 0.8*0.05/width*np.exp(-(tt/width)**2)*min(1, 4*width),
+                color="0.3", lw=1.0)
+        label(ax, zi + 0.4, y0 - 0.65, "in", fontsize=7)
+        label(ax, zo + 0.4, y0 - 0.65, "out", fontsize=7)
+    _finish(ax, (-1.0, 11.0), (-5.3, 1.1), title)
+
+
+def fibre_acceptance(ax, n0=1.0, n1=1.48, n2=1.46, title=None):
+    """Sketch of the acceptance angle of a fibre (notebook 115).
+
+    A ray from the medium n0 hits the flat end face at the angle theta_0,
+    is refracted into the core and meets the core-cladding interface at
+    90° - theta_1. It is totally reflected if that angle exceeds the
+    critical angle arcsin(n2/n1), which gives n0 sin(theta_max) =
+    sqrt(n1**2 - n2**2) = NA. A steeper ray (dashed) is partly refracted
+    into the cladding at every reflection and lost.
+    """
+
+    P = _patches()
+    a, b = 1.0, 1.8
+    _fibre_body(ax, 0.0, 9.0, a, b)
+    ax.plot([0, 0], [-b, b], color=FIBRE_EDGE, lw=1.2, zorder=3)
+    label(ax, 8.0, 0.0, "core  $n_1$", fontsize=9)
+    label(ax, 8.0, 1.4, "cladding  $n_2$", fontsize=9)
+    label(ax, -2.8, 0.4, "$n_0$", fontsize=10)
+    NA = np.sqrt(n1**2 - n2**2)
+    # the acceptance cone (exaggerated angles for the drawing)
+    th0 = np.radians(30.0)
+    th1 = np.arcsin(np.sin(th0)/1.5)
+    for s in (-1, 1):
+        ax.plot([-3.0, 0], [s*3.0*np.tan(th0), 0], color=ILLUMINATION, lw=0.8, zorder=2)
+    ax.add_patch(P.Polygon([[-3.0, 3.0*np.tan(th0)], [0, 0], [-3.0, -3.0*np.tan(th0)]],
+                           facecolor=ILLUMINATION, alpha=0.15, edgecolor="none", zorder=1))
+    # the edge ray: in at -theta0 from below, refracted, totally reflected
+    z_hit = a/np.tan(th1)
+    zs = [-3.0, 0.0]
+    ys = [-3.0*np.tan(th0), 0.0]
+    z, y = 0.0, 0.0
+    s = 1
+    while z < 9.0:
+        z_new = min(z + 2*a/np.tan(th1) if z > 0 else z + z_hit, 9.0)
+        y = y + s*np.tan(th1)*(z_new - z)
+        z = z_new
+        zs.append(z)
+        ys.append(y)
+        s = -s
+    ax.plot(zs, ys, color=FIBRE_RAY, lw=1.4, zorder=4)
+    # a steeper ray, refracted out at the first hit
+    th0b = np.radians(50.0)
+    th1b = np.arcsin(np.sin(th0b)/1.5)
+    zb = a/np.tan(th1b)
+    ax.plot([-2.0, 0, zb], [-2.0*np.tan(th0b), 0, a], color="0.4", lw=1.0, ls="--", zorder=4)
+    ax.plot([zb, zb + 0.7], [a, b], color="0.4", lw=1.0, ls="--", zorder=4)
+    label(ax, zb + 0.9, b + 0.2, "steeper: refracted into the cladding", fontsize=8, ha="left")
+    # angles
+    t = np.linspace(np.pi, np.pi + th0, 20)
+    ax.plot(1.4*np.cos(t), 1.4*np.sin(t), color="0.2", lw=0.8)
+    label(ax, -1.75, -0.4, r"$\theta_{max}$", fontsize=10)
+    t = np.linspace(0, th1, 20)
+    ax.plot(1.3*np.cos(t), 1.3*np.sin(t), color="0.2", lw=0.8)
+    label(ax, 1.6, 0.2, r"$\theta_1$", fontsize=9)
+    label(ax, zs[2], a - 0.3, r"$\geq\theta_c$", fontsize=9, va="top")
+    label(ax, 4.5, -2.35, r"TIR for $\sin(90° - \theta_1) \geq n_2/n_1$:   "
+          r"$n_0 \sin\theta_{max} = \sqrt{n_1^2 - n_2^2} = \mathrm{NA}$", fontsize=10)
+    _finish(ax, (-3.3, 9.4), (-2.7, 2.4), title)
+
+
+def skew_ray_end_view(ax, title=None):
+    """Sketch of a meridional and a skew ray seen along the fibre axis
+    (notebook 115).
+
+    The meridional ray passes through the axis and stays in one plane. The
+    skew ray never meets the axis: its projection is a polygon of equal
+    chords that touches an inner circle of radius r_min (its caustic). The
+    angular momentum l_bar = n1 sin(theta_z) r_min/a is conserved, and
+    together with beta_bar = n1 cos(theta_z) it decides whether the ray is
+    bound, tunnelling or refracting.
+    """
+
+    P = _patches()
+    a = 1.0
+    for x0, name in ((0.0, "meridional"), (2.7, "skew")):
+        ax.add_patch(P.Circle((x0, 0), 1.35, facecolor=CLADDING, edgecolor=FIBRE_EDGE, lw=0.8))
+        ax.add_patch(P.Circle((x0, 0), a, facecolor=CORE, edgecolor=FIBRE_EDGE, lw=0.8))
+        label(ax, x0, -1.6, name, fontsize=9)
+    ax.plot([-a, a], [0.3*0, 0], color=FIBRE_RAY, lw=1.4)
+    ax.plot([-0.7*a, 0.7*a], [-0.714*a, 0.714*a], color=FIBRE_RAY, lw=0.6, alpha=0.4)
+    ax.plot(0, 0, "k+", ms=6)
+    # skew ray: chords at the distance rmin
+    rmin = 0.55
+    phi0 = np.arccos(rmin)
+    ang = np.arange(9)*2*phi0 + 0.3
+    ax.plot(2.7 + a*np.cos(ang), a*np.sin(ang), color=FIBRE_RAY, lw=1.2)
+    ax.add_patch(P.Circle((2.7, 0), rmin, facecolor="none", edgecolor="0.4", lw=0.7, ls=":"))
+    ax.plot([2.7, 2.7 + rmin*np.cos(0.3 + phi0)], [0, rmin*np.sin(0.3 + phi0)], color="0.3", lw=0.8)
+    label(ax, 2.7 + 0.1, 0.32, r"$r_{min}$", fontsize=9, ha="left")
+    ax.plot(2.7, 0, "k+", ms=6)
+    _finish(ax, (-1.6, 4.3), (-1.85, 1.5), title)
+
+
+def slab_transverse_resonance(ax, title=None):
+    """Sketch of a ray in a slab waveguide and the transverse resonance
+    condition (notebook 116).
+
+    A plane wave bounces between the two interfaces at the angle theta to
+    the axis. After a round trip across the slab (thickness d) its phase has
+    grown by 2 k n1 d sin(theta) minus the two phase shifts 2 phi of total
+    internal reflection; the wave repeats itself (and is a mode) only when
+    this is a multiple of 2 pi. The propagation constant is
+    beta = k n1 cos(theta).
+    """
+
+    d = 1.0
+    _fibre_body(ax, 0, 8.0, d/2, 1.2)
+    th = np.radians(22.0)
+    z, y = _zigzag(0.0, 8.0, -0.5, np.tan(th), d/2)
+    ax.plot(z, y, color=FIBRE_RAY, lw=1.4, zorder=3)
+    # wavefronts perpendicular to the upgoing ray
+    for zc in (1.0, 1.3, 1.6):
+        yc = -0.5 + np.tan(th)*(zc - 0.0)
+        u = np.array([-np.sin(th), np.cos(th)])*0.22
+        ax.plot([zc - u[0], zc + u[0]], [yc - u[1], yc + u[1]], color="0.3", lw=0.9, zorder=4)
+    arrow(ax, 0.2, -0.95, 1.2, -0.95, color="0.3", text=r"$\beta = k n_1\cos\theta$",
+          text_pos=(1.5, -0.95), ha="left")
+    zr = 0.5/np.tan(th)*2
+    label(ax, 3.0, 0.0, r"$n_1$", fontsize=10)
+    label(ax, 7.0, 0.85, r"$n_2$", fontsize=10)
+    label(ax, 7.0, -0.85, r"$n_2$", fontsize=10)
+    arrow(ax, 8.3, -0.5, 8.3, 0.5, style="<|-|>", color="0.3", text="d", text_pos=(8.5, 0.0))
+    t = np.linspace(0, th, 20)
+    ax.plot(0.0 + 0.7*np.cos(t) + 0.0, -0.5 + 0.7*np.sin(t), color="0.2", lw=0.8)
+    label(ax, 0.85, -0.38, r"$\theta$", fontsize=9)
+    label(ax, 4.0, 1.55, r"mode: $2 k n_1 d \sin\theta - 2\varphi_{TIR}(\theta) = 2\pi m$", fontsize=10)
+    _finish(ax, (-0.2, 9.0), (-1.3, 1.9), title)
+
+
+def dispersion_mechanisms(ax, title=None):
+    """Sketch of the three ways a pulse spreads in a fibre (notebooks 117
+    and 118).
+
+    Intermodal: the same wavelength in different modes (ray angles) takes
+    different times. Chromatic: different wavelengths of the source travel
+    at different group velocities, through the glass (material dispersion)
+    and through the change of the mode with the wavelength (waveguide
+    dispersion). Polarization mode: the two polarizations of the single mode
+    see a small random birefringence.
+    """
+
+    rows = [("intermodal", ("modes", (IMAGING, "#5aa469", FIBRE_RAY))),
+            ("chromatic", ("wavelengths", ("#3b4cc0", "#5aa469", "#b40426"))),
+            ("polarization mode", ("polarizations", ("#8e5ba8", "#e0a000")))]
+    for i, (name, (what, colors)) in enumerate(rows):
+        y0 = -1.6*i
+        _fibre_body(ax, 1.5, 6.5, 0.25, 0.45, y0)
+        tt = np.linspace(-0.4, 0.4, 200)
+        ax.plot(0.5 + tt, y0 - 0.35 + 0.7*np.exp(-(tt/0.08)**2), color="0.25", lw=1.2)
+        for k, c in enumerate(colors):
+            shift = (k - (len(colors) - 1)/2)*0.22
+            ax.plot(7.6 + shift + tt, y0 - 0.35 + 0.55*np.exp(-(tt/0.08)**2), color=c, lw=1.2)
+        label(ax, -0.2, y0, name, fontsize=9, ha="right")
+        label(ax, 4.0, y0 + 0.62, f"different {what}, different group delays", fontsize=8)
+    _finish(ax, (-2.8, 8.6), (-3.9, 1.0), title)
+
+
+def fibre_bragg_grating(ax, title=None):
+    """Sketch of a fibre Bragg grating (notebook 119).
+
+    A periodic index modulation of period Lambda in the core reflects the
+    narrow band around the Bragg wavelength lambda_B = 2 n_eff Lambda, where
+    the reflections from all grating planes add in phase, and transmits the
+    rest: a broadband input leaves a line in reflection and a notch in
+    transmission.
+    """
+
+    P = _patches()
+    a, b = 0.35, 0.8
+    _fibre_body(ax, 0.0, 9.0, a, b)
+    for z in np.arange(3.0, 6.0, 0.18):
+        ax.add_patch(P.Rectangle((z, -a), 0.09, 2*a, facecolor="#4a87b8", edgecolor="none", alpha=0.8,
+                                 zorder=2))
+    arrow(ax, 3.0, -a - 0.2, 3.36, -a - 0.2, style="<|-|>", color="0.3")
+    label(ax, 3.2, -a - 0.45, r"$2\Lambda$", fontsize=8)
+    label(ax, 4.5, b + 0.25, r"$\lambda_B = 2 n_{eff}\Lambda$", fontsize=10)
+
+    def spectrum(z0, y0, kind, text):
+        x = np.linspace(-0.8, 0.8, 300)
+        line = np.exp(-(x/0.06)**2)
+        s = {"in": 0.6*np.exp(-(x/0.6)**2), "r": 0.6*np.exp(-(x/0.6)**2)*line,
+             "t": 0.6*np.exp(-(x/0.6)**2)*(1 - line)}[kind]
+        ax.plot([z0 - 0.85, z0 + 0.85], [y0, y0], color="0.5", lw=0.6)
+        ax.plot(z0 + x, y0 + s, color=FIBRE_RAY, lw=1.2)
+        label(ax, z0, y0 - 0.2, text, fontsize=8)
+
+    spectrum(0.9, 1.3, "in", "input")
+    spectrum(0.9, -1.9, "r", "reflected")
+    spectrum(8.0, 1.3, "t", "transmitted")
+    arrow(ax, 0.1, 0.0, 1.6, 0.0, color=FIBRE_RAY, lw=1.4)
+    arrow(ax, 3.0, -0.15, 1.6, -0.15, color="#3b4cc0", lw=1.2)
+    arrow(ax, 6.2, 0.0, 8.0, 0.0, color=FIBRE_RAY, lw=1.4)
+    _finish(ax, (-0.3, 9.3), (-2.4, 2.1), title)
+
+
+def fibre_link(ax, title=None):
+    """Sketch of a basic intensity modulated fibre link (notebook 120).
+
+    A laser driven by the bit pattern (directly or through an external
+    modulator), connectors and splices, fibre spans, a photodiode (PIN or
+    APD) with a transimpedance amplifier, a filter and the decision circuit
+    that samples the eye at the bit centre against a threshold.
+    """
+
+    P = _patches()
+
+    def box(z, y, w, h, text, color="0.92"):
+        ax.add_patch(P.FancyBboxPatch((z, y - h/2), w, h, boxstyle="round,pad=0.05", facecolor=color,
+                                      edgecolor="0.3", lw=0.9))
+        label(ax, z + w/2, y, text, fontsize=8)
+
+    # bits
+    bits = [1, 0, 1, 1, 0, 0, 1, 0]
+    zb = np.repeat(np.arange(len(bits) + 1)*0.18, 2)[1:-1] - 0.1
+    yb = np.repeat(bits, 2)*0.4 + 0.9
+    ax.plot(zb, yb, color="0.2", lw=1.0)
+    label(ax, 0.6, 1.55, "data 1011 0010", fontsize=8)
+    arrow(ax, 0.6, 0.85, 0.6, 0.35, color="0.3")
+    box(0.0, 0.0, 1.3, 0.6, "laser +\nmodulator", "#fde2d6")
+    # fibre spans with a splice and connectors
+    z = 1.4
+    ax.plot([z, 2.0], [0, 0], color=FIBRE_EDGE, lw=2.0)
+    ax.add_patch(P.Rectangle((2.0, -0.12), 0.15, 0.24, facecolor="0.4"))
+    label(ax, 2.07, -0.35, "connector", fontsize=7)
+    for zc in (3.2, 4.6):
+        ax.add_patch(P.Circle((zc, 0), 0.4, facecolor="none", edgecolor=FIBRE_EDGE, lw=1.6))
+        ax.add_patch(P.Circle((zc, 0), 0.32, facecolor="none", edgecolor=FIBRE_EDGE, lw=1.0))
+    ax.plot([2.15, 2.8], [0, 0], color=FIBRE_EDGE, lw=2.0)
+    ax.plot([3.6, 4.2], [0, 0], color=FIBRE_EDGE, lw=2.0)
+    ax.plot(3.9, 0, "x", color="0.2", ms=6)
+    label(ax, 3.9, -0.35, "splice", fontsize=7)
+    label(ax, 3.9, 0.7, "fibre: loss, dispersion", fontsize=8)
+    ax.plot([5.0, 5.6], [0, 0], color=FIBRE_EDGE, lw=2.0)
+    ax.add_patch(P.Rectangle((5.6, -0.12), 0.15, 0.24, facecolor="0.4"))
+    box(5.85, 0.0, 1.2, 0.6, "PIN / APD\n+ amplifier", "#d9e8f5")
+    arrow(ax, 7.1, 0, 7.4, 0, color="0.3")
+    box(7.45, 0.0, 0.8, 0.6, "filter", "#e5f0e2")
+    arrow(ax, 8.3, 0, 8.6, 0, color="0.3")
+    box(8.65, 0.0, 1.1, 0.6, "decision\n(sample, threshold)", "#efe6f4")
+    # eye
+    t = np.linspace(0, 2, 200)
+    for b0, b1 in ((0, 0), (0, 1), (1, 0), (1, 1)):
+        y = b0 + (b1 - b0)*(0.5 - 0.5*np.cos(np.pi*np.clip(t - 0.5, 0, 1)))
+        y2 = b1 + (b0 - b1)*(0.5 - 0.5*np.cos(np.pi*np.clip(t - 1.5, 0, 1)))
+        yy = np.where(t < 1.5, y, y2)
+        ax.plot(8.3 + 0.5*t, 0.95 + 0.45*yy, color="#2a7ab9", lw=0.8)
+    label(ax, 8.8, 1.65, "eye diagram", fontsize=8)
+    _finish(ax, (-0.3, 10.0), (-0.65, 1.85), title)
 
 
 def _two_mirror_mode(L, R1, R2, wavelength):

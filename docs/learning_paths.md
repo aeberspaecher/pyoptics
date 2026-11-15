@@ -42,7 +42,9 @@ work. The core follows the order of a typical lecture.
 
 **Side trips:** {doc}`71 Rainbows and glories <notebooks/71_rainbows_and_glories>` (Descartes' ray picture and Airy's wave picture of
 the same bow), {doc}`47 Rays and waves <notebooks/47_rays_and_waves>` (a lab rule explained with rays and waves), {doc}`68 Bessel and Airy beams <notebooks/68_bessel_airy_self_healing>`
-(beams that seem not to diffract), {doc}`105 Radiometry and photometry <notebooks/105_radiometry_photometry>` (watts, lumens and why a wall looks equally bright from any distance), {doc}`110 Grating and prism spectrometers <notebooks/110_grating_prism_spectrometers>` sections 1 and 3 (prism against grating, the slit and the resolving power) and {doc}`113 Fabry–Perot and filters <notebooks/113_fabry_perot_filters>` section 1 (the Fabry–Perot as the multiple-beam sequel to two-beam interference). Afterwards, {doc}`00 Foundations and conventions <notebooks/00_foundations_conventions>` shows where everything
+(beams that seem not to diffract), {doc}`105 Radiometry and photometry <notebooks/105_radiometry_photometry>` (watts, lumens and why a wall looks equally bright from any distance), {doc}`110 Grating and prism spectrometers <notebooks/110_grating_prism_spectrometers>` sections 1 and 3 (prism against grating, the slit and the resolving power) and {doc}`113 Fabry–Perot and filters <notebooks/113_fabry_perot_filters>` section 1 (the Fabry–Perot as the multiple-beam sequel to two-beam interference),
+{doc}`115 Light in a fibre <notebooks/115_fibre_rays_step_graded>` (sections 1 to 4: total internal reflection, the NA and why pulses spread in a
+multimode fibre) and {doc}`120 A fibre link <notebooks/120_fibre_link>` (section 1: why telecom uses 1550 nm). Afterwards, {doc}`00 Foundations and conventions <notebooks/00_foundations_conventions>` shows where everything
 fits on the ladder from Maxwell's equations to rays.
 
 ## Curious reader
@@ -171,7 +173,33 @@ For readers who build laser heads, fibre couplings or beam shapers.
 | 12 | {doc}`81 Ultrashort pulses <notebooks/81_ultrashort_pulses_lenses>` | Femtosecond pulses through lenses, prisms and gratings. |
 | 13 | {doc}`75 Optical tweezers <notebooks/75_optical_tweezers>` | Optical forces in a tight focus. |
 
-**Side trips:** {doc}`02 Vectorial diffraction <notebooks/02_vectorial_diffraction>` (high NA foci), {doc}`03 Tilted planes <notebooks/03_tilted_planes>`, {doc}`04 Chirp-z transform <notebooks/04_chirp_z_transform>`.
+**Side trips:** {doc}`02 Vectorial diffraction <notebooks/02_vectorial_diffraction>` (high NA foci), {doc}`03 Tilted planes <notebooks/03_tilted_planes>`, {doc}`04 Chirp-z transform <notebooks/04_chirp_z_transform>`; for fibre delivery,
+{doc}`115 Light in a fibre <notebooks/115_fibre_rays_step_graded>` (NA, étendue and bend loss of multimode fibres), {doc}`116 Fibre modes <notebooks/116_fibre_modes>`
+(single-mode condition and mode field diameter) and {doc}`119 Fibre Bragg gratings <notebooks/119_fibre_bragg_gratings>` (gratings that stabilize lasers).
+
+## Optical communication and fibre optics
+
+For readers who want to understand how light travels in fibres and what
+limits a fibre link, at the level of a first course on optical
+communication. Real data (GeO₂-doped silica after Fleming, a G.652
+standard fibre) and practical units (µm, km, ps, ps/(nm km), dBm)
+throughout.
+
+| Step | Notebook | Why |
+|---|---|---|
+| 1 | {doc}`09 Mode analysis <notebooks/09_mode_analysis>` | LP modes of a step-index fibre and coupling a Gaussian beam into it. |
+| 2 | {doc}`115 Light in a fibre <notebooks/115_fibre_rays_step_graded>` | NA and acceptance angle, skew rays, graded-index rays and modal dispersion in the ray picture. |
+| 3 | {doc}`116 Fibre modes <notebooks/116_fibre_modes>` | From rays to modes, the single-mode condition, mode field diameter, splice and bend loss. |
+| 4 | {doc}`117 Dispersion in fibres <notebooks/117_fibre_dispersion>` | Material, waveguide and intermodal dispersion, the zero-dispersion wavelength, PMD. |
+| 5 | {doc}`118 Pulse broadening <notebooks/118_fibre_pulse_broadening>` | Pulses in dispersive fibre, the source width and the bit-rate limit of each fibre type. |
+| 6 | {doc}`119 Fibre Bragg gratings <notebooks/119_fibre_bragg_gratings>` | Coupled modes, apodization, chirped gratings that undo dispersion, drop filters and sensors. |
+| 7 | {doc}`120 A fibre link <notebooks/120_fibre_link>` | Loss, receivers and noise, eye diagrams, the bit error rate and link budgets. |
+
+**Side trips:** {doc}`10 Interfaces and thin films <notebooks/10_interfaces_thin_films>` (total internal reflection and its
+phase), {doc}`77 GRIN optics <notebooks/77_grin_optics>` (curved rays in graded media), {doc}`60 FDTD photonic circuits <notebooks/60_fdtd_photonic_circuits>` (waveguides,
+couplers and rings on a chip), {doc}`81 Ultrashort pulses <notebooks/81_ultrashort_pulses_lenses>` (group delay dispersion in glass), {doc}`14 Coated laser mirror <notebooks/14_coated_laser_mirror>`
+(Bragg mirrors as thin films), {doc}`112 Field tracing applications <notebooks/112_field_tracing_applications>` (coupling a beam into a single-mode
+fibre with a lens).
 
 ## Metrology, microscopy and computational imaging
 

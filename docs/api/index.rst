@@ -56,6 +56,15 @@ Beams, modes and paraxial optics
    pyoptics.ultrafast
    pyoptics.abcd
 
+Fibre optics and optical communication
+--------------------------------------
+
+.. autosummary::
+   :toctree: generated
+
+   pyoptics.fibres
+   pyoptics.fibrecomm
+
 Imaging and ray tracing
 -----------------------
 

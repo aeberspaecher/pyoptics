@@ -172,6 +172,57 @@ _WATER_SELLMEIER = ((5.684027565e-1, 5.101829712e-3),
                     (1.130748688e-1, 1.069792721e1))
 
 
+# Sellmeier terms (B_i, lambda_i in um) of pure SiO2 and pure GeO2 glass
+# after Fleming (1984); the SiO2 terms agree with Malitson's to 1e-6.
+_SIO2_SELLMEIER = ((0.69616630, 0.068404300), (0.40794260, 0.11624140), (0.89747940, 9.8961610))
+_GEO2_SELLMEIER = ((0.80686642, 0.068972606), (0.71815848, 0.15396605), (0.85416831, 11.841931))
+
+
+def germania_silica_index(wavelength_nm, x=0.0):
+    """Refractive index of GeO2-doped silica, the core glass of telecom
+    fibres.
+
+    Fleming's [1]_ Sellmeier coefficients of SiO2 and GeO2 glass, mixed
+    linearly in the mole fraction x of GeO2 (strengths and resonance
+    wavelengths alike), ::
+
+        n**2 - 1 = sum_i (B_i^S + x (B_i^G - B_i^S)) lambda**2
+                         /(lambda**2 - (l_i^S + x (l_i^G - l_i^S))**2),
+
+    the mixing rule of Fleming and of Adams [2]_. x = 0 is fused silica
+    (Malitson's values to about 1e-6); one mol-% of GeO2 raises the index by
+    about 1.5e-3 at 1550 nm. Valid from about 0.4 to 2 um, for x up to a
+    few tens of percent.
+
+    Parameters
+    ----------
+    wavelength_nm : number or array
+        Vacuum wavelength in nm.
+    x : number or array, optional
+        Mole fraction of GeO2 (0.035 for 3.5 mol-%).
+
+    Returns
+    -------
+    n : number or array
+
+    References
+    ----------
+    .. [1] J. W. Fleming, "Dispersion in GeO2-SiO2 glasses", Appl. Opt. 23,
+       4486-4493 (1984).
+    .. [2] M. J. Adams, "An Introduction to Optical Waveguides", Wiley
+       (1981), appendix.
+    """
+
+    l2 = (np.asarray(wavelength_nm, dtype=float)*1e-3)**2
+    x = np.asarray(x, dtype=float)
+    n2 = 1.0
+    for (Bs, ls), (Bg, lg) in zip(_SIO2_SELLMEIER, _GEO2_SELLMEIER):
+        B, l0 = Bs + x*(Bg - Bs), ls + x*(lg - ls)
+        n2 = n2 + B*l2/(l2 - l0**2)
+
+    return np.sqrt(n2)[()]
+
+
 def water_index(wavelength_nm):
     """Refractive index of liquid water at 20 deg C.
 
