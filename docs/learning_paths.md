@@ -42,7 +42,7 @@ work. The core follows the order of a typical lecture.
 
 **Side trips:** {doc}`71 Rainbows and glories <notebooks/71_rainbows_and_glories>` (Descartes' ray picture and Airy's wave picture of
 the same bow), {doc}`47 Rays and waves <notebooks/47_rays_and_waves>` (a lab rule explained with rays and waves), {doc}`68 Bessel and Airy beams <notebooks/68_bessel_airy_self_healing>`
-(beams that seem not to diffract), {doc}`105 Radiometry and photometry <notebooks/105_radiometry_photometry>` (watts, lumens and why a wall looks equally bright from any distance). Afterwards, {doc}`00 Foundations and conventions <notebooks/00_foundations_conventions>` shows where everything
+(beams that seem not to diffract), {doc}`105 Radiometry and photometry <notebooks/105_radiometry_photometry>` (watts, lumens and why a wall looks equally bright from any distance), {doc}`110 Grating and prism spectrometers <notebooks/110_grating_prism_spectrometers>` sections 1 and 3 (prism against grating, the slit and the resolving power) and {doc}`112 Fabry–Perot and filters <notebooks/112_fabry_perot_filters>` section 1 (the Fabry–Perot as the multiple-beam sequel to two-beam interference). Afterwards, {doc}`00 Foundations and conventions <notebooks/00_foundations_conventions>` shows where everything
 fits on the ladder from Maxwell's equations to rays.
 
 ## Curious reader
@@ -73,6 +73,8 @@ figures without running the code. No order is needed.
 | {doc}`95 The light field camera <notebooks/95_light_field_camera>` | How a camera with microlenses in front of the sensor can be focused after the picture was taken, and what it pays for that. |
 | {doc}`96 Coronagraphs <notebooks/96_coronagraphs>` | How a telescope can see a planet ten billion times fainter than the star next to it. |
 | {doc}`101 Atmospheric dispersion corrector <notebooks/101_atmospheric_dispersion_corrector>` | Why stars near the horizon look like little rainbows, and how two rotating prisms in a telescope undo it. |
+| {doc}`112 Fabry–Perot and filters <notebooks/112_fabry_perot_filters>` | How the Sun is filmed in the light of a single spectral line with a stack of birefringent plates (section 4). |
+| {doc}`113 Spectral lines and absorption <notebooks/113_spectral_lines_absorption>` | Why the CO₂ in a metre of air is already black at 4.3 µm, and why doubling it does not double its absorption (sections 3 and 4). |
 | {doc}`100 Echelle spectrograph <notebooks/100_echelle_spectrograph>` | How a spectrograph fits the whole visible spectrum at a resolution of 100 000 onto one detector, and why big telescopes need big gratings. |
 | {doc}`99 Einstein rings <notebooks/99_einstein_rings>` | How a galaxy bends light like a lens, turning a distant quasar into a ring or a cross, and why a star passing behind another brightens. |
 | {doc}`98 Segmented mirrors <notebooks/98_segmented_mirrors>` | Where the six plus two spikes of JWST images come from, and how 18 mirror segments are aligned to a few nanometres. |
@@ -197,6 +199,8 @@ computation. Three shorter paths share this section.
 
 **Scattering, turbulence and lensless imaging:** {doc}`73 Wavefront shaping <notebooks/73_wavefront_shaping>`, {doc}`72 Twinkling stars and AO <notebooks/72_twinkling_stars_adaptive_optics>`, {doc}`79 Lensless imaging <notebooks/79_lensless_coded_aperture_imaging>`.
 
+**Spectroscopy:** {doc}`110 Grating and prism spectrometers <notebooks/110_grating_prism_spectrometers>` (dispersive spectrometers, the traced Czerny–Turner, grating efficiency), then {doc}`111 Fourier transform spectroscopy <notebooks/111_fourier_transform_spectroscopy>` (the FTIR: apodization, sampling, phase correction, Jacquinot and Fellgett), then {doc}`113 Spectral lines and absorption <notebooks/113_spectral_lines_absorption>` (line shapes, the curve of growth, and why concentrations from unresolved lines go wrong); {doc}`112 Fabry–Perot and filters <notebooks/112_fabry_perot_filters>` for etalons and filters and {doc}`114 Imaging spectroscopy <notebooks/114_imaging_spectroscopy>` for pushbroom, filter and snapshot imaging spectrometers.
+
 **Astronomical instruments:** {doc}`96 Coronagraphs <notebooks/96_coronagraphs>` (Lyot, APLC and vortex coronagraphs, pointing and aberration sensitivity, a dark hole with a deformable mirror), {doc}`97 Telescope zoo <notebooks/97_telescope_zoo>` (Newtonian, Cassegrain, Ritchey–Chrétien and Schmidt camera against the Seidel and Schwarzschild formulas), {doc}`98 Segmented mirrors <notebooks/98_segmented_mirrors>` (hexagon diffraction, piston and tip-tilt errors, dispersed fringe sensing and phase retrieval), {doc}`99 Einstein rings <notebooks/99_einstein_rings>` (gravitational lensing as a GRIN medium and as a thin lens: rings, microlensing, time delays and caustics), {doc}`100 Echelle spectrograph <notebooks/100_echelle_spectrograph>` (grating equation in high orders, blaze, free spectral range, cross-dispersion, the echellogram and the resolving power against the slit), {doc}`101 Atmospheric dispersion corrector <notebooks/101_atmospheric_dispersion_corrector>` (refraction and dispersion of air against the zenith angle, counter-rotating Amici prisms, a glass pair matched to air, the residual against the zenith angle).
 
 ## Nanophotonics and computational electromagnetics
@@ -222,7 +226,7 @@ cheaper ones stop being valid.
 | 14 | {doc}`80 Carpet cloak <notebooks/80_carpet_cloak>` | Transformation optics. |
 
 **Cross-checks between methods:** {doc}`36 Rigorous mask (RCWA) <notebooks/36_litho_rigorous_mask>`, {doc}`37 Mask models compared <notebooks/37_litho_mask_models>` and {doc}`65 FDTD mask for lithography <notebooks/65_litho_fdtd_mask>` (RCWA against
-FDTD), {doc}`77 GRIN optics <notebooks/77_grin_optics>` (rays against FDFD in graded index media).
+FDTD), {doc}`77 GRIN optics <notebooks/77_grin_optics>` (rays against FDFD in graded index media), {doc}`110 Grating and prism spectrometers <notebooks/110_grating_prism_spectrometers>` section 4 (RCWA efficiency of a blazed grating, TE and TM, Wood–Rayleigh anomalies).
 
 ## Developer extending pyoptics
 

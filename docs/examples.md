@@ -410,6 +410,36 @@ notebooks/100_echelle_spectrograph
 notebooks/101_atmospheric_dispersion_corrector
 ```
 
+## Spectroscopy
+
+Spectrometers and what they measure: prisms, gratings and the
+Czerny–Turner traced with grating surfaces, grating efficiency and order
+sorting; the Fourier transform spectrometer with apodization, laser
+sampling, phase correction and the Jacquinot and Fellgett advantages;
+Fabry–Perot etalons, interference filters and the Lyot filter; line
+shapes, a model CO₂ band, the curve of growth and Beer–Lambert behind a
+real instrument; and imaging spectrometers: smile and keystone of the
+Offner and the Czerny–Turner, filter cameras and snapshot CASSI. The
+echelle spectrograph is under Astronomy.
+
+- {doc}`notebooks/110_grating_prism_spectrometers`
+- {doc}`notebooks/111_fourier_transform_spectroscopy`
+- {doc}`notebooks/112_fabry_perot_filters`
+- {doc}`notebooks/113_spectral_lines_absorption`
+- {doc}`notebooks/114_imaging_spectroscopy`
+- {doc}`notebooks/100_echelle_spectrograph`
+
+```{toctree}
+:hidden:
+:caption: Spectroscopy
+
+notebooks/110_grating_prism_spectrometers
+notebooks/111_fourier_transform_spectroscopy
+notebooks/112_fabry_perot_filters
+notebooks/113_spectral_lines_absorption
+notebooks/114_imaging_spectroscopy
+```
+
 ## Running the notebooks
 
 ```{include} ../notebooks/README.md
