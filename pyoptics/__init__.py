@@ -8,6 +8,7 @@ from . import utils
 from . import propagators
 from . import tilted
 from . import analytic_phase
+from . import fieldtrace
 from . import imaging
 from . import unwrap
 from . import interferometry
