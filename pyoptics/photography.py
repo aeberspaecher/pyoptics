@@ -33,6 +33,10 @@ Contents:
   `lens_optimization` (notebook 90), with clear apertures that vignette
   off-axis beams as real lenses of this type do; `focus()` moves the
   image plane to the smallest spot for an object distance (unit focusing).
+- `retrofocus()`: a 28 mm f/2.8 retrofocus wide angle lens (notebook 106)
+  whose entrance pupil grows towards the field; `chief_ray_mapping()`,
+  the real image height against the field, for the image side factor of
+  `relative_illumination(image_side=True)`.
 - `blur_diameter()`: thin lens circle of confusion for a point at one
   distance with the lens focused at another; `blur_diameter_pupils()`:
   the same for a thick lens from its pupils (exact in first order).
@@ -157,10 +161,10 @@ from . import raytrace as rt
 
 
 __all__ = ["double_gauss", "focus", "blur_diameter", "blur_diameter_pupils", "point_footprint", "splat",
-           "relative_illumination", "vignetting_circles", "vignetted_fraction",
+           "relative_illumination", "chief_ray_mapping", "vignetting_circles", "vignetted_fraction",
            "defocus_profile", "defocused_psf", "RippledSurface", "onion_ring_contrast",
            "converging_beam_equivalent", "gaussian_apodizer", "apodizer_mean_transmission",
-           "t_number", "apodizer_for_t_number", "DOUBLE_GAUSS_F", "D_LINE",
+           "t_number", "apodizer_for_t_number", "DOUBLE_GAUSS_F", "D_LINE", "retrofocus", "RETROFOCUS_F",
            "iris", "polygon_area", "polygon_perimeter", "iris_apothem", "polygon_transform",
            "iris_coverage", "iris_psf", "edge_spike", "spike_count", "rounded_edge_crossover",
            "iris_edge_length", "power_outside", "curved_edge_spike", "sunstar", "SUN_RADIUS",
@@ -189,6 +193,26 @@ _DOUBLE_GAUSS = """
  -29.340   0.300  A       13.6
   54.812   5.887  N-LAK9  13.6
 -116.032  36.000  A       13.3
+"""
+
+
+RETROFOCUS_F = 28.0  # mm, focal length of retrofocus()
+
+# The retrofocus wide angle lens of notebook 106 (f = 28 mm, f/2.8, back
+# focal length 39 mm): radius, thickness, glass behind ("A": air), clear
+# semi-diameter (mm). The stop is surface 4.
+_RETROFOCUS = """
+  66.073   2.466  N-BK7   19.6
+  16.505  18.186  A       14.8
+  48.002   5.918  N-SF5   12.6
+ 138.767  11.805  A       11.6
+     inf   2.030  A       None
+-152.452   4.439  N-LAK9   8.8
+ -24.025   4.037  A        9.7
+ -14.653   1.480  N-SF5   10.2
+ -17.850   6.060  A       11.0
+ -99.268   4.439  N-LAK9  13.8
+ -34.896  39.141  A       14.4
 """
 
 
@@ -261,6 +285,64 @@ def double_gauss(f_number=1.8, object_distance=np.inf, wavelength=D_LINE, apertu
 
     return rt.System(inf_system.surfaces, stop, wavelength, object_distance=object_distance,
                      object_height=height)
+
+
+def _build(table, stop, apertures):
+    surfaces = []
+    for line in table.strip().splitlines():
+        R, t, g, sd = line.split()
+        R = float(R)
+        sd = None if (sd == "None" or not apertures) else float(sd)
+        if g == "A":
+            surfaces.append(rt.Surface(R, float(t), n_after=1.0, semi_diameter=sd))
+        else:
+            surfaces.append(rt.Surface(R, float(t), material=_glass(g), semi_diameter=sd))
+    surfaces[stop].n_after = None
+
+    return surfaces
+
+
+def retrofocus(f_number=2.8, wavelength=D_LINE, apertures=True, field=None):
+    """A retrofocus (inverted telephoto) wide angle lens, f = 28 mm, f/2.8,
+    for an object at infinity.
+
+    Five elements: a negative meniscus (N-BK7) and a positive flint (N-SF5)
+    in front of the stop, and a positive-negative-positive group (N-LAK9,
+    N-SF5, N-LAK9) behind it; 100 mm from the first vertex to the image
+    and a back focal length of 39 mm, enough for the mirror of a reflex
+    camera. Designed for notebook 106 with `lens_optimization.LensOptimizer`
+    for the d line over +-37.7 deg (the corner of a 36 x 24 mm frame), with
+    the distortion limited to a few percent at 75 % of the field. The
+    negative front group makes the pupil magnification large (m_p = 2.3)
+    and the entrance pupil grow towards the field (the Slyusarev effect),
+    which keeps the relative illumination far above cos^4. It is a
+    demonstration lens, not a commercial one: its RMS spot radius at
+    f/2.8 is about 25 um on the axis and 50 um in the corner, and it has
+    -15 % barrel distortion in the corner. The clear apertures pass the
+    full beam at every field at f/2.8 (no vignetting).
+
+    Parameters
+    ----------
+    f_number : number, optional
+        Sets the semi-diameter of the stop.
+    wavelength : number, optional
+        Vacuum wavelength in mm (default: the d line).
+    apertures : bool, optional
+        Give the lenses their clear apertures (default).
+    field : number, optional
+        Maximum field angle in radians (default 37.7 deg).
+
+    Returns
+    -------
+    raytrace.System
+        Image plane at the paraxial focus; use `focus()` for the best
+        focus.
+    """
+
+    surfaces = _build(_RETROFOCUS, 4, apertures)
+
+    return rt.System(surfaces, 4, wavelength, entrance_pupil_radius=RETROFOCUS_F/(2*f_number),
+                     field_angle=np.deg2rad(37.7) if field is None else field)
 
 
 def focus(system, object_distance=None, field=0.0, N=31):
@@ -529,30 +611,86 @@ def splat(footprint, x_edges, y_edges):
     return E/area
 
 
-def relative_illumination(system, fields, n_rays=20000, rng=None, apodization=None):
-    """Power through the lens from object points at the given fields,
-    relative to the axis (vignetting and the cos^3 or projection factor of
-    the entrance pupil irradiance; the image side cos factor of the
-    irradiance on the sensor is not included).
+def relative_illumination(system, fields, n_rays=20000, rng=None, apodization=None,
+                          image_side=False):
+    """Relative illumination: the irradiance in the image of a uniform
+    Lambertian object at the given fields, relative to the axis.
+
+    The power from an object point that passes the lens (vignetting by all
+    clear apertures, the projected entrance pupil and its aberrations, from
+    `point_footprint()`) is relative to the axis by default; the
+    image side factor of the irradiance on the sensor is then not included
+    (for a lens without distortion it is cos^3 at infinity, which with the
+    pupil's cos makes the cos^4 law). With image_side=True it is: the power
+    from the solid angle (object at infinity) or the area (finite object)
+    of the object is spread over the area of its image, which the real
+    chief ray mapping gives, h dh/(sin(theta) d theta) or h dh/(y dy) for
+    the image height h. This includes the effect of distortion.
 
     Parameters
     ----------
     system : raytrace.System
     fields : sequence
-        Fields (see `point_footprint()`).
+        Fields (y fields, see `point_footprint()`).
     n_rays : int, optional
     rng : numpy Generator, optional
     apodization : callable, optional
+    image_side : bool, optional
+        Include the image side area factor (see above).
 
     Returns
     -------
     array
     """
 
+    fields = np.asarray(list(fields), float)
     P = np.array([point_footprint(system, f, n_rays, rng, apodization).weight.sum()
-                  for f in [0.0] + list(fields)])
+                  for f in np.concatenate([[0.0], fields])])
+    ri = P[1:]/P[0]
+    if not image_side:
+        return ri
+    h, dh = chief_ray_mapping(system, fields)
+    h0, dh0 = chief_ray_mapping(system, [0.0])
+    if system.infinite_object:
+        u = np.sin(fields)
+    else:
+        u = fields
+    with np.errstate(invalid="ignore", divide="ignore"):
+        area = np.where(fields == 0, 1.0, u*dh0[0]**2/(h*dh))
 
-    return P[1:]/P[0]
+    return ri*area
+
+
+def chief_ray_mapping(system, fields, step=None):
+    """Image heights of the real chief rays (aimed at the centre of the stop)
+    and their derivatives with respect to the field.
+
+    Parameters
+    ----------
+    system : raytrace.System
+    fields : sequence
+        y fields: angles in radians (object at infinity) or object heights.
+    step : number, optional
+        Step of the central differences (default: 1e-5 of the maximum
+        field).
+
+    Returns
+    -------
+    h : array
+        Image heights (y in the image frame).
+    dh : array
+        dh/dfield.
+    """
+
+    from .lens_optimization import _aimed_chief
+
+    f = np.asarray(list(fields), float)
+    step = 1e-5*system.max_field if step is None else step
+    _, I, _ = _aimed_chief(system, np.concatenate([f, f - step, f + step]))
+    y = I[:, 1]
+    n = len(f)
+
+    return y[:n], (y[2*n:] - y[n:2*n])/(2*step)
 
 
 def vignetting_circles(system, field):

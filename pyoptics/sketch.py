@@ -7714,3 +7714,115 @@ def mask_3d(ax, title=None):
             label(ax, z0 + 2.1, yt - 0.75, "edges shifted and blurred, phase\ndepends on the angle",
                   fontsize=8, va="top")
     _finish(ax, (-0.3, 9.7), (-2.9, 2.2), title)
+
+
+def radiance_geometry(ax, title=None):
+    """Sketch of the definition of radiance (notebook 105).
+
+    A surface element dA sends the flux d^2 Phi into the small cone dOmega
+    around a direction at the angle theta from its normal. Seen from that
+    direction the element has the projected area dA cos(theta), and the
+    radiance is the flux per projected area and solid angle,
+    L = d^2 Phi/(dA cos(theta) dOmega). The right side shows why a
+    Lambertian surface looks equally bright from every direction: its
+    intensity falls as cos(theta), exactly as its projected area.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    P = _patches()
+    # left: the element, its normal, the cone and the projected area
+    w = 1.2
+    ax.add_patch(P.Rectangle((-w/2, -0.08), w, 0.08, facecolor="0.8", edgecolor="0.3", lw=1.0,
+                             zorder=3))
+    label(ax, -w/2 - 0.1, -0.05, "dA", ha="right", fontsize=10)
+    arrow(ax, 0, 0, 0, 2.3, color="0.3", text="normal", text_pos=(0.0, 2.45), fontsize=8)
+    th = np.deg2rad(40.0)
+    d = np.array([np.sin(th), np.cos(th)])
+    L = 3.0
+    half = np.deg2rad(7.0)
+    for s in (-1, 1):
+        a = th + s*half
+        ax.plot([0, L*np.sin(a)], [0, L*np.cos(a)], color=ILLUMINATION, lw=1.0, zorder=4)
+    tip = L*d
+    ax.add_patch(P.Ellipse(tip, 2*L*np.tan(half), 0.16, angle=-np.rad2deg(th), facecolor=ILLUMINATION,
+                           edgecolor=ILLUMINATION, alpha=0.35, zorder=4))
+    label(ax, tip[0] + 0.35, tip[1] + 0.05, "dΩ", fontsize=10, ha="left")
+    t = np.linspace(np.pi/2 - th, np.pi/2, 30)
+    ax.plot(0.8*np.cos(t), 0.8*np.sin(t), color="0.2", lw=0.8)
+    label(ax, 0.3, 1.0, "θ", fontsize=10)
+    # projected area: the element seen along the direction
+    c = 1.6*d
+    ends = []
+    for s in (-1, 1):
+        e = np.array([s*w/2, 0.0])
+        q = e + np.dot(c - e, d)*d
+        ends.append(q)
+        ax.plot([e[0], q[0]], [e[1], q[1]], color="#d6604d", lw=0.7, ls=":", zorder=4)
+    ax.plot([ends[0][0], ends[1][0]], [ends[0][1], ends[1][1]], color="#d6604d", lw=2.5, zorder=5)
+    label(ax, c[0] + 0.25, c[1] - 0.45, "dA cos θ", fontsize=9, ha="left", color="#d6604d")
+    label(ax, -1.0, 3.3, r"$L = \dfrac{d^2\Phi}{dA\,\cos\theta\,d\Omega}$", fontsize=12, ha="left")
+    # right: a Lambertian element, intensity lobe and projected area
+    z0 = 5.0
+    ax.add_patch(P.Rectangle((z0 - w/2, -0.08), w, 0.08, facecolor="0.8", edgecolor="0.3", lw=1.0,
+                             zorder=3))
+    tt = np.linspace(-np.pi/2, np.pi/2, 181)
+    r = 2.2*np.cos(tt)
+    ax.add_patch(P.Polygon(np.c_[z0 + r*np.sin(tt), r*np.cos(tt)], closed=True, facecolor="#e0a000",
+                           edgecolor="#e0a000", alpha=0.25, zorder=2))
+    for a in (0.0, 50.0, 75.0):
+        ar = np.deg2rad(a)
+        ax.plot([z0, z0 + 2.2*np.cos(ar)*np.sin(ar)], [0, 2.2*np.cos(ar)**2], color="0.3", lw=0.9,
+                zorder=4)
+    label(ax, z0, 2.45, r"Lambertian: $I(\theta) = I_0\cos\theta$", fontsize=9, va="bottom")
+    label(ax, z0 + 1.4, -0.45, "L = I/(A cos θ) is the same in every direction:\n"
+          "the surface looks equally bright from anywhere", fontsize=8, va="top")
+    _finish(ax, (-1.8, 7.6), (-1.2, 3.8), title)
+
+
+def cos4_law(ax, title=None):
+    """Sketch of the cos^4 law of image irradiance (notebook 106).
+
+    A lens images a uniform Lambertian object at infinity. An off-axis
+    image point at the field angle theta receives less light than the
+    axis, for three reasons that multiply: the entrance pupil, seen from
+    the field angle, is foreshortened to cos(theta) of its area; the image
+    point is 1/cos(theta) farther from the exit pupil (cos^2 by the inverse
+    square law); and the light falls obliquely onto the sensor (cos).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    zp, f = 0.0, 4.0
+    h = 1.1
+    lens(ax, zp, h, text="lens and pupil", text_y=-h - 0.25)
+    th = np.deg2rad(32.0)
+    # parallel beams: axial and oblique
+    for y in (-0.8, 0.0, 0.8):
+        ax.plot([-3.0, zp], [y, y], color=IMAGING, lw=1.0)
+        ax.plot([zp, f], [y, 0.0], color=IMAGING, lw=1.0)
+    yi = f*np.tan(th)
+    for y in (-0.8, 0.0, 0.8):
+        z0 = -3.0
+        ax.plot([z0, zp], [y - (zp - z0)*np.tan(th), y], color=ILLUMINATION, lw=1.0)
+        ax.plot([zp, f], [y, -yi], color=ILLUMINATION, lw=1.0)
+    detector(ax, f, 2.6, text="sensor", text_y=2.85)
+    label(ax, -1.6, 1.55, "① pupil seen obliquely:\n    area × cos θ", fontsize=9, ha="center",
+          color=ILLUMINATION)
+    label(ax, 2.0, 1.55, "② distance f/cos θ:\n    × cos² θ", fontsize=9, ha="center",
+          color=ILLUMINATION)
+    label(ax, f - 0.2, -yi - 0.15, "③ oblique incidence:\n    × cos θ", fontsize=9, ha="right",
+          va="top", color=ILLUMINATION)
+    ax.plot([zp, f], [0, -yi], color="0.3", lw=0.6, ls=":")
+    t = np.linspace(-th, 0, 30)
+    ax.plot(zp + 1.0*np.cos(t), 1.0*np.sin(t), color="0.2", lw=0.8)
+    label(ax, zp + 1.15, -0.28, "θ", fontsize=10)
+    label(ax, -3.1, -2.4, r"$E'(\theta) = E'(0)\,\cos^4\theta$  (no distortion, no vignetting)",
+          fontsize=10, ha="left")
+    _finish(ax, (-3.3, 6.6), (-3.2, 2.3), title)

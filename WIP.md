@@ -51,6 +51,11 @@
 
 ## DONE
 
+* Radiometry and photometry (`radiometry`: black bodies, V(λ) and V'(λ)
+  fits, luminous efficacy, view factors, the integrating sphere, the
+  camera equation and exposure; `photography.retrofocus()` and the image
+  side relative illumination; notebooks 105 and 106)
+
 * Microscopy (`microscopy`: Abbe imaging with Köhler illumination, weak
   object transfer, Zernike phase contrast, Nomarski DIC, confocal PSFs and
   optical sectioning, Fourier ptychography with pupil recovery; notebooks
