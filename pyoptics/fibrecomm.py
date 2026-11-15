@@ -90,7 +90,8 @@ from .fibres import beta2_from_D
 
 
 __all__ = ["Q_E", "K_B", "prbs", "nrz", "gaussian_pulse", "gaussian_width", "beta2_from_D",
-           "propagate", "photocurrent", "excess_noise", "receiver_noise", "detect", "q_factor",
+           "propagate", "photocurrent", "excess_noise", "receiver_noise", "detect",
+           "noise_bandwidth", "q_factor",
            "ber", "q_from_ber", "sensitivity", "optimum_apd_gain", "eye_diagram", "eye_opening",
            "dbm", "mw", "power_budget", "rise_time_budget", "dispersion_penalty"]
 
@@ -293,15 +294,21 @@ def detect(t, A, bandwidth_ghz, responsivity=1.0, gain=1.0, k_A=0.7, load_ohm=50
     # Gaussian filter: |H(f)|**2 = exp(-f**2/(2 s_f**2)), 3 dB at f_3dB = s_f sqrt(2 ln 2)
     s_f = bandwidth_ghz*1E-3/np.sqrt(2*np.log(2))   # 1/ps
     I = photocurrent(P, responsivity, gain)
-    Iw = np.real(np.fft.ifft(np.fft.fft(I)*np.exp(-0.5*(np.fft.fftfreq(len(t), dt)/s_f)**2)))
+    Iw = np.real(np.fft.ifft(np.fft.fft(I)*np.exp(-0.25*(np.fft.fftfreq(len(t), dt)/s_f)**2)))
     if not noise:
         return Iw
     rng = np.random.default_rng(rng)
-    # noise bandwidth of the Gaussian filter: int |H|**2 df = sqrt(pi) s_f
-    nbw = np.sqrt(np.pi)*s_f*1E3
+    # noise bandwidth of the Gaussian filter: int_0^inf |H|**2 df = sqrt(pi/2) s_f = 1.064 f_3dB
+    nbw = noise_bandwidth(bandwidth_ghz)
     s_shot, s_th = receiver_noise(np.maximum(Iw, 0)/(responsivity*gain), nbw, responsivity,
                                   gain, k_A, 0.0, load_ohm, noise_figure_db)
     return Iw + rng.standard_normal(len(t))*np.sqrt(s_shot**2 + s_th**2)
+
+
+def noise_bandwidth(bandwidth_ghz):
+    """Noise bandwidth (GHz) of the Gaussian receiver filter of detect() with
+    the 3 dB bandwidth bandwidth_ghz: sqrt(pi/(4 ln 2)) f_3dB = 1.064 f_3dB."""
+    return np.sqrt(np.pi/(4*np.log(2)))*bandwidth_ghz
 
 
 def q_factor(I1, I0, sigma1, sigma0):

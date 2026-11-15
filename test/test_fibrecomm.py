@@ -87,3 +87,18 @@ def test_budgets():
     assert fc.dispersion_penalty(1.0, 10, 17, 0.1) < 0.1
     assert np.isinf(fc.dispersion_penalty(10.0, 100, 17, 1.0))
     assert np.isclose(fc.mw(fc.dbm(2.5)), 2.5)
+
+
+def test_detect_filter_and_noise():
+    # a sine at the 3 dB bandwidth passes with |H|**2 = 1/2
+    n, dt = 4096, 1.0
+    t = np.arange(n)*dt
+    f3 = 64/(n*dt)*1E3                       # GHz, an exact FFT bin
+    P = 1 + 0.5*np.cos(2*np.pi*f3*1E-3*t)
+    I = fc.detect(t, np.sqrt(P), f3, noise=False)
+    assert np.isclose((I.max() - I.min())/2, 0.5/np.sqrt(2), rtol=1E-6)
+    # dark receiver: the sample variance is the thermal noise in the noise bandwidth
+    I = fc.detect(t, np.zeros(n), f3, rng=1)
+    s_th = fc.receiver_noise(0.0, fc.noise_bandwidth(f3))[1]
+    assert np.isclose(I.std(), s_th, rtol=0.05)
+    assert np.isclose(fc.noise_bandwidth(1.0), 1.0645, atol=1E-4)
