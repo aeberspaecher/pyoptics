@@ -3242,6 +3242,43 @@ _CALDWELL_KRF = """
 """
 
 
+def hyperbolic_lens(semi_diameter, focal_length, n=1.5, wavelength=550e-6, edge=2.0):
+    """Plano-convex lens with a hyperbolic back surface, flat side towards
+    a collimated beam: stigmatic on the axis (no spherical aberration of any
+    order) for a non-dispersive index n.
+
+    Behind the flat face the beam is still collimated in the glass; the
+    hyperboloid of radius R = -(n - 1) f and conic K = -n**2 refracts it to a
+    perfect point at the distance f behind its vertex (Descartes' ovals for
+    an object at infinity).
+
+    Parameters
+    ----------
+    semi_diameter : number
+        Clear aperture radius of both surfaces.
+    focal_length : number
+        Back focal length f, from the hyperbolic vertex to the focus.
+    n : number, optional
+        Constant refractive index.
+    wavelength : number, optional
+        In the system's units (mm by default).
+    edge : number, optional
+        Edge thickness: the centre thickness is the sag of the hyperboloid at
+        the rim plus this.
+
+    Returns
+    -------
+    System
+        Stop at the flat face, image plane at the focus.
+    """
+
+    R, K = -(n - 1)*focal_length, -n**2
+    c = 1/R
+    sag = c*semi_diameter**2/(1 + np.sqrt(1 - (1 + K)*c**2*semi_diameter**2))
+    return System([Surface(np.inf, abs(sag) + edge, n_after=n, semi_diameter=semi_diameter),
+                   Surface(R, focal_length, n_after=1.0, conic=K)], 0, wavelength)
+
+
 def caldwell_krf_lens(wavelength=248.3e-6, aperture_margin=1.02, refocus=True):
     """All fused silica KrF lithography projection lens by J. B. Caldwell.
 

@@ -796,3 +796,11 @@ def test_osc_matches_sagittal_coma_of_a_singlet_with_spherical_aberration():
     coma = (bundle.points[-1][:, 1] - eta)/eta
     assert np.allclose(coma, sc.osc, atol=5e-4)
     assert np.all(np.abs(sc.sine_defect - sc.osc) > 1e-3)   # the spherical aberration factor matters
+
+
+def test_hyperbolic_lens_is_stigmatic():
+    # plano-hyperbolic lens (K = -n^2): no spherical aberration of any order on axis
+    system = rt.hyperbolic_lens(10.0, 40.0, n=1.6, wavelength=550e-6)
+    coeffs = system.zernike(0.0, n_terms=25)
+    assert np.max(np.abs(coeffs[1:])) < 1e-8
+    assert system.surfaces[1].conic == pytest.approx(-1.6**2)

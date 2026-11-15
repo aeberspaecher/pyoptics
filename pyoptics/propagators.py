@@ -182,6 +182,38 @@ def propagate_padded(propagator, field, x_prime, y_prime, z, wavelength, n=1.0,
     return unpad(propagated_pad, x_pad, y_pad, np.shape(field)[:2])[0], x_prime, y_prime
 
 
+def propagate_1d(propagator, field, x, z, wavelength, n=1.0, **kwargs):
+    """Propagate a field u(x) that does not depend on y (a 2D problem in x
+    and z: slits, gratings, cylindrical lenses).
+
+    The 2D propagators are called on two identical rows at y = -1 and 0;
+    since the field is constant along y, only the k_y = 0 plane wave is
+    present and the result is exact for the propagators that keep the grid.
+
+    Parameters
+    ----------
+    propagator : callable
+        A propagator that keeps the grid, e.g. rayleigh_sommerfeld_I_TF,
+        fresnel_TF or propagate_padded with one bound (functools.partial).
+    field : 1d array
+    x : 1d array
+    z, wavelength, n
+        As for the propagator.
+    kwargs
+        Passed on to propagator.
+
+    Returns
+    -------
+    field_propagated : 1d array
+    """
+
+    y = np.array([-1.0, 0.0])
+    field_2d = np.tile(np.asarray(field, dtype=complex), (2, 1))
+    out, _, _ = propagator(field_2d, x, y, z, wavelength, n=n, **kwargs)
+
+    return out[0]
+
+
 # NOTE: wavelength arguments are vacuum wavelengths; inside a medium of
 # refractive index n the propagators use the wavelength wavelength/n.
 

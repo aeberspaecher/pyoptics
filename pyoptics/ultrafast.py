@@ -64,6 +64,7 @@ import numpy as np
 from scipy.special import j0
 
 from .glasses import Glass
+from .utils import fwhm as _fwhm
 
 C_NM_PER_FS = 299.792458                  # speed of light in nm/fs
 C_MM_PER_FS = C_NM_PER_FS*1e-6            # in mm/fs
@@ -374,30 +375,9 @@ def to_time(E_omega, omega, t, omega0=None, axis=0):
 
 def fwhm(x, y):
     """Full width at half maximum between the outermost half maximum
-    crossings (linear interpolation).
+    crossings (linear interpolation); `utils.fwhm()` with outermost=True."""
 
-    Parameters
-    ----------
-    x : array
-        Uniform or increasing coordinates.
-    y : array
-        Non-negative profile.
-
-    Returns
-    -------
-    width : number
-    """
-
-    x, y = np.asarray(x, float), np.asarray(y, float)
-    half = y.max()/2
-    above = np.nonzero(y >= half)[0]
-    i0, i1 = above[0], above[-1]
-    if i0 == 0 or i1 == len(y) - 1:
-        return np.nan
-    xl = np.interp(half, [y[i0 - 1], y[i0]], [x[i0 - 1], x[i0]])
-    xr = np.interp(half, [y[i1 + 1], y[i1]], [x[i1 + 1], x[i1]])
-
-    return xr - xl
+    return _fwhm(x, y, outermost=True)
 
 
 # ---------------------------------------------------------------- lenses

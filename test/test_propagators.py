@@ -390,3 +390,17 @@ def test_planes_in_an_absorbing_medium():
     planes = rayleigh_sommerfeld_I_TF_planes(field, x, x, zs, wl, n=n)[0]
     for z, E in zip(zs, planes):
         assert np.allclose(E, rayleigh_sommerfeld_I_TF(field, x, x, z, wl, n=n)[0], rtol=0, atol=1e-13)
+
+
+def test_propagate_1d_tilted_plane_wave():
+    # a periodic tilted plane wave picks up exp(i k_z z) under the exact transfer function
+    from pyoptics.propagators import propagate_1d
+    from pyoptics.utils import grid1d
+    L, N, z = 40.0, 256, 7.3
+    x = grid1d(-L/2, L/2, N)
+    kx = 2*np.pi*5/L
+    u = np.exp(1j*kx*x)
+    kz = np.sqrt((2*np.pi/WL)**2 - kx**2)
+    out = propagate_1d(rayleigh_sommerfeld_I_TF, u, x, z, WL)
+    assert out.shape == x.shape
+    assert np.allclose(out, u*np.exp(1j*kz*z), atol=1e-10)

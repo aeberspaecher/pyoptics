@@ -195,6 +195,23 @@ Setup sketches for the other example notebooks:
 - adc_layout(): atmospheric refraction of a star above the curved Earth,
   blue lifted more than red; or (kind="adc") two counter-rotating Amici
   prisms and the vector sum of their dispersions (notebook 101).
+- fresnel_interface(): the plane of incidence with the incident, reflected
+  and transmitted rays, their angles and the s and p directions
+  (notebook 10).
+- kretschmann(): surface plasmon resonance with a prism and a gold film
+  (notebook 59).
+- yee_grid(): the staggered Yee grid of the 2D FDTD and the leapfrog in
+  time (notebook 57).
+- lithography_scanner(): laser, illuminator, slit, reticle, 4x projection
+  lens and wafer, with the scan directions (notebooks 31 to 41).
+- tcc_overlap(): the transmission cross coefficient as the overlap of two
+  shifted pupils within the source (notebook 34).
+- mask_3d(): a thin mask against a mask whose absorber is about a
+  wavelength thick: shadowing and blurred, shifted edges (notebooks 36,
+  37, 65).
+
+text_scale() is a context manager that enlarges the labels of a sketch,
+for wide layouts that are shown scaled down.
 
 Importing this module does not change matplotlib's settings; matplotlib is
 imported when a function is called.
@@ -260,7 +277,9 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "depth_of_field", "defocus_and_diffraction", "scheimpflug_hinge", "dof_wedge",
            "plenoptic_camera", "subaperture_parallax", "light_field_refocus", "plenoptic_tradeoff",
            "coronagraph_layout", "telescope_layout", "segment_phasing_layout",
-           "lensing_geometry", "echelle_layout", "sine_herschel_conditions", "adc_layout"]
+           "lensing_geometry", "echelle_layout", "sine_herschel_conditions", "adc_layout",
+           "fresnel_interface", "kretschmann", "yee_grid", "lithography_scanner", "tcc_overlap",
+           "mask_3d", "text_scale"]
 
 
 GLASS = "#cfe3f3"
@@ -602,7 +621,33 @@ def draw_ray(ax, lenses, z0, y0, u0, z_end, color=IMAGING, lw=1.2, ls="-", alpha
     return z, y
 
 
+_TEXT_SCALE = [1.0]
+
+
+class text_scale:
+    """Context manager: sketches drawn inside it get labels scaled by factor.
+
+    Wide single-row layouts are shown scaled down in a notebook, which makes
+    their 8 to 9 point labels hard to read; ``with sketch.text_scale(1.4):``
+    around the call enlarges them (the title is left alone).
+    """
+
+    def __init__(self, factor):
+        self.factor = factor
+
+    def __enter__(self):
+        _TEXT_SCALE.append(self.factor)
+        return self
+
+    def __exit__(self, *exc):
+        _TEXT_SCALE.pop()
+        return False
+
+
 def _finish(ax, zlim, ylim, title=None):
+    if _TEXT_SCALE[-1] != 1.0:
+        for t in ax.texts:
+            t.set_fontsize(t.get_fontsize()*_TEXT_SCALE[-1])
     ax.set_xlim(*zlim)
     ax.set_ylim(*ylim)
     ax.set_aspect("equal")
@@ -7367,3 +7412,305 @@ def adc_layout(ax, kind="adc", title=None):
     label(ax, xo + 0.9, yo + 1.0, r"dispersions $\delta$ at $\pm\varphi$", fontsize=8)
     label(ax, xo + 1.0, yo - 1.0, r"sum $2\delta\cos\varphi$", fontsize=8)
     _finish(ax, (-0.4, xo + 2.2), (-2.0, 1.9), title)
+
+
+# ------------------------------------------------- notebook review: basics
+
+
+def fresnel_interface(ax, theta=50.0, n1=1.0, n2=1.5, title=None):
+    """Sketch of a plane wave at an interface (notebooks 10 and 13): the
+    plane of incidence (the drawing plane) holds the incident, reflected and
+    transmitted rays and the normal. s polarization is normal to it (dots,
+    out of the drawing), p polarization lies in it (arrows across each ray).
+    Angles are measured from the normal; Snell's law n1 sin(theta_i) =
+    n2 sin(theta_t) fixes the transmitted ray.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    theta : number, optional
+        Angle of incidence in degrees.
+    n1, n2 : numbers, optional
+        Refractive indices above and below the interface.
+    title : str, optional
+    """
+
+    mp = _patches()
+    ti = np.radians(theta)
+    tt = np.arcsin(np.clip(n1*np.sin(ti)/n2, -1, 1))
+    ax.add_patch(mp.Rectangle((-2.6, -2.1), 5.2, 2.1, facecolor=GLASS, edgecolor="none"))
+    ax.plot([-2.6, 2.6], [0, 0], color=EDGE, lw=1.2)
+    ax.plot([0, 0], [-2.0, 2.0], color="0.5", ls=":", lw=0.9)
+    label(ax, 0.05, 2.1, "normal", fontsize=8, ha="left", va="bottom", color="0.4")
+    L = 2.0
+    d_in = np.array([np.sin(ti), -np.cos(ti)])
+    d_r = np.array([np.sin(ti), np.cos(ti)])
+    d_t = np.array([np.sin(tt), -np.cos(tt)])
+    rays = (("incident", -L*d_in, np.zeros(2), 1.0),
+            ("reflected", np.zeros(2), L*d_r, 0.75),
+            ("transmitted", np.zeros(2), L*d_t, 0.75))
+    for name, p0, p1, alpha in rays:
+        ax.annotate("", p1, p0, arrowprops=dict(arrowstyle="-|>", color=ILLUMINATION, lw=1.6,
+                                                alpha=alpha, mutation_scale=12))
+        mid = 0.55*p0 + 0.45*p1 if name == "incident" else 0.4*p0 + 0.6*p1
+        d = (p1 - p0)/np.linalg.norm(p1 - p0)
+        nrm = np.array([-d[1], d[0]])
+        ax.annotate("", mid + 0.32*nrm, mid - 0.32*nrm,
+                    arrowprops=dict(arrowstyle="<|-|>", color=IMAGING, lw=1.0, mutation_scale=7))
+        ax.plot(*(mid + 0.35*d), "o", ms=7, mfc="white", mec=STRAY, mew=1.0)
+        ax.plot(*(mid + 0.35*d), ".", ms=3, color=STRAY)
+    a_i = np.linspace(np.pi/2, np.pi/2 + ti, 30)
+    ax.plot(0.75*np.cos(a_i), 0.75*np.sin(a_i), color="0.3", lw=0.8)
+    label(ax, -0.32, 0.95, "θ$_i$", fontsize=10)
+    a_r = np.linspace(np.pi/2 - ti, np.pi/2, 30)
+    ax.plot(0.6*np.cos(a_r), 0.6*np.sin(a_r), color="0.3", lw=0.8)
+    label(ax, 0.3, 0.8, "θ$_r$ = θ$_i$", fontsize=9, ha="left")
+    a_t = np.linspace(-np.pi/2, -np.pi/2 + tt, 30)
+    ax.plot(0.75*np.cos(a_t), 0.75*np.sin(a_t), color="0.3", lw=0.8)
+    label(ax, 0.22, -1.0, "θ$_t$", fontsize=10)
+    label(ax, -2.5, 0.25, f"n$_1$ = {n1:g}", fontsize=9, ha="left")
+    label(ax, -2.5, -0.25, f"n$_2$ = {n2:g}", fontsize=9, ha="left")
+    label(ax, 0.0, -2.35, "n$_1$ sin θ$_i$ = n$_2$ sin θ$_t$", fontsize=9)
+    ax.plot([2.75], [1.25], "o", ms=7, mfc="white", mec=STRAY, mew=1.0)
+    ax.plot([2.75], [1.25], ".", ms=3, color=STRAY)
+    label(ax, 2.95, 1.25, "s: normal to the plane\nof incidence (out of\nthe drawing)", fontsize=8,
+          ha="left", color=STRAY)
+    ax.annotate("", (2.75, 0.55), (2.75, 0.05),
+                arrowprops=dict(arrowstyle="<|-|>", color=IMAGING, lw=1.0, mutation_scale=7))
+    label(ax, 2.95, 0.3, "p: in the plane\nof incidence", fontsize=8, ha="left", color=IMAGING)
+    _finish(ax, (-2.7, 5.0), (-2.6, 2.4), title)
+
+
+def kretschmann(ax, theta=68.0, title=None):
+    """Sketch of surface plasmon resonance in the Kretschmann configuration
+    (notebook 59), not to scale: p-polarized light in a glass prism is
+    totally reflected at a thin gold film; at the angle where the parallel
+    wavenumber in the glass matches that of the surface plasmon on the
+    water side, the evanescent field excites the plasmon and the reflected
+    light drops.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    theta : number, optional
+        Angle of incidence in the prism (degrees).
+    title : str, optional
+    """
+
+    ax.fill([-2.2, 2.2, 0], [0, 0, -2.2], color=GLASS, ec="0.4")
+    ax.fill_between([-2.2, 2.2], 0, 0.08, color="#d4a017")
+    ax.fill_between([-2.2, 2.2], 0.08, 1.0, color="#e6f2fa")
+    th = np.radians(theta)
+    d = np.array([np.sin(th), np.cos(th)])
+    for s in (-0.12, 0.0, 0.12):
+        o = s*np.array([np.cos(th), -np.sin(th)])
+        ax.plot(*np.transpose([o - 2.6*d, o]), color=STRAY, lw=1.2)
+        ax.plot(*np.transpose([o, o + 2.6*np.array([d[0], -d[1]])]), color=STRAY, lw=1.2, alpha=0.6)
+    ax.annotate("", -1.2*d, -2.0*d, arrowprops=dict(arrowstyle="-|>", color=STRAY, lw=1.5))
+    ax.annotate("", (2.0*d[0], -2.0*d[1]), (1.2*d[0], -1.2*d[1]),
+                arrowprops=dict(arrowstyle="-|>", color=STRAY, lw=1.5, alpha=0.6))
+    ax.plot([0, 0], [0, -1.2], "k:", lw=0.8)
+    a = np.linspace(np.pi/2 + 0.05, np.pi/2 + th, 30)
+    ax.plot(0.7*np.cos(a), -0.7*np.sin(a), "k", lw=0.8)
+    label(ax, -0.25, -0.9, "θ", fontsize=13)
+    xs = np.linspace(-1.2, 1.2, 200)
+    ax.plot(xs, 0.2 + 0.06*np.sin(12*xs)*np.exp(-xs**2), color=STRAY)
+    label(ax, 1.3, 0.25, "surface plasmon\n(evanescent in the water)", fontsize=9, ha="left")
+    label(ax, -2.1, 0.6, "sample (water), n = 1.330 + Δn", fontsize=10, ha="left")
+    label(ax, -2.1, 0.17, "50 nm gold", fontsize=9, ha="left")
+    label(ax, 0, -1.45, "glass prism\nn = 1.515", fontsize=10)
+    label(ax, -2.7, -1.25, "p-polarized\nlight", color=STRAY)
+    label(ax, 2.7, -1.25, "detector:\nreflectance", color=STRAY)
+    _finish(ax, (-3.3, 3.4), (-2.3, 1.0), title)
+
+
+def yee_grid(ax, title=None):
+    """Sketch of the 2D Yee grid of the FDTD (notebook 57) for the Ez
+    polarization: Ez on the cell corners, Hx (pointing along x) half a cell
+    up, Hy (along y) half a cell to the right, so every curl in Maxwell's equations is a centred
+    difference; on the right the leapfrog in time, E at whole steps and H
+    half a step later, each updated from the other.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    n = 3
+    for k in range(n + 1):
+        ax.plot([0, n], [k, k], color="0.75", lw=0.8)
+        ax.plot([k, k], [0, n], color="0.75", lw=0.8)
+    for i in range(n + 1):
+        for j in range(n + 1):
+            ax.plot(i, j, "o", ms=7, color=STRAY, zorder=4)
+            if j < n:   # Hx sits half a cell up and points along x
+                ax.annotate("", (i + 0.17, j + 0.5), (i - 0.17, j + 0.5),
+                            arrowprops=dict(arrowstyle="-|>", color=IMAGING, lw=1.4, mutation_scale=9))
+            if i < n:   # Hy sits half a cell right and points along y
+                ax.annotate("", (i + 0.5, j + 0.17), (i + 0.5, j - 0.17),
+                            arrowprops=dict(arrowstyle="-|>", color=EMISSION, lw=1.4, mutation_scale=9))
+    arrow(ax, 0, -0.35, 1, -0.35, style="<|-|>", color="0.3")
+    label(ax, 0.5, -0.6, "Δx (here λ/20)", fontsize=9)
+    label(ax, 3.3, 2.7, "E$_z$(i, j)", fontsize=10, color=STRAY, ha="left")
+    label(ax, 3.3, 2.2, "H$_x$(i, j + ½)", fontsize=10, color=IMAGING, ha="left")
+    label(ax, 3.3, 1.7, "H$_y$(i + ½, j)", fontsize=10, color=EMISSION, ha="left")
+    z0 = 6.0
+    ax.plot([z0, z0 + 4.4], [0.3, 0.3], color="0.3", lw=1.0)
+    ax.annotate("", (z0 + 4.6, 0.3), (z0 + 4.3, 0.3),
+                arrowprops=dict(arrowstyle="-|>", color="0.3", lw=1.0))
+    label(ax, z0 + 4.7, 0.3, "t", fontsize=10, ha="left")
+    for k in range(3):
+        te, th_ = z0 + 0.3 + 1.6*k, z0 + 1.1 + 1.6*k
+        ax.plot(te, 0.3, "o", ms=7, color=STRAY)
+        label(ax, te, 0.0, f"n{'+' + str(k) if k else ''}", fontsize=8, va="top")
+        if k < 2:
+            ax.plot(th_, 0.3, "s", ms=6, color=IMAGING)
+            label(ax, th_, 0.0, f"n+{2*k + 1}/2", fontsize=8, va="top")
+            ax.annotate("", (th_, 1.05), (te, 1.05), arrowprops=dict(
+                arrowstyle="-|>", color="0.4", lw=0.8, connectionstyle="arc3,rad=-0.5"))
+            ax.annotate("", (te + 1.6, 1.05), (th_, 1.05), arrowprops=dict(
+                arrowstyle="-|>", color="0.4", lw=0.8, connectionstyle="arc3,rad=-0.5"))
+    label(ax, z0 + 2.2, 2.0, "leapfrog: H from curl E,\nthen E from curl H", fontsize=9)
+    label(ax, z0 + 2.2, 0.75, "E (whole steps), H (half steps)", fontsize=8, color="0.35")
+    _finish(ax, (-0.4, z0 + 5.2), (-0.9, 3.3), title)
+
+
+# ------------------------------------------------- notebook review: lithography
+
+
+def lithography_scanner(ax, title=None):
+    """Sketch of an optical scanner for lithography (notebooks 31 to 41):
+    the illuminator shapes the source (sigma, poles, polarization) and lights
+    a slit on the reticle; the projection lens images the reticle 4x reduced
+    onto the resist on the wafer. Reticle and wafer move through the slit in
+    opposite directions, the wafer at a quarter of the speed, so the field is
+    exposed in one scan.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mp = _patches()
+    laser(ax, 0.0, 0.0, length=1.3, height=0.5, text="ArF laser\n193 nm", fontsize=8)
+    ax.add_patch(mp.FancyBboxPatch((1.0, -0.75), 2.6, 1.5, boxstyle="round,pad=0.05",
+                                   facecolor="#f4f1e6", edgecolor="0.5", lw=0.8))
+    for z in (1.5, 2.3, 3.1):
+        lens(ax, z, 0.55, thickness=0.14)
+    label(ax, 2.3, -1.0, "illuminator: source shape\n(σ, poles), polarization", fontsize=8,
+          va="top")
+    band(ax, [0.0, 1.0], [0.12, 0.12], [0.0, 1.0], [-0.12, -0.12], color=LASER)
+    band(ax, [3.6, 4.55], [0.55, 0.25], [3.6, 4.55], [-0.55, -0.25], color=LASER)
+    stop(ax, 4.0, 0.9, openings=((0.0, 0.25),), text="slit (REMA)", text_y=-1.15, fontsize=8)
+    ax.add_patch(mp.Rectangle((4.55, -0.9), 0.12, 1.8, facecolor="#9fc5e0", edgecolor=EDGE, lw=0.8))
+    for y in np.linspace(-0.7, 0.7, 8):
+        ax.plot([4.67, 4.72], [y, y], color="0.15", lw=2.2)
+    label(ax, 4.61, 1.15, "reticle (mask)", fontsize=8, va="bottom")
+    arrow(ax, 4.95, 0.35, 4.95, 0.95, style="-|>", color=STRAY)
+    label(ax, 5.05, 0.75, "v", fontsize=9, color=STRAY, ha="left")
+    zl = np.linspace(5.6, 8.4, 7)
+    hl = 0.55 + 0.35*np.sin(np.linspace(0.2, np.pi - 0.2, 7))
+    ax.add_patch(mp.FancyBboxPatch((5.35, -1.2), 3.3, 2.4, boxstyle="round,pad=0.05",
+                                   facecolor="none", edgecolor="0.6", lw=0.8, ls="--"))
+    for z, h in zip(zl, hl):
+        lens(ax, z, h, thickness=0.16)
+    ax.fill([4.72, 5.6, 8.4, 9.2, 8.4, 5.6], [0.25, 0.6, 0.6, 0.0, -0.6, -0.6], color=LASER,
+            alpha=0.12, zorder=1)
+    ax.fill([4.72, 5.6, 5.6, 4.72], [0.25, 0.6, -0.6, -0.25], color=LASER, alpha=0.12, zorder=1)
+    label(ax, 7.0, -1.45, "projection lens: 4× reduction,\nNA up to 1.35 (water immersion)",
+          fontsize=8, va="top")
+    ax.add_patch(mp.Rectangle((9.2, -0.9), 0.1, 1.8, facecolor="0.55", edgecolor="0.3", lw=0.8))
+    ax.add_patch(mp.Rectangle((9.12, -0.9), 0.08, 1.8, facecolor="#e7a3a3", edgecolor="none"))
+    label(ax, 9.25, 1.15, "wafer with resist", fontsize=8, va="bottom")
+    arrow(ax, 9.6, 0.95, 9.6, 0.8, style="-|>", color=STRAY)
+    label(ax, 9.7, 0.9, "v/4", fontsize=9, color=STRAY, ha="left")
+    _finish(ax, (-1.5, 10.4), (-2.0, 1.5), title)
+
+
+def tcc_overlap(ax, sigma=0.7, f1=0.75, f2=-0.6, title=None):
+    """Sketch of the transmission cross coefficient (notebook 34) in the
+    pupil plane, in units of NA/lambda: a source point s lets the orders f1
+    and f2 pass if both s + f1 and s + f2 lie in the pupil, i.e. if s lies in
+    the pupil shifted by -f1 and in the one shifted by -f2. TCC(f1, f2) is
+    the source intensity integrated over that overlap; for a large source
+    and orders far apart it shrinks, which is how partial coherence damps
+    high frequencies.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    sigma : number, optional
+        Radius of the (conventional) source relative to the NA.
+    f1, f2 : numbers, optional
+        Spatial frequencies of the two orders along x.
+    title : str, optional
+    """
+
+    mp = _patches()
+    xs = np.linspace(-2.2, 2.2, 801)
+    X, Y = np.meshgrid(xs, xs)
+    over = (np.hypot(X, Y) < sigma) & (np.hypot(X + f1, Y) < 1) & (np.hypot(X + f2, Y) < 1)
+    ax.contourf(X, Y, over.astype(float), levels=[0.5, 1.5], colors=[ILLUMINATION], alpha=0.75,
+                zorder=1)
+    ax.add_patch(mp.Circle((0, 0), sigma, facecolor=ILLUMINATION, alpha=0.15, edgecolor=ILLUMINATION,
+                           lw=1.5, zorder=2))
+    for f, col, ls in ((f1, IMAGING, "-"), (f2, EMISSION, "--")):
+        ax.add_patch(mp.Circle((-f, 0), 1.0, facecolor="none", edgecolor=col, lw=1.5, ls=ls,
+                               zorder=3))
+    ax.plot([0], [0], "k+", ms=8)
+    for f, col in ((f1, IMAGING), (f2, EMISSION)):
+        ax.plot([-f], [0], "o", ms=3, color=col)
+    arrow(ax, 1.25, -1.05, 0.45, -0.5, color="#8a6400", lw=0.8)
+    label(ax, 1.3, -1.05, "source, radius σ", fontsize=8, color="#8a6400", ha="left")
+    label(ax, -f1 - 0.95, 0.95, f"pupil shifted\nby −f$_1$", fontsize=8, color=IMAGING, ha="right")
+    label(ax, -f2 + 0.95, 0.95, f"pupil shifted\nby −f$_2$", fontsize=8, color=EMISSION, ha="left")
+    label(ax, 0.0, -1.45, "TCC(f$_1$, f$_2$) = source light in the overlap (shaded):\n"
+          "the source points for which both orders pass the pupil", fontsize=8, va="top")
+    _finish(ax, (-2.6, 2.6), (-2.05, 1.45), title)
+
+
+def mask_3d(ax, title=None):
+    """Sketch of mask topography (notebooks 36, 37 and 65): the absorber is
+    about as thick as the wavelength, so the light near an edge is not just
+    cut off as in the thin (Kirchhoff) mask model: oblique light is shadowed
+    by the absorber walls, the edges diffract and the transmitted phase
+    depends on the angle of incidence.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mp = _patches()
+    for k, (z0, name) in enumerate(((0.0, "thin mask (Kirchhoff)"), (5.2, "real mask: absorber ~ λ thick"))):
+        ax.add_patch(mp.Rectangle((z0, 0.0), 4.2, 0.9, facecolor=GLASS, edgecolor=EDGE, lw=0.8))
+        label(ax, z0 + 2.1, 0.45, "quartz blank", fontsize=8)
+        h = 0.04 if k == 0 else 0.45
+        for a in (0.4, 2.4):
+            ax.add_patch(mp.Rectangle((z0 + a, -h), 1.4, h, facecolor="0.3", edgecolor="0.2", lw=0.6))
+        for zz in np.linspace(z0 + 0.3, z0 + 3.9, 9):
+            ax.annotate("", (zz - 0.25, 0.95), (zz - 0.55, 1.6), arrowprops=dict(
+                arrowstyle="-|>", color=ILLUMINATION, lw=1.0, mutation_scale=8))
+        label(ax, z0 + 2.1, 1.85, name, fontsize=9, va="bottom")
+        yt = -1.5
+        ax.plot([z0, z0 + 4.2], [yt - 0.5, yt - 0.5], color="0.6", lw=0.6)
+        if k == 0:
+            zs = [z0, z0 + 0.4, z0 + 0.4, z0 + 1.8, z0 + 1.8, z0 + 2.4, z0 + 2.4, z0 + 3.8, z0 + 3.8, z0 + 4.2]
+            ys = [1, 1, 0, 0, 1, 1, 0, 0, 1, 1]
+            ax.plot(zs, yt - 0.5 + 0.8*np.array(ys), color=IMAGING, lw=1.4)
+            label(ax, z0 + 2.1, yt - 0.75, "transmission: sharp steps", fontsize=8, va="top")
+        else:
+            zz = np.linspace(z0, z0 + 4.2, 400)
+            def edge(z, a):
+                return 0.5*(1 + np.tanh((z - a)/0.08))
+            t = 1 - edge(zz, z0 + 0.55) + edge(zz, z0 + 1.95) - edge(zz, z0 + 2.55) + edge(zz, z0 + 3.95)
+            t = np.clip(t, 0, 1)*(1 + 0.12*np.sin(14*zz))
+            ax.plot(zz, yt - 0.5 + 0.8*t, color=IMAGING, lw=1.4)
+            ax.fill([z0 + 1.8, z0 + 1.8, z0 + 2.05], [0.0, -0.45, -0.45], color="0.5", alpha=0.35)
+            label(ax, z0 + 2.15, -0.75, "shadow", fontsize=8, ha="left", color="0.3")
+            label(ax, z0 + 2.1, yt - 0.75, "edges shifted and blurred, phase\ndepends on the angle",
+                  fontsize=8, va="top")
+    _finish(ax, (-0.3, 9.7), (-2.9, 2.2), title)
