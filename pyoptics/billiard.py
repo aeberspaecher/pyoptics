@@ -6,7 +6,7 @@ section and the open dielectric billiard of a microcavity.
 
 A ray inside a closed curve runs straight and is reflected specularly at the
 boundary. Between two bounces it is fully described by the point of the
-bounce and the direction of the ray, in the **Birkhoff coordinates**
+bounce and the direction of the ray, in the **Birkhoff coordinates** ::
 
     s = arc length along the boundary (counter-clockwise from the point at
         polar angle 0), 0 <= s < L,
