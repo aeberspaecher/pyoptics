@@ -118,3 +118,33 @@ def test_grating_rotation():
     assert np.isclose(a - b, np.radians(20))
     with pytest.raises(ValueError):
         sp.grating_rotation(WL, 4000, 1)
+
+
+def test_cassi_adjoint_and_gap_tv():
+    rng = np.random.default_rng(1)
+    x = rng.random((20, 24, 8))
+    M = (rng.random((20, 24)) > 0.5)*1.0
+    g = rng.random((20, 24 + 7*2))
+    assert np.isclose(np.sum(sp.cassi_forward(x, M, 2)*g), np.sum(x*sp.cassi_adjoint(g, M, 8, 2)))
+    # a piecewise constant cube is recovered from one snapshot
+    ny = nx = 40
+    nk = 12
+    yy, xx = np.mgrid[:ny, :nx]
+    lab = (xx > 17).astype(int) + 2*((yy - 20)**2 + (xx - 10)**2 < 64)
+    k = np.arange(nk)
+    spec = np.array([np.linspace(0.2, 0.8, nk), np.exp(-((k - 5)/3)**2), 0.5 + 0.3*np.sin(k/2),
+                     np.full(nk, 0.3)])
+    cube = spec[lab]
+    M = (rng.random((ny, nx)) > 0.5)*1.0
+    rec = sp.gap_tv(sp.cassi_forward(cube, M), M, nk, weight=0.05, n_iter=150)
+    assert np.sqrt(np.mean((rec - cube)**2))/cube.mean() < 0.15
+
+
+def test_tv_denoise():
+    rng = np.random.default_rng(2)
+    f = np.zeros((40, 40))
+    f[10:30, 15:35] = 1.0
+    noisy = f + 0.2*rng.standard_normal(f.shape)
+    u = sp.tv_denoise(noisy, 0.2, 100)
+    assert np.sqrt(np.mean((u - f)**2)) < 0.4*np.sqrt(np.mean((noisy - f)**2))
+    assert np.isclose(u.mean(), noisy.mean())

@@ -50,6 +50,21 @@ Closed forms used in the notebooks and tests:
 Units: millimetres, wavelengths in mm in the systems (as `raytrace`),
 groove densities in lines per mm.
 
+Snapshot imaging spectroscopy (notebook 114): the coded aperture
+snapshot spectral imager (CASSI, single disperser) multiplies the scene
+cube x[y, x, k] by a binary mask M[y, x] in an intermediate image plane,
+disperses it so that band k is shifted by k*shift pixels along x, and sums
+the bands on the detector ::
+
+    g[y, x'] = sum_k M[y, x' - k s] x[y, x' - k s, k].
+
+`cassi_forward()` and `cassi_adjoint()` are this operator Phi and its
+transpose. Phi Phi^T is diagonal (each detector pixel sees one mask pixel
+per band), which makes the generalized alternating projection (GAP)
+cheap: `gap_tv()` alternates the exact projection onto {x: Phi x = g}
+(Liao, Li and Carin 2014; Yuan 2016) with a total variation denoising
+step (`tv_denoise()`, Chambolle's projection algorithm).
+
 References
 ----------
 M. Czerny and A. F. Turner, "Über den Astigmatismus bei Spiegelspektrometern",
@@ -64,6 +79,16 @@ pushbroom imaging spectrometers for optimum recovery of spectroscopic and
 spatial information", Appl. Opt. 39, 2210-2220 (2000).
 
 C. Palmer, "Diffraction Grating Handbook", 8th ed., MKS Newport (2020).
+
+A. Wagadarikar, R. John, R. Willett and D. Brady, "Single disperser design
+for coded aperture snapshot spectral imaging", Appl. Opt. 47, B44-B51
+(2008).
+
+X. Yuan, "Generalized alternating projection based total variation
+minimization for compressive sensing", Proc. IEEE ICIP, 2539-2543 (2016).
+
+A. Chambolle, "An algorithm for total variation minimization and
+applications", J. Math. Imaging Vis. 20, 89-97 (2004).
 """
 
 from collections import namedtuple
@@ -532,3 +557,167 @@ def smile_keystone(C):
     keystone = C[:, :, 0] - C[:, j0:j0 + 1, 0]
 
     return smile, keystone
+
+
+# snapshot imaging spectroscopy:
+def cassi_forward(cube, mask, shift=1):
+    """Detector picture of a single disperser CASSI.
+
+    Parameters
+    ----------
+    cube : array (ny, nx, nk)
+        Spectral cube.
+    mask : array (ny, nx)
+        Coded aperture transmission.
+    shift : int, optional
+        Dispersion in detector pixels per band (along x).
+
+    Returns
+    -------
+    g : array (ny, nx + (nk - 1)*shift)
+    """
+
+    ny, nx, nk = cube.shape
+    g = np.zeros((ny, nx + (nk - 1)*shift))
+    for k in range(nk):
+        g[:, k*shift:k*shift + nx] += mask*cube[:, :, k]
+
+    return g
+
+
+def cassi_adjoint(g, mask, nk, shift=1):
+    """Transpose of `cassi_forward()`: (ny, nx, nk) from a detector picture."""
+
+    ny, nx = mask.shape
+    out = np.empty((ny, nx, nk))
+    for k in range(nk):
+        out[:, :, k] = mask*g[:, k*shift:k*shift + nx]
+
+    return out
+
+
+def _fdiff(x, axis):
+    # forward difference, zero at the last sample (Neumann boundary)
+    d = np.zeros_like(x)
+    sl = [slice(None)]*x.ndim
+    sl[axis] = slice(0, -1)
+    d[tuple(sl)] = np.diff(x, axis=axis)
+    return d
+
+
+def _bdiff(p, axis):
+    # minus the transpose of _fdiff
+    d = np.array(p, copy=True)
+    sl_last = [slice(None)]*p.ndim
+    sl_last[axis] = -1
+    d[tuple(sl_last)] = 0.0
+    shifted = np.zeros_like(d)
+    a = [slice(None)]*p.ndim
+    b = [slice(None)]*p.ndim
+    a[axis], b[axis] = slice(1, None), slice(0, -1)
+    shifted[tuple(a)] = d[tuple(b)]
+    return d - shifted
+
+
+def _grad3(x, w):
+    return np.stack((_fdiff(x, 0), _fdiff(x, 1), w*_fdiff(x, 2)))
+
+
+def _div3(p, w):
+    return _bdiff(p[0], 0) + _bdiff(p[1], 1) + w*_bdiff(p[2], 2)
+
+
+def tv_denoise(f, weight, n_iter=20, spectral_weight=0.0, p0=None):
+    """Isotropic total variation denoising of an image or cube by
+    Chambolle's projection algorithm ::
+
+        min_u 1/2 ||u - f||**2 + weight TV(u),
+
+    with forward differences (zero across the edges) along the first two
+    axes and, for a cube, spectral_weight times the difference along the
+    third.
+
+    Parameters
+    ----------
+    f : array (ny, nx) or (ny, nx, nk)
+    weight : number
+    n_iter : int, optional
+    spectral_weight : number, optional
+        Relative weight of the spectral differences (0: each band alone).
+    p0 : array, optional
+        Dual variable to start from (warm start); returned with the result
+        when given.
+
+    Returns
+    -------
+    u : array
+        Like f. With p0, the tuple (u, p).
+    """
+
+    f = np.asarray(f, dtype=float)
+    flat = f.ndim == 2
+    x = f[:, :, None] if flat else f
+    p = np.zeros((3,) + x.shape) if p0 is None else p0
+    tau = 1.0/(8.0 + 4.0*spectral_weight**2)
+    for _ in range(n_iter):
+        g = _grad3(_div3(p, spectral_weight) - x/weight, spectral_weight)
+        p = (p + tau*g)/(1 + tau*np.sqrt(np.sum(g**2, axis=0)))
+    u = x - weight*_div3(p, spectral_weight)
+    u = u[:, :, 0] if flat else u
+
+    return u if p0 is None else (u, p)
+
+
+def gap_tv(g, mask, nk, shift=1, weight=0.05, n_iter=100, tv_iter=10, spectral_weight=0.0,
+           accelerate=True, callback=None):
+    """Reconstruct a CASSI cube by generalized alternating projection with
+    total variation (GAP-TV, Yuan 2016).
+
+    Each iteration projects onto the measurements,
+    x <- v + Phi^T((g - Phi v)/diag(Phi Phi^T)), and denoises x with
+    `tv_denoise()`. The accelerated form adds the residual back into the
+    measurements (g <- g + (g - Phi v)), which converges much faster
+    without noise.
+
+    Parameters
+    ----------
+    g : array
+        Detector picture from `cassi_forward()`.
+    mask : array (ny, nx)
+    nk : int
+        Number of bands.
+    shift : int, optional
+    weight : number, optional
+        TV weight, relative to the scale of the cube.
+    n_iter, tv_iter : int, optional
+        Outer iterations and Chambolle iterations per denoising.
+    spectral_weight : number, optional
+        See `tv_denoise()`.
+    accelerate : bool, optional
+    callback : callable, optional
+        callback(i, x) after each iteration.
+
+    Returns
+    -------
+    x : array (ny, nx, nk)
+    """
+
+    g = np.asarray(g, dtype=float)
+    R = cassi_forward(np.ones(mask.shape + (nk,)), mask**2, shift)
+    R[R == 0] = 1.0
+    v = cassi_adjoint(g/R, mask, nk, shift)
+    y = g.copy()
+    p = None
+    for i in range(n_iter):
+        r = g - cassi_forward(v, mask, shift)
+        if accelerate:
+            y = y + r
+            x = v + cassi_adjoint((y - cassi_forward(v, mask, shift))/R, mask, nk, shift)
+        else:
+            x = v + cassi_adjoint(r/R, mask, nk, shift)
+        p = np.zeros((3,) + x.shape) if p is None else p
+        v, p = tv_denoise(x, weight, tv_iter, spectral_weight, p0=p)
+        if callback is not None:
+            callback(i, v)
+
+    return v
