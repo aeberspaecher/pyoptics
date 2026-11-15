@@ -699,6 +699,75 @@ def test_zernike_surface_wavefront_fit():
     assert np.max(np.abs(others)) < 1e-3*abs(expected)
 
 
+@pytest.mark.parametrize("ordering", ["noll", "standard"])
+def test_zernike_surface_noll_ordering_sag(ordering):
+    # Zemax "Zernike Standard Sag": Noll ordering, RMS-normalized terms
+    c5, c8, c11 = 2e-4, -1e-4, 5e-5
+    zs = {5: c5, 8: c8, 11: c11}
+    system = _zernike_window(zs)
+    system.surfaces[0] = rt.ZernikeSurface(np.inf, 3.0, n_after=N_GLASS, semi_diameter=12.0,
+                                           zernike=zs, norm_radius=10.0, ordering=ordering)
+    s = system.surfaces[0]
+    assert s.ordering == "noll"
+    rng = np.random.default_rng(7)
+    r, phi = np.sqrt(rng.random(40)), 2*np.pi*rng.random(40)
+    b = system.trace_pupil(0.0, 0.95*r*np.cos(phi), 0.95*r*np.sin(phi))
+    Q = b.points[1]
+    rho, p = np.hypot(Q[:, 0], Q[:, 1])/10.0, np.arctan2(Q[:, 1], Q[:, 0])
+    expected = (c5*np.sqrt(6)*rho**2*np.sin(2*p) + c8*np.sqrt(8)*(3*rho**3 - 2*rho)*np.cos(p)
+                + c11*np.sqrt(5)*(6*rho**4 - 6*rho**2 + 1))
+    assert np.allclose(Q[:, 2], expected, atol=1e-13)
+
+
+def test_zernike_surface_noll_equals_rescaled_fringe():
+    # Noll Z11 = sqrt(5) Fringe Z9, Noll Z7 = sqrt(8) Fringe Z8, Noll Z6 = sqrt(6) Fringe Z5
+    noll = {11: 1e-4, 7: -2e-4, 6: 3e-4}
+    fringe = {9: np.sqrt(5)*1e-4, 8: -np.sqrt(8)*2e-4, 5: np.sqrt(6)*3e-4}
+    kw = dict(R=40.0, conic=-0.3, norm_radius=8.0)
+    a = rt.ZernikeSurface(zernike=noll, ordering="noll", **kw)
+    b = rt.ZernikeSurface(zernike=fringe, **kw)
+    x, y = np.meshgrid(np.linspace(-7, 7, 9), np.linspace(-7, 7, 9))
+    assert np.allclose(a.sag_xy(x, y), b.sag_xy(x, y), atol=1e-15)
+    Q = np.column_stack([x.ravel(), y.ravel(), a.sag_xy(x, y).ravel()])
+    assert np.allclose(a.normal(Q), b.normal(Q), atol=1e-14)
+    with pytest.raises(ValueError):
+        rt.ZernikeSurface(zernike={4: 1e-4}, ordering="ansi")
+
+
+def test_zernike_surface_noll_wavefront_fit():
+    # Noll Z5 (sqrt(6) rho^2 sin 2 phi) on the window shows up as Fringe Z6 in System.zernike()
+    c = 2e-4
+    system = _zernike_window({})
+    system.surfaces[0] = rt.ZernikeSurface(np.inf, 3.0, n_after=N_GLASS, semi_diameter=12.0,
+                                           zernike={5: c}, norm_radius=10.0, ordering="noll")
+    system.surfaces[-1].thickness = 0.0
+    lens = rt.System(system.surfaces + [rt.IdealLens(100.0, 100.0)], 0, WL, entrance_pupil_radius=10.0)
+    coeffs = lens.zernike(0.0, 16, 48)
+    expected = -(N_GLASS - 1)*np.sqrt(6)*c/WL
+    assert coeffs[5] == pytest.approx(expected, rel=0.02)
+    # (the walk-off of the rays in the window leaves a little secondary astigmatism, Z13)
+    assert np.max(np.abs(np.delete(coeffs, [0, 5]))) < 5e-3*abs(expected)
+
+
+def test_zernike_surface_tilted_and_decentred_intersections():
+    # the intersections lie on the departure in the local (displaced) frame
+    zs = rt.ZernikeSurface(-60.0, 5.0, n_after=N_GLASS, semi_diameter=12.0, norm_radius=10.0,
+                           zernike={6: 3e-3, 7: -2e-3, 22: 1e-3}, ordering="noll",
+                           decenter=(0.4, -0.7), tilt=(0.02, -0.01, 0.3))
+    system = rt.System([zs, rt.Surface(np.inf, 20.0, n_after=1.0, semi_diameter=14.0)], 0, WL,
+                       entrance_pupil_radius=9.0)
+    p = np.linspace(-0.9, 0.9, 7)
+    PX, PY = np.meshgrid(p, p)
+    b = system.trace_pupil(0.0, PX.ravel(), PY.ravel())
+    origin, Rm = system.frames()[0][0]
+    s = system.surfaces[0]
+    Q = b.points[1]
+    L = (Q - origin) @ Rm
+    ok = np.all(np.isfinite(L), axis=1)
+    assert ok.sum() > 30
+    assert np.allclose(L[ok, 2], s.sag_xy(L[ok, 0], L[ok, 1]), atol=1e-12)
+
+
 def test_draw_xz_plane_of_a_rotated_system():
     import matplotlib
     matplotlib.use("Agg")
