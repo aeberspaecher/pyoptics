@@ -5,7 +5,7 @@
 
 A femtosecond pulse has a broad spectrum, and the optics it passes treat each
 frequency differently. Three effects of first and second order in the
-frequency matter for lenses and dispersive elements (notebook 81):
+frequency matter for lenses and dispersive elements (notebook 81, ultrashort pulses):
 
 - Group delay dispersion (GDD): glass delays the frequencies by different
   amounts, a pulse is chirped and stretched. `group_index()`, `gvd()`,

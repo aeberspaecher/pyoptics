@@ -30,10 +30,10 @@ Contents:
 
 - `double_gauss()`: a fast double Gauss camera lens, f = 50 mm, f/1.8,
   six elements of N-LAK9 and N-SF5, designed for this module with
-  `lens_optimization` (notebook 90), with clear apertures that vignette
+  `lens_optimization` (notebook 90, bokeh), with clear apertures that vignette
   off-axis beams as real lenses of this type do; `focus()` moves the
   image plane to the smallest spot for an object distance (unit focusing).
-- `retrofocus()`: a 28 mm f/2.8 retrofocus wide angle lens (notebook 106)
+- `retrofocus()`: a 28 mm f/2.8 retrofocus wide angle lens (notebook 106, radiometry of images)
   whose entrance pupil grows towards the field; `chief_ray_mapping()`,
   the real image height against the field, for the image side factor of
   `relative_illumination(image_side=True)`.
@@ -80,7 +80,7 @@ Contents:
   same for several coatings at once; `ghost_analysis()`, the paraxial
   ghost analysis (blur, focus and irradiance relative to a white surface
   for every path).
-- Depth of field and tilt (notebook 94): `hyperfocal_distance()`,
+- Depth of field and tilt (notebook 94, depth of field and tilt-shift): `hyperfocal_distance()`,
   `dof_limits()` (thin lens, consistent with `blur_diameter()`);
   `defocus_mtf()`, the wave optical MTF of a defocused lens (Hopkins),
   `geometric_defocus_mtf()`, the blur disk, and `optimum_f_number()`
@@ -179,7 +179,7 @@ __all__ = ["double_gauss", "focus", "blur_diameter", "blur_diameter_pupils", "po
 D_LINE = 587.5618e-6  # mm
 DOUBLE_GAUSS_F = 50.0  # mm, focal length of double_gauss()
 
-# The double Gauss of notebook 90 (f = 50 mm, f/1.8): radius, thickness to
+# The double Gauss of notebook 90 (bokeh) (f = 50 mm, f/1.8): radius, thickness to
 # the next surface, glass behind ("A": air), clear semi-diameter (mm). The
 # stop is surface 5; its semi-diameter is set from the F-number.
 _DOUBLE_GAUSS = """
@@ -199,7 +199,7 @@ _DOUBLE_GAUSS = """
 
 RETROFOCUS_F = 28.0  # mm, focal length of retrofocus()
 
-# The retrofocus wide angle lens of notebook 106 (f = 28 mm, f/2.8, back
+# The retrofocus wide angle lens of notebook 106 (radiometry of images) (f = 28 mm, f/2.8, back
 # focal length 39 mm): radius, thickness, glass behind ("A": air), clear
 # semi-diameter (mm). The stop is surface 4.
 _RETROFOCUS = """
@@ -230,7 +230,7 @@ def double_gauss(f_number=1.8, object_distance=np.inf, wavelength=D_LINE, apertu
     meniscus and a cemented negative meniscus doublet in front of the stop,
     their mirror image behind it. Designed with
     `lens_optimization.DampedLeastSquares` for the F, d and C lines from a
-    slower textbook double Gauss (notebook 90). Like the real lenses of
+    slower textbook double Gauss (notebook 90, bokeh). Like the real lenses of
     this type it is soft wide open: undercorrected zonal spherical
     aberration (Seidel W040 = -32 waves, balanced by higher orders), an
     RMS spot radius (d line, best focus) of 37 um on the axis at f/1.8,
@@ -311,7 +311,7 @@ def retrofocus(f_number=2.8, wavelength=D_LINE, apertures=True, field=None):
     in front of the stop, and a positive-negative-positive group (N-LAK9,
     N-SF5, N-LAK9) behind it; 100 mm from the first vertex to the image
     and a back focal length of 39 mm, enough for the mirror of a reflex
-    camera. Designed for notebook 106 with `lens_optimization.LensOptimizer`
+    camera. Designed for notebook 106 (radiometry of images) with `lens_optimization.LensOptimizer`
     for the d line over +-37.7 deg (the corner of a 36 x 24 mm frame), with
     the distortion limited to a few percent at 75 % of the field. The
     negative front group makes the pupil magnification large (m_p = 2.3)
@@ -1118,7 +1118,7 @@ def apodizer_for_t_number(f_number, t):
     return brentq(lambda s: apodizer_mean_transmission(s) - tau, 1e-3, 1e3)
 
 
-# --- Sunstars: diffraction at the iris (notebook 91) ----------------------
+# --- Sunstars: diffraction at the iris (notebook 91, sunstars) ----------------------
 
 def _iris_centres(n_blades, apothem, blade_radius, rotation):
     phi = rotation + 2*np.pi*np.arange(n_blades)/n_blades
@@ -1785,7 +1785,7 @@ def trace_flare(system, rays, weight, path=None, coatings=None, iris_shape=None,
     return Q[:, 0], Q[:, 1], weight[ok]*T[ok]
 
 
-# Antireflection coatings of notebook 92, layers from the air side; indices
+# Antireflection coatings of notebook 92 (flare and ghosts), layers from the air side; indices
 # of evaporated films (dispersion neglected): MgF2 1.38, ZrO2 2.05, Al2O3 1.63.
 AR_DESIGNS = {
     "uncoated": [],
@@ -2141,7 +2141,7 @@ def ghost_spectra(system, field, path, coating_sets, wavelengths_nm, n_rays=2000
     return Q[:, 0], Q[:, 1], spectra
 
 
-# --- depth of field, diffraction and tilted lenses (notebook 94) ---
+# --- depth of field, diffraction and tilted lenses (notebook 94, depth of field and tilt-shift) ---
 
 def hyperfocal_distance(f, f_number, c):
     """Thin lens hyperfocal distance f**2/(N c) + f: focused there, the far

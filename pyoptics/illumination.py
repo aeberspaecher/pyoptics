@@ -1350,7 +1350,7 @@ def thin_lens(points, directions, focal_length, center=(0.0, 0.0)):
     change by -(x - x_c)/f and -(y - y_c)/f. This is the paraxial lens of
     lens design programs (`raytrace.IdealLens`); it images without
     aberrations but does not conserve étendue at large angles (notebook
-    83, section 3), which does not matter for the small lenslet apertures
+    83, étendue, section 3), which does not matter for the small lenslet apertures
     of a homogenizer.
 
     Parameters

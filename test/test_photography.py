@@ -479,7 +479,7 @@ def test_ghost_spectra_shapes(lens8):
     assert specs[1].sum() < 0.05*specs[0].sum()
 
 
-# depth of field and tilted lenses (notebook 94)
+# depth of field and tilted lenses (notebook 94, depth of field and tilt-shift)
 
 def test_dof_limits_consistent_with_blur():
     f, N, c = 50.0, 8, 0.03

@@ -31,8 +31,8 @@ What each module does and how mature it is. Planned work is listed in
   from outgoing cylindrical waves and the directionality of the emission;
   checked against the cylinder series and the exact microdisk modes
   (`analytical.disk_resonance`), the slab under oblique incidence and the
-  FDTD (notebooks 66 and 67); Husimi functions of Ez modes on the cavity
-  boundary in Birkhoff coordinates (`husimi_birkhoff()`, notebook 104)
+  FDTD (notebooks 66 (FDFD basics) and 67 (limaçon microcavity)); Husimi functions of Ez modes on the cavity
+  boundary in Birkhoff coordinates (`husimi_birkhoff()`, notebook 104, Husimi functions and ray chaos)
 - `fdtd`: new, tested: finite-difference time-domain
   solver for Maxwell's equations in 1D, 2D and 3D (2D polarizations Ez and Hz,
   with the TE/TM naming explained in the module docstring), NumPy kernels
@@ -131,7 +131,7 @@ What each module does and how mature it is. Planned work is listed in
   theory of the bow, and the drop as a sequential `raytrace.System` (one
   tilted surface per intersection); checked against the deviation
   formula, the envelope theorem, a Monte Carlo of traced rays, energy
-  conservation and the Mie series (notebook 71)
+  conservation and the Mie series (notebook 71, rainbows and glories)
 - `schlieren`: new, tested: schlieren, shadowgraph and the knife-edge tests
   of Foucault and Ronchi as Fourier plane filters: knife edge, slit, wire
   and Ronchi ruling on the focal plane grid, coherent images of a point
@@ -143,7 +143,7 @@ What each module does and how mature it is. Planned work is listed in
   the Gladstone-Dale index of hot air and the shadowgraph -L laplace(W);
   checked against the Hilbert transform image of a knife at the focus, the
   knife-edge rule, Couder zone readings, Ronchi band periods and ripple
-  contrast (notebook 76)
+  contrast (notebook 76, Schlieren and knife-edge)
 - `colour`: new, tested: CIE 1931 colour matching functions (analytic fit
   of Wyman, Sloan and Shirley), XYZ and sRGB of spectra, black body spectra
 - `glasses`: optical glass catalogues of SCHOTT, OHARA, HOYA, CDGM, SUMITA
@@ -153,7 +153,7 @@ What each module does and how mature it is. Planned work is listed in
   numbers and relative partial dispersions for any lines, the normal line
   and dP_gF, catalogue search by n_d/V_d (and dP_gF), filters by status,
   index and Abbe number, secondary spectrum of thin achromats; real glasses
-  for `lens_optimization.DampedLeastSquares.snap_glasses()` (notebook 61)
+  for `lens_optimization.DampedLeastSquares.snap_glasses()` (notebook 61, glass catalogues)
 - `polarization.mueller`, `polarization.jones`: Mueller calculus and basic
   Jones vectors and matrices, tested
 - `vectorial_imaging`: vectorial, partially coherent imaging (Abbe's method)
@@ -254,7 +254,7 @@ What each module does and how mature it is. Planned work is listed in
   stiffness, overdamped Brownian motion and the Lorentzian power spectrum;
   checked against the dipole force (deviation ∝ (ka)²), Mie radiation
   pressure, the Poynting flux of the focus and ray optics for large beads
-  (notebook 75)
+  (notebook 75, optical tweezers)
 - `superresolution`: new, tested: super-resolution fluorescence microscopy;
   SIM patterns and raw images, band separation from the pattern phases
   (`sim_bands()`), band shifts by any wave vector, the generalized Wiener
@@ -263,7 +263,7 @@ What each module does and how mature it is. Planned work is listed in
   parallel to the orbital angular momentum), the effective STED PSF and the
   square root law; pixelated Gaussian spots, centroid, least squares and
   Poisson maximum likelihood localization, Mortensen's precision formulas
-  (notebook 78)
+  (notebook 78, super-resolution microscopy)
 - `abcd`: ABCD (ray transfer) matrices, tested: thin and thick lenses,
   spherical interfaces, tilted mirrors (tangential/sagittal), GRIN media;
   `OpticalSystem` builds systems element by element and traces rays and
@@ -300,7 +300,7 @@ What each module does and how mature it is. Planned work is listed in
   of coherence, g1, g2 and normalized intensity correlations (Hanbury Brown
   and Twiss); checked against 2J1(v)/v, the limb darkening formula, the
   Siegert relation and random-phase sources propagated with
-  `fresnel_scaled()` (notebook 74)
+  `fresnel_scaled()` (notebook 74, coherence and stellar interferometry)
 - `oct`: new, tested: optical coherence tomography; spectral interferograms
   of a Michelson interferometer with DC, autocorrelation and cross terms, a
   spectrometer model (pixel averaging and Gaussian resolution), A-scans by
@@ -312,7 +312,7 @@ What each module does and how mature it is. Planned work is listed in
   numerical compensation and its optimization by A-scan sharpness; checked
   against the axial resolution 2 ln2/pi lambda^2/Delta lambda, the
   sensitivity roll-off, the dispersion broadening of a Gaussian spectrum
-  and the SD/TD SNR ratio (notebook 82)
+  and the SD/TD SNR ratio (notebook 82, OCT)
 - `holography`: digital holography, tested: off-axis and in-line holograms
   (tilted reference, phase shifts; camera noise via `processing.CameraNoiser`),
   sampling condition for the reference angle; reconstruction by sideband
@@ -341,14 +341,14 @@ What each module does and how mature it is. Planned work is listed in
   Fresnel losses (steady probability distribution, escape directions and
   the ray far field) and boundary Husimi functions of a wave from its
   values and normal derivatives (Hentschel, Schomerus and Schubert),
-  checked against analytic whispering gallery waves (notebook 104)
+  checked against analytic whispering gallery waves (notebook 104, Husimi functions and ray chaos)
 - `grin`: new, tested: ray tracing through gradient-index media (the ray
   equation in the parameter dt = ds/n, Runge-Kutta-Nyström after Sharma,
   Kumar and Ghatak, with the optical path and exact end points on a stop
   surface); media with closed form rays: Luneburg lens, Maxwell's
   fish-eye, parabolic and hyperbolic secant rods, an exponential layer
   (mirage), or any index function with a numerical gradient; checked
-  against all closed forms (notebook 77)
+  against all closed forms (notebook 77, GRIN optics)
 - `cloak`: new, tested: carpet cloaks from quasi-conformal maps (Li and
   Pendry): the map above a bump on a mirror from two Laplace solves on a
   boundary-fitted grid with sliding, mirror-sliding or fixed boundaries,
@@ -356,7 +356,7 @@ What each module does and how mature it is. Planned work is listed in
   theory of the index, the index as an FDFD permittivity and a `grin`
   medium with rays reflected on the bump and refracted at the cloak's
   edge; a line of FDFD sources that launches a Gaussian beam with the
-  grid's dispersion, and angular spectra (notebook 80)
+  grid's dispersion, and angular spectra (notebook 80, carpet cloak)
 - `illumination`: new, tested: illumination optics with Monte Carlo rays;
   Lambertian sources on disks and rectangles (`LambertianSource`, rays for
   `raytrace.System.trace()`, the Sun with its angular radius), canonical
@@ -369,25 +369,25 @@ What each module does and how mature it is. Planned work is listed in
   diffusers and straight light pipes traced by unfolding (TIR or mirror
   walls); checked against 2w·NA, 4π√det Σ, det J = 1 for a real lens and
   cos⁴θ′ for the paraxial ideal lens, and the brightness bound
-  NA′²/sin²α of a stigmatic lens (notebook 83); compound parabolic
+  NA′²/sin²α of a stigmatic lens (notebook 83, étendue); compound parabolic
   concentrators (edge-ray design, hollow or dielectric with TIR walls, 2D
   trough or 3D, truncated) traced through their wall reflections, with a
   compiled kernel if numba is installed; checked against the ideal 2D step,
   the exit étendue under Lambertian input and the 1/n² bound for a
-  dielectric CPC that exits into air (notebook 84); backward ray tracing
+  dielectric CPC that exits into air (notebook 84, nonimaging concentrators); backward ray tracing
   through the reversed system (`reverse_system()`, `backward_trace()`,
   `backward_irradiance()`), checked against forward Monte Carlo and
-  π sin²θ behind a stop (notebook 85); ideal thin lenses and lenslet
+  π sin²θ behind a stop (notebook 85, Köhler and critical illumination); ideal thin lenses and lenslet
   arrays for rays (`thin_lens()`, `lenslet_array()`) and the scalar wave
   field of a fly's eye homogenizer (`fly_eye_field_1d()`), checked against
   the flat top p F/f, its independence of the input tilt and the
-  interference period λF/p (notebook 86); LED emitters with the pattern
+  interference period λF/p (notebook 86, homogenizers); LED emitters with the pattern
   cos^m θ (also from quasi-random samples), irradiance maps and far-field
   intensity profiles from rays, the irradiance of a point source on a
   plane and of a Lambertian disk on its axis, and a paraboloidal
   reflector; checked against cos^m θ, E = I_0 cos^(m+3) θ/h², the
   photometric distance and the brightness bound I = L A of an LED
-  collimator (notebook 88)
+  collimator (notebook 88, LED optics)
 - `speckle`: new, tested: speckle statistics and speckle reduction; rough
   surfaces with Gaussian heights and correlation, coherent images through
   a circular pupil, random diffuser illumination of a given NA; contrast,
@@ -398,7 +398,7 @@ What each module does and how mature it is. Planned work is listed in
   or sampled spectrum, the limit of angle diversity from the mutual
   intensity of the illumination (0.678 NA_obs/NA_ill for large ratios) and
   C² = C∞² + (1 + C∞²)/M for M diffuser positions; checked against wave
-  optics simulations (notebook 87)
+  optics simulations (notebook 87, speckle reduction)
 - `freeform`: new, tested: beam shaping by ray mapping; the radial ray map
   from equal enclosed power, Fermi–Dirac flat tops, the two-lens Gaussian
   to flat-top shaper (Kreuzer, Hoffnagle–Jefferson) from equal optical path
@@ -408,7 +408,7 @@ What each module does and how mature it is. Planned work is listed in
   collimated beam along a given map, and `TabulatedSurface`, a tabulated
   radial or x–y sag for the ray tracer; checked against the closed-form
   map, collimation and equal optical path, separable maps and traced
-  irradiance (notebook 89)
+  irradiance (notebook 89, freeform beam shaping)
 - `radiometry`: new, tested: radiometry and photometry; black bodies in
   absolute units (`planck_radiance()`, Stefan–Boltzmann, Wien), the
   spectral luminous efficiencies V(λ) and V'(λ) as analytic fits (the CIE
@@ -419,7 +419,7 @@ What each module does and how mature it is. Planned work is listed in
   equation with the working F-number, exposure values, reflected light
   metering and photons per pixel; checked against Stefan–Boltzmann, the
   CIE tables, the solar constant, reciprocity and Monte Carlo (notebooks
-  105 and 106)
+  105 (radiometry and photometry) and 106 (radiometry of images))
 - `photography`: new, tested: camera lens optics, the out-of-focus image
   (bokeh); a 50 mm f/1.8 double Gauss with clear apertures that vignette
   (`double_gauss()`), focusing to the smallest spot (`focus()`), blur
@@ -432,7 +432,7 @@ What each module does and how mature it is. Planned work is listed in
   FFT of the pupil, a rippled surface for the ray trace (onion rings) with
   the ring contrast from rays and from the Talbot effect, Gaussian
   apodizers and the T-number; checked against the paraxial trace, ray
-  histograms, wave optics and the Airy pattern (notebook 90); sunstars:
+  histograms, wave optics and the Airy pattern (notebook 90, bokeh); sunstars:
   iris openings with straight or rounded blades (`iris()`, area from the
   F-number), the exact Fourier transform of a polygon as a sum over its
   edges (`polygon_transform()`), the far field of the antialiased opening
@@ -440,7 +440,7 @@ What each module does and how mature it is. Planned work is listed in
   n; (L/kA)² along a spike; the crossover 2πρ/L² of rounded blades and
   their fans; power outside k, P/(πAk), for any shape) and colour images
   of the Sun through an iris on a sensor (`sunstar()`); checked against
-  the exact transform, the Airy pattern and the edge theory (notebook 91);
+  the exact transform, the Airy pattern and the edge theory (notebook 91, sunstars);
   flare and ghosts: every double reflection path of a lens unfolded into
   a `raytrace.System` (`ghost_system()`) and traced with the polarization
   ray trace and the thin film coatings of its surfaces (`trace_flare()`,
@@ -449,18 +449,18 @@ What each module does and how mature it is. Planned work is listed in
   (`ar_coatings()`), the paraxial ghost analysis (`ghost_analysis()`) and
   spectral ghost images (`ghost_spectra()`); checked against the product
   of the Fresnel factors, the paraxial ghost irradiance and the full
-  polarization trace (notebook 92); depth of field and tilted lenses:
+  polarization trace (notebook 92, flare and ghosts); depth of field and tilted lenses:
   thin lens depth of field limits and the hyperfocal distance
   (`dof_limits()`), the wave optical MTF of defocus (`defocus_mtf()`) and
   the optimum F-number, a tilted thin lens with the hinge and Scheimpflug
   rules (`plane_of_focus()`, `tilted_blur()`), and a real lens tilted with
   coordinate breaks (`tilt_lens()`, `trace_point()`); checked against the
   traced double Gauss, the diffraction and geometric MTFs and Merklinger's
-  depth of field wedge (notebook 94); a 28 mm f/2.8 retrofocus lens
+  depth of field wedge (notebook 94, depth of field and tilt-shift); a 28 mm f/2.8 retrofocus lens
   (`retrofocus()`), the real chief ray mapping (`chief_ray_mapping()`)
   and the relative illumination with the image side area factor
   (`relative_illumination(image_side=True)`), checked against cos⁴ for an
-  ideal lens (notebook 106)
+  ideal lens (notebook 106, radiometry of images)
 - `sensor`: new, tested: image sensors; the pixel aperture MTF and the
   sampling of the image (`sensor_image()`: lens diffraction, an optical
   low pass filter and the pixel aperture on a fine grid), the slanted edge
@@ -473,7 +473,7 @@ What each module does and how mature it is. Planned work is listed in
   microlens against the chief ray angle with microlens shift
   (`trace_pixel()`); checked against sinc and diffraction MTFs, the
   folding of frequencies, the carrier positions, the tensor walk-off and
-  the paraxial pupil image (notebook 93)
+  the paraxial pupil image (notebook 93, the sensor)
 - `lightfield`: new, tested: the light field (plenoptic) camera; a thin
   main lens, a microlens array in its image plane and a sensor matched to
   the grid of microlens images (`plenoptic_camera()`, `pixel_pitch()`), raw
@@ -486,7 +486,7 @@ What each module does and how mature it is. Planned work is listed in
   refocused image (`refocused_mtf()`) and the exit pupil images of a real
   lens behind the microlenses (`microlens_images()`); checked against the
   disk overlap, the disparity of rendered planes, slanted edge MTFs, the
-  depth of field of f/(nN) and the paraxial exit pupil (notebook 95)
+  depth of field of f/(nN) and the paraxial exit pupil (notebook 95, light field camera)
 - `fresnel`: Fresnel lenses, tested: a parent surface (sphere, conic,
   even asphere) collapsed into zones of constant pitch, constant depth or
   given radii, with curved or flat (conical) facets and drafted risers
@@ -511,7 +511,7 @@ What each module does and how mature it is. Planned work is listed in
   condition and Herschel's condition along real rays (`sine_condition()`:
   Conrady's OSC, checked against tan^2(U'/2) of a paraboloid, the focal
   radii of an ellipsoid, the aplanatic sphere and traced sagittal coma,
-  notebook 102); OPD maps over the
+  notebook 102, sine and Herschel conditions); OPD maps over the
   pupil relative to the reference sphere on the chief ray, Fringe Zernike
   fits, RMS OPD and Strehl ratio; PSF and MTF via `imaging`; spot diagrams,
   ray fans and layout plots; example: Caldwell's all fused silica KrF
@@ -551,12 +551,12 @@ What each module does and how mature it is. Planned work is listed in
   paraxial focus, the entrance pupil and a curvature for the focal length;
   operands for polychromatic ray errors, RMS spots, wavefront (OPD), Seidel
   sums and primary colour; constraints (focal length, colour, edge and centre
-  thickness, length) held with Lagrange multipliers (notebook 58); solves for
+  thickness, length) held with Lagrange multipliers (notebook 58, lens optimization); solves for
   the length and the object side NA and the object distance as a variable,
-  as in `LensOptimizer` (notebook 43, section 8: clearances as constraints
+  as in `LensOptimizer` (notebook 43, Delano diagrams, section 8: clearances as constraints
   and their prices); `predicted_gain()` ranks candidate variables (e.g. an
   asphere on each surface) by the linearized decrease of the merit function
-  (notebook 43, section 7)
+  (notebook 43, Delano diagrams, section 7)
 - `tolerancing`: Monte Carlo tolerancing, tested: tolerances (power in
   fringes, radius, thickness and air space, axial position of an element,
   image plane, index, Abbe number, element decentre) with Gaussian, uniform
@@ -565,7 +565,7 @@ What each module does and how mature it is. Planned work is listed in
   field (full pupil, valid for decentred lenses); compensators from
   `lens_optimization` variables (focus, axial manipulators) and lateral
   manipulators; sensitivity tables, variance budgets, full Monte Carlo runs and
-  the linear model (exact quadratic merit), compensator choice (notebook 70)
+  the linear model (exact quadratic merit), compensator choice (notebook 70, Monte Carlo tolerancing)
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
 - `modes`: mode analysis and fibres, tested: decomposition of any field into
@@ -586,7 +586,7 @@ What each module does and how mature it is. Planned work is listed in
   current density; checked against LG modes, the sinc² spectrum of
   multilevel plates, the spectrum of fractional plates, the analytic
   splitting of a charge-3 vortex and the order efficiencies of gratings
-  (notebook 69)
+  (notebook 69, optical vortices)
 - `ultrafast`: new, tested: ultrashort pulses through glass, lenses,
   prisms and gratings; group index, GVD and TOD of any dispersion formula
   (fused silica and CaF2 after Malitson), the exact spectral phase of a
@@ -598,7 +598,7 @@ What each module does and how mature it is. Planned work is listed in
   pulse-front tilt from angular dispersion (prisms and gratings in closed
   form, group delays of rays through a prism, x-t synthesis of a dispersed
   beam); exact focused Gaussian beamlets and the axial pulse of
-  simultaneous spatial and temporal focusing (notebook 81)
+  simultaneous spatial and temporal focusing (notebook 81, ultrashort pulses)
 - `fibres`: new, tested: optical fibres in practical units (µm, km, ps,
   ps/(nm km)); radial index profiles (step, graded with any exponent,
   triangular, W, GeO₂-doped silica after Fleming and a G.652 standard fibre
@@ -615,15 +615,15 @@ What each module does and how mature it is. Planned work is listed in
   of silica (Rayleigh, UV, IR and OH); fibre Bragg gratings by coupled mode
   theory (uniform analytic, piecewise uniform transfer matrices with
   apodization, chirp and phase shifts; checked against `thin_films`), group
-  delay and the Bragg shift with strain and temperature (notebooks 115 to
-  120)
+  delay and the Bragg shift with strain and temperature (notebooks 115 (light in a fibre) to
+  120 (fibre link))
 - `fibrecomm`: new, tested: a basic intensity modulated fibre link; PRBS
   patterns, NRZ transmitters with extinction ratio, rise time and transient
   chirp, linear pulse propagation with β₂, β₃ and loss (checked against
   the Gaussian formulas), PIN and APD receivers with shot and thermal noise
   and a Gaussian filter, Q factor, BER and sensitivity (Agrawal), optimum
   APD gain, eye diagrams and openings, power and rise-time budgets and the
-  Bellcore dispersion penalty (notebooks 118 to 120)
+  Bellcore dispersion penalty (notebooks 118 (pulse broadening) to 120 (fibre link))
 - `TIE`: basic transport of intensity solver, partly tested
 - `ifta`: basic Gerchberg-Saxton and variants for beam shaping, tested
   (convergence of GS, HIO-HOO and over-compensation on a reachable target,
@@ -636,7 +636,7 @@ What each module does and how mature it is. Planned work is listed in
   continuous sequential, random partitioning), the phase-stepping TM
   measurement against a reference (canonical or Hadamard basis), a
   weighted Gerchberg-Saxton loop through the TM (built on `ifta`), random
-  unitaries and the Marchenko-Pastur law (notebook 73)
+  unitaries and the Marchenko-Pastur law (notebook 73, wavefront shaping)
 - `lensless`: new, tested: lensless imaging; the pinhole camera
   (Rayleigh's optimum pinhole, the exact on-axis Fresnel intensity behind a
   hole, geometric and diffraction blur), coded apertures (MURAs of prime
@@ -645,7 +645,7 @@ What each module does and how mature it is. Planned work is listed in
   the diffuser camera (PSF of a point source behind any mask by wave
   propagation, the focal length of the bumps of a random phase plate, the
   shift and 1 + z/u scaling of the PSF, Wiener deconvolution and ADMM with
-  total variation, positivity and a cropped sensor) (notebook 79)
+  total variation, positivity and a cropped sensor) (notebook 79, lensless imaging)
 - `phase_retrieval`: phase retrieval, tested: Fienup's error reduction and
   hybrid input-output with support, reality and positivity constraints,
   shrink-wrap support and the autocorrelation support, error histories,
@@ -671,7 +671,7 @@ What each module does and how mature it is. Planned work is listed in
   seeing with outer scale, Fried's lucky imaging probability; split-step
   propagation through layers and frozen flow screens; checked against the
   Kolmogorov structure function, Noll's table, the 19.12 λ^(-7/6) formula and
-  a split-step simulation (notebook 72)
+  a split-step simulation (notebook 72, twinkling stars and AO)
 - `coronagraph`: new, tested: stellar coronagraphs in the four planes
   pupil, focal plane mask, Lyot stop and camera; telescope pupils with
   obscuration and spiders (`telescope_pupil()`), the matrix Fourier
@@ -685,7 +685,7 @@ What each module does and how mature it is. Planned work is listed in
   mirror influence functions and electric field conjugation
   (`efc_jacobian()`, `efc_step()`); checked against the Airy and Sonine
   PSFs, J_0(pi a), the prolate eigenvalue, the analytic vortex fields,
-  the tip-tilt leak laws and the Zernike selection rule (notebook 96)
+  the tip-tilt leak laws and the Zernike selection rule (notebook 96, coronagraphs)
 - `telescopes`: new, tested: reflecting telescopes as `raytrace` systems:
   Newtonian (`newtonian()`), classical Cassegrain and Ritchey–Chrétien
   from primary focal length, system focal length and back focus
@@ -697,7 +697,7 @@ What each module does and how mature it is. Planned work is listed in
   `schmidt_chromatic_blur()`), spot diagrams over an obscured pupil
   (`spot()`) and best focus (`best_focus()`); checked against the Seidel
   sums, the coma and astigmatism formulas, the medial image surface and
-  the chromatic blur of the plate (notebook 97)
+  the chromatic blur of the plate (notebook 97, telescope zoo)
 - `segmented`: new, tested: segmented telescope apertures: hexagonal
   segments in rings (`hex_centres()`, `hexagon_vertices()`,
   `segment_masks()`), antialiased convex polygons and struts
@@ -711,7 +711,7 @@ What each module does and how mature it is. Planned work is listed in
   defocused images (`diversity_psfs()`, `misell()`, `fit_segments()`);
   checked against the polygon transform, the phasor sum Strehl ratio, the
   random piston halo, sinc(p dsigma) and the unique range 1/(2 dsigma)
-  (notebook 98)
+  (notebook 98, segmented mirrors)
 - `lensing`: new, tested: gravitational lensing: light bending in the weak
   field index n = 1 + R_s/r and in the exact Schwarzschild metric as a
   medium for `grin.trace()` (`weak_field_medium()`,
@@ -723,7 +723,7 @@ What each module does and how mature it is. Planned work is listed in
   and inverse ray shooting of extended sources (`ray_shoot()`); checked
   against the point mass images and the Paczynski curve, the Witt–Mao
   disk magnification, the SIS images and time delay and the cusps of the
-  SIS plus shear caustic (notebook 99)
+  SIS plus shear caustic (notebook 99, Einstein rings)
 - `echelle`: new, tested: echelle spectrographs: the grating equation
   with the off-plane angle, Littrow orders, blaze wavelengths, the free
   spectral range and the scalar blaze function (`Echelle`), grating and
@@ -736,7 +736,7 @@ What each module does and how mature it is. Planned work is listed in
   and a sunlike spectrum with Fraunhofer lines; checked against
   sinc^2(m - m_B), R = m N, 2 tan(theta_B) f/s, the order lengths
   2 f tan(theta_B)/m and the lambda^2 order spacing of a grating
-  cross-disperser (notebook 100)
+  cross-disperser (notebook 100, echelle spectrograph)
 - `adc`: new, tested: atmospheric refraction and dispersion and the
   atmospheric dispersion corrector: the index of air after Edlén (Birch
   and Downs) with temperature, pressure and humidity (`edlen_index()`),
@@ -749,7 +749,7 @@ What each module does and how mature it is. Planned work is listed in
   `adc_residual()`), the search of a glass catalogue for pairs matched to
   the dispersion of air (`best_glass_pairs()`) and the image of a
   dispersed star (`smeared_star()`); checked against Ciddor's formula,
-  the exact refraction integral and the thin prism formula (notebook 101)
+  the exact refraction integral and the thin prism formula (notebook 101, atmospheric dispersion corrector)
 - `wpm`: wave propagation method (Cython extension) for inhomogeneous, also
   absorbing media, 2D and y-invariant 1D fields, multi-step driver; direct
   O(N^2) sum (OpenMP) or the fast "levels" variant (one FFT pair per distinct
@@ -792,12 +792,12 @@ What each module does and how mature it is. Planned work is listed in
   interpolation="fourier")`); windows against the Gibbs phenomenon
   (`smoothing_window()`: Lanczos sigma factors of any order, Fejér, Hann,
   Gaussian); exact for band-limited data, checked against the Gibbs
-  overshoot of a step (notebook 107)
+  overshoot of a step (notebook 107, Fourier interpolation of aerial images)
 - Unfinished stubs: the functions in `polarization._polarization` are empty
 
 ## Tests
 
-The core is tested: a suite of about 900 pytest tests checks the numerics
+The core is tested: a suite of more than 2000 pytest tests checks the numerics
 against analytical results (Fresnel and Fraunhofer diffraction, Gaussian beam
 propagation, Mahajan's on-axis intensity, Airy pattern and OTF, Fresnel
 equations, thin film stacks, Goos-Hänchen shift, beam widths and M² of

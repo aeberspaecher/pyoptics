@@ -2,7 +2,7 @@
 #-*- coding:utf-8 -*-
 
 """Segmented telescope mirrors: hexagonal segments, their diffraction
-pattern, segment piston and tip-tilt errors, and phasing (notebook 98).
+pattern, segment piston and tip-tilt errors, and phasing (notebook 98, segmented mirrors).
 
 A segmented primary is described by a stack of segment masks (one
 antialiased transmission map per segment) on a pupil grid in metres. The

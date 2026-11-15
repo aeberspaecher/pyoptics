@@ -1,5 +1,5 @@
 """Image sensors: what happens to the image of a lens between the cover glass
-and the pixel values (notebook 93).
+and the pixel values (notebook 93, the sensor).
 
 A sensor samples the irradiance in the image plane, but it does not sample
 it at points. Each pixel integrates over its light sensitive area (the

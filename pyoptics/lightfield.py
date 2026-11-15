@@ -4,7 +4,7 @@
 """The light field (plenoptic) camera: a microlens array in the image plane
 of a main lens and a sensor one microlens focal length behind it, after
 Adelson and Wang (1992) and Ng et al. (2005), as in the Lytro cameras
-(notebook 95).
+(notebook 95, light field camera).
 
 Every microlens images the main lens aperture onto the n x n pixels behind
 it, so a pixel records the light that arrives at its microlens (position x

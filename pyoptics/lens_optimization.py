@@ -14,7 +14,7 @@ Two optimizers:
   `chromatic()`, `focal_shift()`) and `Constraint` objects held with
   Lagrange multipliers; a small glass catalogue `GLASSES` with
   `nearest_glass()` and the glass map outline `GLASS_MAP`
-  (`glass_map_constraint()`). Notebook 58.
+  (`glass_map_constraint()`). Notebook 58 (lens optimization).
 - `LensOptimizer`, described here, which uses scipy.
 
 A `LensOptimizer` varies curvatures and thicknesses of a system and

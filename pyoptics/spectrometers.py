@@ -2,7 +2,7 @@
 #-*- coding:utf-8 -*-
 
 """Ray traced spectrometers: the Czerny-Turner and the Offner imaging
-spectrometer, built from `raytrace.GratingSurface` (notebooks 110 and 122).
+spectrometer, built from `raytrace.GratingSurface` (notebooks 110 (grating and prism spectrometers) and 122 (imaging spectroscopy)).
 
 The builders return `raytrace.System` objects whose object is the
 entrance slit (a finite object at the distance of the collimator's focal
