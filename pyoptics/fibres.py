@@ -381,7 +381,7 @@ def smf28(x_core=0.032, a=4.4):
     step-index model: core radius 4.4 µm, GeO2-doped core (3.2 mol-%,
     Delta about 0.33 %) in a pure silica cladding. The parameters are chosen
     to match the data sheet: theoretical cutoff 1.35 µm (cabled cutoff below
-    1.26 µm), zero dispersion at 1.30 µm, D = 17.8 ps/(nm km) at 1550 nm,
+    1.26 µm), zero dispersion at 1.30 µm, D = 17.6 ps/(nm km) at 1550 nm,
     mode field diameters 9.3 µm at 1310 nm and 10.5 µm at 1550 nm (Petermann
     II). The real fibre has a nominal core radius of 4.1 µm and a profile
     that is not quite a step."""
@@ -536,8 +536,8 @@ def scalar_modes(fibre, wavelength, l_values=None, r_max=None, n_points=3000, ma
     l_values : iterable of int, optional
         Azimuthal orders to solve (default: l = 0, 1, ... while modes exist).
     r_max : number, optional
-        Outer radius of the window (Dirichlet wall), default 4 a (6 a for a
-        fibre with depressed regions).
+        Outer radius of the window (Dirichlet wall), default 6 a (the tail
+        of a single-mode fibre's mode near cutoff reaches beyond 4 a).
     n_points : int, optional
         Number of cells.
     max_modes : int, optional
@@ -551,7 +551,7 @@ def scalar_modes(fibre, wavelength, l_values=None, r_max=None, n_points=3000, ma
 
     k = 2*np.pi/wavelength
     if r_max is None:
-        r_max = 4*fibre.a
+        r_max = 6*fibre.a
     r, h, n2 = _radial_operator(fibre, wavelength, r_max, n_points)
     n_clad2 = float(fibre.n_clad(wavelength))**2
     lower = k**2*n_clad2
