@@ -71,6 +71,9 @@ Setup sketches for the other example notebooks:
   of operators, what each free-space operator does, rays through a ball lens
   handing over to waves at the caustic, a Mach-Zehnder interferometer with
   a small defect, and Babinet's principle (notebook 109).
+- diode_collimator(), fibre_coupling(): an astigmatic laser diode with an
+  aspheric collimator and a focusing lens, and a Gaussian beam focused into
+  a single-mode fibre by a spherical lens or an asphere (notebook 112).
 - rainbow_observer(): sun behind the observer, the rain, the antisolar
   point and the cones of the primary and secondary bow (notebook 71).
 - glory_aircraft(): the glory and the cloud bow around the shadow of an
@@ -285,7 +288,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "lensing_geometry", "echelle_layout", "sine_herschel_conditions", "adc_layout",
            "fresnel_interface", "kretschmann", "yee_grid", "lithography_scanner", "tcc_overlap",
            "mask_3d", "field_tracing_chain", "propagation_operators", "ball_lens_handover",
-           "mach_zehnder_defect", "babinet_split", "text_scale"]
+           "mach_zehnder_defect", "babinet_split", "diode_collimator", "fibre_coupling",
+           "text_scale"]
 
 
 GLASS = "#cfe3f3"
@@ -8108,3 +8112,151 @@ def babinet_split(ax, title=None):
     label(ax, centers[1], -1.0, "unobstructed field\n(coarse grid)", fontsize=8, va="top")
     label(ax, centers[2], -1.0, "field on the defect\n(own fine grid)", fontsize=8, va="top")
     _finish(ax, (-1.0, 6.2), (-1.65, 1.0), title)
+
+
+def _plano_convex_ray(y0, R, t, n=1.5):
+    """A ray parallel to the axis at the height y0 through a spherical
+    plano-convex lens, curved front (radius R, vertex at z = 0) and flat back
+    at z = t. Returns the vertices (front, back) and the exit direction."""
+
+    zf = R - np.sqrt(R**2 - y0**2)
+    p1 = np.array([zf, y0])
+    d1 = _refract(np.array([1.0, 0.0]), (p1 - [R, 0.0])/R, 1.0, n)
+    p2 = p1 + (t - zf)/d1[0]*d1
+    d2 = _refract(d1, np.array([-1.0, 0.0]), n, 1.0)
+    return np.array([p1, p2]), d2
+
+
+def diode_collimator(ax, astigmatism=True, title=None):
+    """Sketch of a laser diode collimated by an asphere and focused by a
+    second lens. The emitter radiates from a waist at its facet in one
+    direction and from a waist a little in front of it in the other
+    (astigmatism); the collimator, stigmatic for the first waist, leaves the
+    beam from the second one slightly divergent, and the focusing lens images the two waists to two
+    foci.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    astigmatism : bool, optional
+        Draw the second waist and the split focus.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    n, f1, a1 = 1.5, 1.3, 0.85
+    sag, _, z_v = _hyperbolic_lens(a1, f1, n, edge=0.06)
+    # the collimator: hyperbolic face towards the emitter (mirror image of
+    # _hyperbolic_lens), focus at z = 0
+    z_flat = f1 + z_v
+    yy = np.linspace(-a1, a1, 81)
+    pts = np.r_[np.c_[z_flat - z_v - sag(yy), yy], np.c_[np.full(2, z_flat), [a1, -a1]]]
+    ax.add_patch(mpatches.Polygon(pts, closed=True, facecolor=GLASS, edgecolor=EDGE, lw=1,
+                                  zorder=3))
+    z_l2, f2, z_end = 4.6, 1.9, 7.0
+    lens(ax, z_l2, 0.9, thickness=0.16)
+    ax.add_patch(mpatches.Rectangle((-0.75, -0.18), 0.75, 0.36, facecolor="0.8", edgecolor="0.4",
+                                    lw=0.8, zorder=4))
+    label(ax, -0.37, -0.25, "laser diode", fontsize=8, va="top")
+    for h in np.linspace(-0.7, 0.7, 9):
+        verts, e = _lens_ray(h, 0.0, a1, f1, n, z_start=0.0)
+        # mirror the collimated-to-focus ray of _lens_ray about the lens
+        zq, yq = z_flat - verts[2, 0], verts[2, 1]
+        ax.plot([0.0, zq, z_flat, z_l2], [0.0, yq, h, h], color=LASER, lw=0.9, zorder=2)
+        ax.plot([z_l2, z_l2 + f2], [h, 0.0], color=LASER, lw=0.9, zorder=2)
+        ax.plot([z_l2 + f2, z_end], [0.0, -h*(z_end - z_l2 - f2)/f2], color=LASER, lw=0.6,
+                ls=":", zorder=2)
+    label(ax, f1 - 0.2, -a1 - 0.12, "asphere\n(collimator)", va="top", fontsize=8)
+    label(ax, z_l2, -1.02, "focusing\nlens", va="top", fontsize=8)
+    label(ax, (z_flat + z_l2)/2, 0.95, "collimated beam", fontsize=8, color=LASER)
+    if astigmatism:
+        d = 0.3
+        ax.plot(0.0, 0.0, "o", color=REFERENCE, ms=4, zorder=7)
+        ax.plot(d, 0.0, "o", color=LASER, ms=4, zorder=7)
+        label(ax, -0.05, 0.42, "waist x", fontsize=8, color=REFERENCE, ha="right")
+        label(ax, d + 0.05, 0.42, "waist y", fontsize=8, color=LASER, ha="left")
+        arrow(ax, 0.0, -0.45, d, -0.45, color="0.2", style="<|-|>")
+        label(ax, d/2, -0.58, "Δ", fontsize=8, va="top")
+        zf = z_l2 + f2
+        dd = 0.45
+        ax.plot(zf, 0.0, "o", color=REFERENCE, ms=4, zorder=7)
+        ax.plot(zf + dd, 0.0, "o", color=LASER, ms=4, zorder=7)
+        arrow(ax, zf, -0.55, zf + dd, -0.55, color="0.2", style="<|-|>")
+        label(ax, zf + dd/2, -0.68, "≈ Δ (f₂/f₁)²", fontsize=8, va="top")
+        label(ax, zf - 0.05, 0.25, "x focus", fontsize=8, color=REFERENCE, ha="right")
+        label(ax, zf + dd + 0.05, 0.25, "y focus", fontsize=8, color=LASER, ha="left")
+    _finish(ax, (-0.9, 7.1), (-1.45, 1.15), title)
+
+
+def fibre_coupling(ax, lens="aspheric", title=None):
+    """Sketch of a collimated Gaussian beam focused into a single-mode
+    fibre. A spherical lens focuses the outer rays short of the paraxial
+    focus (spherical aberration), an asphere brings all of them to one
+    point. The coupling efficiency is the overlap of the focused field with
+    the fibre mode.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    lens : str, optional
+        "aspheric" (a plano-convex lens with a hyperbolic back) or
+        "spherical" (a plano-convex lens with the curved side towards the
+        beam).
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    n, f, a = 1.5, 2.0, 0.8
+    z_lens, w = 1.4, 0.32
+    s = np.linspace(-1.0, 1.0, 101)
+    # Gaussian beam profile on the left
+    ax.plot(0.25 + 0.35*np.exp(-2*s**2/(w/0.75)**2*0.75**2), 0.75*s, color=LASER, lw=1.1,
+            zorder=4)
+    rays = np.linspace(-0.65, 0.65, 11)
+    if lens == "spherical":
+        R, t = (n - 1)*f, 0.5
+        zz = np.linspace(-a, a, 81)
+        front = R - np.sqrt(R**2 - zz**2)
+        z_back = z_lens + t
+        pts = np.r_[np.c_[z_lens + front, zz], np.c_[np.full(2, z_back), [a, -a]]]
+        ax.add_patch(mpatches.Polygon(pts, closed=True, facecolor=GLASS, edgecolor=EDGE, lw=1,
+                                      zorder=3))
+        z_focus = z_back + f - t/n
+        for h in rays:
+            verts, e = _plano_convex_ray(h, R, t, n)
+            verts = verts + [z_lens, 0.0]
+            p_end = verts[1] + (z_focus + 0.5 - verts[1, 0])/e[0]*e
+            ax.plot([0.0, verts[0, 0], verts[1, 0], p_end[0]], [h, h, verts[1, 1], p_end[1]],
+                    color=LASER, lw=0.9, zorder=2)
+        label(ax, z_lens + 0.2, -a - 0.12, "spherical lens", va="top", fontsize=8)
+        label(ax, z_focus - 0.75, 0.62, "outer rays focus\nshort (spherical\naberration)",
+              fontsize=8, color=STRAY, va="bottom")
+    else:
+        sag, _, z_v = _hyperbolic_lens(a, f, n)
+        yy = np.linspace(-a, a, 81)
+        pts = np.r_[np.c_[np.full(2, z_lens), [-a, a]], np.c_[z_lens + z_v + sag(yy[::-1]), yy[::-1]]]
+        ax.add_patch(mpatches.Polygon(pts, closed=True, facecolor=GLASS, edgecolor=EDGE, lw=1,
+                                      zorder=3))
+        z_focus = z_lens + z_v + f
+        for h in rays:
+            verts, e = _lens_ray(h, 0.0, a, f, n, z_start=0.0)
+            verts = verts + [z_lens, 0.0]
+            p_end = verts[2] + (z_focus + 0.5 - verts[2, 0])/e[0]*e
+            ax.plot([0.0, verts[1, 0], verts[2, 0], p_end[0]], [h, h, verts[2, 1], p_end[1]],
+                    color=LASER, lw=0.9, zorder=2)
+        label(ax, z_lens + 0.2, -a - 0.12, "asphere", va="top", fontsize=8)
+        label(ax, z_focus - 0.75, 0.62, "all rays meet\nin one point", fontsize=8,
+              color=EMISSION, va="bottom")
+    # fibre: cladding and core, the mode profile on its face
+    z_f = z_focus
+    ax.add_patch(mpatches.Rectangle((z_f, -0.42), 2.0, 0.84, facecolor="#eeeeee",
+                                    edgecolor="0.5", lw=0.8, zorder=1))
+    ax.add_patch(mpatches.Rectangle((z_f, -0.07), 2.0, 0.14, facecolor="#f6d7b0",
+                                    edgecolor="0.5", lw=0.6, zorder=1.5))
+    ax.plot(z_f + 1.25 + 0.35*np.exp(-2*(s*0.42)**2/0.07**2), s*0.42, color=REFERENCE, lw=1.1,
+            zorder=4)
+    label(ax, z_f + 1.0, -0.55, "single-mode fibre", va="top", fontsize=8)
+    label(ax, z_f + 1.25, 0.55, "mode M", fontsize=8, color=REFERENCE, va="bottom")
+    label(ax, 0.4, -0.9, "Gaussian\nbeam E", fontsize=8, color=LASER, va="top")
+    label(ax, z_f + 1.0, 1.05, "η = |∫ E·M* dA|² / (P_E P_M)", fontsize=9)
+    _finish(ax, (-0.1, z_f + 2.1), (-1.25, 1.25), title)

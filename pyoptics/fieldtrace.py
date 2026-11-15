@@ -557,6 +557,34 @@ class Field(object):
         dA = _spacing(self.x)*(1.0 if self.one_d else _spacing(self._y))
         return float(np.sum(self.irradiance())*dA)
 
+    def overlap(self, mode):
+        """Power coupling efficiency into a mode (a Field, e.g. the mode of a
+        single-mode fibre)::
+
+            eta = |integral E . conj(M) dA|**2 / (integral |E|**2 dA * integral |M|**2 dA)
+
+        The overlap integral runs on the grid of the mode (the field is
+        resampled onto it, its analytic phase kept); the power of the field
+        is its whole power, so light outside the mode's window counts as
+        lost. Both fields are taken in the same plane and medium.
+
+        Parameters
+        ----------
+        mode : Field
+
+        Returns
+        -------
+        eta : float
+        """
+        if mode.one_d != self.one_d:
+            raise ValueError("field and mode must both be one- or two-dimensional")
+        g = self.resample(mode.x, None if mode.one_d else mode._y)
+        Eg = np.stack(g.E(), axis=-1)
+        Em = np.stack(mode.E(), axis=-1)
+        dA = _spacing(mode.x)*(1.0 if mode.one_d else _spacing(mode._y))
+        c = np.sum(Eg*np.conj(Em))*dA
+        return float(np.abs(c)**2/(self.power()*mode.power()))
+
     def ez_share(self):
         """Share of ``|E_z|**2`` in the total ``|E|**2`` (cheap, local plane waves)."""
         Ez = self._derived("local")[0]
@@ -1615,17 +1643,24 @@ class Detector(Step):
     quantities : sequence of str, optional
         Any of "irradiance" (``|E|**2``, incl. ``|E_z|**2`` if the chain is vectorial,
         or, in "auto" mode, if E_z carries more than tol of the power),
-        "E" (E_x, E_y), "Ez", "H", "poynting", "power".
+        "E" (E_x, E_y), "Ez", "H", "poynting", "power", "coupling" (power
+        coupling efficiency into mode, see Field.overlap()).
     x, y : arrays, optional
         Detector grid (default: the field's; for a FieldSum the union of the
         part windows, see FieldSum.default_grid()). The parts of a FieldSum
         are added coherently on it.
+    mode : Field, optional
+        Mode for the "coupling" quantity (e.g. ft.gaussian() with the mode
+        field radius of a single-mode fibre), centred on the detector.
     """
 
-    def __init__(self, name, quantities=("irradiance",), x=None, y=None):
+    def __init__(self, name, quantities=("irradiance",), x=None, y=None, mode=None):
         self.name = name
         self.quantities = tuple(quantities)
         self.x, self.y = x, y
+        self.mode = mode
+        if "coupling" in self.quantities and mode is None:
+            raise ValueError("the coupling quantity needs a mode")
         self.label = "detector {!r}".format(name)
 
     def apply(self, field, ctx):
@@ -1660,6 +1695,9 @@ class Detector(Step):
                 values[q] = field.poynting()
             elif q == "power":
                 values[q] = field.power()
+            elif q == "coupling":
+                values[q] = (passed.combined() if isinstance(passed, FieldSum)
+                             else passed).overlap(self.mode)
             else:
                 raise ValueError("unknown quantity {!r}".format(q))
         ctx.setdefault("detectors", {})[self.name] = DetectorRecord(self.name, field.copy(), values)
