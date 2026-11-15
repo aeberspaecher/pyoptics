@@ -834,7 +834,7 @@ class GratingSurface(Surface):
 
     with g_t the projection of the local grating vector onto the tangent
     plane (the surface gradient of u, i.e. of the phase 2*pi*m*u/period).
-    The normal component follows from |d'| = 1: on the same side as d for a
+    The normal component follows from the unit length of d': on the same side as d for a
     transmission grating, on the other side for a reflection grating
     (mirror=True). Orders that do not propagate give NaN (lost rays). For a
     plane transmission grating in the y-z plane this is ::
