@@ -62,7 +62,7 @@ def test_helmholtz_equation_inside_and_outside():
 
 
 def test_wpm_focus_of_cylinder():
-    # ball lens in 2D (notebook 05): the WPM finds the focus of the exact solution
+    # ball lens in 2D (notebook 05, wave propagation method): the WPM finds the focus of the exact solution
     wpm = pytest.importorskip("pyoptics.wpm")
     a, n, w = 10.0, 1.5, 15.0
     L, N = 96.0, 512

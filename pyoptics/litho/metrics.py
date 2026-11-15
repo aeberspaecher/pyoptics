@@ -31,7 +31,7 @@ the level crossings of its trigonometric interpolant
 (pyoptics.interpolator.level_crossings()). Aerial images are band limited
 to 2*NA/wavelength, so a grid finer than wavelength/(4*NA) gives the exact
 edges, where linear interpolation needs many points per pitch (notebook
-107).
+107, Fourier interpolation of aerial images).
 
 References
 ----------

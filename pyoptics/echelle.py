@@ -4,7 +4,7 @@
 """Echelle spectrographs: the grating equation in high orders, the blaze,
 the free spectral range, cross-dispersion and the two-dimensional
 echellogram, and the resolving power against the slit width (notebook
-100).
+100, echelle spectrograph).
 
 An echelle is a coarse grating (tens of grooves per mm) with right-angle
 grooves, used close to the Littrow configuration at a steep blaze angle

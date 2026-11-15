@@ -3978,7 +3978,7 @@ _DELANO_KRF_ASPHERES = {
     39: (1.295033694e-09, -9.681036151e-13, -1.166000468e-17),
 }
 
-# the same lens corrected without aspheres (notebook 43)
+# the same lens corrected without aspheres (notebook 43, Delano diagrams)
 _DELANO_KRF_SPHERICAL = """
  1    -106.395492871     9.995303680 S  59.5646
  2   -2818.408379695     6.355490278 A  62.5919
@@ -4028,7 +4028,7 @@ def delano_krf_lens(wavelength=248.3e-6, spherical=False):
     """20 element all fused silica KrF projection lens with 5 aspheres,
     NA 0.7, 4x, 1 m.
 
-    Designed in notebook 43 ("Delano diagrams"): first order layout in the
+    Designed in notebook 43 (Delano diagrams) ("Delano diagrams"): first order layout in the
     y-ybar diagram (`delano.refine()`: two waists, Petzval sum zero,
     telecentric on both sides), thick singlets (`delano.thicken()`) and real
     ray correction (`lens_optimization.LensOptimizer`, aperture and field
@@ -4052,7 +4052,7 @@ def delano_krf_lens(wavelength=248.3e-6, spherical=False):
     spherical : bool, optional
         The same 20 elements corrected without aspheres in the same way
         (about 0.4 to 0.55 waves RMS), the starting point for the choice
-        of the aspheric surfaces in notebook 43.
+        of the aspheric surfaces in notebook 43 (Delano diagrams).
 
     Returns
     -------

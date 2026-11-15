@@ -41,7 +41,7 @@ tolerance. The ingredients:
   without tracing the tolerances again, e.g. to choose manipulators.
 - `yield_fraction()`: the fraction of lenses within the specification.
 
-Notebook 70.
+Notebook 70 (Monte Carlo tolerancing).
 
 References
 ----------

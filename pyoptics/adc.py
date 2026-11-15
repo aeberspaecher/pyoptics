@@ -2,7 +2,7 @@
 #-*- coding:utf-8 -*-
 
 """Atmospheric refraction and dispersion, and the atmospheric dispersion
-corrector (ADC) of a telescope (notebook 101).
+corrector (ADC) of a telescope (notebook 101, atmospheric dispersion corrector).
 
 Air bends the light of a star towards the zenith by the refraction R(z),
 about a minute of arc at the zenith angle z = 45°, and more for blue than

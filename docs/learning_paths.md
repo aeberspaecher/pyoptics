@@ -9,7 +9,7 @@ earlier one, its introduction usually says so.
 
 Most readers profit from {doc}`conventions` and {doc}`00 Foundations and conventions <notebooks/00_foundations_conventions>` early: they fix the
 signs of phases, radii, angles and Zernikes that every other notebook uses.
-Readers new to optics can leave notebook 00 for later and read it as a
+Readers new to optics can leave notebook 00 (foundations and conventions) for later and read it as a
 summary, and start instead with {doc}`103 Introduction to geometrical optics <notebooks/103_geometrical_optics_intro>`:
 the lens equation, real and virtual images, principal planes, the
 magnifier, microscope and telescope, the Seidel aberrations and the
