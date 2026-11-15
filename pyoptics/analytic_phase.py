@@ -551,13 +551,25 @@ def _fit_separable_quadratic(phase, KX, KY, weight):
     m = w > 0
     kx, ky = KX.ravel()[m], KY.ravel()[m]
     # scale the columns for a well conditioned system
+    # an axis whose wavenumbers all coincide (e.g. a field that does not depend
+    # on y) has no quadratic or linear term to fit
+    fit_x = np.ptp(kx) > 0
+    fit_y = np.ptp(ky) > 0
     sx = max(np.max(np.abs(kx)), 1E-300)
     sy = max(np.max(np.abs(ky)), 1E-300)
     u, v = kx/sx, ky/sy
-    M = np.stack([u**2, v**2, u, v, np.ones_like(u)], axis=1)*w[m, None]
+    columns = ([u**2] if fit_x else []) + ([v**2] if fit_y else []) \
+        + ([u] if fit_x else []) + ([v] if fit_y else []) + [np.ones_like(u)]
+    M = np.stack(columns, axis=1)*w[m, None]
     coeffs, *_ = np.linalg.lstsq(M, phase.ravel()[m]*w[m], rcond=None)
-    a, b, c, d, e = coeffs
-    return a/sx**2, b/sy**2, c/sx, d/sy, e
+    coeffs = list(coeffs)
+    a = coeffs.pop(0) if fit_x else 0.0
+    b = coeffs.pop(0) if fit_y else 0.0
+    c = coeffs.pop(0) if fit_x else 0.0
+    d = coeffs.pop(0) if fit_y else 0.0
+    e = coeffs.pop(0)
+    return (a/sx**2 if fit_x else 0.0, b/sy**2 if fit_y else 0.0,
+            c/sx if fit_x else 0.0, d/sy if fit_y else 0.0, e)
 
 
 def tilted_plane(field, z0, R=None, angles=None, x_out=None, y_out=None, N_out=None,
