@@ -123,7 +123,8 @@ What each module does and how mature it is. Planned work is listed in
   the angular spectrum grid of a field)
 - `materials`: Abbe (n_d, V_d) dispersion model via a two-term Cauchy
   formula, the index of water (Daimon and Masumura, 20 deg C) and of
-  standard air (Ciddor), tested
+  standard air (Ciddor), and of GeO₂-doped silica (Fleming's Sellmeier
+  data for SiO₂ and GeO₂ with a linear mixing rule), tested
 - `rainbow`: new, tested: rays through a spherical drop with any number of
   internal reflections (exact vector trace, Fresnel factors for s and p),
   Descartes' angles, the geometric cross section of every order, Airy's
@@ -598,6 +599,31 @@ What each module does and how mature it is. Planned work is listed in
   form, group delays of rays through a prism, x-t synthesis of a dispersed
   beam); exact focused Gaussian beamlets and the axial pulse of
   simultaneous spatial and temporal focusing (notebook 81)
+- `fibres`: new, tested: optical fibres in practical units (µm, km, ps,
+  ps/(nm km)); radial index profiles (step, graded with any exponent,
+  triangular, W, GeO₂-doped silica after Fleming and a G.652 standard fibre
+  model `smf28()`), the NA, V number and acceptance angle; ray classes
+  (bound, tunnelling, refracting), meridional and skew rays in a step core,
+  graded cores as `grin.IndexField` for `grin.trace()`; a radial finite
+  volume scalar mode solver (LP modes of any profile, checked against the
+  characteristic equation and the parabolic analytic modes), exact vector
+  modes of the step fibre, Petermann II mode field diameter and Marcuse's
+  bend loss; effective and group index, dispersion D and slope by finite
+  differences, material and waveguide dispersion (Gloge), WKB group delays
+  and delay spreads of multimode fibres and the optimal profile exponent
+  (Olshansky and Keck), PMD of random birefringent sections; loss spectrum
+  of silica (Rayleigh, UV, IR and OH); fibre Bragg gratings by coupled mode
+  theory (uniform analytic, piecewise uniform transfer matrices with
+  apodization, chirp and phase shifts; checked against `thin_films`), group
+  delay and the Bragg shift with strain and temperature (notebooks 115 to
+  120)
+- `fibrecomm`: new, tested: a basic intensity modulated fibre link; PRBS
+  patterns, NRZ transmitters with extinction ratio, rise time and transient
+  chirp, linear pulse propagation with β₂, β₃ and loss (checked against
+  the Gaussian formulas), PIN and APD receivers with shot and thermal noise
+  and a Gaussian filter, Q factor, BER and sensitivity (Agrawal), optimum
+  APD gain, eye diagrams and openings, power and rise-time budgets and the
+  Bellcore dispersion penalty (notebooks 118 to 120)
 - `TIE`: basic transport of intensity solver, partly tested
 - `ifta`: basic Gerchberg-Saxton and variants for beam shaping, tested
   (convergence of GS, HIO-HOO and over-compensation on a reachable target,
@@ -752,7 +778,10 @@ What each module does and how mature it is. Planned work is listed in
   delay and tilt), and the formation and reduction of speckle (polarization,
   wavelength and moving diffuser diversity, a laser projector), LEDs above a
   plane and LED collimators, the ray map of a beam shaper, a two-lens
-  flat-top shaper and a freeform lens projecting a picture
+  flat-top shaper and a freeform lens projecting a picture; fibres (step,
+  graded and single-mode cross sections, the acceptance cone, skew rays in
+  an end view, the transverse resonance of a slab, the dispersion
+  mechanisms, a fibre Bragg grating and a basic link)
 - `interpolator`: trigonometric (Fourier) interpolation of periodic images
   and complex fields, tested: along one axis at any points
   (`trig_interpolate()`), in 2D on any grid or at scattered points

@@ -102,6 +102,38 @@ notebooks/69_optical_vortices
 notebooks/81_ultrashort_pulses_lenses
 ```
 
+## Fibre optics and optical communication
+
+Light guided in glass fibres and the basics of sending bits through them:
+the acceptance angle and rays in step and graded-index cores, fibre modes
+and the single-mode condition, material, waveguide and intermodal
+dispersion with real GeO₂–SiO₂ data, pulse broadening and the bit-rate
+limit, fibre Bragg gratings, and a basic link with its receiver noise, eye
+diagrams and budgets. Related: LP modes and fibre coupling in
+{doc}`notebooks/09_mode_analysis`, waveguides in
+{doc}`notebooks/60_fdtd_photonic_circuits`, GRIN rods in
+{doc}`notebooks/77_grin_optics` and pulses in glass in
+{doc}`notebooks/81_ultrashort_pulses_lenses`.
+
+- {doc}`notebooks/115_fibre_rays_step_graded`
+- {doc}`notebooks/116_fibre_modes`
+- {doc}`notebooks/117_fibre_dispersion`
+- {doc}`notebooks/118_fibre_pulse_broadening`
+- {doc}`notebooks/119_fibre_bragg_gratings`
+- {doc}`notebooks/120_fibre_link`
+
+```{toctree}
+:hidden:
+:caption: Fibre optics and optical communication
+
+notebooks/115_fibre_rays_step_graded
+notebooks/116_fibre_modes
+notebooks/117_fibre_dispersion
+notebooks/118_fibre_pulse_broadening
+notebooks/119_fibre_bragg_gratings
+notebooks/120_fibre_link
+```
+
 ## Thin films, coatings and polarization
 
 Fresnel coefficients, layer stacks and coatings, Jones and Mueller calculus.
