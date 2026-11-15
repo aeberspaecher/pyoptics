@@ -317,3 +317,36 @@ def test_text_scale_enlarges_labels_only_inside():
         plt.close(fig)
     assert np.allclose(sizes[1], 1.5*np.array(sizes[0]))
     assert np.allclose(sizes[2], sizes[0])        # the factor does not leak out of the block
+
+
+@pytest.mark.parametrize("draw, kinds", [
+    (sketch.spectrometer_layout, ("czerny_turner", "prism_grating")),
+    (sketch.fts_layout, ("michelson", "jacquinot")),
+    (sketch.fabry_perot_layout, ("etalon", "lyot")),
+    (sketch.absorption_layout, ("cell", "levels")),
+    (sketch.imaging_spectrometer_layout, ("pushbroom", "offner", "cassi")),
+])
+def test_spectroscopy_sketches(draw, kinds):
+    for kind in kinds:
+        fig, ax = plt.subplots()
+        draw(ax, kind, title=kind)
+        assert ax.get_title() == kind and (ax.lines or ax.patches)
+        plt.close(fig)
+    fig, ax = plt.subplots()
+    with pytest.raises(ValueError):
+        draw(ax, "unknown")
+    plt.close(fig)
+
+
+def test_prism_sketch_bends_blue_most():
+    fig, ax = plt.subplots()
+    sketch.spectrometer_layout(ax, "prism_grating")
+    # the three exit rays of the prism: blue deviated most (lowest end point)
+    ends = {}
+    for line in ax.lines:
+        c = line.get_color()
+        z, y = line.get_data()
+        if c in (sketch._SPECTRUM["blue"], sketch._SPECTRUM["red"]) and len(z) == 2 and z[0] < 4:
+            ends.setdefault(c, []).append(y[-1])
+    assert min(ends[sketch._SPECTRUM["blue"]]) < min(ends[sketch._SPECTRUM["red"]])
+    plt.close(fig)
