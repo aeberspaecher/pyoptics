@@ -197,6 +197,10 @@ def test_paraxial_ray_imaging():
     sketch.ball_lens_handover,
     sketch.mach_zehnder_defect,
     sketch.babinet_split,
+    sketch.diode_collimator,
+    lambda ax: sketch.diode_collimator(ax, astigmatism=False),
+    sketch.fibre_coupling,
+    lambda ax: sketch.fibre_coupling(ax, lens="spherical"),
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()
