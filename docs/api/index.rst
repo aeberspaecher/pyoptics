@@ -15,6 +15,7 @@ Propagation
    pyoptics.propagators
    pyoptics.tilted
    pyoptics.analytic_phase
+   pyoptics.fieldtrace
    pyoptics.wpm
    pyoptics.fft
 
@@ -40,6 +41,7 @@ Rigorous electromagnetics (FDTD)
    pyoptics.fdfd
    pyoptics.fdfd.solver
    pyoptics.fdfd.radiation
+   pyoptics.fdfd.phase_space
 
 Beams, modes and paraxial optics
 --------------------------------
@@ -71,6 +73,7 @@ Imaging and ray tracing
    pyoptics.schlieren
    pyoptics.raytrace
    pyoptics.raywave
+   pyoptics.billiard
    pyoptics.grin
    pyoptics.cloak
    pyoptics.fresnel

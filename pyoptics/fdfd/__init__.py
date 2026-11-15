@@ -37,6 +37,9 @@ Building blocks
   circle around the structure into outgoing cylindrical waves, and the
   directionality of the emission; `circle_harmonics()` for the azimuthal
   numbers of modes.
+- `husimi_birkhoff()`: Husimi functions of a mode on the cavity boundary
+  in the Birkhoff coordinates of the ray picture (`pyoptics.billiard`),
+  incident and reflected (inside) or emerging (outside).
 
 Polarization and conventions
 ----------------------------
@@ -80,5 +83,7 @@ microcavity resonances.
 
 from .solver import Simulation, PointSource, PlaneWave, Resonance
 from .radiation import farfield, FarField, circle_harmonics
+from .phase_space import husimi_birkhoff, boundary_field
 
-__all__ = ["Simulation", "PointSource", "PlaneWave", "Resonance", "farfield", "FarField", "circle_harmonics"]
+__all__ = ["Simulation", "PointSource", "PlaneWave", "Resonance", "farfield", "FarField", "circle_harmonics",
+           "husimi_birkhoff", "boundary_field"]

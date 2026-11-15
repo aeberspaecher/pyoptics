@@ -125,7 +125,8 @@ class Annulus(Shape):
 class PolarShape(Shape):
     """Star-shaped region (2D) bounded by a curve r(phi) in polar
     coordinates about a centre: the points with distance < r(phi) at their
-    polar angle phi.
+    polar angle phi. Subclasses may add a method dradius(phi) = dr/dphi
+    (used by `pyoptics.billiard`).
 
     Parameters
     ----------
@@ -172,9 +173,56 @@ class Limacon(PolarShape):
         self.R, self.eps = float(radius), float(eps)
         super(Limacon, self).__init__(center, lambda phi: self.R*(1 + self.eps*np.cos(phi)))
 
+    def dradius(self, phi):
+        """dr/dphi."""
+        return -self.R*self.eps*np.sin(phi)
+
     def area(self):
         """Enclosed area pi R**2 (1 + eps**2/2)."""
         return np.pi*self.R**2*(1 + self.eps**2/2)
+
+
+class Stadium(PolarShape):
+    """Bunimovich stadium (2D): two half discs of radius R joined by the
+    straight sides y = +-R of length 2 a, centred on the centre, the long
+    axis along x. As a billiard it is fully chaotic for any a > 0
+    (Bunimovich 1979); a = 0 is the circle.
+
+    Parameters
+    ----------
+    center : (x, y)
+    radius : number
+        R, radius of the half discs (half the width).
+    half_length : number
+        a, half the length of the straight sides.
+    """
+
+    def __init__(self, center, radius, half_length):
+        if radius <= 0 or half_length < 0:
+            raise ValueError("the stadium needs radius > 0 and half_length >= 0")
+        self.R, self.a = float(radius), float(half_length)
+        super(Stadium, self).__init__(center, self._r)
+
+    def _r(self, phi):
+        c, s = np.abs(np.cos(phi)), np.abs(np.sin(phi))
+        R, a = self.R, self.a
+        with np.errstate(divide="ignore", invalid="ignore"):
+            t_line = np.where(s > 0, R/np.where(s > 0, s, 1.0), np.inf)
+        t_cap = a*c + np.sqrt(np.maximum(R**2 - a**2*s**2, 0.0))
+        return np.where(t_line*c <= a, t_line, t_cap)
+
+    def dradius(self, phi):
+        """dr/dphi."""
+        c, s = np.cos(phi), np.sin(phi)
+        R, a = self.R, self.a
+        with np.errstate(divide="ignore", invalid="ignore"):
+            d_line = -R*c*np.sign(s)/np.where(s != 0, s**2, 1.0)
+        d_cap = -a*np.sign(c)*s - a**2*s*c/np.sqrt(np.maximum(R**2 - a**2*s**2, 1e-300))
+        return np.where(self._r(phi)*np.abs(c) <= a*(1 + 1e-12), d_line, d_cap)
+
+    def area(self):
+        """Enclosed area pi R**2 + 4 a R."""
+        return np.pi*self.R**2 + 4*self.a*self.R
 
 
 class Polygon(Shape):
