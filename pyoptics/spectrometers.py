@@ -337,3 +337,197 @@ def czerny_turner(wavelength=550e-6, groove_density=1200.0, f_collimator=100.0,
     disp = linear_dispersion(wavelength, groove_density, f_camera, order, included_angle)*1e-6
 
     return CzernyTurner(system, alpha, beta, phi_1, sense*phi_2, grating_index, disp)
+
+
+def offner(wavelength=650e-6, R_primary=200.0, groove_density=40.0, order=-1,
+           slit_offset=30.0, slit_length=12.0, grating_size=40.0, primary_size=120.0,
+           grating_radius=None, image_shift=0.0):
+    """Offner imaging spectrometer: concave primary, convex grating, concave
+    tertiary (the primary used again), all concentric.
+
+    The slit lies in the object plane through the common centre of
+    curvature, offset by slit_offset in y and extended along x; its image
+    (magnification -1) lies at -slit_offset, dispersed along y. The grating,
+    of radius R_primary/2, is the aperture stop. The system is telecentric
+    on both sides (the stop is in the focal plane of the primary), so the
+    entrance pupil is at infinity: launch rays with `cone_rays()` rather than
+    with `System.rays()`.
+
+    Parameters
+    ----------
+    wavelength : number, optional
+        Design wavelength (mm); only the cone of rays launched depends on
+        it, the geometry is concentric for all wavelengths.
+    R_primary : number, optional
+        Radius of curvature of primary and tertiary (mm).
+    groove_density : number, optional
+        Lines per mm of the convex grating (along y).
+    order : int, optional
+        Diffraction order.
+    slit_offset, slit_length : numbers, optional
+        Height of the slit centre and its length (mm).
+    grating_size, primary_size : numbers, optional
+        Clear diameters (mm).
+    grating_radius : number, optional
+        Radius of the grating; default R_primary/2 (exact Offner).
+    image_shift : number, optional
+        Detector distance from the object plane (mm, focus adjustment).
+
+    Returns
+    -------
+    raytrace.System
+        Object: the slit plane (object_height = (slit_length/2,
+        slit_offset)); image plane: the detector, in the object plane.
+    """
+
+    R1 = float(R_primary)
+    R2 = R1/2 if grating_radius is None else float(grating_radius)
+    surfaces = [rt.Surface(-R1, -(R1 - R2), mirror=True, semi_diameter=primary_size/2,
+                           label="primary"),
+                rt.GratingSurface(-R2, R1 - R2, period=1.0/groove_density, order=order,
+                                  mirror=True, semi_diameter=grating_size/2, label="grating"),
+                rt.Surface(-R1, -R1 + image_shift, mirror=True, semi_diameter=primary_size/2,
+                           label="tertiary")]
+
+    return rt.System(surfaces, 1, wavelength, object_distance=R1,
+                     object_height=(slit_length/2, slit_offset))
+
+
+def cone_rays(system, point, na, n=21, axis=(0.0, 0.0, 1.0)):
+    """Rays from an object point filling a cone (a square grid of direction
+    cosines inside the circle of radius na about the axis).
+
+    Use it for telecentric systems (`offner()`), where `System.rays()`
+    cannot aim at an entrance pupil at infinity; rays outside the stop are
+    vignetted by the trace.
+
+    Parameters
+    ----------
+    system : raytrace.System
+        With a finite object distance.
+    point : (x, y)
+        Object point.
+    na : number
+        Sine of the half angle of the cone.
+    n : int, optional
+        Rays across the diameter.
+    axis : 3-vector, optional
+        Axis of the cone (unit vector).
+
+    Returns
+    -------
+    raytrace.Rays
+    """
+
+    u = np.linspace(-na, na, n)
+    U, V = np.meshgrid(u, u)
+    inside = U**2 + V**2 <= na**2*(1 + 1e-12)
+    U, V = U[inside], V[inside]
+    axis = np.asarray(axis, float)/np.linalg.norm(axis)
+    # an orthonormal frame with axis as its z:
+    e1 = np.cross([0.0, 1.0, 0.0], axis)
+    if np.linalg.norm(e1) < 1e-12:
+        e1 = np.array([1.0, 0.0, 0.0])
+    e1 /= np.linalg.norm(e1)
+    e2 = np.cross(axis, e1)
+    W = np.sqrt(1 - U**2 - V**2)
+    d = U[:, None]*e1 + V[:, None]*e2 + W[:, None]*axis
+    P = np.tile([point[0], point[1], -system.object_distance], (len(d), 1))
+
+    return rt.Rays(P, d, np.zeros(len(d)))
+
+
+def image_points(system, field, wavelengths, na=None, n=21, px=None, py=None):
+    """Detector hits of the rays from one slit point at several wavelengths.
+
+    Parameters
+    ----------
+    system : raytrace.System
+        A spectrometer (finite object).
+    field : (x, y)
+        Slit point.
+    wavelengths : sequence
+        Wavelengths in mm.
+    na : number, optional
+        Launch a cone of this NA with `cone_rays()` (telecentric systems);
+        default: rays through the entrance pupil (px, py) of `System.rays()`.
+    n : int, optional
+        Rays across the cone or pupil diameter.
+    px, py : arrays, optional
+        Pupil coordinates; default a square grid inside the unit circle.
+
+    Returns
+    -------
+    list of (N, 2) arrays
+        (x, y) in the detector frame for each wavelength, NaN for lost rays.
+    """
+
+    if na is None and px is None:
+        u = np.linspace(-1, 1, n)
+        PX, PY = np.meshgrid(u, u)
+        inside = PX**2 + PY**2 <= 1 + 1e-12
+        px, py = PX[inside], PY[inside]
+    out = []
+    for wl in np.atleast_1d(wavelengths):
+        s = system.with_wavelength(float(wl))
+        if na is None:
+            bundle = s.trace_pupil(field, px, py)
+        else:
+            bundle = s.trace(cone_rays(s, field, na, n))
+        P = s.to_image_frame(bundle.points[-1])
+        out.append(P[:, :2])
+
+    return out
+
+
+def centroids(system, slit_points, wavelengths, **kwargs):
+    """Centroids of the slit images: array (n_slit, n_wavelengths, 2).
+
+    Parameters
+    ----------
+    system : raytrace.System
+    slit_points : sequence of (x, y)
+    wavelengths : sequence
+    **kwargs :
+        Passed to `image_points()` (na, n).
+
+    Returns
+    -------
+    C : array
+        Centroid (x, y) on the detector of every slit point and wavelength.
+    """
+
+    C = np.empty((len(slit_points), len(np.atleast_1d(wavelengths)), 2))
+    for i, f in enumerate(slit_points):
+        for j, P in enumerate(image_points(system, f, wavelengths, **kwargs)):
+            C[i, j] = np.nanmean(P, axis=0)
+
+    return C
+
+
+def smile_keystone(C):
+    """Smile and keystone of a pushbroom spectrometer from the centroids of
+    `centroids()` (slit along x, dispersion along y).
+
+    Smile: the bending of the image of the straight slit at one wavelength,
+    y(x) - y(centre of the slit). Keystone: the change of the
+    magnification along the slit with the wavelength, x(lambda) - x(centre
+    wavelength), for each slit point.
+
+    Parameters
+    ----------
+    C : array (n_slit, n_wavelengths, 2)
+        The slit points ordered along the slit, with the centre one in the
+        middle; the wavelengths in order, the centre one in the middle.
+
+    Returns
+    -------
+    smile, keystone : arrays (n_slit, n_wavelengths)
+        In detector length units.
+    """
+
+    i0, j0 = C.shape[0]//2, C.shape[1]//2
+    smile = C[:, :, 1] - C[i0:i0 + 1, :, 1]
+    keystone = C[:, :, 0] - C[:, j0:j0 + 1, 0]
+
+    return smile, keystone
