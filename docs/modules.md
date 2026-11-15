@@ -84,7 +84,10 @@ What each module does and how mature it is. Planned work is listed in
   1D cuts (error against the converged SPW result, effort = converged
   samples), components (thin lens, thin element, aperture, interface, Jones
   matrices, any callable), detectors and a `Chain` with a step-by-step
-  report; polarization "auto" switches between scalar and vector fields
+  report; polarization "auto" switches between scalar and vector fields;
+  `Trace(system)` and `Chain.from_system()` take a field through a
+  `raytrace.System` (polarization ray trace, ray field summation) and hand
+  over to wave optics behind it
 - `fft`, `utils`, `masks`, `geometry`, `analytical`: mature and tested
   (`fft.czt()`: Bluestein's chirp-z transform; `fft.zoom_FT()` and
   `zoom_inv_FT()` evaluate `FT()` and `inv_FT()` on any equidistant grid)

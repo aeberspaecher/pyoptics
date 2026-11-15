@@ -266,7 +266,7 @@ def _maslov(M):
 
 
 def rays_to_field(x, y, points, directions, opl, wavelength, launch=None, irradiance=1.0, n=1.0,
-                  gouy=True, max_pairs=4_000_000):
+                  gouy=True, max_pairs=4_000_000, amplitude=None):
     """Sampled field from rays on a structured grid (ray field summation).
 
     Every cell of the ray grid is split into two triangles (tubes of rays).
@@ -302,12 +302,16 @@ def rays_to_field(x, y, points, directions, opl, wavelength, launch=None, irradi
         Include the phase -pi/2 per crossed caustic (Maslov index).
     max_pairs : int, optional
         Triangle-sample pairs evaluated at once (memory).
+    amplitude : complex array, shape (Nv, Nu) or (Nv, Nu, C), optional
+        Complex factors carried by the rays (e.g. the components of a
+        polarized field, Fresnel coefficients), interpolated linearly
+        (barycentric) inside every triangle and multiplied into the field.
 
     Returns
     -------
-    u : array, shape (len(y), len(x))
+    u : array, shape (len(y), len(x)) or (len(y), len(x), C)
         Complex field with ``|u|**2`` the geometrical irradiance and phase
-        k_0*OPL.
+        k_0*OPL (times the interpolated amplitude, one field per component C).
     """
 
     x, y = _grid(x, "x"), _grid(y, "y")
@@ -324,10 +328,21 @@ def rays_to_field(x, y, points, directions, opl, wavelength, launch=None, irradi
     else:
         Q = np.asarray(launch, dtype=float)[..., :2].reshape(-1, 2)
     I0 = np.broadcast_to(np.asarray(irradiance, dtype=float), shape).reshape(-1)
+    if amplitude is None:
+        a_ray = None
+        n_comp = 1
+    else:
+        a_ray = np.asarray(amplitude, dtype=complex)
+        squeeze = a_ray.ndim == 2
+        a_ray = a_ray.reshape(shape[0]*shape[1], -1)
+        n_comp = a_ray.shape[1]
+        finite_a = np.isfinite(a_ray).all(1)
     k0 = 2*np.pi/wavelength
 
     tri = _triangles(shape)
     finite = np.isfinite(P).all(1) & np.isfinite(d).all(1) & np.isfinite(S) & np.isfinite(Q).all(1)
+    if a_ray is not None:
+        finite &= finite_a
     tri = tri[finite[tri].all(1)]
     # affine map launch -> target per triangle
     Ep = np.stack([P[tri[:, 1]] - P[tri[:, 0]], P[tri[:, 2]] - P[tri[:, 0]]], -1)  # columns
@@ -366,7 +381,7 @@ def rays_to_field(x, y, points, directions, opl, wavelength, launch=None, irradi
     start = np.stack([np.roll(Vx, -1, 1), np.roll(Vy, -1, 1)], -1)  # vertex i+1 starts edge i
     area2 = np.abs(det_p)
 
-    out = np.zeros(Nx*Ny, dtype=complex)
+    out = np.zeros((Nx*Ny, n_comp), dtype=complex)
     order = np.cumsum(counts)
     first = 0
     while first < len(tri):
@@ -394,9 +409,17 @@ def rays_to_field(x, y, points, directions, opl, wavelength, launch=None, irradi
         Sv = S[v] + 0.5*n*(d[v, 0]*(px[:, None] - P[v, 0]) + d[v, 1]*(py[:, None] - P[v, 1]))
         val = amp[t]*np.exp(1j*k0*np.sum(lam*Sv, 1))
         idx = jy[inside]*Nx + jx[inside]
-        out += np.bincount(idx, val.real, Nx*Ny) + 1j*np.bincount(idx, val.imag, Nx*Ny)
+        if a_ray is None:
+            vals = val[:, None]
+        else:
+            vals = val[:, None]*np.einsum("pk,pkc->pc", lam, a_ray[v])
+        for c in range(n_comp):
+            out[:, c] += (np.bincount(idx, vals[:, c].real, Nx*Ny)
+                          + 1j*np.bincount(idx, vals[:, c].imag, Nx*Ny))
         first = last
-    return out.reshape(Ny, Nx)
+    if a_ray is None or squeeze:
+        return out[:, 0].reshape(Ny, Nx)
+    return out.reshape(Ny, Nx, n_comp)
 
 
 # Gaussian beamlets:

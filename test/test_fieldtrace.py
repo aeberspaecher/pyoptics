@@ -383,3 +383,72 @@ def test_chain_list_behaviour_and_function_step():
     x = np.linspace(-1, 1, 32)
     res = nested.run(ft.gaussian(0.3, WL, x, x), keep=True)
     assert len(res.fields) == 3
+
+
+# --------------------------------------------------------------------------
+# Trace: geometrical optics through raytrace.System
+# --------------------------------------------------------------------------
+
+def _ideal_lens_system(f=100.0, back=50.0):
+    from pyoptics.raytrace import System, IdealLens
+    return System([IdealLens(f, thickness=back, semi_diameter=5.0)], 0, WL)
+
+
+def test_trace_ideal_lens_matches_thin_lens():
+    x = np.linspace(-3, 3, 96)
+    src = ft.gaussian(1.0, WL, x, x)
+    a = ft.Chain([ft.Trace(_ideal_lens_system())]).run(src).field
+    b = ft.Chain([ft.ThinLens(100.0), ft.Propagate(50.0, method="spw")]).run(src).field
+    assert a.z == pytest.approx(50.0)
+    # geometrical optics lacks the (small) Gouy phase difference
+    assert rel(a.resample(b.x, b.y).E()[0], b.E()[0]) < 3E-2
+    assert a.power() == pytest.approx(src.power(), rel=1E-2)
+
+
+def test_trace_fresnel_losses_and_power():
+    from pyoptics.raytrace import System, Surface
+    sysm = System([Surface(R=200.0, thickness=5.0, n_after=1.5, semi_diameter=10.0),
+                   Surface(R=np.inf, thickness=20.0, n_after=1.0, semi_diameter=10.0)], 0, WL)
+    x = np.linspace(-3, 3, 96)
+    src = ft.gaussian(1.0, WL, x, x)
+    out = ft.Chain([ft.Trace(sysm)]).run(src).field
+    T = (1 - 0.04)**2
+    assert out.power()/src.power() == pytest.approx(T, rel=1E-2)
+
+
+def test_trace_depolarization_of_a_ball_lens():
+    from pyoptics.raytrace import System, Surface
+    wl, a, n = 0.5, 50.0, 1.5
+    sysm = System([Surface(R=a, thickness=2*a, n_after=n, semi_diameter=0.999*a),
+                   Surface(R=-a, thickness=0.5, n_after=1.0, semi_diameter=0.999*a)], 0, wl)
+    x = np.linspace(-45, 45, 121)
+    X, Y = np.meshgrid(x, x)
+    src = ft.Field(np.exp(-(np.hypot(X, Y)/25.0)**6), x, x, wl, z=-a)
+    res = ft.Chain([ft.Trace(sysm, distance=0.0)]).run(src, polarization="vector")
+    Ex, Ey = res.field.E()
+    share = np.sum(np.abs(Ey)**2)/np.sum(np.abs(Ex)**2)
+    assert 1E-5 < share < 0.1
+    # cross polarized lobes in the four quadrants: odd in x and in y
+    assert rel(Ey[:, ::-1], -Ey) < 0.05
+    assert rel(Ey[::-1, :], -Ey) < 0.05
+    assert rel(Ex[:, ::-1], Ex) < 0.05
+    # auto mode keeps the vector field only where it matters
+    auto = ft.Chain([ft.Trace(sysm)]).run(src, tol=0.5)
+    assert not auto.field.is_vector
+
+
+def test_chain_from_system_hands_over_to_wave_optics():
+    sysm = _ideal_lens_system()
+    chain = ft.Chain.from_system(sysm, gap=10.0, method="spw")
+    assert [type(s) for s in chain] == [ft.Trace, ft.Propagate]
+    assert chain[1].z == pytest.approx(40.0)
+    assert sysm.surfaces[-1].thickness == 50.0
+    x = np.linspace(-3, 3, 96)
+    src = ft.gaussian(1.0, WL, x, x)
+    a = chain.run(src).field
+    b = ft.Chain.from_system(sysm).run(src).field
+    assert len(ft.Chain.from_system(sysm)) == 1
+    assert a.z == pytest.approx(b.z)
+    assert rel(b.resample(a.x, a.y).E()[0], a.E()[0]) < 3E-2
+    with pytest.raises(ValueError):
+        ft.Chain.from_system(sysm, gap=60.0)

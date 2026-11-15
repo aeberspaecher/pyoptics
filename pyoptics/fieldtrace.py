@@ -92,6 +92,18 @@ approximation for a height profile between two media), `PhaseScreen`,
 (constant or spatially varying Jones matrix), `Function` (any callable on a
 Field) and `Detector` (records the field and derived quantities).
 
+Lens systems
+------------
+`Trace(system)` takes the field through the surfaces of a raytrace.System
+with geometrical optics: one ray per sample along the local wave vector,
+an exact polarization ray trace (Fresnel coefficients or coatings at every
+surface) and ray field summation in the output plane with the energy law of
+the ray tubes. `Chain.from_system(system, gap=...)` hands the field over to
+wave optics a short distance behind the last surface, so that foci and
+caustics are propagated with the automatically chosen free-space operator::
+
+    chain = ft.Chain.from_system(ball_lens, gap=0.5) + [ft.Detector("focus")]
+
 Conventions as in pyoptics.propagators: fields vary as exp(i(k.r - omega*t)),
 lengths in one unit (mm throughout pyoptics), wavelengths in vacuum.
 
@@ -119,6 +131,7 @@ from .utils import wavenumber
 
 __all__ = ["Field", "gaussian", "from_array", "Chain", "ChainResult", "Step", "Propagate",
            "ThinLens", "ThinElement", "PhaseScreen", "Aperture", "Interface", "Jones", "Function",
+           "Trace",
            "Detector", "DetectorRecord", "PropagationFailure", "estimate_propagation", "METHODS", "Z0"]
 
 
@@ -1330,6 +1343,170 @@ class Function(Step):
         return self.func(field), {"method": "user"}
 
 
+class Trace(Step):
+    """Geometrical optics field tracing through a raytrace.System.
+
+    The field (in the object space medium, in a plane normal to the axis a
+    distance in front of the first vertex) is converted into a structured
+    grid of rays along its local phase gradient (local plane waves). The rays
+    are traced exactly through the surfaces with their polarization
+    (System.trace_polarization(): Fresnel coefficients or coatings at every
+    surface, i.e. the local plane interface approximation) to the image
+    plane of the system. There the field is assembled by ray field summation
+    (raywave.rays_to_field()): every triangle of neighbouring rays is a tube
+    whose irradiance follows from the energy law, ::
+
+        n_out cos_out |E_out|**2 dA_out = T n_in cos_in |E_in|**2 dA_in
+
+    (T: power transmittance of the ray), its phase from the optical path,
+    and the tubes of all sheets covering a sample are added (caustics, with
+    the Maslov phase). The quadratic part of the output phase is kept
+    analytic. The polarization is traced vectorially: an x polarized input
+    generally leaves with E_y (and E_z) components.
+
+    Parameters
+    ----------
+    system : raytrace.System
+        The surfaces; its image plane is the output plane (the thickness of
+        the last surface).
+    distance : number, optional
+        Distance of the field plane in front of the first vertex.
+    n_rays : int, optional
+        Rays per axis (over the lit part of the field; default: the field's
+        samples, at most 256).
+    x_out, y_out : arrays, optional
+        Output grid in the image plane (default: the footprint of the rays
+        with the input's number of samples, or more where the residual
+        phase needs them, at most max_N per axis).
+    clip : bool, optional
+        Vignette rays outside the semi diameters.
+    coatings, media : dicts, optional
+        Passed to System.trace_polarization().
+    """
+
+    def __init__(self, system, distance=0.0, n_rays=None, x_out=None, y_out=None, clip=True,
+                 coatings=None, media=None, max_N=2048, label=None):
+        self.system = system
+        self.max_N = int(max_N)
+        self.distance = float(distance)
+        self.n_rays = n_rays
+        self.x_out, self.y_out = x_out, y_out
+        self.clip = clip
+        self.coatings, self.media = coatings, media
+        self.label = label or "trace {} surfaces".format(len(system.surfaces))
+
+    def apply(self, field, ctx):
+        from .raytrace import Rays
+        from .raywave import rays_to_field
+
+        if field.one_d:
+            raise ValueError("Trace needs a two-dimensional field")
+        sysm = self.system
+        notes = []
+        n_in = sysm.n[0]
+        if not np.isclose(np.real(field.n), n_in):
+            notes.append("field medium n={} differs from the object space n={}".format(field.n, n_in))
+        k0 = wavenumber(field.wavelength)
+        if not np.isclose(field.wavelength, sysm.wavelength, rtol=1E-9):
+            notes.append("field wavelength differs from the system's: tracing at the system's indices")
+        C = field._components()
+        I = np.sum(np.abs(C)**2, axis=2)
+        lit = I > 1E-8*I.max()
+        rows, cols = np.flatnonzero(np.any(lit, axis=1)), np.flatnonzero(np.any(lit, axis=0))
+        # one ray beyond the lit region on each side
+        r0, r1 = max(rows[0] - 1, 0), min(rows[-1] + 1, I.shape[0] - 1)
+        c0, c1 = max(cols[0] - 1, 0), min(cols[-1] + 1, I.shape[1] - 1)
+        nr = self.n_rays or min(256, max(r1 - r0, c1 - c0) + 1)
+        iy = np.unique(np.round(np.linspace(r0, r1, nr)).astype(int))
+        ix = np.unique(np.round(np.linspace(c0, c1, nr)).astype(int))
+        # complete phase of the dominant component (unwrapped) and the local
+        # wave vector (from the analytic phase where the field is dark)
+        dom = int(np.argmax(np.sum(np.abs(C)**2, axis=(0, 1))))
+        q = field._qpf(dom) if field.is_vector else field._qpf(0)
+        Phi = _unwrapped_phase(q)
+        Phi = np.where(lit, Phi, field._phase())
+        gy, gx = np.gradient(Phi, field._y, field.x)
+        X, Y = np.meshgrid(field.x, field._y)
+        sel = np.ix_(iy, ix)
+        Xs, Ys, kx, ky = X[sel], Y[sel], gx[sel], gy[sel]
+        k = np.real(field.k)
+        kz2 = k**2 - kx**2 - ky**2
+        if np.any(kz2[lit[sel]] <= 0):
+            raise PropagationFailure("Trace: evanescent local wave vectors in the input")
+        kz = np.sqrt(np.maximum(kz2, 1E-12*k**2))
+        D = np.stack([kx, ky, kz], axis=-1)/k
+        # input field vectors relative to exp(i*Phi), E_z from k.E = 0
+        rel = np.exp(1j*(field._phase()[sel] - Phi[sel]))
+        Ex, Ey = C[:, :, 0][sel]*rel, C[:, :, 1][sel]*rel
+        Ez = -(kx*Ex + ky*Ey)/kz
+        E_in = np.stack([Ex, Ey, Ez], axis=-1)
+        # rays from the field plane
+        o0 = sysm.frames()[0][0][0]
+        z0 = o0[2] - self.distance
+        P0 = np.stack([Xs, Ys, np.full_like(Xs, z0)], axis=-1)
+        shape = Xs.shape
+        rays = Rays(P0.reshape(-1, 3), D.reshape(-1, 3), (Phi[sel]/k0).reshape(-1))
+        pb = sysm.trace_polarization(rays, clip=self.clip, coatings=self.coatings, media=self.media)
+        b = pb.bundle
+        valid = b.valid
+        lost = 1 - np.sum(I[sel].reshape(-1)*b.valid)/np.sum(I[sel])
+        if lost > 1E-6:
+            notes.append("{:.1e} of the power vignetted or lost".format(lost))
+        _, R_img = sysm.frames()[1]
+        P_out, D_out = sysm.to_image_frame(b.points[-1], b.directions[-1])
+        n_out = float(np.real(sysm.n[-1]))
+        E_out = np.einsum("nij,nj->ni", pb.P[-1], E_in.reshape(-1, 3)) @ R_img
+        cos_in = np.abs(D.reshape(-1, 3)[:, 2])
+        cos_out = np.abs(D_out[:, 2])
+        with np.errstate(invalid="ignore", divide="ignore"):
+            scale = np.sqrt(np.real(n_in)*cos_in/(n_out*cos_out))
+        amp = E_out[:, :2]*scale[:, None]
+        amp[~valid] = np.nan
+        S = b.opl[-1].copy()
+        S[~valid] = np.nan
+        Pxy = P_out[:, :2].copy()
+        Pxy[~valid] = np.nan
+        # analytic quadratic part of the output phase k0*S
+        ok = valid & np.all(np.isfinite(amp), axis=1)
+        w = np.sum(np.abs(amp[ok])**2, axis=1) + 1E-300
+        a2, b2, c2, d2, e2 = _fit_separable_quadratic(k0*S[ok], Pxy[ok, 0], Pxy[ok, 1], w)
+        S_rest = S - (a2*Pxy[:, 0]**2 + b2*Pxy[:, 1]**2 + c2*Pxy[:, 0] + d2*Pxy[:, 1] + e2)/k0
+        D_rest = D_out.copy()
+        D_rest[:, 0] -= (2*a2*Pxy[:, 0] + c2)/(k0*n_out)
+        D_rest[:, 1] -= (2*b2*Pxy[:, 1] + d2)/(k0*n_out)
+        # output grid
+        if self.x_out is not None:
+            xo, yo = _linear(self.x_out, "x_out"), _linear(self.y_out, "y_out")
+        else:
+            # footprint of the rays that carry power
+            wr = np.sum(np.abs(amp)**2, axis=1)
+            bright = ok & (np.nan_to_num(wr) > 1E-4*np.nanmax(wr))
+            pts = Pxy[bright]
+            x0, x1 = pts[:, 0].min(), pts[:, 0].max()
+            y0, y1 = pts[:, 1].min(), pts[:, 1].max()
+            mx, my = 0.1*(x1 - x0) + 1E-12, 0.1*(y1 - y0) + 1E-12
+            x0, x1, y0, y1 = x0 - mx, x1 + mx, y0 - my, y1 + my
+            # samples: the input's number, or more if the residual phase
+            # (beyond the analytic quadratic) needs them (two samples per
+            # period of its largest local frequency)
+            kr = k0*n_out*np.abs(D_rest[bright, :2])
+            kxm, kym = kr.max(axis=0) if len(kr) else (0.0, 0.0)
+            Nx = max(len(field.x), int(np.ceil((x1 - x0)*kxm/np.pi*1.25)) + 1)
+            Ny = max(len(field._y), int(np.ceil((y1 - y0)*kym/np.pi*1.25)) + 1)
+            if max(Nx, Ny) > self.max_N:
+                notes.append("output grid limited to {} samples (residual phase needs {}x{})"
+                             .format(self.max_N, Nx, Ny))
+                Nx, Ny = min(Nx, self.max_N), min(Ny, self.max_N)
+            xo, yo = _window(x0, x1, Nx), _window(y0, y1, Ny)
+        launch = np.stack([Xs, Ys], axis=-1)
+        u = rays_to_field(xo, yo, Pxy.reshape(shape + (2,)), D_rest.reshape(shape + (3,)),
+                          S_rest.reshape(shape), field.wavelength, launch=launch, irradiance=1.0,
+                          n=n_out, amplitude=amp.reshape(shape + (2,)))
+        out = Field(u, xo, yo, field.wavelength, n_out, alpha=(a2, b2), beta=(c2, d2), gamma=e2,
+                    z=field.z + self.distance + float(sysm.frames()[1][0][2] - o0[2]))
+        return out, {"method": "geometric (ray trace)", "notes": notes}
+
+
 class DetectorRecord(object):
     """What a Detector saw: the field and the quantities it evaluated."""
 
@@ -1465,6 +1642,45 @@ class Chain(object):
 
     def append(self, step):
         self.steps.append(step)
+
+    @classmethod
+    def from_system(cls, system, distance=0.0, gap=None, method="auto", tol=None, **trace_kw):
+        """Chain for a raytrace.System: geometrical optics through the
+        surfaces, wave optics in the free space behind them.
+
+        The field is traced (Trace) from a plane `distance` in front of the
+        first vertex to `gap` behind the last vertex, and then propagated
+        (Propagate, operator chosen automatically by default) the rest of the
+        way to the image plane of the system (the thickness of its last
+        surface). This is the split of the field tracing paper: rays where
+        the field is smooth and the surfaces are large, diffraction where it
+        matters (a focus, a caustic). Without gap the trace goes all the way
+        to the image plane.
+
+        Parameters
+        ----------
+        system : raytrace.System
+        distance : number, optional
+            Distance of the input plane in front of the first vertex.
+        gap : number, optional
+            Distance behind the last vertex at which the rays hand over to
+            the wave optical propagation.
+        method, tol : optional
+            For the Propagate step.
+        trace_kw : optional
+            Passed to Trace (n_rays, clip, coatings, media, max_N, ...).
+        """
+        import copy
+        last = system.surfaces[-1].thickness
+        if gap is None or np.isclose(gap, last):
+            return cls([Trace(system, distance=distance, **trace_kw)])
+        if abs(gap) > abs(last) or gap*last < 0:
+            raise ValueError("gap must lie between the last vertex and the image plane")
+        sysm = copy.copy(system)
+        sysm.surfaces = [copy.copy(s) for s in system.surfaces]
+        sysm.surfaces[-1].thickness = gap
+        return cls([Trace(sysm, distance=distance, **trace_kw),
+                    Propagate(last - gap, method=method, tol=tol)])
 
     def _flat(self):
         for s in self.steps:
