@@ -452,3 +452,70 @@ def test_chain_from_system_hands_over_to_wave_optics():
     assert rel(b.resample(a.x, a.y).E()[0], a.E()[0]) < 3E-2
     with pytest.raises(ValueError):
         ft.Chain.from_system(sysm, gap=60.0)
+
+
+# --------------------------------------------------------------------------
+# single-FT Fresnel, parallel arms and Babinet obstructions
+# --------------------------------------------------------------------------
+
+def _smooth_square(x, half=4.0, edge=0.1):
+    from scipy.special import erf
+    X, Y = np.meshgrid(x, x)
+    s = lambda u: 0.5*(1 - erf((np.abs(u) - half)/edge))
+    return s(X)*s(Y)
+
+
+def test_fresnel_ft_matches_fresnel_for_a_small_field():
+    wl = 0.0008
+    x = np.linspace(-0.1, 0.1, 41)
+    X, Y = np.meshgrid(x, x)
+    src = ft.Field(np.exp(-(X**2 + Y**2)/0.03**2), x, x, wl)
+    a = ft.Chain([ft.Propagate(50.0, method="fresnel_ft")]).run(src).field
+    b = ft.Chain([ft.Propagate(50.0, method="fresnel")]).run(src).field
+    xd = np.linspace(-1, 1, 101)
+    Ea, Eb = a.resample(xd, xd).E()[0], b.resample(xd, xd).E()[0]
+    assert rel(Ea, Eb) < 1E-2
+    # the output window is independent of the (small) input window
+    assert a.x[-1] - a.x[0] > 1.0
+
+
+def test_parallel_arms_interfere():
+    wl = 0.0008
+    x = np.linspace(-5, 5, 129)
+    src = ft.Field(_smooth_square(x), x, x, wl)
+    for phi in (0.0, np.pi/2, np.pi):
+        chain = ft.Chain([ft.Parallel([ft.Propagate(10.0)], [ft.Propagate(10.0)],
+                                      weights=(0.5, 0.5*np.exp(1j*phi))),
+                          ft.Detector("out")])
+        res = chain.run(src)
+        assert isinstance(res.field, ft.FieldSum) and len(res.field) == 2
+        single = ft.Chain([ft.Propagate(10.0)]).run(src).field
+        ratio = res["out"].field.power()/single.power()
+        assert ratio == pytest.approx(np.cos(phi/2)**2, abs=1E-4)
+    assert [row["index"] for row in res.log] == ["0.1.0", "0.2.0", "0", "1"]
+    assert isinstance(ft.Combine().apply(res.field, {})[0], ft.Field)
+
+
+def test_babinet_obstruction_against_a_fine_grid():
+    from pyoptics.propagators import rayleigh_sommerfeld_I_TF
+    from scipy.interpolate import RegularGridInterpolator
+    wl = 0.0008
+    x = np.linspace(-5, 5, 257)
+    alpha = -np.pi/wl/2000
+    X, Y = np.meshgrid(x, x)
+    src = ft.Field(_smooth_square(x), x, x, wl, alpha=(alpha, alpha))
+    xd, yd = np.linspace(0.0, 2.0, 101), np.linspace(-0.5, 1.5, 101)
+    res = ft.Chain([ft.Obstruction(radius=0.1, center=(1.0, 0.5)), ft.Propagate(100.0),
+                    ft.Detector("d", x=xd, y=yd)]).run(src)
+    assert [row["method"] for row in res.log][0] == "Babinet"
+    # the small part is cheap: far fewer samples than the main beam
+    small = res.field.parts[1]
+    assert small.shape[0]*small.shape[1] < 0.1*len(x)**2
+    xb = np.linspace(-6, 6, 2048)
+    XB, YB = np.meshgrid(xb, xb)
+    u = (_smooth_square(xb)*np.exp(1j*alpha*(XB**2 + YB**2))
+         * (((XB - 1.0)**2 + (YB - 0.5)**2) > 0.01))
+    u = rayleigh_sommerfeld_I_TF(u, xb, xb, 100.0, wl)[0]
+    pts = np.stack(np.meshgrid(yd, xd, indexing="ij"), -1)
+    Ib = RegularGridInterpolator((xb, xb), np.abs(u)**2)(pts)
+    assert rel(res["d"].irradiance, Ib) < 2E-2

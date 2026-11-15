@@ -67,6 +67,11 @@ Free-space operators and their automatic selection
   SPW operator, the sampling need not grow with the curvature of the field;
 - "fresnel": the same in the paraxial approximation (exact Fresnel
   propagation, the quadratic phase entirely analytic);
+- "fresnel_ft": Fresnel propagation as a single Fourier transform: the
+  far-field operator applied to the field times the Fresnel chirp
+  exp(i k (x**2 + y**2)/(2 z)) (kept analytic). Its output grid is chosen
+  independently of the input's, so a small, strongly diffracting field
+  (an obstruction, a pinhole) spreads onto a large window at no cost;
 - "farfield": the stationary phase evaluation of the angular spectrum,
   ``u(r) = k z/(2 pi i r) U(k x/r, k y/r) exp(i k r)/r`` (a spherical wave modulated
   by the angular spectrum U, evaluated with the semi-analytical Fourier
@@ -104,6 +109,24 @@ caustics are propagated with the automatically chosen free-space operator::
 
     chain = ft.Chain.from_system(ball_lens, gap=0.5) + [ft.Detector("focus")]
 
+Parallel arms and fields in parts
+---------------------------------
+`Parallel(arm_1, arm_2, ..., weights=...)` splits the field into arms (an
+interferometer between a beam splitter and a combiner); `Obstruction` (a
+small particle or defect) splits it by Babinet's principle into the
+unobstructed field and a small, finely sampled field of opposite sign.
+Both give a `FieldSum`: every part keeps its own grid, analytic phase and
+automatically chosen operator (with an error budget relative to the whole
+sum), and the parts are added coherently only in a `Detector` (on its grid)
+or in `Combine`::
+
+    chain = ft.Chain([
+        ft.Parallel([ft.Propagate(50), ft.Trace(plate), ft.Propagate(50)],
+                    [ft.Propagate(50), ft.Trace(lens),
+                     ft.Obstruction(radius=0.1, center=(1, 0.5)), ft.Propagate(50)],
+                    weights=(0.5, 0.5)),
+        ft.Propagate(50), ft.Detector("camera", x=x, y=x)])
+
 Conventions as in pyoptics.propagators: fields vary as exp(i(k.r - omega*t)),
 lengths in one unit (mm throughout pyoptics), wavelengths in vacuum.
 
@@ -137,7 +160,7 @@ __all__ = ["Field", "gaussian", "from_array", "Chain", "ChainResult", "Step", "P
 
 Z0 = 376.730313668  # impedance of free space (Ohm)
 
-METHODS = ("spw", "fresnel", "farfield", "geometric")  # most rigorous first
+METHODS = ("spw", "fresnel", "fresnel_ft", "farfield", "geometric")  # most rigorous first
 
 # rows of the strip that represents a field independent of y
 _STRIP_Y = np.array([-1.0, 0.0, 1.0])
@@ -700,13 +723,13 @@ def _spectrum_support(q, one_d, eps=1E-6):
     return S, (kx0, kx1, ky0, ky1)
 
 
-def _footprint(f, z):
+def _footprint(f, z, eps=1E-6):
     """Window [x_lo, x_hi, y_lo, y_hi] that holds the field after the distance
     z: the input support swept by the range of directions of its spectrum."""
     q = f._qpf(int(np.argmax(np.sum(np.abs(f._A)**2, axis=(0, 1)))))
     I = np.abs(q.amplitude)**2
-    x_lo, x_hi = _support(np.sum(I, axis=0), f.x)
-    S, (kx0, kx1, ky0, ky1) = _spectrum_support(q, f.one_d)
+    x_lo, x_hi = _support(np.sum(I, axis=0), f.x, eps)
+    S, (kx0, kx1, ky0, ky1) = _spectrum_support(q, f.one_d, eps)
     k = np.real(f.k)
 
     def sweep(lo, hi, k0, k1):
@@ -718,7 +741,7 @@ def _footprint(f, z):
     xs = sweep(x_lo, x_hi, kx0, kx1)
     if f.one_d:
         return xs + (f._y[0], f._y[-1])
-    y_lo, y_hi = _support(np.sum(I, axis=1), f._y)
+    y_lo, y_hi = _support(np.sum(I, axis=1), f._y, eps)
     return xs + sweep(y_lo, y_hi, ky0, ky1)
 
 
@@ -747,8 +770,9 @@ def _pad_to(f, window, margin=0.1):
     return f._with(A, x=x, y=(None if f.one_d else y))
 
 
-def _farfield_q(q, z, one_d, N=None):
-    """Far-field operator for one component (QuadraticPhaseField)."""
+def _farfield_q(q, z, one_d, N=None, paraxial=False):
+    """Far-field operator for one component (QuadraticPhaseField); paraxial:
+    Fraunhofer form (k x/z, exp(i k (z + rho**2/(2 z))))."""
     if z <= 0:
         raise PropagationFailure("the far-field operator needs z > 0")
     k = q.k
@@ -758,7 +782,10 @@ def _farfield_q(q, z, one_d, N=None):
 
     def window(k0, k1, kgrid, Nw):
         s0, s1 = np.clip(k0, -lim, lim)/kr, np.clip(k1, -lim, lim)/kr
-        a, b = z*s0/np.sqrt(1 - s0**2), z*s1/np.sqrt(1 - s1**2)
+        if paraxial:
+            a, b = z*s0, z*s1
+        else:
+            a, b = z*s0/np.sqrt(1 - s0**2), z*s1/np.sqrt(1 - s1**2)
         span = max(b - a, 1E-12*abs(z))
         pad = 0.1*span + z*abs(_spacing(kgrid))/kr
         return _window(a - pad, b + pad, Nw)
@@ -768,14 +795,15 @@ def _farfield_q(q, z, one_d, N=None):
     if one_d:
         yo = _STRIP_Y
         X = xo[None, :]
-        r = np.sqrt(X**2 + z**2)
-        KX, KY = k*X/r, np.zeros_like(X)
+        r = z + X**2/(2*z) if paraxial else np.sqrt(X**2 + z**2)
+        KX, KY = k*X/(z if paraxial else r), np.zeros_like(X)
     else:
         Ny = len(q.y) if N is None else N[1]
         yo = window(ky0, ky1, S.y, Ny)
         X, Y = np.meshgrid(xo, yo)
-        r = np.sqrt(X**2 + Y**2 + z**2)
-        KX, KY = k*X/r, k*Y/r
+        r = z + (X**2 + Y**2)/(2*z) if paraxial else np.sqrt(X**2 + Y**2 + z**2)
+        rm = z if paraxial else r
+        KX, KY = k*X/rm, k*Y/rm
     # spectrum amplitude at (KX, KY): cubic interpolation of the smooth
     # amplitude, analytic phase exact
     ix = (np.real(KX) - S.x[0])/_spacing(S.x)
@@ -786,12 +814,13 @@ def _farfield_q(q, z, one_d, N=None):
                + 1j*map_coordinates(Arow.imag[None, :], [np.zeros_like(ix), ix], order=3, cval=0.0))
         # the strip's transform holds the integral over its rows
         amp = amp/(len(q.y)*_spacing(q.y))
-        prefactor = (z/r)*np.sqrt(k/(2*np.pi*r))*np.exp(-1j*np.pi/4)
+        prefactor = ((1.0 if paraxial else z/r)*np.sqrt(k/(2*np.pi*(z if paraxial else r)))
+                     *np.exp(-1j*np.pi/4))
     else:
         iy = (np.real(KY) - S.y[0])/_spacing(S.y)
         amp = (map_coordinates(S.amplitude.real, [iy, ix], order=3, cval=0.0)
                + 1j*map_coordinates(S.amplitude.imag, [iy, ix], order=3, cval=0.0))
-        prefactor = k*(z/r)/(2j*np.pi)/r
+        prefactor = k/(2j*np.pi*z) if paraxial else k*(z/r)/(2j*np.pi)/r
     phi = (S.alpha[0]*KX**2 + S.beta[0]*KX + S.alpha[1]*KY**2 + S.beta[1]*KY + S.gamma
            + k*r)
     phi = np.real(phi)
@@ -808,6 +837,16 @@ def _farfield_q(q, z, one_d, N=None):
         A = np.repeat(A, 3, axis=0)
         b = d = 0.0
     return QuadraticPhaseField(A, xo, yo, q.wavelength, (a, b), (c, d), e, q.n)
+
+
+def _fresnel_ft_q(q, z, one_d, N=None):
+    """Single Fourier transform Fresnel operator for one component."""
+    if z <= 0:
+        raise PropagationFailure("the single-FT Fresnel operator needs z > 0")
+    c = np.real(q.k)/(2*z)
+    alpha = (q.alpha[0] + c, 0.0 if one_d else q.alpha[1] + c)
+    qc = QuadraticPhaseField(q.amplitude, q.x, q.y, q.wavelength, alpha, q.beta, q.gamma, q.n)
+    return _farfield_q(qc, z, one_d, N, paraxial=True)
 
 
 def _unwrapped_phase(q):
@@ -898,11 +937,15 @@ def _geometric_q(q, z, one_d, threshold=1E-4, strong=1E-3):
     return QuadraticPhaseField(A, xo, yo, q.wavelength, (a2, b2), (c2, d2), e2, q.n)
 
 
-def _covers(out, window):
+def _covers(out, window, slack=0.05):
+    """Does the output grid cover the window (up to slack times its span on
+    each side: the window is an energy quantile estimate)?"""
     x_lo, x_hi, y_lo, y_hi = window
-    ok = out.x[0] <= x_lo and out.x[-1] >= x_hi
+    sx = slack*(x_hi - x_lo)
+    ok = out.x[0] <= x_lo + sx and out.x[-1] >= x_hi - sx
     if not out.one_d:
-        ok = ok and out._y[0] <= y_lo and out._y[-1] >= y_hi
+        sy = slack*(y_hi - y_lo)
+        ok = ok and out._y[0] <= y_lo + sy and out._y[-1] >= y_hi - sy
     return ok
 
 
@@ -917,6 +960,8 @@ def _apply_operator(f, z, method, N):
             outs.append(_ap.propagate(q, z, paraxial=True))
         elif method == "farfield":
             outs.append(_farfield_q(q, z, f.one_d, N))
+        elif method == "fresnel_ft":
+            outs.append(_fresnel_ft_q(q, z, f.one_d, N))
         elif method == "geometric":
             outs.append(_geometric_q(q, z, f.one_d))
         else:
@@ -927,7 +972,12 @@ def _apply_operator(f, z, method, N):
     return Field._from_qpfs(outs, f, z=f.z + z)
 
 
-def _propagate(f, z, method, N=None):
+def _eps(tol):
+    """Energy share outside the footprint that an error budget tol allows."""
+    return max(1E-6, (tol/10)**2)
+
+
+def _propagate(f, z, method, N=None, eps=1E-6):
     """Apply one free-space operator to a Field.
 
     The spectral operators ("spw", "fresnel") keep the grid near the input
@@ -947,7 +997,7 @@ def _propagate(f, z, method, N=None):
         warnings.simplefilter("always", RuntimeWarning)
         out = _apply_operator(f, z, method, N)
         if method in ("spw", "fresnel"):
-            window = _footprint(f, z)
+            window = _footprint(f, z, eps)
             if not _covers(out, window):
                 f = _pad_to(f, window)
                 del caught[:]
@@ -1012,7 +1062,7 @@ def _refine(f, method, fx, fy=1):
         x_lo, x_hi = grown(f.x, fx)
         y_lo, y_hi = (f._y[0], f._y[-1]) if f.one_d else grown(f._y, fy)
         return _pad_to(f, (x_lo, x_hi, y_lo, y_hi), margin=0.0), None
-    if method == "farfield":
+    if method in ("farfield", "fresnel_ft"):
         return f, (len(f.x)*fx, len(f._y)*fy)
     x = _window(f.x[0], f.x[-1], (len(f.x) - 1)*fx + 1)
     y = None if f.one_d else _window(f._y[0], f._y[-1], (len(f._y) - 1)*fy + 1)
@@ -1028,10 +1078,10 @@ def _converge(cut, z, method, tol, max_N):
     while True:
         f, N_out = _refine(cut, method, factor)
         try:
-            out, _, used = _propagate(f, z, method, N_out)
+            out, _, used = _propagate(f, z, method, N_out, _eps(tol))
         except PropagationFailure:
             return None, np.inf, factor, False
-        N = len(out.x) if method == "farfield" else len(used.x)
+        N = len(out.x) if method in ("farfield", "fresnel_ft") else len(used.x)
         if prev is not None:
             # on the finer grid: a coarse result must interpolate well
             change = _deviation(prev, out)
@@ -1128,7 +1178,8 @@ class Propagate(Step):
     z : number
         Distance (negative: backwards; not with "farfield").
     method : str, optional
-        "auto" (default), "spw", "fresnel", "farfield" or "geometric"; see
+        "auto" (default), "spw", "fresnel", "fresnel_ft", "farfield" or
+        "geometric"; see
         the module docstring.
     tol : number, optional
         Error budget of the automatic selection (default: the chain's tol).
@@ -1166,7 +1217,7 @@ class Propagate(Step):
                     "field (FieldSum, Obstruction) or loosen tol".format(
                         self.z, method, size, self.max_samples))
             field, N_out = _refine(field, method, fx, fy)
-            out, notes, _ = _propagate(field, self.z, method, N_out)
+            out, notes, _ = _propagate(field, self.z, method, N_out, _eps(tol))
             if not table["reference"]["converged"]:
                 info["notes"].append("SPW reference not converged: errors are estimates")
             if table[method]["error"] > tol:
@@ -1745,10 +1796,12 @@ class Parallel(Step):
     def apply(self, field, ctx):
         parts = field.parts if isinstance(field, FieldSum) else [field]
         outs = []
+        index = ctx["_index"]
         for i, (arm, w) in enumerate(zip(self.arms, self.weights)):
             for p in parts:
                 f = p._with(p._A*w)
-                outs.append(Chain._run_steps(arm, f, ctx, "{}.{}.".format(ctx["_index"], i + 1)))
+                outs.append(Chain._run_steps(arm, f, ctx, "{}.{}.".format(index, i + 1)))
+        ctx["_index"] = index
         return FieldSum(outs), {"method": "{} arms".format(len(self.arms))}
 
 
@@ -1772,11 +1825,15 @@ class Obstruction(Step):
         Amplitude transmission of the obstruction (0: opaque; exp(i phi) for
         a pure phase defect).
     samples : int, optional
-        Samples across the obstruction (its grid adds a 25% margin).
+        Samples across the obstruction (its grid adds a 25% margin). They
+        also limit its angular spectrum to about wavelength/(2 spacing):
+        diffraction beyond that leaves any detector of the size of the main
+        beam, and a coarse grid keeps it from dominating the error budget.
+        The indicator is area weighted (anti-aliased).
     """
 
     def __init__(self, radius=None, half_widths=None, center=(0.0, 0.0), transmission=0.0,
-                 samples=64, label="obstruction"):
+                 samples=24, label="obstruction"):
         if (radius is None) == (half_widths is None):
             raise ValueError("give exactly one of radius, half_widths")
         self.radius, self.half_widths = radius, half_widths
@@ -1795,13 +1852,22 @@ class Obstruction(Step):
         x = _window(cx - 1.25*hx, cx + 1.25*hx, N)
         y = None if field.one_d else _window(cy - 1.25*hy, cy + 1.25*hy, N)
         small = field.resample(x, y)
+        # area-weighted (anti-aliased) indicator: 5x5 subsamples per sample
+        sub = (np.arange(5) - 2)/5
+        dx = _spacing(small.x)
+        dy = 0.0 if field.one_d else _spacing(small._y)
         X, Y = np.meshgrid(small.x - cx, small._y - cy)
         if field.one_d:
             Y = np.zeros_like(X)
-        if self.radius is not None:
-            M = (X**2 + Y**2 <= self.radius**2)
-        else:
-            M = (np.abs(X) <= hx) & (np.abs(Y) <= hy)
+        M = np.zeros(X.shape)
+        for sx in sub:
+            for sy in (sub if not field.one_d else [0.0]):
+                Xs, Ys = X + sx*dx, Y + sy*dy
+                if self.radius is not None:
+                    M += (Xs**2 + Ys**2 <= self.radius**2)
+                else:
+                    M += (np.abs(Xs) <= hx) & (np.abs(Ys) <= hy)
+        M /= len(sub)*(1 if field.one_d else len(sub))
         small = small._with(small._A*((self.transmission - 1)*M)[:, :, None])
         if field.one_d:
             notes = []
@@ -1958,7 +2024,7 @@ class Chain(object):
                 # be less accurate by the ratio of the amplitudes
                 powers = np.array([p.power() for p in parts])
                 budgets = tol*np.sqrt(np.sum(powers)/np.maximum(powers, 1E-300))
-                budgets = np.minimum(budgets, max(tol, 0.25))
+                budgets = np.minimum(budgets, 3*tol)
             for j, part in enumerate(parts):
                 ctx["tol_part"] = budgets[j] if len(parts) > 1 else tol
                 was_vector = part.is_vector
