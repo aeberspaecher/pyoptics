@@ -428,7 +428,7 @@ echelle spectrograph is under Astronomy.
 - {doc}`notebooks/111_fourier_transform_spectroscopy`
 - {doc}`notebooks/113_fabry_perot_filters`
 - {doc}`notebooks/114_spectral_lines_absorption`
-- {doc}`notebooks/115_imaging_spectroscopy`
+- {doc}`notebooks/122_imaging_spectroscopy`
 - {doc}`notebooks/100_echelle_spectrograph`
 
 ```{toctree}
@@ -439,7 +439,7 @@ notebooks/110_grating_prism_spectrometers
 notebooks/111_fourier_transform_spectroscopy
 notebooks/113_fabry_perot_filters
 notebooks/114_spectral_lines_absorption
-notebooks/115_imaging_spectroscopy
+notebooks/122_imaging_spectroscopy
 ```
 
 ## Running the notebooks

@@ -2,7 +2,7 @@
 #-*- coding:utf-8 -*-
 
 """Ray traced spectrometers: the Czerny-Turner and the Offner imaging
-spectrometer, built from `raytrace.GratingSurface` (notebooks 110 and 115).
+spectrometer, built from `raytrace.GratingSurface` (notebooks 110 and 122).
 
 The builders return `raytrace.System` objects whose object is the
 entrance slit (a finite object at the distance of the collimator's focal
@@ -50,7 +50,7 @@ Closed forms used in the notebooks and tests:
 Units: millimetres, wavelengths in mm in the systems (as `raytrace`),
 groove densities in lines per mm.
 
-Snapshot imaging spectroscopy (notebook 115): the coded aperture
+Snapshot imaging spectroscopy (notebook 122): the coded aperture
 snapshot spectral imager (CASSI, single disperser) multiplies the scene
 cube x[y, x, k] by a binary mask M[y, x] in an intermediate image plane,
 disperses it so that band k is shifted by k*shift pixels along x, and sums
