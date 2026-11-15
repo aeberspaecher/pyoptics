@@ -272,6 +272,7 @@ Projection lithography from the mask to the resist: imaging models, mask models,
 - {doc}`notebooks/38_litho_jones_pupil`
 - {doc}`notebooks/39_litho_source_optimization`
 - {doc}`notebooks/40_litho_opc`
+- {doc}`notebooks/108_litho_arbitrary_layouts`
 - {doc}`notebooks/41_litho_telecentricity`
 - {doc}`notebooks/42_litho_illuminator`
 - {doc}`notebooks/43_litho_delano_lens_design`
@@ -294,6 +295,7 @@ notebooks/65_litho_fdtd_mask
 notebooks/38_litho_jones_pupil
 notebooks/39_litho_source_optimization
 notebooks/40_litho_opc
+notebooks/108_litho_arbitrary_layouts
 notebooks/41_litho_telecentricity
 notebooks/42_litho_illuminator
 notebooks/43_litho_delano_lens_design

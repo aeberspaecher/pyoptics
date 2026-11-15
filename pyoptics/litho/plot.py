@@ -19,6 +19,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Rectangle
+from matplotlib.patches import Polygon as MplPolygon
 
 from .metrics import el_dof, process_window
 
@@ -209,7 +210,9 @@ def plot_image(sim, x, I, y=None, ax=None, threshold=None, dose=1.0, show_mask=T
     im = ax.imshow(I, extent=[x[0], x[-1], y[0], y[-1]], origin="lower", cmap=cmap, **kwargs)
     if colorbar:
         plt.colorbar(im, ax=ax, shrink=0.8)
-    if show_mask:
+    if show_mask and L.polygons is not None:
+        _draw_polygons(ax, L, x, y)
+    elif show_mask:
         Px, Py = L.pitch_x or np.inf, L.pitch_y or np.inf
         for xf, yf, a, b in L.features:
             for i in range(-3, 4):
@@ -224,6 +227,20 @@ def plot_image(sim, x, I, y=None, ax=None, threshold=None, dose=1.0, show_mask=T
     ax.set_xlabel("x"), ax.set_ylabel("y")
 
     return im
+
+
+def _draw_polygons(ax, layout, x, y, **kwargs):
+    """Outlines of the polygons of a layout and of their periodic copies
+    that reach into the window x, y."""
+
+    kw = dict(fill=False, ec="w", lw=0.8, ls=":")
+    kw.update(kwargs)
+    Px, Py = layout.pitch_x, layout.pitch_y
+    for P in layout.polygons:
+        lo, hi = P.min(axis=0), P.max(axis=0)
+        for i in range(int(np.floor((x[0] - hi[0])/Px)), int(np.ceil((x[-1] - lo[0])/Px)) + 1):
+            for j in range(int(np.floor((y[0] - hi[1])/Py)), int(np.ceil((y[-1] - lo[1])/Py)) + 1):
+                ax.add_patch(MplPolygon(P + [i*Px, j*Py], closed=True, **kw))
 
 
 def plot_bossung(foci, doses, cd, ax=None, cd_target=None, tolerance=0.1, cmap="viridis",

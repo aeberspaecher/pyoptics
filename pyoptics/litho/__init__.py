@@ -12,7 +12,9 @@ exchangeable:
   partially polarized via a degree of polarization),
 - mask: a `MaskLayout` (geometry of one period: lines and spaces, isolated
   lines, dense and isolated contact holes, any set of rectangles, Manhattan
-  polygons via `MaskLayout.from_polygons`) and a mask
+  polygons via `MaskLayout.from_polygons`, polygons at any angle with exact
+  Fourier coefficients, polygons from gdstk/gdspy via
+  `MaskLayout.from_gds`) and a mask
   stack (`ThinMask`: Kirchhoff transmissions such as binary or attenuated
   PSM; `FilmMask`: transmissions of the absorber computed with
   `pyoptics.thin_films`, angle and polarization dependent; `RigorousMask`:

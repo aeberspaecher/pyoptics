@@ -94,6 +94,13 @@ What each module does and how mature it is. Planned work is listed in
   `Obstruction` (Babinet parts on their own grid) carry a `FieldSum` whose
   parts are added at the detector; operator "fresnel_ft" (single-FT
   Fresnel) for small, strongly diffracting fields
+- `polygons`: new, tested: polygons as (N, 2) vertex arrays: signed area,
+  centroid and second moments, the exact Fourier transform of any polygon
+  (Lee and Mittra's edge sum, with a Taylor series near k = 0 and vertices
+  taken relative to their mean, so clips far from the origin keep their
+  digits; shared by `segmented`, `photography` and `litho.mask`), even-odd
+  point containment, Sutherland-Hodgman clipping to a window and wire
+  outlines along polylines (`path_polygon()`, miter joins as GDSII paths)
 - `fft`, `utils`, `masks`, `geometry`, `analytical`: mature and tested
   (`fft.czt()`: Bluestein's chirp-z transform; `fft.zoom_FT()` and
   `zoom_inv_FT()` evaluate `FT()` and `inv_FT()` on any equidistant grid)
@@ -157,7 +164,10 @@ What each module does and how mature it is. Planned work is listed in
   Jones, Stokes, degree of polarization); mask layouts with analytic
   diffraction orders (lines and spaces, isolated lines, trenches, dense,
   isolated and staggered contact holes, any rectangles, clear or dark
-  field); mask stacks in the thin mask approximation (binary, attenuated
+  field; polygons at any angle with exact Fourier coefficients from
+  `polygons.polygon_ft()`, and `MaskLayout.from_gds()` for the cells,
+  polygons and dicts of gdstk and gdspy with layer selection, a window as
+  the period and a unit scale, without a GDSII reader of its own); mask stacks in the thin mask approximation (binary, attenuated
   PSM), with absorber transmissions from `thin_films` (angle and TE/TM
   dependent) and an optional boundary layer model for thick mask edges;
   projector with immersion (or dry), vectorial or scalar model, Fringe

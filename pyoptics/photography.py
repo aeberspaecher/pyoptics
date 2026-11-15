@@ -158,6 +158,7 @@ from collections import namedtuple
 import numpy as np
 
 from . import raytrace as rt
+from .polygons import polygon_ft
 
 
 __all__ = ["double_gauss", "focus", "blur_diameter", "blur_diameter_pupils", "point_footprint", "splat",
@@ -1252,6 +1253,8 @@ def polygon_transform(vertices, kx, ky):
     the sinc is 1 and the edge gives a streak with amplitude L_j/k: the
     diffraction spikes. At k = 0, F is the area.
 
+    Same as `pyoptics.polygons.polygon_ft()` (either orientation).
+
     Parameters
     ----------
     vertices : array (M, 2)
@@ -1264,25 +1267,7 @@ def polygon_transform(vertices, kx, ky):
     F : complex array
     """
 
-    v = np.asarray(vertices, float)
-    kx, ky = np.broadcast_arrays(np.asarray(kx, float), np.asarray(ky, float))
-    e = np.roll(v, -1, axis=0) - v
-    m = v + 0.5*e
-    k2 = kx**2 + ky**2
-    size = np.max(np.hypot(*(v - v.mean(axis=0)).T))
-    small = k2*size**2 < 1e-6
-    k2s = np.where(small, 1.0, k2)
-    F = np.zeros(kx.shape, complex)
-    for (ex, ey), (mx, my) in zip(e, m):
-        F += (kx*ey - ky*ex)*np.exp(-1j*(kx*mx + ky*my))*np.sinc((kx*ex + ky*ey)/(2*np.pi))
-    F = 1j*F/k2s
-    if np.any(small):
-        A = polygon_area(v)
-        w = v[:, 0]*np.roll(v[:, 1], -1) - np.roll(v[:, 0], -1)*v[:, 1]
-        c = np.sum((v + np.roll(v, -1, axis=0))*w[:, None], axis=0)/(6*A)      # centroid
-        F = np.where(small, A*np.exp(-1j*(kx*c[0] + ky*c[1])), F)
-
-    return F
+    return polygon_ft(vertices, kx, ky)
 
 
 def iris_coverage(x, y, n_blades, apothem, blade_radius=np.inf, rotation=0.0, dx=None):

@@ -13,6 +13,9 @@
 
 * Lithography (DUV, see the roadmap in the project files): RCWA for 2D masks (the FDTD
   mask model covers them, slowly), ray traced stress birefringence
+* Lithography layouts: masks with more than two regions (alternating PSM,
+  tri-tone) for polygon layouts; non-Manhattan polygons in `FDTDMask` (subpixel
+  averaging of oblique edges) and in the fragment based OPC
 * More tests for `TIE`
 * WPM: Fresnel transmission correction at index steps, absorbing boundaries;
   symmetrized step (alternate the two operator orderings) against the power

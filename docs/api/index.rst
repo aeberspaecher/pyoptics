@@ -167,6 +167,7 @@ Utilities
 
    pyoptics.utils
    pyoptics.geometry
+   pyoptics.polygons
    pyoptics.masks
    pyoptics.interpolator
    pyoptics.plot_tools

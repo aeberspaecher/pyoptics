@@ -25,6 +25,26 @@ hammerheads or serifs and OPC'd shapes have exact Fourier coefficients too.
 Overlapping polygons are merged. The boundary layer model is not available
 for polygon layouts (the rectangles of a polygon share internal edges).
 
+Arbitrary polygons (edges at any angle: 45 degree wiring, octagonal or
+round contacts, curvilinear ILT masks) are kept as polygons; their Fourier
+coefficients are the exact transforms of the polygons (Lee and Mittra's
+edge sum, `pyoptics.polygons.polygon_ft()`) sampled at the reciprocal
+lattice, again without pixelation. Such polygons must not overlap (merge
+them first, e.g. with gdstk.boolean(polygons, [], "or")); polygons with
+holes are given as keyhole polygons, as in GDSII. The Kirchhoff models
+(ThinMask, FilmMask) and Hopkins imaging work with them; the rigorous models
+(RigorousMask, FDTDMask), the boundary layer model and the fragment based
+OPC need rectangles. For the cut lines and CD metrics, features[0] is a
+reference rectangle of the first polygon: the center of its bounding box
+and the lengths of its chords along x and y through that center.
+
+Layouts from GDSII/OASIS files: pyoptics does not read layout files, but
+MaskLayout.from_gds() takes what the common Python layout libraries return
+(gdstk and gdspy cells, polygon sets and lists of polygons, and dicts
+{(layer, datatype): [polygons]} such as gdspy's get_polygons(by_spec=True)),
+selects a layer, cuts a window (the period of the simulation) and scales
+the coordinates, see `gds_polygons()`.
+
 Mask stacks and approximations
 ------------------------------
 A mask stack gives the transmissions of the clear and absorber regions as
@@ -67,18 +87,22 @@ A. K.-K. Wong, "Resolution Enhancement Techniques in Optical Lithography", SPIE
 Press (2001).
 """
 
+import warnings
+
 import numpy as np
 
 from ..polarization import TE_TM_basis
+from ..polygons import as_polygon, polygon_ft, contains, clip_to_rectangle
+from ..polygons import polygon_area as _signed_area
 from ..thin_films import _r_t
 
 
 # layouts:
 
 def _check_polygon(polygon):
-    P = np.asarray(polygon, dtype=float)
-    if P.ndim != 2 or P.shape[1] != 2 or len(P) < 4:
-        raise ValueError("a polygon is a sequence of at least four (x, y) vertices")
+    P = as_polygon(polygon)
+    if len(P) < 4:
+        raise ValueError("a Manhattan polygon is a sequence of at least four (x, y) vertices")
     d = np.roll(P, -1, axis=0) - P
     if np.any((d[:, 0] != 0) & (d[:, 1] != 0)):
         raise ValueError("polygon edges must be parallel to x or y (Manhattan)")
@@ -86,25 +110,60 @@ def _check_polygon(polygon):
     return P
 
 
+def is_manhattan(polygon):
+    """True if all edges of the polygon are parallel to x or y.
+
+    Parameters
+    ----------
+    polygon : (N, 2) array
+
+    Returns
+    -------
+    bool
+    """
+
+    P = as_polygon(polygon)
+    d = np.roll(P, -1, axis=0) - P
+
+    return not np.any((d[:, 0] != 0) & (d[:, 1] != 0))
+
+
 def polygon_area(polygon):
-    """Signed area (positive for counterclockwise vertices)."""
+    """Signed area (positive for counterclockwise vertices).
 
-    P = np.asarray(polygon, dtype=float)
-    x, y = P[:, 0], P[:, 1]
+    Parameters
+    ----------
+    polygon : (N, 2) array
 
-    return 0.5*float(np.sum(x*np.roll(y, -1) - np.roll(x, -1)*y))
+    Returns
+    -------
+    A : float
+    """
+
+    return _signed_area(polygon)
 
 
-def counterclockwise(polygon):
+def counterclockwise(polygon, manhattan=True):
     """The polygon with counterclockwise vertices, without repeated or
-    collinear vertices."""
+    collinear vertices.
 
-    P = _check_polygon(polygon)
+    Parameters
+    ----------
+    polygon : (N, 2) array
+    manhattan : bool, optional
+        Require edges parallel to x or y.
+
+    Returns
+    -------
+    polygon : (M, 2) array
+    """
+
+    P = _check_polygon(polygon) if manhattan else as_polygon(polygon)
     if polygon_area(P) < 0:
         P = P[::-1]
     P = P[np.any(P != np.roll(P, 1, axis=0), axis=1)]
     keep = []
-    for i in range(len(P)):  # (exact tests: the edges are parallel to x or y)
+    for i in range(len(P)):  # (exact tests: exact for edges parallel to x or y)
         a, b, c = P[i - 1], P[i], P[(i + 1) % len(P)]
         if (b - a)[0]*(c - b)[1] - (b - a)[1]*(c - b)[0] != 0:  # not collinear
             keep.append(b)
@@ -113,12 +172,17 @@ def counterclockwise(polygon):
 
 
 def offset_polygon(polygon, distance):
-    """Move every edge of a Manhattan polygon outward, keeping it rectilinear.
+    """Move every edge of a polygon outward along its normal (miter joins).
+
+    A Manhattan polygon stays rectilinear. For other polygons the vertices
+    move to the intersections of the shifted edges, which is exact for
+    straight edges and a good approximation for finely sampled curves as
+    long as the distance is small against the radii of curvature.
 
     Parameters
     ----------
     polygon : (N, 2) array
-        Vertices (x, y); edges parallel to x or y.
+        Vertices (x, y).
     distance : number
         Shift of each edge along its outward normal (negative: inward).
 
@@ -128,14 +192,74 @@ def offset_polygon(polygon, distance):
         Offset polygon, counterclockwise.
     """
 
-    P = counterclockwise(polygon)
+    P = counterclockwise(polygon, manhattan=is_manhattan(polygon))
     d = np.roll(P, -1, axis=0) - P
     normal = np.column_stack([d[:, 1], -d[:, 0]])/np.linalg.norm(d, axis=1)[:, None]
     out = []
     for i in range(len(P)):  # vertex i joins edge i - 1 and edge i
-        out.append(P[i] + distance*(normal[i - 1] + normal[i]))
+        n1, n2 = normal[i - 1], normal[i]
+        out.append(P[i] + distance*(n1 + n2)/(1 + n1 @ n2))
 
     return np.array(out)
+
+
+def _chord(P, x0, y0, axis):
+    """Length of the chord of the polygon through (x0, y0) along the axis
+    (0: x, 1: y), the run of the line inside the polygon that contains
+    (x0, y0); 0 if the point is outside."""
+
+    V = as_polygon(P)
+    u, v = (V[:, 0], V[:, 1]) if axis == 0 else (V[:, 1], V[:, 0])
+    u0, v0 = (x0, y0) if axis == 0 else (y0, x0)
+    hits = []
+    for i in range(len(V)):
+        a_u, a_v, b_u, b_v = u[i], v[i], u[(i + 1) % len(V)], v[(i + 1) % len(V)]
+        if (a_v <= v0 < b_v) or (b_v <= v0 < a_v):
+            hits.append(a_u + (v0 - a_v)*(b_u - a_u)/(b_v - a_v))
+    hits = np.sort(hits)
+    for lo, hi in zip(hits[::2], hits[1::2]):
+        if lo <= u0 <= hi:
+            return float(hi - lo)
+
+    return 0.0
+
+
+def _reference_feature(P):
+    """(x0, y0, w_x, w_y): center of the bounding box of the polygon and
+    the chords through it (the bounding box sizes if the center is outside)."""
+
+    V = as_polygon(P)
+    lo, hi = V.min(axis=0), V.max(axis=0)
+    x0, y0 = (lo + hi)/2
+    w_x, w_y = _chord(V, x0, y0, 0), _chord(V, x0, y0, 1)
+    if w_x == 0 or w_y == 0:
+        w_x, w_y = hi - lo
+
+    return (float(x0), float(y0), float(w_x), float(w_y))
+
+
+def _check_overlaps(polygons, pitch_x, pitch_y, n=256):
+    """Raise if polygons overlap each other or their periodic copies, tested
+    on an n x n grid of points in one period (overlaps thinner than a grid
+    step can go unnoticed)."""
+
+    x = -pitch_x/2 + (np.arange(n) + 0.5)*pitch_x/n
+    y = -pitch_y/2 + (np.arange(n) + 0.5)*pitch_y/n
+    count = np.zeros((n, n), dtype=int)
+    for P in polygons:
+        lo, hi = P.min(axis=0), P.max(axis=0)
+        # grid indices (unwrapped) covering the bounding box
+        i = np.arange(int(np.floor((lo[0] + pitch_x/2)*n/pitch_x - 0.5)),
+                      int(np.ceil((hi[0] + pitch_x/2)*n/pitch_x - 0.5)) + 1)
+        j = np.arange(int(np.floor((lo[1] + pitch_y/2)*n/pitch_y - 0.5)),
+                      int(np.ceil((hi[1] + pitch_y/2)*n/pitch_y - 0.5)) + 1)
+        xs = -pitch_x/2 + (i + 0.5)*pitch_x/n
+        ys = -pitch_y/2 + (j + 0.5)*pitch_y/n
+        inside = contains(P, xs[None, :], ys[:, None]).astype(int)
+        np.add.at(count, (np.mod(j, n)[:, None], np.mod(i, n)[None, :]), inside)
+    if count.max() > 1:
+        raise ValueError("polygons overlap (each other or their periodic copies); merge them "
+                         "first, e.g. with gdstk.boolean(polygons, [], 'or')")
 
 
 def polygon_rectangles(polygons):
@@ -222,25 +346,38 @@ class MaskLayout(object):
         self.tone = tone
         self.name = name
         self.polygons = None
+        self.manhattan = True
 
     @classmethod
-    def from_polygons(cls, pitch_x, pitch_y, polygons, tone="clear", name=None):
-        """Layout of Manhattan polygons in one period.
+    def from_polygons(cls, pitch_x, pitch_y, polygons, tone="clear", name=None,
+                      check_overlaps=True):
+        """Layout of polygons in one period.
 
-        The polygons should lie within one period of pitch_x x pitch_y (they are
-        repeated periodically, images in neighbouring periods are not merged).
-        Overlapping polygons are merged; the first polygon is the feature that
-        cut_coordinates() and the CD metrics use (through its first rectangle).
+        If all edges are parallel to x or y (Manhattan polygons), the union
+        of the polygons is cut into non-overlapping rectangles; overlapping
+        polygons are merged, and the first polygon is the feature that
+        cut_coordinates() and the CD metrics use (through its first
+        rectangle). Otherwise the polygons are kept and their Fourier
+        coefficients are computed with the exact polygon transform; they
+        must not overlap, and features[0] is the reference rectangle of the
+        first polygon (center of its bounding box, chords along x and y
+        through it).
+
+        The polygons should lie within one period of pitch_x x pitch_y (they
+        are repeated periodically).
 
         Parameters
         ----------
         pitch_x, pitch_y : numbers
             Periods; both directions must be periodic.
         polygons : sequence of (N, 2) arrays
-            Vertices (x, y) of each polygon, edges parallel to x or y.
+            Vertices (x, y) of each polygon.
         tone : {"clear", "dark"}, optional
             Clear field (polygons are absorber) or dark field (polygons are clear).
         name : str, optional
+        check_overlaps : bool, optional
+            Test non-Manhattan polygons for overlaps (on a grid of 256 x
+            256 points per period).
 
         Returns
         -------
@@ -249,6 +386,16 @@ class MaskLayout(object):
 
         if pitch_x is None or pitch_y is None:
             raise ValueError("polygon layouts must be periodic in x and y")
+        polygons = [as_polygon(P) for P in polygons]
+        if not all(is_manhattan(P) for P in polygons):
+            polys = [counterclockwise(P, manhattan=False) for P in polygons]
+            if check_overlaps:
+                _check_overlaps(polys, pitch_x, pitch_y)
+            layout = cls(pitch_x, pitch_y, [_reference_feature(polys[0])], tone,
+                         name or "polygons")
+            layout.polygons = polys
+            layout.manhattan = False
+            return layout
         polys = [counterclockwise(P) for P in polygons]
         rects = polygon_rectangles(polys)
         if rects:  # the rectangle holding the center of the first polygon's first rectangle first
@@ -260,6 +407,57 @@ class MaskLayout(object):
         layout.polygons = polys
 
         return layout
+
+    @classmethod
+    def from_gds(cls, source, window, layer=None, datatype=None, tone="clear", scale=1.0,
+                 name=None, check_overlaps=True):
+        """Layout from the polygons of a layout library (gdstk, gdspy, ...).
+
+        The window is one period of the simulated mask: the polygons are
+        clipped to it and the window center becomes the origin. A cell of
+        a periodic array (SRAM, contact arrays) is simulated exactly with
+        the window equal to the cell; for a clip from a random layout, the
+        periodic copies are at least the window size away (choose a window
+        that is a few lambda/NA larger than the region of interest).
+
+        Parameters
+        ----------
+        source : layout object
+            See `gds_polygons()`.
+        window : (x0, y0, x1, y1)
+            Window in the units of the source.
+        layer, datatype : int or sequence of ints, optional
+            Polygons of these layers and datatypes (default: all).
+        tone : {"clear", "dark"}, optional
+            Clear field (the polygons are absorber, e.g. a gate or metal
+            layer printed in positive resist) or dark field (the polygons
+            are clear, e.g. contacts and vias, or trenches).
+        scale : number, optional
+            Length unit of the source in the units of the simulation, e.g.
+            1000 for a layout in um and a simulation in nm. Layout
+            coordinates are taken at wafer scale (1x), as drawn.
+        name : str, optional
+        check_overlaps : bool, optional
+            See `from_polygons()`.
+
+        Returns
+        -------
+        MaskLayout
+        """
+
+        x0, y0, x1, y1 = (float(v) for v in window)
+        if not (x1 > x0 and y1 > y0):
+            raise ValueError("window must be (x0, y0, x1, y1) with x1 > x0 and y1 > y0")
+        clipped = []
+        for P in gds_polygons(source, layer, datatype):
+            C = clip_to_rectangle(P, x0, y0, x1, y1)
+            if C is not None:
+                clipped.append((C - [(x0 + x1)/2, (y0 + y1)/2])*scale)
+        if not clipped:
+            raise ValueError("no polygons in the window")
+
+        return cls.from_polygons((x1 - x0)*scale, (y1 - y0)*scale, clipped, tone,
+                                 name or "layout clip", check_overlaps)
 
     # common layouts:
 
@@ -427,7 +625,7 @@ class MaskLayout(object):
                 raise ValueError("polygon layouts can only be biased (factor_cd = 1)")
             return MaskLayout.from_polygons(self.pitch_x, self.pitch_y,
                                             [offset_polygon(P, bias/2) for P in self.polygons],
-                                            self.tone, self.name)
+                                            self.tone, self.name, check_overlaps=False)
         feats = [(x0, y0, w*factor_cd + bias, h*factor_cd + bias) for x0, y0, w, h in self.features]
 
         return MaskLayout(self.pitch_x, self.pitch_y, feats, self.tone, self.name)
@@ -485,6 +683,13 @@ class MaskLayout(object):
         def rect(x0, y0, a, b):
             return np.outer(_rect_coeffs(n, Py, y0, b), _rect_coeffs(m, Px, x0, a))
 
+        if not self.manhattan:  # exact transforms of the polygons at the reciprocal lattice
+            k_x, k_y = 2*np.pi*m[None, :]/Px, 2*np.pi*n[:, None]/Py
+            F = np.zeros(shape, dtype=complex)
+            for P in self.polygons:
+                F += polygon_ft(P, k_x, k_y)
+            F /= Px*Py
+            return {"feature": F, "field": np.outer(n == 0, m == 0).astype(complex) - F}
         c = {"feature": np.zeros(shape, dtype=complex)}
         outer = np.zeros(shape, dtype=complex)
         if w > 0:
@@ -530,6 +735,36 @@ class MaskLayout(object):
         """
 
         X, Y = np.meshgrid(np.atleast_1d(x), np.atleast_1d(0.0 if y is None else y))
+        inside = self.inside(X, Y)
+        t_feat, t_field = (t_clear, t_absorber) if self.tone == "dark" else (t_absorber, t_clear)
+        t = np.where(inside, t_feat, t_field)
+
+        return t[0] if y is None else t
+
+    def inside(self, x, y):
+        """Points inside the features (periodically repeated).
+
+        Parameters
+        ----------
+        x, y : arrays
+            Coordinates, broadcast against each other.
+
+        Returns
+        -------
+        inside : bool array
+        """
+
+        X, Y = np.broadcast_arrays(np.asarray(x, dtype=float), np.asarray(y, dtype=float))
+        if not self.manhattan:
+            Px, Py = self.pitch_x, self.pitch_y
+            Xw = (X + Px/2) % Px - Px/2  # into the period around the origin
+            Yw = (Y + Py/2) % Py - Py/2
+            inside = np.zeros(X.shape, dtype=bool)
+            for P in self.polygons:  # with the copies of the polygon in the neighbouring periods
+                for i in (-1, 0, 1):
+                    for j in (-1, 0, 1):
+                        inside |= contains(P + [i*Px, j*Py], Xw, Yw)
+            return inside
         inside = np.zeros(X.shape, dtype=bool)
         for x0, y0, a, b in self.features:
             in_x = True if self.pitch_x is None else (
@@ -537,14 +772,95 @@ class MaskLayout(object):
             in_y = True if self.pitch_y is None else (
                 np.abs((Y - y0 + self.pitch_y/2) % self.pitch_y - self.pitch_y/2) < b/2)
             inside |= in_x & in_y
-        t_feat, t_field = (t_clear, t_absorber) if self.tone == "dark" else (t_absorber, t_clear)
-        t = np.where(inside, t_feat, t_field)
 
-        return t[0] if y is None else t
+        return inside
 
     def __repr__(self):
         return "MaskLayout({}, pitch=({}, {}), tone={})".format(self.name, self.pitch_x,
                                                                  self.pitch_y, self.tone)
+
+
+def _layer_match(value, wanted):
+    if wanted is None:
+        return True
+    return int(value) in [int(w) for w in np.atleast_1d(wanted)]
+
+
+def gds_polygons(source, layer=None, datatype=None):
+    """Polygons from the objects of layout libraries, by duck typing (no
+    layout library is imported).
+
+    Understood are:
+
+    - gdstk: a Cell (its get_polygons(), with references flattened), a
+      Polygon or a list of Polygons (attributes points, layer, datatype);
+      also gdstk.FlexPath and RobustPath through their to_polygons().
+    - gdspy: a Cell or CellReference (get_polygons(by_spec=True)), a
+      PolygonSet such as Rectangle or Polygon (attributes polygons, layers,
+      datatypes).
+    - A dict {(layer, datatype): [polygons]} as returned by gdspy's
+      get_polygons(by_spec=True), or {layer: [polygons]}.
+    - An (N, 2) array (one polygon) or a sequence of polygons; these have
+      no layer and are always selected.
+
+    Parameters
+    ----------
+    source : layout object
+        See above.
+    layer, datatype : int or sequence of ints, optional
+        Select these layers and datatypes (default: all).
+
+    Returns
+    -------
+    polygons : list of (N, 2) arrays
+    """
+
+    out = []
+
+    def add(points, lay=None, dt=None):
+        if lay is not None and not _layer_match(lay, layer):
+            return
+        if dt is not None and not _layer_match(dt, datatype):
+            return
+        out.append(as_polygon(points))
+
+    def walk(obj):
+        if isinstance(obj, dict):
+            for key, polys in obj.items():
+                lay, dt = (key if isinstance(key, tuple) else (key, None))
+                for P in polys:
+                    add(getattr(P, "points", P), lay, dt)
+        elif hasattr(obj, "points") and hasattr(obj, "layer"):  # gdstk.Polygon
+            add(obj.points, obj.layer, obj.datatype)
+        elif hasattr(obj, "polygons") and hasattr(obj, "layers"):  # gdspy.PolygonSet
+            for P, lay, dt in zip(obj.polygons, obj.layers, obj.datatypes):
+                add(P, lay, dt)
+        elif hasattr(obj, "to_polygons"):  # gdstk paths
+            walk(obj.to_polygons())
+        elif hasattr(obj, "get_polygons"):  # cells (gdspy: by_spec dict; gdstk: Polygon list)
+            try:
+                walk(obj.get_polygons(by_spec=True))
+            except TypeError:
+                walk(obj.get_polygons())
+        else:
+            try:
+                V = np.asarray(obj, dtype=float)
+            except (ValueError, TypeError):  # ragged: a sequence of polygons or layout objects
+                V = None
+            if V is not None and V.ndim == 2 and V.shape[1] == 2:
+                add(V)
+            elif V is not None and V.ndim == 3 and V.shape[2] == 2:
+                for P in V:
+                    add(P)
+            elif V is not None and (V.ndim < 2 or V.size == 0):
+                raise ValueError("not a polygon or layout object: {!r}".format(obj))
+            else:
+                for item in obj:
+                    walk(item)
+
+    walk(source)
+
+    return out
 
 
 # mask stacks:

@@ -126,7 +126,7 @@ builds up an imaging simulation one part at a time.
 
 **The projection lens and the scanner:** {doc}`21 Lens focus from rays to waves <notebooks/21_lens_focus_waves>`, {doc}`33 Lens aberrations across the slit <notebooks/33_litho_lens_aberrations>`, {doc}`41 Telecentricity across the slit <notebooks/41_litho_telecentricity>`, {doc}`50 Magnification, distortion, telecentricity <notebooks/50_magnification_distortion_telecentricity>`
 (overlay), {doc}`43 Delano diagrams <notebooks/43_litho_delano_lens_design>`, {doc}`44 Seidel aberrations <notebooks/44_seidel_caldwell_lens>`, {doc}`70 Monte Carlo tolerancing <notebooks/70_monte_carlo_tolerancing>`, {doc}`42 KrF illuminator <notebooks/42_litho_illuminator>`, {doc}`86 Homogenizers <notebooks/86_homogenizers>`.
-**Computational lithography:** {doc}`39 Source optimization <notebooks/39_litho_source_optimization>`, then {doc}`40 OPC <notebooks/40_litho_opc>`.
+**Computational lithography:** {doc}`39 Source optimization <notebooks/39_litho_source_optimization>`, then {doc}`40 OPC <notebooks/40_litho_opc>`, then {doc}`108 Arbitrary mask layouts <notebooks/108_litho_arbitrary_layouts>` (polygons at any angle, layouts from gdstk/gdspy).
 
 ## Illumination engineer
 
