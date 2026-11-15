@@ -10,7 +10,10 @@ earlier one, its introduction usually says so.
 Most readers profit from {doc}`conventions` and {doc}`00 Foundations and conventions <notebooks/00_foundations_conventions>` early: they fix the
 signs of phases, radii, angles and Zernikes that every other notebook uses.
 Readers new to optics can leave notebook 00 for later and read it as a
-summary.
+summary, and start instead with {doc}`103 Introduction to geometrical optics <notebooks/103_geometrical_optics_intro>`:
+the lens equation, real and virtual images, principal planes, the
+magnifier, microscope and telescope, the Seidel aberrations and the
+wavefront error, each formula checked with the ray tracer.
 
 A few notebooks serve almost every path:
 
@@ -25,16 +28,17 @@ work. The core follows the order of a typical lecture.
 
 | Step | Notebook | Why |
 |---|---|---|
-| 1 | {doc}`01 Free-space propagation <notebooks/01_propagation>` | Slits, apertures, Talbot effect and the Poisson spot: diffraction you can check by hand. |
-| 2 | {doc}`06 Gaussian beams <notebooks/06_gaussian_beams>` | Gaussian beams as the paraxial building block, and the Gouy phase. |
-| 3 | {doc}`08 ABCD matrices <notebooks/08_abcd_matrices>` | Paraxial rays and beams through lenses and resonators with 2×2 matrices. |
-| 4 | {doc}`10 Interfaces and thin films <notebooks/10_interfaces_thin_films>` | Fresnel coefficients, Brewster angle, total internal reflection, soap films. |
-| 5 | {doc}`11 Jones and Mueller calculus <notebooks/11_polarization>` | Polarization with Jones vectors and Stokes parameters. |
-| 6 | {doc}`52 Abbe image formation <notebooks/52_abbe_image_formation>` | Why a microscope has a resolution limit: diffraction orders and the pupil. |
-| 7 | {doc}`15 Imaging and Zernikes <notebooks/15_imaging_zernikes>` | Resolution and aberrations described by Zernike polynomials. |
-| 8 | {doc}`17 PSF, MTF, Strehl <notebooks/17_psf_mtf_strehl>` | PSF, MTF and Strehl ratio, the language of image quality. |
-| 9 | {doc}`23 Interferometry <notebooks/23_interferometry>` | How interferometers turn fringes into wavefronts. |
-| 10 | {doc}`74 Coherence and stellar interferometry <notebooks/74_coherence_stellar_interferometry>` | Spatial and temporal coherence, and how they measure stars. |
+| 1 | {doc}`103 Introduction to geometrical optics <notebooks/103_geometrical_optics_intro>` | Lens equation, real and virtual images, principal planes, magnifier, microscope and telescope, Seidel aberrations and wavefront error: the ray optics of the first weeks of the course. |
+| 2 | {doc}`01 Free-space propagation <notebooks/01_propagation>` | Slits, apertures, Talbot effect and the Poisson spot: diffraction you can check by hand. |
+| 3 | {doc}`06 Gaussian beams <notebooks/06_gaussian_beams>` | Gaussian beams as the paraxial building block, and the Gouy phase. |
+| 4 | {doc}`08 ABCD matrices <notebooks/08_abcd_matrices>` | Paraxial rays and beams through lenses and resonators with 2×2 matrices. |
+| 5 | {doc}`10 Interfaces and thin films <notebooks/10_interfaces_thin_films>` | Fresnel coefficients, Brewster angle, total internal reflection, soap films. |
+| 6 | {doc}`11 Jones and Mueller calculus <notebooks/11_polarization>` | Polarization with Jones vectors and Stokes parameters. |
+| 7 | {doc}`52 Abbe image formation <notebooks/52_abbe_image_formation>` | Why a microscope has a resolution limit: diffraction orders and the pupil. |
+| 8 | {doc}`15 Imaging and Zernikes <notebooks/15_imaging_zernikes>` | Resolution and aberrations described by Zernike polynomials. |
+| 9 | {doc}`17 PSF, MTF, Strehl <notebooks/17_psf_mtf_strehl>` | PSF, MTF and Strehl ratio, the language of image quality. |
+| 10 | {doc}`23 Interferometry <notebooks/23_interferometry>` | How interferometers turn fringes into wavefronts. |
+| 11 | {doc}`74 Coherence and stellar interferometry <notebooks/74_coherence_stellar_interferometry>` | Spatial and temporal coherence, and how they measure stars. |
 
 **Side trips:** {doc}`71 Rainbows and glories <notebooks/71_rainbows_and_glories>` (Descartes' ray picture and Airy's wave picture of
 the same bow), {doc}`47 Rays and waves <notebooks/47_rays_and_waves>` (a lab rule explained with rays and waves), {doc}`68 Bessel and Airy beams <notebooks/68_bessel_airy_self_healing>`
@@ -77,6 +81,8 @@ figures without running the code. No order is needed.
 
 For readers who use a commercial lens design program and want to compare
 pyoptics with it, or go from the ray trace to the wave optical image.
+Readers who want a refresher of first order optics and the Seidel
+aberrations first can start with {doc}`103 Introduction to geometrical optics <notebooks/103_geometrical_optics_intro>`.
 
 | Step | Notebook | Why |
 |---|---|---|
