@@ -201,6 +201,13 @@ def test_paraxial_ray_imaging():
     lambda ax: sketch.diode_collimator(ax, astigmatism=False),
     sketch.fibre_coupling,
     lambda ax: sketch.fibre_coupling(ax, lens="spherical"),
+    sketch.resonator_unfolded,
+    lambda ax: sketch.resonator_types(ax, "plane-parallel"),
+    lambda ax: sketch.resonator_types(ax, "plane-concave"),
+    sketch.resonator_types,
+    lambda ax: sketch.resonator_types(ax, "concentric"),
+    sketch.folded_resonator,
+    lambda ax: sketch.folded_resonator(ax, theta=35),
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()
@@ -208,6 +215,21 @@ def test_sketches_draw(draw):
     assert len(ax.lines) + len(ax.patches) > 5
     assert ax.get_aspect() == 1.0
     plt.close(fig)
+
+
+def test_resonator_sketch_mode_fits_mirrors():
+    # the drawn eigenmode is that of abcd.eigenmode(), and its phase fronts
+    # have the radii of the mirrors there
+    from pyoptics import abcd
+    L, wl = 2.0, 0.15
+    for R1, R2 in sketch.RESONATORS.values():
+        z0, z_R = sketch._two_mirror_mode(L, R1, R2, wl)
+        M = abcd.compose(abcd.free_space(L), abcd.mirror(R2), abcd.free_space(L), abcd.mirror(R1))
+        q = abcd.eigenmode(M)
+        assert np.isclose(q, -z0 + 1j*z_R)
+        for z, R in ((0.0, -R1), (L, R2)):
+            dz = z - z0
+            assert np.isclose(dz*(1 + (z_R/dz)**2), R) if np.isfinite(R) else abs(dz) < 1e-12
 
 
 def test_fold_unfolds_light_pipe():

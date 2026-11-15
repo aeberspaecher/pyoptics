@@ -74,6 +74,12 @@ Setup sketches for the other example notebooks:
 - diode_collimator(), fibre_coupling(): an astigmatic laser diode with an
   aspheric collimator and a focusing lens, and a Gaussian beam focused into
   a single-mode fibre by a spherical lens or an asphere (notebook 112).
+- resonator_unfolded(): a two mirror resonator and the same resonator
+  unfolded into a periodic lens guide, one ray through both;
+  resonator_types(): plane-parallel, plane-concave, confocal and
+  concentric resonators with their eigenmodes, phase fronts and centres of
+  curvature; folded_resonator(): a three mirror resonator folded at a
+  concave mirror, tangential and sagittal planes (notebook 08).
 - rainbow_observer(): sun behind the observer, the rain, the antisolar
   point and the cones of the primary and secondary bow (notebook 71).
 - glory_aircraft(): the glory and the cloud bow around the shadow of an
@@ -289,6 +295,7 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "fresnel_interface", "kretschmann", "yee_grid", "lithography_scanner", "tcc_overlap",
            "mask_3d", "field_tracing_chain", "propagation_operators", "ball_lens_handover",
            "mach_zehnder_defect", "babinet_split", "diode_collimator", "fibre_coupling",
+           "resonator_unfolded", "resonator_types", "folded_resonator",
            "spectrometer_layout", "fts_layout", "fabry_perot_layout", "absorption_layout",
            "imaging_spectrometer_layout", "text_scale"]
 
@@ -8261,6 +8268,213 @@ def fibre_coupling(ax, lens="aspheric", title=None):
     label(ax, 0.4, -0.9, "Gaussian\nbeam E", fontsize=8, color=LASER, va="top")
     label(ax, z_f + 1.0, 1.05, "η = |∫ E·M* dA|² / (P_E P_M)", fontsize=9)
     _finish(ax, (-0.1, z_f + 2.1), (-1.25, 1.25), title)
+
+
+def _two_mirror_mode(L, R1, R2, wavelength):
+    """Waist position z0 (from mirror 1) and Rayleigh length of the eigenmode
+    of a two mirror resonator (Kogelnik and Li)."""
+
+    g1, g2 = 1 - L/R1, 1 - L/R2
+    s = g1 + g2 - 2*g1*g2
+    z_R = L*np.sqrt(g1*g2*(1 - g1*g2))/abs(s)
+    z0 = L*g2*(1 - g1)/s
+    return z0, z_R
+
+
+def _mode_wavefront(ax, z, z0, z_R, h, color="0.3", lw=0.9, zorder=3):
+    """Spherical phase front of a Gaussian beam through the axial point z."""
+
+    dz = z - z0
+    yy = np.linspace(-h, h, 41)
+    if abs(dz) < 1e-9:
+        ax.plot(np.full_like(yy, z), yy, color=color, lw=lw, zorder=zorder)
+        return
+    R = dz*(1 + (z_R/dz)**2)
+    yy = yy[np.abs(yy) < 0.98*abs(R)]
+    ax.plot(z - np.sign(R)*(abs(R) - np.sqrt(R**2 - yy**2)), yy, color=color, lw=lw,
+            zorder=zorder)
+
+
+RESONATORS = {"plane-parallel": (40.0, 40.0), "plane-concave": (np.inf, 4.0),
+              "confocal": (2.04, 2.04), "concentric": (1.04, 1.04)}
+
+
+def resonator_types(ax, kind="confocal", title=None):
+    """Sketch of a two mirror resonator of length 2 with its Gaussian
+    eigenmode (shaded, the radius w(z)), phase fronts that fit the mirrors
+    and the centres of curvature C1 and C2 of the mirrors (notebook 08).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : str, optional
+        "plane-parallel" (nearly flat mirrors, R = 20 L), "plane-concave"
+        (R2 = 2 L), "confocal" (R = 1.02 L) or "concentric" (R = 0.52 L):
+        the four resonators of notebook 08 in units of L/2.
+    title : str, optional
+    """
+
+    L, h, wl = 2.0, 0.85, 0.15
+    R1, R2 = RESONATORS[kind]
+    g1, g2 = 1 - L/R1, 1 - L/R2
+    z0, z_R = _two_mirror_mode(L, R1, R2, wl)
+    w0 = np.sqrt(wl*z_R/np.pi)
+    z = np.linspace(0.0, L, 201)
+    w = w0*np.sqrt(1 + ((z - z0)/z_R)**2)
+    band(ax, z, w, z, -w, color=LASER, alpha=0.25, edges=True)
+    for zw in np.linspace(0.12, L - 0.12, 6):
+        _mode_wavefront(ax, zw, z0, z_R, 1.15*w0*np.sqrt(1 + ((zw - z0)/z_R)**2),
+                        color=LASER, lw=0.8)
+    for z_v, R in ((0.0, R1), (L, -R2)):
+        if np.isinf(R):
+            ax.plot([z_v, z_v], [-h, h], color="0.25", lw=3.0, zorder=4)
+        else:
+            _mirror_arc(ax, z_v, R, -h, h)
+    centres = [(R1, "C₁", 1), (L - R2, "C₂", -1)]
+    if kind == "concentric":
+        ax.plot([R1, L - R2], [0.0, 0.0], "o", color=REFERENCE, ms=4, zorder=6)
+        label(ax, L/2, -0.18, "C₁ ≈ C₂", fontsize=8, color=REFERENCE, va="top")
+    else:
+        for zc, name, side in centres:
+            if -0.7 < zc < L + 0.7:
+                ax.plot(zc, 0.0, "o", color=REFERENCE, ms=4, zorder=6)
+                label(ax, zc + side*0.1, 0.0, name, fontsize=8, color=REFERENCE,
+                      ha="left" if side > 0 else "right")
+    far = [name for zc, name, side in centres if np.isfinite(zc) and not -0.7 < zc < L + 0.7]
+    if far:
+        label(ax, L/2, -1.2, " and ".join(far) + " far outside", fontsize=8, color=REFERENCE)
+    label(ax, 0.0, h + 0.12, "M₁", fontsize=8, va="bottom")
+    label(ax, L, h + 0.12, "M₂", fontsize=8, va="bottom")
+    label(ax, L/2, 1.25, f"$g_1$ = {g1:.2f}, $g_2$ = {g2:.2f}", fontsize=8)
+    _finish(ax, (-0.95, L + 0.95), (-1.45, 1.45), title if title is not None else kind)
+
+
+def resonator_unfolded(ax, R=3.0, L=1.6, round_trips=3, title=None):
+    """Sketch of a two mirror resonator and the same resonator unfolded into
+    a periodic sequence of lenses with f = R/2 (notebook 08). One ray is
+    traced through both: the bounces inside the resonator are the passes
+    through the lenses, and one round trip is one period of the lens guide.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    R : number, optional
+        Radius of both mirrors.
+    L : number, optional
+        Resonator length.
+    round_trips : int, optional
+        Number of round trips drawn.
+    title : str, optional
+    """
+
+    f, h = R/2, 0.75
+    z_end = 2*L*round_trips
+    lenses = [(k*L, f) for k in range(1, 2*round_trips)]
+    z_u, y_u = paraxial_ray(lenses, 0.0, 0.42, -0.12, z_end)
+    y_top = 2.6
+    # top: the resonator, the ray folded back between the mirrors
+    for z_v, Rm in ((0.0, R), (L, -R)):
+        yy = np.linspace(-h, h, 41)
+        ax.plot(_sag(z_v, Rm, yy), y_top + yy, color="0.25", lw=3.0, zorder=4)
+    z_fold = z_u - 2*L*np.floor(z_u/(2*L))
+    z_fold = np.where(z_fold > L, 2*L - z_fold, z_fold)
+    ax.plot(z_fold, y_top + y_u, color=IMAGING, lw=1.0, zorder=3)
+    label(ax, 0.0, y_top + h + 0.12, "M₁", fontsize=8, va="bottom")
+    label(ax, L, y_top + h + 0.12, "M₂", fontsize=8, va="bottom")
+    arrow(ax, 0.0, y_top - h - 0.2, L, y_top - h - 0.2, style="<|-|>", text="L",
+          text_pos=(L/2, y_top - h - 0.36))
+    label(ax, L + 0.45, y_top + 0.35, "a ray bouncing between two mirrors of radius R …",
+          fontsize=9, ha="left")
+    label(ax, L + 0.45, y_top - 0.15, "… is a ray through lenses with f = R/2 at the distance L:",
+          fontsize=9, ha="left")
+    label(ax, L + 0.45, y_top - 0.6,
+          r"round trip $M = M_1\,P(L)\,M_2\,P(L)$, stable for $|A + D|/2 < 1$",
+          fontsize=9, ha="left")
+    # bottom: the unfolded lens guide
+    for k, (zl, _) in enumerate(lenses):
+        lens(ax, zl, h, thickness=0.12, text="M₂" if k % 2 == 0 else "M₁", text_y=-h - 0.08)
+    lens(ax, 0.0, h, thickness=0.12, color="#e6eef5", text="M₁", text_y=-h - 0.08)
+    ax.plot(z_u, y_u, color=IMAGING, lw=1.0, zorder=3)
+    ax.axhline(0.0, color="0.6", lw=0.6, ls="-.", zorder=0)
+    for k in range(round_trips + 1):
+        ax.plot([2*k*L, 2*k*L], [h + 0.05, h + 0.3], color="0.4", lw=0.8)
+    for k in range(round_trips):
+        arrow(ax, 2*k*L, h + 0.18, 2*(k + 1)*L, h + 0.18, style="<|-|>", color="0.4", lw=0.8)
+        label(ax, (2*k + 1)*L, h + 0.33, f"round trip {k + 1}", fontsize=8, va="bottom",
+              color="0.3")
+    _finish(ax, (-0.3, z_end + 0.3), (-h - 0.45, y_top + h + 0.4), title)
+
+
+def folded_resonator(ax, theta=20.0, title=None):
+    """Sketch of a folded three mirror resonator (notebook 08): a plane end
+    mirror M1, the distance d1 to a concave folding mirror hit at the angle
+    of incidence theta, and the arm d to a second plane end mirror M2. The
+    plane of the drawing is the tangential plane; the sagittal direction
+    points out of it. The folding mirror focuses with R cos(theta)/2 in the
+    tangential and R/(2 cos(theta)) in the sagittal plane.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    theta : number, optional
+        Angle of incidence on the folding mirror in degrees.
+    title : str, optional
+    """
+
+    th = np.deg2rad(theta)
+    d1, d, R = 3.4, 3.0, 5.0
+    P = np.array([d1, 0.0])                     # vertex of the folding mirror
+    u2 = np.array([-np.cos(2*th), np.sin(2*th)])  # direction of the second arm
+    Q = P + d*u2                                 # second end mirror
+    nrm = np.array([-np.cos(th), np.sin(th)])    # mirror normal, towards the beams
+    # beams: a thick translucent line and the axis
+    for A, B in (((0.0, 0.0), P), (P, Q)):
+        ax.plot([A[0], B[0]], [A[1], B[1]], color=LASER, lw=7, alpha=0.25,
+                solid_capstyle="butt", zorder=1)
+        ax.plot([A[0], B[0]], [A[1], B[1]], color=LASER, lw=1.0, zorder=2)
+    # end mirrors, perpendicular to the beams
+    h = 0.45
+    ax.plot([0.0, 0.0], [-h, h], color="0.25", lw=3.0, zorder=4)
+    t2 = np.array([-u2[1], u2[0]])
+    ax.plot([Q[0] - h*t2[0], Q[0] + h*t2[0]], [Q[1] - h*t2[1], Q[1] + h*t2[1]], color="0.25",
+            lw=3.0, zorder=4)
+    # concave folding mirror: arc of radius R about P + R*nrm
+    C = P + R*nrm
+    phi0 = np.arctan2(-nrm[1], -nrm[0])
+    phi = phi0 + np.linspace(-0.6, 0.6, 41)/R
+    ax.plot(C[0] + R*np.cos(phi), C[1] + R*np.sin(phi), color="0.25", lw=3.0, zorder=4)
+    # normal and angles
+    ax.plot([P[0], P[0] + 1.3*nrm[0]], [P[1], P[1] + 1.3*nrm[1]], color="0.4", lw=0.8, ls="--",
+            zorder=2)
+    for a0, a1, txt in ((np.pi, np.pi - th, "θ"), (np.pi - th, np.pi - 2*th, "θ")):
+        aa = np.linspace(a0, a1, 20)
+        ax.plot(P[0] + 0.85*np.cos(aa), P[1] + 0.85*np.sin(aa), color="0.2", lw=0.8, zorder=5)
+        am = (a0 + a1)/2
+        label(ax, P[0] + 1.12*np.cos(am), P[1] + 1.12*np.sin(am), txt, fontsize=9)
+    label(ax, 0.0, -h - 0.1, "M₁ (plane)", fontsize=8, va="top")
+    label(ax, Q[0] - 0.1, Q[1] + 0.45, "M₂ (plane)", fontsize=8, va="bottom")
+    label(ax, P[0] + 0.2, -0.7, f"folding mirror, radius R\nhit at θ = {theta:.0f}°",
+          fontsize=8, va="top", ha="left")
+    label(ax, d1/2, -0.28, "d₁", fontsize=9, va="top")
+    label(ax, (P[0] + Q[0])/2 + 0.35*t2[0], (P[1] + Q[1])/2 + 0.35*t2[1], "d",
+          fontsize=9)
+    # tangential and sagittal directions on the first arm
+    zt = 0.7
+    arrow(ax, zt, -0.42, zt, 0.42, style="<|-|>", color=REFERENCE)
+    label(ax, zt + 0.12, 0.3, "t", fontsize=9, color=REFERENCE, ha="left")
+    zs = 1.5
+    ax.plot(zs, 0.0, "o", ms=9, mfc="white", mec=STRAY, mew=1.2, zorder=6)
+    ax.plot(zs, 0.0, "o", ms=2.5, color=STRAY, zorder=7)
+    label(ax, zs + 0.18, 0.3, "s", fontsize=9, color=STRAY, ha="left")
+    x0 = P[0] + 1.6
+    label(ax, x0, 1.55, "tangential (t, in the plane of the drawing):", fontsize=9, ha="left",
+          color=REFERENCE)
+    label(ax, x0 + 0.2, 1.15, r"$f_t = R\cos\theta/2$  (shorter)", fontsize=9, ha="left",
+          color=REFERENCE)
+    label(ax, x0, 0.6, "sagittal (s, out of the plane):", fontsize=9, ha="left", color=STRAY)
+    label(ax, x0 + 0.2, 0.2, r"$f_s = R/(2\cos\theta)$  (longer)", fontsize=9, ha="left",
+          color=STRAY)
+    _finish(ax, (-0.5, x0 + 3.6), (-1.35, Q[1] + 0.8), title)
 
 
 # ---------------------------------------------------------------------------
