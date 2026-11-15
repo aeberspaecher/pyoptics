@@ -73,7 +73,7 @@ table 12-3). As Delta -> 0, HE_11 becomes LP_01 and TE_01, TM_01 and HE_21
 become LP_11 (generally HE_l+1,m, EH_l-1,m and TE/TM form LP_lm).
 
 Mode field diameters: petermann_mfd() (Petermann II, 2 w with
-w**2 = 2 int u**2 r dr/int u'**2 r dr, the definition of ITU-T G.650 that
+w**2 = 2 int u**2 r dr/int (du/dr)**2 r dr, the definition of ITU-T G.650 that
 predicts splice losses and waveguide dispersion); Marcuse's Gaussian fit is
 `modes.marcuse_mode_field_radius()`. Bend loss of LP01: bend_loss()
 (Marcuse 1976).
@@ -691,7 +691,7 @@ def vector_modes(a, n_core, n_clad, wavelength, nu_max=None, samples=4000):
 
 def petermann_mfd(mode):
     """Petermann II mode field diameter 2 w (µm), with
-    w**2 = 2 int u**2 r dr/int u'**2 r dr.
+    w**2 = 2 int u**2 r dr/int (du/dr)**2 r dr.
 
     Parameters
     ----------

@@ -65,7 +65,7 @@ measures the vertical opening at the sampling time. power_budget() and
 rise_time_budget() add up a link (losses in dB, rise times in quadrature,
 rise time of a Gaussian channel 0.44/(bandwidth)). dispersion_penalty() is the
 Bellcore estimate of the power penalty of chromatic dispersion with a
-broad source, -5 log10(1 - (4 B L |D| sigma_lambda)**2) dB.
+broad source, -5 log10(1 - (4 B L abs(D) sigma_lambda)**2) dB.
 
 References
 ----------
@@ -438,8 +438,8 @@ def rise_time_budget(*rise_times):
 
 def dispersion_penalty(bit_rate, length_km, D, sigma_lambda_nm):
     """Bellcore power penalty (dB) of chromatic dispersion with a source of
-    rms spectral width sigma_lambda: -5 log10(1 - (4 B L |D| sigma)**2),
-    inf beyond B L |D| sigma = 1/4. B in Gb/s."""
+    rms spectral width sigma_lambda: -5 log10(1 - (4 B L abs(D) sigma)**2),
+    inf beyond B L abs(D) sigma = 1/4. B in Gb/s."""
     x = 4*bit_rate*1E-3*length_km*np.abs(D)*sigma_lambda_nm
     with np.errstate(divide="ignore", invalid="ignore"):
         return np.where(x < 1, -5*np.log10(1 - x**2), np.inf)[()]
