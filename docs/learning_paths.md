@@ -42,7 +42,7 @@ work. The core follows the order of a typical lecture.
 
 **Side trips:** {doc}`71 Rainbows and glories <notebooks/71_rainbows_and_glories>` (Descartes' ray picture and Airy's wave picture of
 the same bow), {doc}`47 Rays and waves <notebooks/47_rays_and_waves>` (a lab rule explained with rays and waves), {doc}`68 Bessel and Airy beams <notebooks/68_bessel_airy_self_healing>`
-(beams that seem not to diffract). Afterwards, {doc}`00 Foundations and conventions <notebooks/00_foundations_conventions>` shows where everything
+(beams that seem not to diffract), {doc}`105 Radiometry and photometry <notebooks/105_radiometry_photometry>` (watts, lumens and why a wall looks equally bright from any distance). Afterwards, {doc}`00 Foundations and conventions <notebooks/00_foundations_conventions>` shows where everything
 fits on the ladder from Maxwell's equations to rays.
 
 ## Curious reader
@@ -62,6 +62,7 @@ figures without running the code. No order is needed.
 | {doc}`79 Lensless imaging <notebooks/79_lensless_coded_aperture_imaging>` | Cameras without lenses: pinholes, masks and diffusers. |
 | {doc}`87 Speckle reduction <notebooks/87_speckle_reduction>` | Why a laser spot glitters, and how to stop it. |
 | {doc}`83 Étendue <notebooks/83_etendue_brightness_theorem>` | Why a burning glass cannot make anything hotter than the Sun. |
+| {doc}`106 Radiometry of images <notebooks/106_radiometry_of_images>` | Why a telescope never shows the Moon brighter than the naked eye, why the corners of a photo are darker, and where the sunny 16 rule comes from. |
 | {doc}`102 Sine and Herschel conditions <notebooks/102_sine_herschel_lagrange>` | Why a paraboloid has comet-shaped stars, why a microscope sees one plane sharply, and how remote focusing gets around it. |
 | {doc}`80 Carpet cloak <notebooks/80_carpet_cloak>` | Hiding a bump under a carpet with a graded material. |
 | {doc}`90 Bokeh <notebooks/90_bokeh>` | Why the background of a fast lens shows cat's eyes, soap bubbles and onion rings. |
@@ -103,7 +104,7 @@ aberrations first can start with {doc}`103 Introduction to geometrical optics <n
 wavefronts), {doc}`56 Gaussian beam decomposition <notebooks/56_gaussian_beam_decomposition>`.
 **Polarization and coatings:** {doc}`20 Polarization ray tracing <notebooks/20_polarization_raytrace>`, {doc}`14 Coated laser mirror <notebooks/14_coated_laser_mirror>`.
 **Broadband light:** {doc}`81 Ultrashort pulses <notebooks/81_ultrashort_pulses_lenses>`.
-**Camera lenses:** {doc}`90 Bokeh <notebooks/90_bokeh>` (a double Gauss, vignetting, out-of-focus rendering), {doc}`91 Sunstars <notebooks/91_sunstars>` (diffraction at the iris), {doc}`92 Flare and ghosts <notebooks/92_flare_ghosts>` (double reflections, coatings), {doc}`93 The sensor <notebooks/93_sensor>` (pixels, Bayer mosaic, low pass filter, microlenses), {doc}`94 Depth of field and tilt-shift <notebooks/94_tilt_shift_depth_of_field>` (hyperfocal distance, optimum aperture, Scheimpflug), {doc}`95 The light field camera <notebooks/95_light_field_camera>` (microlenses, views, refocusing).
+**Camera lenses:** {doc}`90 Bokeh <notebooks/90_bokeh>` (a double Gauss, vignetting, out-of-focus rendering), {doc}`91 Sunstars <notebooks/91_sunstars>` (diffraction at the iris), {doc}`92 Flare and ghosts <notebooks/92_flare_ghosts>` (double reflections, coatings), {doc}`93 The sensor <notebooks/93_sensor>` (pixels, Bayer mosaic, low pass filter, microlenses), {doc}`94 Depth of field and tilt-shift <notebooks/94_tilt_shift_depth_of_field>` (hyperfocal distance, optimum aperture, Scheimpflug), {doc}`95 The light field camera <notebooks/95_light_field_camera>` (microlenses, views, refocusing), {doc}`106 Radiometry of images <notebooks/106_radiometry_of_images>` (the camera equation, cos⁴ and how a retrofocus lens beats it, exposure and photons per pixel).
 
 ## Lithography and semiconductor engineer
 
@@ -135,17 +136,18 @@ that it uses.
 
 | Step | Notebook | Why |
 |---|---|---|
-| 1 | {doc}`83 Étendue <notebooks/83_etendue_brightness_theorem>` | Étendue, phase space and the brightness theorem. |
-| 2 | {doc}`84 Nonimaging concentrators <notebooks/84_nonimaging_concentrators>` | The compound parabolic concentrator and the edge ray principle. |
-| 3 | {doc}`88 LED optics <notebooks/88_led_optics_monte_carlo>` | LED optics and Monte Carlo illuminance. |
-| 4 | {doc}`86 Homogenizers <notebooks/86_homogenizers>` | Fly's eye lenslet arrays and integrator rods. |
-| 5 | {doc}`85 Köhler and critical illumination <notebooks/85_koehler_critical_illumination>` | Köhler and critical illumination. |
-| 6 | {doc}`51 Fresnel lenses <notebooks/51_fresnel_lenses>` | Fresnel lenses and solar concentrators. |
-| 7 | {doc}`42 KrF illuminator <notebooks/42_litho_illuminator>` | A complete illuminator, ray traced. |
-| 8 | {doc}`87 Speckle reduction <notebooks/87_speckle_reduction>` | Speckle, when the source is a laser. |
-| 9 | {doc}`89 Freeform beam shaping <notebooks/89_freeform_beam_shaping>` | Flat-top shapers, optimal transport and freeform lenses. |
+| 1 | {doc}`105 Radiometry and photometry <notebooks/105_radiometry_photometry>` | Flux, intensity, irradiance and radiance; lumens and luminous efficacy; view factors and the integrating sphere. |
+| 2 | {doc}`83 Étendue <notebooks/83_etendue_brightness_theorem>` | Étendue, phase space and the brightness theorem. |
+| 3 | {doc}`84 Nonimaging concentrators <notebooks/84_nonimaging_concentrators>` | The compound parabolic concentrator and the edge ray principle. |
+| 4 | {doc}`88 LED optics <notebooks/88_led_optics_monte_carlo>` | LED optics and Monte Carlo illuminance. |
+| 5 | {doc}`86 Homogenizers <notebooks/86_homogenizers>` | Fly's eye lenslet arrays and integrator rods. |
+| 6 | {doc}`85 Köhler and critical illumination <notebooks/85_koehler_critical_illumination>` | Köhler and critical illumination. |
+| 7 | {doc}`51 Fresnel lenses <notebooks/51_fresnel_lenses>` | Fresnel lenses and solar concentrators. |
+| 8 | {doc}`42 KrF illuminator <notebooks/42_litho_illuminator>` | A complete illuminator, ray traced. |
+| 9 | {doc}`87 Speckle reduction <notebooks/87_speckle_reduction>` | Speckle, when the source is a laser. |
+| 10 | {doc}`89 Freeform beam shaping <notebooks/89_freeform_beam_shaping>` | Flat-top shapers, optimal transport and freeform lenses. |
 
-**Side trips:** {doc}`10 Interfaces and thin films <notebooks/10_interfaces_thin_films>` and {doc}`20 Polarization ray tracing <notebooks/20_polarization_raytrace>` for coatings and Fresnel losses.
+**Side trips:** {doc}`10 Interfaces and thin films <notebooks/10_interfaces_thin_films>` and {doc}`20 Polarization ray tracing <notebooks/20_polarization_raytrace>` for coatings and Fresnel losses; {doc}`106 Radiometry of images <notebooks/106_radiometry_of_images>` for how bright an image is (the camera equation and the cos⁴ law).
 
 ## Laser and beam delivery engineer
 

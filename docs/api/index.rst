@@ -78,6 +78,7 @@ Imaging and ray tracing
    pyoptics.cloak
    pyoptics.fresnel
    pyoptics.illumination
+   pyoptics.radiometry
    pyoptics.speckle
    pyoptics.freeform
    pyoptics.photography

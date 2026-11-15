@@ -50,6 +50,11 @@
 
 ## DONE
 
+* Radiometry and photometry (`radiometry`: black bodies, V(λ) and V'(λ)
+  fits, luminous efficacy, view factors, the integrating sphere, the
+  camera equation and exposure; `photography.retrofocus()` and the image
+  side relative illumination; notebooks 105 and 106)
+
 * Trigonometric interpolation (`interpolator`: 1D/2D Fourier interpolation,
   FFT upsampling, Lanczos sigma factors and other windows against Gibbs,
   exact threshold CDs from coarse grids; notebook 107)

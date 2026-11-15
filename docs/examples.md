@@ -302,9 +302,11 @@ notebooks/107_litho_fourier_interpolation_cd
 
 ## Illumination optics
 
-Étendue, nonimaging concentrators, microscope illumination, homogenizers,
-speckle reduction, LED optics and freeform beam shaping.
+Radiometry and photometry, étendue, nonimaging concentrators, microscope
+illumination, homogenizers, speckle reduction, LED optics, freeform beam
+shaping and the brightness of images.
 
+- {doc}`notebooks/105_radiometry_photometry`
 - {doc}`notebooks/83_etendue_brightness_theorem`
 - {doc}`notebooks/84_nonimaging_concentrators`
 - {doc}`notebooks/85_koehler_critical_illumination`
@@ -312,11 +314,13 @@ speckle reduction, LED optics and freeform beam shaping.
 - {doc}`notebooks/87_speckle_reduction`
 - {doc}`notebooks/88_led_optics_monte_carlo`
 - {doc}`notebooks/89_freeform_beam_shaping`
+- {doc}`notebooks/106_radiometry_of_images`
 
 ```{toctree}
 :hidden:
 :caption: Illumination optics
 
+notebooks/105_radiometry_photometry
 notebooks/83_etendue_brightness_theorem
 notebooks/84_nonimaging_concentrators
 notebooks/85_koehler_critical_illumination
@@ -324,6 +328,7 @@ notebooks/86_homogenizers
 notebooks/87_speckle_reduction
 notebooks/88_led_optics_monte_carlo
 notebooks/89_freeform_beam_shaping
+notebooks/106_radiometry_of_images
 ```
 
 ## Atmospheric optics

@@ -134,6 +134,17 @@ def test_relative_illumination_without_vignetting():
     assert ri == pytest.approx(np.cos([0.1, 0.2]), rel=0.01)
 
 
+def test_relative_illumination_ideal_lens_is_cos4():
+    s = rt.System([rt.IdealLens(50.0, 50.0)], 0, ph.D_LINE, entrance_pupil_radius=3.0,
+                  field_angle=np.deg2rad(40.0))
+    f = np.deg2rad([15.0, 30.0, 40.0])
+    h, dh = ph.chief_ray_mapping(s, f)
+    assert np.abs(h) == pytest.approx(50.0*np.tan(f), rel=1e-6)
+    assert np.abs(dh) == pytest.approx(50.0/np.cos(f)**2, rel=1e-5)
+    ri = ph.relative_illumination(s, f, 100000, np.random.default_rng(2), image_side=True)
+    assert ri == pytest.approx(np.cos(f)**4, rel=0.015)
+
+
 def test_defocus_profile_pure_defocus_is_flat():
     r = np.linspace(0.1, 9.9, 50)
     E = ph.defocus_profile(r, -5.0)
@@ -534,3 +545,17 @@ def test_tilt_lens_untilted_is_original():
     t = ph.tilt_lens(lens, np.radians(3), 20.0)
     R = t.frames()[0][2][1]
     assert np.allclose(R[:, 2], ph.lens_normal(np.radians(3)))
+
+
+def test_retrofocus_beats_cos4():
+    s = ph.focus(ph.retrofocus())
+    p = s.paraxial()
+    assert p.efl == pytest.approx(ph.RETROFOCUS_F, abs=0.05)
+    assert p.bfl > p.efl + 10                 # room for a reflex mirror
+    assert p.xp_radius/p.ep_radius > 2        # inverted telephoto: large exit pupil
+    f = np.deg2rad([20.0, 35.0])
+    rng = np.random.default_rng(4)
+    # the entrance pupil grows towards the field (Slyusarev): more than cos(theta)
+    assert np.all(ph.relative_illumination(s, f, 30000, rng) > np.cos(f))
+    ri = ph.relative_illumination(s, f, 30000, rng, image_side=True)
+    assert ri[0] > 1.1*np.cos(f[0])**4 and ri[1] > 1.5*np.cos(f[1])**4

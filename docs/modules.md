@@ -390,6 +390,17 @@ What each module does and how mature it is. Planned work is listed in
   radial or x–y sag for the ray tracer; checked against the closed-form
   map, collimation and equal optical path, separable maps and traced
   irradiance (notebook 89)
+- `radiometry`: new, tested: radiometry and photometry; black bodies in
+  absolute units (`planck_radiance()`, Stefan–Boltzmann, Wien), the
+  spectral luminous efficiencies V(λ) and V'(λ) as analytic fits (the CIE
+  tables are referenced, not shipped), luminous flux and the luminous
+  efficacy of spectra and black bodies, photon fluxes, solid angles, view
+  factors between Lambertian surfaces, the integrating sphere (the sphere
+  multiplier and a Monte Carlo trace through the bounces), the camera
+  equation with the working F-number, exposure values, reflected light
+  metering and photons per pixel; checked against Stefan–Boltzmann, the
+  CIE tables, the solar constant, reciprocity and Monte Carlo (notebooks
+  105 and 106)
 - `photography`: new, tested: camera lens optics, the out-of-focus image
   (bokeh); a 50 mm f/1.8 double Gauss with clear apertures that vignette
   (`double_gauss()`), focusing to the smallest spot (`focus()`), blur
@@ -426,7 +437,11 @@ What each module does and how mature it is. Planned work is listed in
   rules (`plane_of_focus()`, `tilted_blur()`), and a real lens tilted with
   coordinate breaks (`tilt_lens()`, `trace_point()`); checked against the
   traced double Gauss, the diffraction and geometric MTFs and Merklinger's
-  depth of field wedge (notebook 94)
+  depth of field wedge (notebook 94); a 28 mm f/2.8 retrofocus lens
+  (`retrofocus()`), the real chief ray mapping (`chief_ray_mapping()`)
+  and the relative illumination with the image side area factor
+  (`relative_illumination(image_side=True)`), checked against cos⁴ for an
+  ideal lens (notebook 106)
 - `sensor`: new, tested: image sensors; the pixel aperture MTF and the
   sampling of the image (`sensor_image()`: lens diffraction, an optical
   low pass filter and the pixel aperture on a fine grid), the slanted edge

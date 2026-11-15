@@ -66,6 +66,12 @@ Maxwell's equations and checks each of them numerically. In particular:
 - Circular polarization is named about the direction of propagation (IEEE):
   `jones.J_RHCP` = [1, i]/√2 has positive helicity. Born & Wolf and Hecht
   call the same field left-circular.
+- "Intensity": the wave optics modules and notebooks follow the wave
+  optics habit and call |E|² the intensity, a power per area (an
+  irradiance in radiometric terms, up to a constant). In `radiometry`,
+  `illumination` and notebooks 88, 105 and 106, intensity has its
+  radiometric meaning, power per solid angle (W/sr, or cd); notebook 105
+  defines flux, intensity, irradiance and radiance.
 - Arrays of the wave optics modules are indexed [y, x] (from
   `utils.grid2d()`, plotted with `origin="lower"`); the FDTD and FDFD index
   their fields [x, y] (or [x, y, z]).
