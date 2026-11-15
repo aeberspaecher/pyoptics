@@ -169,3 +169,59 @@ def test_tensor_product_basis_is_abstract():
     j = _n_m_to_index(2, 1)
     X, Y = np.meshgrid(GRID, GRID)
     assert np.allclose(M.eval_single(j), M.mask*X**2*Y)
+
+
+# Noll ("Standard") Zernikes and analytic gradients:
+def test_noll_indices_match_noll_1976():
+    from pyoptics.bases import noll_to_n_m
+
+    expected = [(0, 0), (1, 1), (1, -1), (2, 0), (2, -2), (2, 2), (3, -1), (3, 1),
+                (3, -3), (3, 3), (4, 0), (4, 2), (4, -2), (4, 4), (4, -4), (5, 1)]
+    assert [noll_to_n_m(j) for j in range(1, 17)] == expected
+    with pytest.raises(ValueError):
+        noll_to_n_m(0)
+
+
+def test_noll_zernikes_closed_forms_and_unit_rms():
+    from pyoptics.bases import noll_zernike
+
+    rng = np.random.default_rng(3)
+    x, y = rng.uniform(-1, 1, (2, 100))
+    r, p = np.hypot(x, y), np.arctan2(y, x)
+    assert np.allclose(noll_zernike(2, x, y), 2*r*np.cos(p))
+    assert np.allclose(noll_zernike(5, x, y), np.sqrt(6)*r**2*np.sin(2*p))
+    assert np.allclose(noll_zernike(6, x, y), np.sqrt(6)*r**2*np.cos(2*p))
+    assert np.allclose(noll_zernike(8, x, y), np.sqrt(8)*(3*r**3 - 2*r)*np.cos(p))
+    assert np.allclose(noll_zernike(11, x, y), np.sqrt(5)*(6*r**4 - 6*r**2 + 1))
+    u = np.linspace(-1, 1, 601)
+    X, Y = np.meshgrid(u, u)
+    M = X**2 + Y**2 <= 1
+    for j in (1, 3, 4, 7, 12, 16, 22):
+        assert np.sqrt(np.mean(noll_zernike(j, X[M], Y[M])**2)) == pytest.approx(1.0, rel=5e-3)
+
+
+def test_zernike_nm_matches_fringe_zernike():
+    from pyoptics.bases import fringe_zernike, zernike_indices, zernike_nm
+
+    rng = np.random.default_rng(4)
+    x, y = rng.uniform(-1.2, 1.2, (2, 100))
+    for j in range(1, 37):
+        n, m, scale = zernike_indices(j, "fringe")
+        assert scale == 1.0
+        assert np.allclose(zernike_nm(n, m, x, y), fringe_zernike(j, x, y), atol=1e-12)
+
+
+@pytest.mark.parametrize("ordering", ["fringe", "noll"])
+def test_zernike_gradient_matches_finite_differences(ordering):
+    from pyoptics.bases import zernike_indices, zernike_nm, zernike_nm_gradient
+
+    rng = np.random.default_rng(5)
+    x, y = rng.uniform(-1, 1, (2, 50))
+    x[0], y[0] = 0.0, 0.0  # smooth at the origin
+    h = 1e-6
+    for j in range(1, 37):
+        n, m, _ = zernike_indices(j, ordering)
+        gx, gy = zernike_nm_gradient(n, m, x, y)
+        fx = (zernike_nm(n, m, x + h, y) - zernike_nm(n, m, x - h, y))/(2*h)
+        fy = (zernike_nm(n, m, x, y + h) - zernike_nm(n, m, x, y - h))/(2*h)
+        assert np.allclose(gx, fx, atol=1e-7) and np.allclose(gy, fy, atol=1e-7), j
