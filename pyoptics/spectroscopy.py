@@ -62,8 +62,8 @@ Delta n between parallel polarizers at 45 degrees to the optic axes ::
 
     T = prod_k cos**2(pi Delta n 2**k d/lambda),
 
-FSR lambda**2/(Delta n d) set by the thinnest plate, FWHM about
-lambda**2/(2**N Delta n d) by the thickest.
+FSR lambda**2/(Delta n d) set by the thinnest plate, FWHM 0.886
+lambda**2/(2**N Delta n d) (for N >= 4) set by the thickest.
 
 References
 ----------
