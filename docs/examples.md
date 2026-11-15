@@ -9,15 +9,17 @@ For suggested reading orders by background and interest, see
 
 ## Foundations and conventions
 
-From Maxwell's equations down to rays, with the modules for each level of approximation and numerical checks of all sign conventions.
+From Maxwell's equations down to rays, with the modules for each level of approximation and numerical checks of all sign conventions. A first course in geometrical optics (images, principal planes, simple instruments, Seidel aberrations and wavefront error) for readers new to optics.
 
 - {doc}`notebooks/00_foundations_conventions`
+- {doc}`notebooks/103_geometrical_optics_intro`
 
 ```{toctree}
 :hidden:
 :caption: Foundations
 
 notebooks/00_foundations_conventions
+notebooks/103_geometrical_optics_intro
 ```
 
 ## Propagation and diffraction
