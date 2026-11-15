@@ -14,7 +14,7 @@ Building blocks
 ---------------
 - `Grid`: domain size, cell size and time step (normalized units: c = 1,
   lengths and wavelengths in the same unit, times in that unit over c).
-- Shapes (`Slab`, `Rect`, `Circle`, `Annulus`, `Polygon`, `PolarShape`, `Limacon`, unions and
+- Shapes (`Slab`, `Rect`, `Circle`, `Annulus`, `Polygon`, `PolarShape`, `Limacon`, `Stadium`, unions and
   differences; waveguides `Path`, `SBend`, `Bend`, `Ring`; `Lattice`; in
   3D `Sphere`, `Box`, `Cylinder`, `Prism`) and `Medium` (permittivity, conductivity and `Drude`,
   `Lorentz` and `Debye` poles; `Medium.fit()` to tabulated n + ik), drawn
@@ -111,7 +111,7 @@ smoothing in the finite-difference time domain", Opt. Lett. 31, 2972-2974
 """
 
 from .grid import Grid
-from .geometry import (Shape, Union, Difference, Everywhere, Slab, Rect, Circle, Annulus, PolarShape, Limacon,
+from .geometry import (Shape, Union, Difference, Everywhere, Slab, Rect, Circle, Annulus, PolarShape, Limacon, Stadium,
                        Polygon, Path, SBend, Bend, Ring, Lattice, Sphere, Box, Prism, Cylinder,
                        sbend_points)
 from .media import Medium, VACUUM, Drude, Lorentz, Debye, omega_from_eV
@@ -125,7 +125,7 @@ from .periodic import DiffractionMonitor, DiffractionOrders, bloch_modes
 from .simulation import Simulation
 from ._kernels_numba import available as numba_available
 
-__all__ = ["Grid", "Shape", "Union", "Difference", "Everywhere", "Slab", "Rect", "Circle", "PolarShape", "Limacon",
+__all__ = ["Grid", "Shape", "Union", "Difference", "Everywhere", "Slab", "Rect", "Circle", "PolarShape", "Limacon", "Stadium",
            "Annulus", "Polygon", "Path", "SBend", "Bend", "Ring", "Lattice", "Sphere", "Box", "Prism",
            "Cylinder", "sbend_points", "Medium",
            "VACUUM", "Drude", "Lorentz", "Debye", "omega_from_eV", "PML", "PEC", "PERIODIC", "Bloch",

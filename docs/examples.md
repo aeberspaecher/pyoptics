@@ -57,6 +57,7 @@ Full-wave solutions of Maxwell's equations on the Yee grid, in the time domain (
 - {doc}`notebooks/64_fdtd_3d_nanojet`
 - {doc}`notebooks/66_fdfd_basics`
 - {doc}`notebooks/67_fdfd_limacon_microcavity`
+- {doc}`notebooks/104_phase_space_husimi_chaos`
 - {doc}`notebooks/80_carpet_cloak`
 - {doc}`notebooks/65_litho_fdtd_mask` (in *Lithography*)
 
@@ -72,6 +73,7 @@ notebooks/63_fdtd_devices
 notebooks/64_fdtd_3d_nanojet
 notebooks/66_fdfd_basics
 notebooks/67_fdfd_limacon_microcavity
+notebooks/104_phase_space_husimi_chaos
 notebooks/80_carpet_cloak
 ```
 

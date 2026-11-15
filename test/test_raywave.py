@@ -11,7 +11,7 @@ from pyoptics.analytic_phase import QuadraticPhaseField
 from pyoptics.propagators import rayleigh_sommerfeld_I_TF
 from pyoptics.raytrace import System, Surface, IdealLens
 from pyoptics.raywave import (straight_rays, ray_irradiance, rays_to_field, GaussianBeamlets,
-                              field_to_rays, local_spectrum_rays, wigner)
+                              field_to_rays, local_spectrum_rays, wigner, husimi)
 from pyoptics.utils import grid1d
 
 
@@ -287,3 +287,21 @@ def test_beamlet_trace_clips():
     assert np.all(np.hypot(*B.centres[keep].T) <= 0.3)
     with pytest.raises(ValueError):
         B.trace(System([Surface(semi_diameter=1.0)], 0, 2*WL))
+
+
+def test_husimi_is_the_smoothed_wigner_function():
+    x = grid1d(-1, 1, 128)
+    K2 = 2*np.pi/0.05
+    u = (np.exp(-(x - 0.2)**2/0.1**2)*np.exp(1j*K2*0.1*x)
+         + np.exp(-(x + 0.2)**2/0.1**2)*np.exp(-1j*K2*0.1*x))   # two crossing beams
+    sigma = 0.05
+    k, H = husimi(u, x, sigma)
+    dx, dk = x[1] - x[0], k[1] - k[0]
+    assert H.min() >= 0
+    assert abs(H.sum()*dx*dk/(2*np.pi)/(np.sum(np.abs(u)**2)*dx) - 1) < 1e-10
+    kw, W = wigner(u, x)
+    assert W.min() < -0.1*W.max()          # the cross term between the beams
+    dkw = kw[1] - kw[0]
+    for j, i in ((40, 100), (64, 128), (90, 150), (64, 140)):
+        ker = 2*np.exp(-(x[None, :] - x[j])**2/sigma**2 - sigma**2*(kw[:, None] - k[i])**2)
+        assert abs(np.sum(W*ker)*dx*dkw/(2*np.pi) - H[i, j]) < 1e-10*H.max()

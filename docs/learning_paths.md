@@ -216,7 +216,8 @@ cheaper ones stop being valid.
 | 10 | {doc}`64 3D FDTD and nanojet <notebooks/64_fdtd_3d_nanojet>` | 3D FDTD against Mie theory. |
 | 11 | {doc}`66 FDFD basics <notebooks/66_fdfd_basics>` | FDFD: one frequency at a time. |
 | 12 | {doc}`67 Limaçon microcavity <notebooks/67_fdfd_limacon_microcavity>` | A deformed microcavity with FDFD. |
-| 13 | {doc}`80 Carpet cloak <notebooks/80_carpet_cloak>` | Transformation optics. |
+| 13 | {doc}`104 Phase space, Husimi and ray chaos <notebooks/104_phase_space_husimi_chaos>` | Wigner and Husimi functions; the modes of chaotic cavities against billiard rays. |
+| 14 | {doc}`80 Carpet cloak <notebooks/80_carpet_cloak>` | Transformation optics. |
 
 **Cross-checks between methods:** {doc}`36 Rigorous mask (RCWA) <notebooks/36_litho_rigorous_mask>`, {doc}`37 Mask models compared <notebooks/37_litho_mask_models>` and {doc}`65 FDTD mask for lithography <notebooks/65_litho_fdtd_mask>` (RCWA against
 FDTD), {doc}`77 GRIN optics <notebooks/77_grin_optics>` (rays against FDFD in graded index media).

@@ -16,7 +16,9 @@ What each module does and how mature it is. Planned work is listed in
   non-uniform plane wave sum (separable for tilts about x or y, finufft or a
   direct sum otherwise) and Matsushima's spectrum rotation with the
   Jacobian; carrier removal, power flux and ISO 11146 beam widths on
-  inclined planes (detectors); `tilted_plane()` and
+  inclined planes (detectors); Wigner and Husimi functions of 1D fields
+  (`wigner()`, `husimi()`, the latter checked as the smoothed Wigner
+  function); `tilted_plane()` and
   `vectorial_tilted_plane()` are also available from `propagators`
 - `fdfd`: new, tested: finite-difference frequency-domain solver in 2D
   (Ez and Hz) on the Yee grid of `fdtd` with its shapes and media (and a
@@ -29,7 +31,8 @@ What each module does and how mature it is. Planned work is listed in
   from outgoing cylindrical waves and the directionality of the emission;
   checked against the cylinder series and the exact microdisk modes
   (`analytical.disk_resonance`), the slab under oblique incidence and the
-  FDTD (notebooks 66 and 67)
+  FDTD (notebooks 66 and 67); Husimi functions of Ez modes on the cavity
+  boundary in Birkhoff coordinates (`husimi_birkhoff()`, notebook 104)
 - `fdtd`: new, tested: finite-difference time-domain
   solver for Maxwell's equations in 1D, 2D and 3D (2D polarizations Ez and Hz,
   with the TE/TM naming explained in the module docstring), NumPy kernels
@@ -311,6 +314,14 @@ What each module does and how mature it is. Planned work is listed in
   gradient (traceable with `raytrace.System.trace()`), rays from local
   spectra (sampled Husimi function) and the Wigner function of a 1D field;
   structured rays from fields for the round trip through ray-traced optics
+- `billiard`: new, tested: ray dynamics in convex 2D billiards bounded by
+  an `fdtd.PolarShape` (limaçon, `fdtd.Stadium`, circle); the bounce map
+  in Birkhoff coordinates (area preserving and time reversible to 10⁻⁷ and
+  10⁻¹⁰), Poincaré surfaces of section, the open dielectric billiard with
+  Fresnel losses (steady probability distribution, escape directions and
+  the ray far field) and boundary Husimi functions of a wave from its
+  values and normal derivatives (Hentschel, Schomerus and Schubert),
+  checked against analytic whispering gallery waves (notebook 104)
 - `grin`: new, tested: ray tracing through gradient-index media (the ray
   equation in the parameter dt = ds/n, Runge-Kutta-Nyström after Sharma,
   Kumar and Ghatak, with the optical path and exact end points on a stop
