@@ -83,6 +83,7 @@ from collections import namedtuple
 import numpy as np
 
 from .coronagraph import mft
+from .polygons import polygon_ft as _polygon_ft
 
 
 __all__ = ["hexagon_vertices", "hex_centres", "polygon_mask", "segment_masks", "strut_mask",
@@ -307,10 +308,12 @@ def jwst_like_pupil(x, y, flat=1.32, gap=0.007, n_rings=2, strut_width=0.1,
 def polygon_ft(vertices, kx, ky):
     """Fourier transform of a polygon: integral of exp(-i (kx x + ky y)).
 
+    Same as `pyoptics.polygons.polygon_ft()`.
+
     Parameters
     ----------
     vertices : (n, 2) array
-        Counter-clockwise vertices.
+        Vertices (either orientation).
     kx, ky : arrays
         Angular spatial frequencies (rad per length unit), broadcast.
 
@@ -320,25 +323,7 @@ def polygon_ft(vertices, kx, ky):
         The transform; at k = 0 the area.
     """
 
-    V = np.asarray(vertices, float)
-    kx, ky = np.broadcast_arrays(np.asarray(kx, float), np.asarray(ky, float))
-    k2 = kx**2 + ky**2
-    F = np.zeros(kx.shape, complex)
-    for j in range(len(V)):
-        a, b = V[j], V[(j + 1) % len(V)]
-        e = b - a
-        L = np.hypot(*e)
-        n = np.array([e[1], -e[0]])/L       # outward for counter-clockwise
-        m = (a + b)/2
-        ke = (kx*e[0] + ky*e[1])/2
-        F += 1j*(kx*n[0] + ky*n[1])*L*np.exp(-1j*(kx*m[0] + ky*m[1]))*np.sinc(ke/np.pi)
-    small = k2 < 1e-30
-    with np.errstate(invalid="ignore", divide="ignore"):
-        F = np.asarray(F/k2)
-    if np.any(small):
-        area = 0.5*np.sum(V[:, 0]*np.roll(V[:, 1], -1) - np.roll(V[:, 0], -1)*V[:, 1])
-        F[small] = area
-    return F
+    return _polygon_ft(vertices, kx, ky)
 
 
 def array_factor(centres, kx, ky):

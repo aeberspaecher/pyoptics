@@ -175,6 +175,9 @@ class FDTDMask(RigorousMask):
             incident tangential field, relative to the clear stack.
         """
 
+        if not getattr(layout, "manhattan", True):
+            raise NotImplementedError("FDTDMask needs rectangles; polygons with edges at other "
+                                      "angles are only available for the thin mask models")
         s_x, s_y = np.atleast_1d(np.asarray(s_x, dtype=float)), np.atleast_1d(np.asarray(s_y, dtype=float))
         m, n = np.atleast_1d(m), np.atleast_1d(n)
         key = (layout.pitch_x, layout.pitch_y, tuple(map(tuple, layout.features)), layout.tone,

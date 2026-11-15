@@ -266,6 +266,8 @@ class FragmentedLayout(object):
     def __init__(self, layout, max_length=40.0, corner_length=15.0, corner_site=0.75):
         if layout.polygons is None:
             raise ValueError("the layout must be made with MaskLayout.from_polygons()")
+        if not layout.manhattan:
+            raise ValueError("fragment based OPC needs Manhattan polygons")
         self.target = layout
         self.max_length, self.corner_length = max_length, corner_length
         self._edges = []  # per polygon, per edge: indices of its fragments
