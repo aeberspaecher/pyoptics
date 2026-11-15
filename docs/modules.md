@@ -159,7 +159,8 @@ What each module does and how mature it is. Planned work is listed in
   1 + sum of Fringe Zernikes, optionally as log amplitude, or any
   transmission function); images in the resist on a thin film wafer stack (BARC, top
   coat, substrate; TE/TM Fresnel transmission, standing waves); metrics
-  (contrast, ILS/NILS, threshold CD, dose to size, MEEF, focus-exposure
+  (contrast, ILS/NILS, threshold CD with linear or Fourier interpolation,
+  dose to size, MEEF, focus-exposure
   matrix, Bossung curves, process window, exposure latitude vs. depth of
   focus, Gaussian resist blur) and plots (source, mask, pupil fill, images,
   Bossung curves, process windows); `litho.lens` hands a ray traced lens
@@ -719,8 +720,18 @@ What each module does and how mature it is. Planned work is listed in
   wavelength and moving diffuser diversity, a laser projector), LEDs above a
   plane and LED collimators, the ray map of a beam shaper, a two-lens
   flat-top shaper and a freeform lens projecting a picture
-- Unfinished stubs: `interpolator.TrigInterpolator` cannot be evaluated yet,
-  the functions in `polarization._polarization` are empty
+- `interpolator`: trigonometric (Fourier) interpolation of periodic images
+  and complex fields, tested: along one axis at any points
+  (`trig_interpolate()`), in 2D on any grid or at scattered points
+  (`trig_interpolate_2d()`), refinement by zero padding the spectrum
+  (`fourier_upsample()`), `TrigInterpolator` with a frequency cutoff (e.g.
+  2NA/wavelength), exact level crossings of a periodic cut
+  (`level_crossings()`, used by `litho.metrics.threshold_cd(...,
+  interpolation="fourier")`); windows against the Gibbs phenomenon
+  (`smoothing_window()`: Lanczos sigma factors of any order, Fejér, Hann,
+  Gaussian); exact for band-limited data, checked against the Gibbs
+  overshoot of a step (notebook 107)
+- Unfinished stubs: the functions in `polarization._polarization` are empty
 
 ## Tests
 

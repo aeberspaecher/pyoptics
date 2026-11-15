@@ -24,7 +24,14 @@ Metrics:
 - gaussian_blur(): a simple resist diffusion model.
 
 The functions work on 1D cuts u, I with u increasing and finely sampled
-(linear interpolation between samples).
+(linear interpolation between samples). feature_edges() and threshold_cd()
+also take interpolation="fourier": u is then one period of a periodic
+image, equidistant and without the repeated end point, and the edges are
+the level crossings of its trigonometric interpolant
+(pyoptics.interpolator.level_crossings()). Aerial images are band limited
+to 2*NA/wavelength, so a grid finer than wavelength/(4*NA) gives the exact
+edges, where linear interpolation needs many points per pitch (notebook
+107).
 
 References
 ----------
@@ -67,7 +74,7 @@ def _crossing(u, f, i, j):
     return u[i] + (u[j] - u[i])*f[i]/(f[i] - f[j])
 
 
-def feature_edges(u, I, threshold, center=0.0, bright=False):
+def feature_edges(u, I, threshold, center=0.0, bright=False, interpolation="linear"):
     """Printed edges of the feature at center.
 
     Parameters
@@ -80,6 +87,11 @@ def feature_edges(u, I, threshold, center=0.0, bright=False):
         Position of the feature center.
     bright : bool, optional
         True for a bright feature (prints where I >= threshold).
+    interpolation : {"linear", "fourier"}, optional
+        "fourier": u, I is one period of a periodic cut (equidistant, end
+        point excluded), interpolated trigonometrically; the edges are
+        the nearest threshold crossings around the center (the left one may
+        be returned below u[0], the right one beyond u[-1]).
 
     Returns
     -------
@@ -89,6 +101,10 @@ def feature_edges(u, I, threshold, center=0.0, bright=False):
     """
 
     u, I = np.asarray(u, dtype=float), np.asarray(I, dtype=float)
+    if interpolation == "fourier":
+        return _fourier_edges(u, I, threshold, center, bright)
+    if interpolation != "linear":
+        raise ValueError("interpolation must be 'linear' or 'fourier'")
     f = I - threshold if bright else threshold - I  # > 0 inside the feature
     i_c = int(np.argmin(np.abs(u - center)))
     if f[i_c] <= 0:
@@ -103,7 +119,27 @@ def feature_edges(u, I, threshold, center=0.0, bright=False):
     return _crossing(u, f, i_l, i_l + 1), _crossing(u, f, i_r - 1, i_r)
 
 
-def threshold_cd(u, I, threshold, center=0.0, bright=False):
+def _fourier_edges(u, I, threshold, center, bright):
+    """feature_edges() on the trigonometric interpolant of a periodic cut."""
+
+    from ..interpolator import level_crossings, trig_interpolate
+
+    sign = 1.0 if bright else -1.0
+    f = sign*(I - threshold)  # > 0 inside the feature
+    if trig_interpolate(f, u, center) <= 0:
+        return np.nan, np.nan
+    crossings, rising = level_crossings(u, f, 0.0)
+    if len(crossings) == 0:
+        return np.nan, np.nan
+    L = len(u)*(u[1] - u[0])
+    d = np.mod(crossings - center, L)  # distance to the right, in [0, L)
+    right = center + np.min(d[~rising]) if np.any(~rising) else np.nan
+    left = center - np.min(L - d[rising]) if np.any(rising) else np.nan
+
+    return left, right
+
+
+def threshold_cd(u, I, threshold, center=0.0, bright=False, interpolation="linear"):
     """Printed CD of the feature at center for a threshold.
 
     Parameters
@@ -116,6 +152,8 @@ def threshold_cd(u, I, threshold, center=0.0, bright=False):
         Position of the feature center.
     bright : bool, optional
         True for a bright feature (prints where I >= threshold).
+    interpolation : {"linear", "fourier"}, optional
+        See `feature_edges()`.
 
     Returns
     -------
@@ -123,7 +161,7 @@ def threshold_cd(u, I, threshold, center=0.0, bright=False):
         nan if the feature does not print.
     """
 
-    left, right = feature_edges(u, I, threshold, center, bright)
+    left, right = feature_edges(u, I, threshold, center, bright, interpolation)
 
     return right - left
 
