@@ -205,7 +205,7 @@ def _chief_directions(surfaces, stop_index, wavelength, object_distance):
     bundle = system.trace(rays, clip=False, last=len(surfaces) - 1)
     R = system.frames()[0][-1][1]
 
-    return bundle.directions[-2][0] @ R, bundle.directions[-1][0] @ R
+    return bundle.directions[-2][0] @ R, bundle.directions[-1][0] @ R, bundle.directions[-1][0]
 
 
 def _fold(surfaces, element, tilt_in, thickness, sigma, stop_index, wavelength, object_distance):
@@ -234,7 +234,7 @@ def czerny_turner(wavelength=550e-6, groove_density=1200.0, f_collimator=100.0,
                   f_camera=100.0, order=1, included_angle=np.radians(30.0),
                   phi_1=np.radians(8.0), phi_2=None, crossed=False, grating_size=25.0,
                   mirror_size=25.0, camera_size=50.0, slit_height=5.0, f_number=None, detector_tilt=0.0,
-                  detector_shift=0.0, mirror_conic=0.0):
+                  detector_shift=0.0, mirror_conic=0.0, grating_distance=None):
     """Czerny-Turner spectrometer with spherical mirrors and a plane grating.
 
     Slit -> concave collimator -> plane reflection grating -> concave
@@ -278,6 +278,9 @@ def czerny_turner(wavelength=550e-6, groove_density=1200.0, f_collimator=100.0,
         Detector distance minus f_camera (mm).
     mirror_conic : number, optional
         Conic constant of both mirrors (0 spheres, -1 paraboloids).
+    grating_distance : number, optional
+        Distance of the grating from both mirrors (mm); default 0.75
+        f_collimator, which leaves room for the detector beside the grating.
 
     Returns
     -------
@@ -285,6 +288,7 @@ def czerny_turner(wavelength=550e-6, groove_density=1200.0, f_collimator=100.0,
     """
 
     alpha, beta = grating_rotation(wavelength, groove_density, order, included_angle)
+    L_g = 0.75*f_collimator if grating_distance is None else grating_distance
     if phi_2 is None:
         phi_2 = shafer_angle(abs(phi_1), f_collimator, f_camera, alpha, beta)*np.sign(phi_1)
     sense = -1.0 if crossed else 1.0
@@ -296,7 +300,7 @@ def czerny_turner(wavelength=550e-6, groove_density=1200.0, f_collimator=100.0,
     collimator = rt.Surface(R1, 0.0, mirror=True, conic=mirror_conic,
                             semi_diameter=stop_radius, label="collimator")
     stop = 1
-    surfaces = _fold([], collimator, phi_1, f_collimator, -1, stop, wavelength, f_collimator)
+    surfaces = _fold([], collimator, phi_1, L_g, -1, stop, wavelength, f_collimator)
     # grating (the stop):
     grating = rt.GratingSurface(np.inf, 0.0, period=period, order=order, mirror=True,
                                 semi_diameter=grating_size/2, label="grating")
@@ -304,30 +308,27 @@ def czerny_turner(wavelength=550e-6, groove_density=1200.0, f_collimator=100.0,
     # from the grating normal; choose the groove direction that sends the
     # order to beta:
     grating_index = len(surfaces) + 1
-    trial = None
+    # of the orientations that send the order at the included angle, take
+    # the one that sends the light back towards the mirrors (the classical
+    # layout: slit and detector on one side, the two mirrors side by side
+    # on the other):
+    trial, best = None, -np.inf
     for tilt_g in (alpha, -alpha):
         for groove in (0.0, np.pi):
             grating.groove_angle = groove
-            d_in, d_out = _chief_directions(surfaces + [rt.CoordinateBreak(tilt=(tilt_g, 0, 0)),
-                                                        grating], stop, wavelength, f_collimator)
+            d_in, d_out, d_global = _chief_directions(
+                surfaces + [rt.CoordinateBreak(tilt=(tilt_g, 0, 0)), grating], stop, wavelength,
+                f_collimator)
             if not np.all(np.isfinite(d_out)):
                 continue
-            # incidence at alpha and the included angle between the chief rays:
             ok = (abs(abs(d_in[2]) - np.cos(alpha)) < 1e-9
                   and abs(np.dot(-d_in, d_out) - np.cos(alpha - beta)) < 1e-9)
-            if ok:
-                trial = (tilt_g, groove)
-                break
-        if trial is not None:
-            break
+            if ok and d_global[2] > best:
+                trial, best = (tilt_g, groove), d_global[2]
     if trial is None:
         raise ValueError("No grating orientation found for this order.")
     grating.groove_angle = trial[1]
-    surfaces = _fold(surfaces, grating, trial[0], f_collimator, 1, stop, wavelength,
-                     f_collimator)
-    # fix the distance grating -> camera (the collimator-grating distance
-    # above is f_collimator; the beam is collimated so it does not matter
-    # much, keep it equal):
+    surfaces = _fold(surfaces, grating, trial[0], L_g, 1, stop, wavelength, f_collimator)
     camera = rt.Surface(R2, 0.0, mirror=True, conic=mirror_conic,
                         semi_diameter=camera_size/2, label="camera")
     surfaces = _fold(surfaces, camera, sense*phi_2, f_camera + detector_shift, -1, stop,
