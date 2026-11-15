@@ -766,3 +766,46 @@ def normalize_img_to_energy(img, E):
     # TODO: refractive index?
 
     return img*np.sqrt(E)/np.sqrt(image_energy(img))
+
+
+def fwhm(x, y, outermost=False):
+    """Full width at half maximum of a peak, with linear interpolation of the
+    two half maximum crossings.
+
+    Parameters
+    ----------
+    x : array
+        Increasing coordinates.
+    y : array
+        Non-negative profile with its maximum inside the array.
+    outermost : bool, optional
+        False (default): the crossings next to the maximum, i.e. the width of
+        the main peak alone. True: the outermost crossings, which include
+        side peaks that reach above half the maximum.
+
+    Returns
+    -------
+    width : number
+        In the units of x; NaN if the profile does not fall below half its
+        maximum on both sides.
+    """
+
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    i = int(np.argmax(y))
+    half = y[i]/2
+    if outermost:
+        above = np.nonzero(y >= half)[0]
+        left, right = above[0], above[-1]
+    else:
+        below = y < half
+        left_below = np.nonzero(below[:i])[0]
+        right_below = np.nonzero(below[i:])[0]
+        if len(left_below) == 0 or len(right_below) == 0:
+            return np.nan
+        left, right = left_below[-1] + 1, i + right_below[0] - 1
+    if left == 0 or right == len(y) - 1:
+        return np.nan
+    xl = np.interp(half, [y[left - 1], y[left]], [x[left - 1], x[left]])
+    xr = np.interp(half, [y[right + 1], y[right]], [x[right + 1], x[right]])
+
+    return xr - xl

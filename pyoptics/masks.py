@@ -96,6 +96,35 @@ def rectangluar_mask(*args, **kwargs):
     return rectangular_mask(*args, **kwargs)
 
 
+def siemens_star(x, y, spokes, radius, x0=0.0, y0=0.0):
+    """Siemens star test target: spokes bright sectors (where cos(spokes phi)
+    > 0) inside a disk; the local period 2 pi r/spokes falls towards the
+    centre, so one target shows the resolution limit as the radius where the
+    spokes blur.
+
+    Parameters
+    ----------
+    x, y : arrays
+        Coordinates, broadcast against each other: meshed grids for an
+        image, or the points of a ray set.
+    spokes : int
+        Number of bright spokes.
+    radius : number
+        Outer radius (np.inf for a star that fills the whole grid).
+    x0, y0 : numbers, optional
+        Center coordinates.
+
+    Returns
+    -------
+    mask : array, int
+    """
+
+    dx, dy = np.asarray(x) - x0, np.asarray(y) - y0
+    r, phi = np.hypot(dx, dy), np.arctan2(dy, dx)
+
+    return ((r < radius) & (np.cos(spokes*phi) > 0)).astype(int)
+
+
 def elliptical_mask(x, y, a, b, x0=0.0, y0=0.0):
     """Create elliptical mask.
 

@@ -101,6 +101,7 @@ from scipy.optimize import minimize
 from scipy.signal import hilbert
 
 from .thin_films import r_t_coeffs
+from .utils import fwhm as _fwhm
 
 
 __all__ = ["axial_resolution", "bandwidth_k", "gaussian_spectrum", "coherence_envelope",
@@ -725,26 +726,6 @@ def sd_td_snr_ratio(depth_range, resolution):
 
 def fwhm(x, y):
     """Full width at half maximum of a single peak, with linear
-    interpolation of the half maximum crossings.
+    interpolation of the half maximum crossings; `utils.fwhm()`."""
 
-    Parameters
-    ----------
-    x, y : arrays
-
-    Returns
-    -------
-    number
-    """
-
-    y = np.asarray(y, dtype=float)
-    i = int(np.argmax(y))
-    h = y[i]/2
-    left = i
-    while left > 0 and y[left] > h:
-        left -= 1
-    right = i
-    while right < len(y) - 1 and y[right] > h:
-        right += 1
-    xl = np.interp(h, [y[left], y[left + 1]], [x[left], x[left + 1]])
-    xr = np.interp(h, [y[right], y[right - 1]], [x[right], x[right - 1]])
-    return xr - xl
+    return _fwhm(x, y)

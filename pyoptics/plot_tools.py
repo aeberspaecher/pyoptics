@@ -1,28 +1,88 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
-"""Plot helpers: intensities, complex fields (amplitude and phase) and image
-stacks through focus. Importing this module sets matplotlib's font size and
-family.
-"""
+"""Plot helpers: images with a title and colorbar (`show()`), complex fields
+as colour (`complex_to_rgb()`), intensities, complex fields (amplitude and
+phase) and image stacks through focus.
 
-import matplotlib as mpl
-mpl.rcParams["font.size"] = 16
-mpl.rcParams["font.family"] = "serif"
-import matplotlib.pyplot as plt
+The module leaves matplotlib's rcParams alone, so it can be imported into a
+notebook without changing its style.
+"""
 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from matplotlib.colors import ListedColormap
+from matplotlib.colors import ListedColormap, hsv_to_rgb
 
 from .utils import I, ensure_meshgrid
 
 
 default_cmap = plt.cm.inferno
 default_cmap_phase = plt.cm.bwr
+
+def show(ax, img, title=None, extent=None, cmap="viridis", colorbar=True, ticks=True,
+         symmetric=False, **kwargs):
+    """imshow with the usual trimmings: title, colorbar, optional symmetric
+    colour range.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    img : 2d array (or an RGB image, then without colorbar)
+    title : str, optional
+    extent : tuple, optional
+        (x[0], x[-1], y[0], y[-1]) as for imshow.
+    cmap : str or Colormap, optional
+    colorbar : bool, optional
+        Add a colorbar of the same height as the image.
+    ticks : bool, optional
+        False removes the axis ticks (for images without useful coordinates).
+    symmetric : bool, optional
+        Colour range -max|img| ... +max|img| (for signed maps like phases
+        or wavefront errors); NaNs are ignored.
+    kwargs
+        Passed on to imshow (vmin, vmax, origin, interpolation, ...).
+
+    Returns
+    -------
+    im : AxesImage
+    """
+
+    if symmetric and "vmax" not in kwargs:
+        vmax = np.nanmax(np.abs(img))
+        kwargs.setdefault("vmin", -vmax)
+        kwargs["vmax"] = vmax
+    im = ax.imshow(img, extent=extent, cmap=cmap, **kwargs)
+    if title is not None:
+        ax.set_title(title)
+    if not ticks:
+        ax.set_xticks([])
+        ax.set_yticks([])
+    if colorbar and np.ndim(img) == 2:
+        plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    return im
+
+
+def complex_to_rgb(field, gamma=0.7):
+    """A complex field as an RGB image: hue is the phase, brightness the
+    amplitude (relative to its maximum, raised to gamma to show weak parts).
+
+    Parameters
+    ----------
+    field : 2d complex array
+    gamma : number, optional
+
+    Returns
+    -------
+    rgb : array (..., 3)
+    """
+
+    A = np.abs(field)/np.abs(field).max()
+    H = (np.angle(field) + np.pi)/(2*np.pi)
+    return hsv_to_rgb(np.dstack([H, np.ones_like(H), A**gamma]))
+
 
 def plot_intensity(psi, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
                    use_intensity=False, n=1.0, ax=None, **kwargs):

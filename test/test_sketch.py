@@ -183,6 +183,12 @@ def test_paraxial_ray_imaging():
     lambda ax: sketch.echelle_layout(ax, kind="grooves"),
     sketch.adc_layout,
     lambda ax: sketch.adc_layout(ax, kind="refraction"),
+    sketch.fresnel_interface,
+    sketch.kretschmann,
+    sketch.yee_grid,
+    sketch.lithography_scanner,
+    sketch.tcc_overlap,
+    sketch.mask_3d,
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()
@@ -258,3 +264,15 @@ def test_bokeh_formation_blur_disks():
     bars = [p for p in ax.patches if type(p).__name__ == "Rectangle" and p.get_alpha() == 0.85]
     assert len(bars) == 2
     plt.close(fig)
+
+
+def test_text_scale_enlarges_labels_only_inside():
+    sizes = []
+    for factor in (1.0, 1.5, 1.0):
+        fig, ax = plt.subplots()
+        with sketch.text_scale(factor):
+            sketch.fresnel_interface(ax, title="t")
+        sizes.append(sorted(t.get_fontsize() for t in ax.texts))
+        plt.close(fig)
+    assert np.allclose(sizes[1], 1.5*np.array(sizes[0]))
+    assert np.allclose(sizes[2], sizes[0])        # the factor does not leak out of the block

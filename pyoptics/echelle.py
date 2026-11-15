@@ -83,6 +83,7 @@ from __future__ import division
 import numpy as np
 
 from pyoptics.ultrafast import prism_angles
+from pyoptics.utils import fwhm as _fwhm
 
 
 __all__ = ["Echelle", "GratingCrossDisperser", "PrismCrossDisperser", "order_position",
@@ -451,15 +452,10 @@ def instrument_profile(delta, slit_angle, beam_width, wavelength):
 
 
 def fwhm(x, y):
-    """Full width at half maximum of a single peak, by linear interpolation."""
+    """Full width at half maximum of a single peak, by linear interpolation;
+    `utils.fwhm()` with outermost=True."""
 
-    y = np.asarray(y, float)
-    h = y.max()/2
-    above = np.nonzero(y >= h)[0]
-    i0, i1 = above[0], above[-1]
-    xl = x[i0 - 1] + (h - y[i0 - 1])*(x[i0] - x[i0 - 1])/(y[i0] - y[i0 - 1])
-    xr = x[i1] + (h - y[i1])*(x[i1 + 1] - x[i1])/(y[i1 + 1] - y[i1])
-    return xr - xl
+    return _fwhm(x, y, outermost=True)
 
 
 def slit_resolving_power(blaze, f_coll=None, slit_width=None, D_coll=None, D_tel=None, phi=None):

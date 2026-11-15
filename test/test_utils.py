@@ -81,3 +81,22 @@ def test_pad_options():
         pad(stack, x, x)
     with pytest.raises(ValueError):
         pad(stack, x, x, shape=(5, 5))
+
+
+def test_fwhm_gaussian_and_edges():
+    from pyoptics.utils import fwhm
+    x = np.linspace(-5, 5, 201)        # coarse: the interpolation must do the work
+    sigma = 0.7
+    assert fwhm(x, np.exp(-x**2/(2*sigma**2))) == pytest.approx(2*np.sqrt(2*np.log(2))*sigma, rel=2e-3)
+    # an off-centre, asymmetric peak: the two half widths add up
+    y = np.where(x < 1, np.exp(-(x - 1)**2/2), np.exp(-(x - 1)**2/8))
+    assert fwhm(x, y) == pytest.approx(3*np.sqrt(2*np.log(2)), rel=2e-3)
+    # a profile that does not drop below half the maximum on one side
+    assert np.isnan(fwhm(x, np.exp(-(x - 5)**2)))
+
+
+def test_fwhm_outermost_includes_side_peaks():
+    from pyoptics.utils import fwhm
+    x = np.linspace(-6, 6, 2401)
+    y = np.exp(-x**2/0.5) + 0.8*np.exp(-(x - 2)**2/0.5)
+    assert fwhm(x, y) < 1.5 < fwhm(x, y, outermost=True)
