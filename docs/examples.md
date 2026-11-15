@@ -148,7 +148,7 @@ notebooks/79_lensless_coded_aperture_imaging
 
 ## Ray tracing and lens design
 
-Sequential and polarization ray tracing, from rays to waves, glass catalogues, lens optimization and tolerancing, and what a lens must conserve: the Lagrange invariant, the sine and the Herschel condition.
+Sequential and polarization ray tracing, from rays to waves, glass catalogues, lens optimization and tolerancing, and what a lens must conserve: the Lagrange invariant, the sine and the Herschel condition, and field tracing: rays through the lenses, waves where diffraction matters.
 
 - {doc}`notebooks/19_ray_tracing`
 - {doc}`notebooks/20_polarization_raytrace`
@@ -163,6 +163,7 @@ Sequential and polarization ray tracing, from rays to waves, glass catalogues, l
 - {doc}`notebooks/70_monte_carlo_tolerancing`
 - {doc}`notebooks/77_grin_optics`
 - {doc}`notebooks/102_sine_herschel_lagrange`
+- {doc}`notebooks/109_field_tracing`
 
 ```{toctree}
 :hidden:
@@ -181,6 +182,7 @@ notebooks/61_glass_catalogues
 notebooks/70_monte_carlo_tolerancing
 notebooks/77_grin_optics
 notebooks/102_sine_herschel_lagrange
+notebooks/109_field_tracing
 ```
 
 ## Interferometry, holography and wavefront sensing
