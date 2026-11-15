@@ -554,7 +554,7 @@ def sphere_trace(points, directions, radius, reflectance, ports=(), power=1.0, m
 
 # images:
 def working_f_number(f_number, magnification=0.0, pupil_magnification=1.0):
-    """Working F-number N (1 + |m|/m_p) of a lens imaging at the
+    """Working F-number N (1 + abs(m)/m_p) of a lens imaging at the
     magnification m (0 at infinity, -1 at 1:1), with the pupil magnification
     m_p (exit over entrance pupil diameter).
 
