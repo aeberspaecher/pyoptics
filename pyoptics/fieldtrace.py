@@ -131,7 +131,7 @@ from .utils import wavenumber
 
 __all__ = ["Field", "gaussian", "from_array", "Chain", "ChainResult", "Step", "Propagate",
            "ThinLens", "ThinElement", "PhaseScreen", "Aperture", "Interface", "Jones", "Function",
-           "Trace",
+           "Trace", "FieldSum", "Parallel", "Obstruction", "Combine",
            "Detector", "DetectorRecord", "PropagationFailure", "estimate_propagation", "METHODS", "Z0"]
 
 
@@ -1134,13 +1134,17 @@ class Propagate(Step):
         Error budget of the automatic selection (default: the chain's tol).
     candidates : sequence, optional
         Operators the selection may choose from.
+    max_samples : int, optional
+        Largest grid the automatic selection may use; beyond it the step
+        fails with PropagationFailure instead of exhausting the memory.
     """
 
-    def __init__(self, z, method="auto", tol=None, candidates=METHODS):
+    def __init__(self, z, method="auto", tol=None, candidates=METHODS, max_samples=2**24):
         self.z = float(z)
         self.method = method
         self.tol = tol
         self.candidates = tuple(candidates)
+        self.max_samples = int(max_samples)
         self.last_estimate = None
         self.label = "propagate {:g}".format(self.z)
 
@@ -1148,12 +1152,19 @@ class Propagate(Step):
         info = {"notes": []}
         method = self.method
         if method == "auto":
-            tol = ctx.get("tol", 1E-2) if self.tol is None else self.tol
+            tol = ctx.get("tol_part", ctx.get("tol", 1E-2)) if self.tol is None else self.tol
             method, table = estimate_propagation(field, self.z, self.candidates, tol)
             self.last_estimate = table
             info["error"] = table[method]["error"]
             info["candidates"] = {m: (table[m]["error"], table[m]["effort"]) for m in self.candidates}
             fx, fy = table[method]["factor"]
+            size = int(np.prod([int(np.ceil(v*f)) for v, f in zip(field.shape[::-1], (fx, fy))]))
+            if size > self.max_samples:
+                raise PropagationFailure(
+                    "propagate {}: {} needs about {:.1e} samples (more than max_samples={:.1e}); "
+                    "hard edges or fine structure in a large field? Smooth the edges, split the "
+                    "field (FieldSum, Obstruction) or loosen tol".format(
+                        self.z, method, size, self.max_samples))
             field, N_out = _refine(field, method, fx, fy)
             out, notes, _ = _propagate(field, self.z, method, N_out)
             if not table["reference"]["converged"]:
@@ -1419,20 +1430,36 @@ class Trace(Step):
         nr = self.n_rays or min(256, max(r1 - r0, c1 - c0) + 1)
         iy = np.unique(np.round(np.linspace(r0, r1, nr)).astype(int))
         ix = np.unique(np.round(np.linspace(c0, c1, nr)).astype(int))
-        # complete phase of the dominant component (unwrapped) and the local
-        # wave vector (from the analytic phase where the field is dark)
+        # local wave vector of the dominant component: gradient of the
+        # analytic phase plus Im(A* grad A)/|A|**2 (no phase unwrapping); in
+        # the dark the analytic phase alone
         dom = int(np.argmax(np.sum(np.abs(C)**2, axis=(0, 1))))
-        q = field._qpf(dom) if field.is_vector else field._qpf(0)
-        Phi = _unwrapped_phase(q)
-        Phi = np.where(lit, Phi, field._phase())
-        gy, gx = np.gradient(Phi, field._y, field.x)
+        Ad = field._A[:, :, dom if field.is_vector else 0]
         X, Y = np.meshgrid(field.x, field._y)
+        dAy, dAx = np.gradient(Ad, field._y, field.x)
+        Ad2 = np.abs(Ad)**2
+        wet = Ad2 > 1E-8*Ad2.max()
+        with np.errstate(invalid="ignore", divide="ignore"):
+            gx = np.where(wet, np.imag(np.conj(Ad)*dAx)/Ad2, 0.0)
+            gy = np.where(wet, np.imag(np.conj(Ad)*dAy)/Ad2, 0.0)
+        gx = gx + 2*field.alpha[0]*X + field.beta[0]
+        gy = gy + 2*field.alpha[1]*Y + field.beta[1]
+        # complete (unwrapped) phase: the optical path of the rays
+        q = field._qpf(dom) if field.is_vector else field._qpf(0)
+        Phi = np.where(lit, _unwrapped_phase(q), field._phase())
         sel = np.ix_(iy, ix)
         Xs, Ys, kx, ky = X[sel], Y[sel], gx[sel], gy[sel]
         k = np.real(field.k)
         kz2 = k**2 - kx**2 - ky**2
-        if np.any(kz2[lit[sel]] <= 0):
-            raise PropagationFailure("Trace: evanescent local wave vectors in the input")
+        bad = kz2 <= 0
+        if np.any(bad):
+            share = np.sum(I[sel][bad])/np.sum(I[sel])
+            if share > 1E-3:
+                raise PropagationFailure("Trace: evanescent local wave vectors in the input "
+                                         "({:.1e} of the power)".format(share))
+            notes.append("{:.1e} of the power in evanescent local waves: dropped".format(share))
+            kx, ky = np.where(bad, 0.0, kx), np.where(bad, 0.0, ky)
+            kz2 = k**2 - kx**2 - ky**2
         kz = np.sqrt(np.maximum(kz2, 1E-12*k**2))
         D = np.stack([kx, ky, kz], axis=-1)/k
         # input field vectors relative to exp(i*Phi), E_z from k.E = 0
@@ -1538,14 +1565,24 @@ class Detector(Step):
         Any of "irradiance" (|E|**2, incl. |E_z|**2 if the chain is vectorial,
         or, in "auto" mode, if E_z carries more than tol of the power),
         "E" (E_x, E_y), "Ez", "H", "poynting", "power".
+    x, y : arrays, optional
+        Detector grid (default: the field's; for a FieldSum the union of the
+        part windows, see FieldSum.default_grid()). The parts of a FieldSum
+        are added coherently on it.
     """
 
-    def __init__(self, name, quantities=("irradiance",)):
+    def __init__(self, name, quantities=("irradiance",), x=None, y=None):
         self.name = name
         self.quantities = tuple(quantities)
+        self.x, self.y = x, y
         self.label = "detector {!r}".format(name)
 
     def apply(self, field, ctx):
+        passed = field
+        if isinstance(field, FieldSum):
+            field = field.combined(self.x, self.y)
+        elif self.x is not None:
+            field = field.resample(self.x, self.y)
         notes = []
         mode = ctx.get("polarization", "auto")
         tol = ctx.get("tol", 1E-2)
@@ -1575,7 +1612,216 @@ class Detector(Step):
             else:
                 raise ValueError("unknown quantity {!r}".format(q))
         ctx.setdefault("detectors", {})[self.name] = DetectorRecord(self.name, field.copy(), values)
-        return field, {"method": "detector", "notes": notes}
+        return passed, {"method": "detector", "notes": notes}
+
+
+# --------------------------------------------------------------------------
+# fields in several parts: parallel arms, Babinet obstructions
+# --------------------------------------------------------------------------
+
+class FieldSum(object):
+    """Coherent sum of fields, each on its own grid with its own analytic
+    phase (and, in a chain, its own propagation operator).
+
+    A chain treats every part as a field of its own; the parts are added
+    only where the sum is needed: in a Detector, in Combine or by
+    combined(). This keeps a large smooth field and a small strongly
+    diffracting one (an obstruction, see Obstruction) cheap at the same
+    time, and holds the arms of an interferometer (see Parallel).
+    """
+
+    def __init__(self, parts):
+        flat = []
+        for p in parts:
+            flat.extend(p.parts if isinstance(p, FieldSum) else [p])
+        if not flat:
+            raise ValueError("a FieldSum needs at least one part")
+        if len({(p.wavelength, p.one_d) for p in flat}) > 1:
+            raise ValueError("parts must share wavelength and dimensionality")
+        self.parts = flat
+
+    def __len__(self):
+        return len(self.parts)
+
+    def copy(self):
+        return FieldSum([p.copy() for p in self.parts])
+
+    @property
+    def one_d(self):
+        return self.parts[0].one_d
+
+    @property
+    def is_vector(self):
+        return any(p.is_vector for p in self.parts)
+
+    @property
+    def z(self):
+        return self.parts[0].z
+
+    @property
+    def wavelength(self):
+        return self.parts[0].wavelength
+
+    @property
+    def shape(self):
+        return self.parts[0].shape
+
+    def default_grid(self, max_N=4096):
+        """Union of the part windows, sampled with the finest part spacing
+        (at most max_N per axis)."""
+        def axis(coords):
+            lo = min(c[0] for c in coords)
+            hi = max(c[-1] for c in coords)
+            d = min(_spacing(c) for c in coords)
+            N = min(int(np.ceil((hi - lo)/d)) + 1, int(max_N))
+            return _window(lo, hi, N)
+        x = axis([p.x for p in self.parts])
+        y = None if self.one_d else axis([p._y for p in self.parts])
+        return x, y
+
+    def combined(self, x=None, y=None, max_N=4096):
+        """The sum as one Field on the grid x, y (default: default_grid()),
+        with the analytic phase of the strongest part. The rest of the phase
+        is sampled on that grid; choose it fine enough."""
+        if x is None:
+            x, y = self.default_grid(max_N)
+        x = _linear(x, "x")
+        y = None if self.one_d else _linear(y, "y")
+        powers = [p.power() for p in self.parts]
+        base = self.parts[int(np.argmax(powers))].resample(x, y)
+        e_base = np.exp(-1j*base._phase())
+        A = np.zeros(base._A.shape[:2] + (2,), dtype=complex)
+        for p in self.parts:
+            g = p.resample(x, y)
+            A += g._components()*(np.exp(1j*g._phase())*e_base)[:, :, None]
+        out = base.vectorized()._with(A)
+        if not self.is_vector:
+            out, _ = out.scalarized()
+        return out
+
+    def E(self, x=None, y=None):
+        return self.combined(x, y).E()
+
+    def irradiance(self, x=None, y=None, include_z=False):
+        return self.combined(x, y).irradiance(include_z=include_z)
+
+    def power(self, x=None, y=None):
+        return self.combined(x, y).power()
+
+    def __repr__(self):
+        return "FieldSum({} parts: {})".format(
+            len(self.parts), ", ".join("x".join(str(v) for v in p.shape[::-1]) for p in self.parts))
+
+
+class Parallel(Step):
+    """Parallel arms between a beam splitter and a combiner.
+
+    Each arm is a Chain (or a list of steps) that gets the incoming field
+    times its weight; the result is the FieldSum of the arm outputs, which
+    later steps (the common path behind the combiner) treat part by part and
+    a Detector adds coherently. The weights are amplitude factors, e.g.
+    (0.5, 0.5) for the bright port of a Mach-Zehnder interferometer with two
+    50/50 splitters (1/sqrt(2) at each). The arms are run with the chain's
+    polarization mode and tolerance; their steps show up in the chain's
+    report, prefixed with the arm number.
+
+    Parameters
+    ----------
+    arms : Chains or lists of steps
+    weights : sequence of complex, optional
+        Amplitude factors (default: 1).
+    """
+
+    def __init__(self, *arms, weights=None, label="parallel"):
+        if len(arms) < 1:
+            raise ValueError("give at least one arm")
+        self.arms = [a if isinstance(a, Chain) else Chain(a) for a in arms]
+        self.weights = (np.ones(len(arms), dtype=complex) if weights is None
+                        else np.asarray(weights, dtype=complex))
+        if len(self.weights) != len(self.arms):
+            raise ValueError("one weight per arm")
+        self.label = label
+
+    def apply(self, field, ctx):
+        parts = field.parts if isinstance(field, FieldSum) else [field]
+        outs = []
+        for i, (arm, w) in enumerate(zip(self.arms, self.weights)):
+            for p in parts:
+                f = p._with(p._A*w)
+                outs.append(Chain._run_steps(arm, f, ctx, "{}.{}.".format(ctx["_index"], i + 1)))
+        return FieldSum(outs), {"method": "{} arms".format(len(self.arms))}
+
+
+class Obstruction(Step):
+    """Small obstruction or defect, by Babinet's principle.
+
+    A small opaque particle (or a defect of transmission t) in a large field
+    E turns it into E + (t - 1) E M, M the indicator of the obstruction. The
+    second part lives on a small, finely sampled grid around the obstruction
+    and diffracts strongly, the first stays smooth: as two parts of a
+    FieldSum each is propagated with its own grid and operator. This is the
+    "virtual stop" of the field tracing literature: a second source of the
+    opposite phase.
+
+    Parameters
+    ----------
+    radius, half_widths : number, optional
+        Circular or rectangular obstruction.
+    center : (x, y), optional
+    transmission : complex, optional
+        Amplitude transmission of the obstruction (0: opaque; exp(i phi) for
+        a pure phase defect).
+    samples : int, optional
+        Samples across the obstruction (its grid adds a 25% margin).
+    """
+
+    def __init__(self, radius=None, half_widths=None, center=(0.0, 0.0), transmission=0.0,
+                 samples=64, label="obstruction"):
+        if (radius is None) == (half_widths is None):
+            raise ValueError("give exactly one of radius, half_widths")
+        self.radius, self.half_widths = radius, half_widths
+        self.center = tuple(float(c) for c in center)
+        self.transmission = complex(transmission)
+        self.samples = int(samples)
+        self.label = label
+
+    def apply(self, field, ctx):
+        if isinstance(field, FieldSum):
+            raise ValueError("Obstruction acts on a single field; place it inside an arm")
+        hx, hy = ((self.radius, self.radius) if self.radius is not None
+                  else _pair(self.half_widths))
+        cx, cy = self.center
+        N = int(np.ceil(self.samples*1.25)) | 1
+        x = _window(cx - 1.25*hx, cx + 1.25*hx, N)
+        y = None if field.one_d else _window(cy - 1.25*hy, cy + 1.25*hy, N)
+        small = field.resample(x, y)
+        X, Y = np.meshgrid(small.x - cx, small._y - cy)
+        if field.one_d:
+            Y = np.zeros_like(X)
+        if self.radius is not None:
+            M = (X**2 + Y**2 <= self.radius**2)
+        else:
+            M = (np.abs(X) <= hx) & (np.abs(Y) <= hy)
+        small = small._with(small._A*((self.transmission - 1)*M)[:, :, None])
+        if field.one_d:
+            notes = []
+        else:
+            notes = ["Babinet part: {} samples on {:.3g} x {:.3g}".format(N, 2.5*hx, 2.5*hy)]
+        return FieldSum([field, small]), {"method": "Babinet", "notes": notes}
+
+
+class Combine(Step):
+    """Add the parts of a FieldSum into one Field on the grid x, y (default:
+    FieldSum.default_grid())."""
+
+    def __init__(self, x=None, y=None, label="combine"):
+        self.x, self.y = x, y
+        self.label = label
+
+    def apply(self, field, ctx):
+        if not isinstance(field, FieldSum):
+            return field, {"method": "single field"}
+        return field.combined(self.x, self.y), {"method": "{} parts".format(len(field))}
 
 
 # --------------------------------------------------------------------------
@@ -1602,8 +1848,8 @@ class ChainResult(object):
             "#", "step", "method", "error", "samples", "pol.", "ms", "notes")]
         for row in self.log:
             err = "" if row.get("error") is None else "{:.1e}".format(row["error"])
-            lines.append("{:>3d}  {:28s} {:15s} {:>9s} {:>11s} {:7s} {:>8.1f}  {}".format(
-                row["index"], row["step"][:28], row.get("method", "")[:15], err, row["samples"],
+            lines.append("{:>3s}  {:28s} {:15s} {:>9s} {:>11s} {:7s} {:>8.1f}  {}".format(
+                str(row["index"]), row["step"][:28], row.get("method", "")[:15], err, row["samples"],
                 row["polarization"], 1E3*row["time"], "; ".join(row.get("notes", []))))
             if row.get("candidates"):
                 cand = ", ".join("{} {:.1e}/{:.0f}".format(m, e, n)
@@ -1692,6 +1938,62 @@ class Chain(object):
     def __repr__(self):
         return "Chain([{}])".format(", ".join(repr(s) for s in self._flat()))
 
+    @staticmethod
+    def _run_steps(chain, field, ctx, prefix):
+        """Apply the steps of chain to field (a Field or FieldSum, part by
+        part), with the polarization decisions and the log in ctx."""
+        polarization, tol = ctx["polarization"], ctx["tol"]
+        log = ctx["_log"]
+        for i, step in enumerate(chain._flat()):
+            t0 = time.perf_counter()
+            index = "{}{}".format(prefix, i)
+            ctx["_index"] = index
+            if isinstance(field, FieldSum) and not isinstance(step, (Parallel, Combine, Detector)):
+                parts = field.parts
+            else:
+                parts = [field]
+            outs = []
+            if len(parts) > 1:
+                # error budget relative to the whole sum: a weak part may
+                # be less accurate by the ratio of the amplitudes
+                powers = np.array([p.power() for p in parts])
+                budgets = tol*np.sqrt(np.sum(powers)/np.maximum(powers, 1E-300))
+                budgets = np.minimum(budgets, max(tol, 0.25))
+            for j, part in enumerate(parts):
+                ctx["tol_part"] = budgets[j] if len(parts) > 1 else tol
+                was_vector = part.is_vector
+                out, info = step.apply(part, ctx)
+                notes = list(info.get("notes", []))
+                if isinstance(out, Field) and out.is_vector and polarization != "vector":
+                    s, lost = out.scalarized()
+                    if polarization == "scalar":
+                        if lost > 1E-12:
+                            notes.append("scalar: dropped {:.1e} cross-polarized power".format(lost))
+                        out = s
+                    elif lost <= tol:
+                        if was_vector:
+                            notes.append("globally polarized again (residual {:.1e}): scalar"
+                                         .format(lost))
+                        out = s
+                    elif not was_vector:
+                        notes.append("polarization varies (cross share {:.1e}): vector"
+                                     .format(lost))
+                outs.append(out)
+                label = step.label if len(parts) == 1 else "{} [part {}]".format(step.label, j + 1)
+                shape = out.shape if isinstance(out, Field) else "{} parts".format(len(out))
+                log.append({"index": index, "step": label,
+                            "method": info.get("method", ""),
+                            "error": info.get("error"), "candidates": info.get("candidates"),
+                            "samples": ("x".join(str(v) for v in shape[::-1])
+                                        if isinstance(shape, tuple) else shape),
+                            "polarization": "vector" if out.is_vector else "scalar",
+                            "time": time.perf_counter() - t0, "notes": notes})
+                t0 = time.perf_counter()
+            field = outs[0] if len(outs) == 1 else FieldSum(outs)
+            if ctx["_keep"] and not prefix:
+                ctx["_fields"].append(field.copy())
+        return field
+
     def run(self, source, polarization="auto", tol=1E-2, keep=False):
         """Trace the source field through the chain.
 
@@ -1722,32 +2024,8 @@ class Chain(object):
             if lost > 0:
                 warnings.warn("scalar chain: the source loses {:.1e} of its power "
                               "(cross polarization)".format(lost), RuntimeWarning)
+        ctx["_log"], ctx["_keep"] = log, keep
         fields = [field.copy()] if keep else []
-        for i, step in enumerate(self._flat()):
-            t0 = time.perf_counter()
-            was_vector = field.is_vector
-            out, info = step.apply(field, ctx)
-            notes = list(info.get("notes", []))
-            if out.is_vector and polarization != "vector":
-                s, lost = out.scalarized()
-                if polarization == "scalar":
-                    if lost > 1E-12:
-                        notes.append("scalar: dropped {:.1e} cross-polarized power".format(lost))
-                    out = s
-                elif lost <= tol:
-                    if was_vector:
-                        notes.append("globally polarized again (residual {:.1e}): scalar".format(lost))
-                    out = s
-                elif not was_vector:
-                    notes.append("polarization varies (cross share {:.1e}): vector".format(lost))
-            elapsed = time.perf_counter() - t0
-            shape = out.shape
-            log.append({"index": i, "step": step.label, "method": info.get("method", ""),
-                        "error": info.get("error"), "candidates": info.get("candidates"),
-                        "samples": "x".join(str(v) for v in shape[::-1]),
-                        "polarization": "vector" if out.is_vector else "scalar",
-                        "time": elapsed, "notes": notes})
-            field = out
-            if keep:
-                fields.append(field.copy())
+        ctx["_fields"] = fields
+        field = Chain._run_steps(self, field, ctx, "")
         return ChainResult(field, ctx["detectors"], fields, log)
