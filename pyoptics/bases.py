@@ -511,6 +511,166 @@ def fringe_zernike_sum(coeffs, x, y):
     return out
 
 
+def noll_to_n_m(j):
+    """Map the Noll (ANSI "Standard" in Zemax) index j >= 1 to n, m.
+
+    Within a radial order n the azimuthal orders abs(m) increase, even j have
+    the cosine (m > 0), odd j the sine (m < 0): Z2 ~ x, Z3 ~ y, Z5 ~ sin 2 phi,
+    Z6 ~ cos 2 phi, Z7 ~ y coma, Z8 ~ x coma, Z11 spherical (Noll 1976).
+
+    Parameters
+    ----------
+    j : int
+        Noll index.
+
+    Returns
+    -------
+    n, m : ints
+        Radial and signed azimuthal order (m < 0: sin(abs(m) phi)).
+    """
+
+    j = int(j)
+    if j < 1:
+        raise ValueError("Noll indices start at 1.")
+    n = int(floor((sqrt(8*j - 7) - 1)/2))
+    k = j - n*(n + 1)//2 - 1  # position within the radial order
+    m = 2*((k + 1)//2) if n % 2 == 0 else 2*(k//2) + 1
+    if m != 0 and j % 2 == 1:
+        m = -m
+
+    return n, m
+
+
+def noll_zernike_norm_factor(n, m):
+    """Factor sqrt(2 (n + 1)/(1 + delta_m0)) that gives the Noll Zernike of
+    (n, m) an RMS of 1 over the unit disk."""
+
+    return sqrt(2*(n + 1)/(1 + (m == 0)))
+
+
+@lru_cache(maxsize=None)
+def _zernike_P_coeffs(n, m):
+    """Coefficients of P with R_n^abs(m)(rho) = rho**abs(m) P(rho**2) (highest first)."""
+
+    m = abs(int(m))
+    R = _fringe_zernike_R_nm_coeffs(int(n), m)[::-1]  # lowest power first
+    P = R[m::2][::-1].copy()
+    P.flags.writeable = False
+
+    return P
+
+
+def zernike_nm(n, m, x, y):
+    """Unnormalized Zernike R_n^abs(m)(rho) cos(m phi) (m >= 0) or R_n^abs(m)(rho)
+    sin(abs(m) phi) (m < 0), peak value 1 on the unit circle, phi from the x axis.
+
+    Evaluated as a polynomial in x and y (no arctan2), so it is smooth at the
+    origin and pairs with `zernike_nm_gradient()`.
+
+    Parameters
+    ----------
+    n, m : ints
+    x, y : arrays or numbers
+        Coordinates normalized to the radius of the disk (no mask is applied).
+
+    Returns
+    -------
+    Z : array
+    """
+
+    x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+    P = _zernike_P_coeffs(n, m)
+    s = x**2 + y**2
+    w = (x + 1j*y)**abs(m)
+    A = w.imag if m < 0 else w.real
+
+    return np.polyval(P, s)*A
+
+
+def zernike_nm_gradient(n, m, x, y):
+    """Analytic gradient (dZ/dx, dZ/dy) of `zernike_nm()`.
+
+    With Z = P(s) A(x, y), s = x**2 + y**2 and A = Re or Im of (x + i y)**abs(m):
+    dZ/dx = 2 x P'(s) A + P(s) dA/dx etc., without the singularity of the
+    polar form at the origin.
+
+    Parameters
+    ----------
+    n, m : ints
+    x, y : arrays or numbers
+        Coordinates normalized to the radius of the disk.
+
+    Returns
+    -------
+    gx, gy : arrays
+        Derivatives with respect to the normalized coordinates.
+    """
+
+    x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+    P = _zernike_P_coeffs(n, m)
+    s = x**2 + y**2
+    p, dp = np.polyval(P, s), np.polyval(np.polyder(P), s) if len(P) > 1 else 0.0*s
+    k = abs(m)
+    w = (x + 1j*y)**k
+    # d/dx (x + iy)**k = k (x + iy)**(k-1), d/dy = i k (x + iy)**(k-1)
+    dw = k*(x + 1j*y)**(k - 1) if k > 0 else 0.0*w
+    if m < 0:
+        A, Ax, Ay = w.imag, dw.imag, dw.real
+    else:
+        A, Ax, Ay = w.real, dw.real, -dw.imag
+
+    return 2*x*dp*A + p*Ax, 2*y*dp*A + p*Ay
+
+
+def zernike_indices(j, ordering="fringe"):
+    """(n, m, scale) of the Zernike with index j in the given ordering.
+
+    Parameters
+    ----------
+    j : int
+    ordering : {"fringe", "noll"}
+        "fringe": Fringe (University of Arizona) ordering, peak value 1 on
+        the unit circle (`fringe_zernike()`, Zemax "Zernike Fringe").
+        "noll": Noll ordering with RMS 1 over the unit disk (Zemax
+        "Zernike Standard"), also accepted as "standard".
+
+    Returns
+    -------
+    n, m : ints
+    scale : number
+        Factor on `zernike_nm()`.
+    """
+
+    ordering = ordering.lower()
+    if ordering == "fringe":
+        n, m = fringe_to_n_m(j)
+        return n, m, 1.0
+    if ordering in ("noll", "standard"):
+        n, m = noll_to_n_m(j)
+        return n, m, noll_zernike_norm_factor(n, m)
+    raise ValueError("Unknown Zernike ordering {!r}, use 'fringe' or 'noll'.".format(ordering))
+
+
+def noll_zernike(j, x, y):
+    """Noll ("Standard") Zernike Z_j, RMS 1 over the unit disk.
+
+    Parameters
+    ----------
+    j : int
+        Noll index.
+    x, y : arrays or numbers
+        Coordinates normalized to the radius of the disk (no mask is applied).
+
+    Returns
+    -------
+    Z_j : array
+    """
+
+    n, m, scale = zernike_indices(j, "noll")
+
+    return scale*zernike_nm(n, m, x, y)
+
+
 class FringeZernikes(BasisSet):
     """Fringe Zernike polyonimals as described in Gross' Handbook of Optics
     (2nd vol) or

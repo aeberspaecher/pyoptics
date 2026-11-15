@@ -66,6 +66,14 @@ Setup sketches for the other example notebooks:
   with an extended source, the van Cittert-Zernike theorem, Michelson's
   stellar interferometer, a Michelson interferometer for temporal coherence
   and a Hanbury Brown-Twiss intensity interferometer (notebook 74).
+- field_tracing_chain(), propagation_operators(), ball_lens_handover(),
+  mach_zehnder_defect(), babinet_split(): a field tracing chain as a product
+  of operators, what each free-space operator does, rays through a ball lens
+  handing over to waves at the caustic, a Mach-Zehnder interferometer with
+  a small defect, and Babinet's principle (notebook 109).
+- diode_collimator(), fibre_coupling(): an astigmatic laser diode with an
+  aspheric collimator and a focusing lens, and a Gaussian beam focused into
+  a single-mode fibre by a spherical lens or an asphere (notebook 112).
 - rainbow_observer(): sun behind the observer, the rain, the antisolar
   point and the cones of the primary and secondary bow (notebook 71).
 - glory_aircraft(): the glory and the cloud bow around the shadow of an
@@ -279,7 +287,9 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "coronagraph_layout", "telescope_layout", "segment_phasing_layout",
            "lensing_geometry", "echelle_layout", "sine_herschel_conditions", "adc_layout",
            "fresnel_interface", "kretschmann", "yee_grid", "lithography_scanner", "tcc_overlap",
-           "mask_3d", "text_scale"]
+           "mask_3d", "field_tracing_chain", "propagation_operators", "ball_lens_handover",
+           "mach_zehnder_defect", "babinet_split", "diode_collimator", "fibre_coupling",
+           "text_scale"]
 
 
 GLASS = "#cfe3f3"
@@ -7826,3 +7836,427 @@ def cos4_law(ax, title=None):
     label(ax, -3.1, -2.4, r"$E'(\theta) = E'(0)\,\cos^4\theta$  (no distortion, no vignetting)",
           fontsize=10, ha="left")
     _finish(ax, (-3.3, 6.6), (-3.2, 2.3), title)
+
+
+# --------------------------------------------------------------------------
+# field tracing (notebook 109)
+# --------------------------------------------------------------------------
+
+FIELD_COLOR = "#d6604d"
+WAVE_COLOR = "#2a7ab9"
+RAY_COLOR = "#e0a000"
+
+
+def _operator_box(ax, z, y, text, color, width=1.0, height=0.36, fontsize=9):
+    """A rounded box with an operator name."""
+    mpatches = _patches()
+    ax.add_patch(mpatches.FancyBboxPatch((z - width/2, y - height/2), width, height,
+                                         boxstyle="round,pad=0.02,rounding_size=0.08",
+                                         facecolor="white", edgecolor=color, lw=1.2, zorder=5))
+    label(ax, z, y, text, fontsize=fontsize, color=color, zorder=6)
+
+
+def field_tracing_chain(ax, title=None):
+    """Sketch of a field tracing chain: a source field, free-space operators
+    P between the components, component operators C, and a detector.
+
+    The field travels from left to right. Every free-space step and every
+    component is one operator acting on the field; the chain is their
+    product, V_out = P3 C2 P2 C1 P1 V_source. Each free-space step chooses
+    its own method (here: the spectrum of plane waves near the source, rays
+    in the converging beam, the far field behind the pinhole).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    h = 0.6
+    z_src, z_l, z_ap, z_det = 0.0, 2.6, 5.4, 8.6
+    ax.add_patch(_patches().Rectangle((z_src - 0.5, -h), 0.5, 2*h, facecolor="0.3",
+                                      edgecolor="none", zorder=4))
+    label(ax, z_src - 0.25, 0.0, "source", color="white", rotation=90, fontsize=9, zorder=5)
+    # beam: collimated, converging to a focus at the pinhole, diverging
+    band(ax, [z_src, z_l], [h, h], [z_src, z_l], [-h, -h], color=FIELD_COLOR)
+    band(ax, [z_l, z_ap], [h, 0.06], [z_l, z_ap], [-h, -0.06], color=FIELD_COLOR)
+    band(ax, [z_ap, z_det], [0.06, 1.05], [z_ap, z_det], [-0.06, -1.05], color=FIELD_COLOR)
+    lens(ax, z_l, 0.8)
+    stop(ax, z_ap, 1.0, openings=((0.0, 0.08),), width=0.08)
+    detector(ax, z_det, 1.15, width=0.12)
+    # wavefronts: plane, converging, diverging
+    for z in (0.8, 1.6):
+        ax.plot([z, z], [-h + 0.05, h - 0.05], color="0.25", lw=1.0, zorder=5)
+    for z in (3.5, 4.4):
+        r = z_ap - z
+        y = np.linspace(-(h*r/(z_ap - z_l)) + 0.03, h*r/(z_ap - z_l) - 0.03, 40)
+        ax.plot(z_ap - np.sqrt(r**2 - y**2), y, color="0.25", lw=1.0, zorder=5)
+    for z in (6.6, 7.7):
+        r = z - z_ap
+        ym = 1.0*r/(z_det - z_ap)
+        y = np.linspace(-ym, ym, 40)
+        ax.plot(z_ap + np.sqrt(r**2 - y**2), y, color="0.25", lw=1.0, zorder=5)
+    # operators
+    y_op = 1.45
+    _operator_box(ax, (z_src + z_l)/2, y_op, "P₁: SPW", WAVE_COLOR)
+    _operator_box(ax, z_l, y_op + 0.55, "C₁: lens", EDGE, width=0.95)
+    _operator_box(ax, (z_l + z_ap)/2, y_op, "P₂: rays", RAY_COLOR)
+    _operator_box(ax, z_ap, y_op + 0.55, "C₂: pinhole", EDGE, width=1.15)
+    _operator_box(ax, (z_ap + z_det)/2, y_op, "P₃: far field", WAVE_COLOR, width=1.3)
+    for z0, z1 in ((0.0, z_l), (z_l, z_ap), (z_ap, z_det)):
+        arrow(ax, z0 + 0.1, 1.05, z1 - 0.1, 1.05, style="<|-|>", color="0.55", lw=0.7)
+    label(ax, z_det + 0.06, -1.35, "detector:\n|E|², E_z, power …", va="top", fontsize=8)
+    label(ax, z_src, -1.0, "V_source:\nE_x, E_y\non a grid", va="top", fontsize=8)
+    label(ax, 4.3, -1.55, "V_out  =  P₃ · C₂ · P₂ · C₁ · P₁ · V_source", fontsize=11)
+    _finish(ax, (-0.8, 9.6), (-1.85, 2.3), title)
+
+
+def propagation_operators(ax, method="spw", title=None):
+    """Sketch of what one free-space operator does.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    method : {"spw", "fresnel", "farfield", "geometric"}, optional
+        "spw": the field is a sum of plane waves of all directions, each
+        propagated exactly; "fresnel": the same for small angles only;
+        "farfield": far away, every direction of the spectrum arrives at
+        its own point; "geometric": every bit of the wavefront travels along
+        its normal (a ray), which fails where rays cross.
+    title : str, optional
+    """
+
+    if method not in ("spw", "fresnel", "farfield", "geometric"):
+        raise ValueError("unknown method {!r}".format(method))
+    a = 0.5
+    stop(ax, 0.0, 1.4, openings=((0.0, a),), width=0.07)
+    if method in ("spw", "fresnel"):
+        angles = (np.radians([-35, -17, 0, 17, 35]) if method == "spw"
+                  else np.radians([-8, -4, 0, 4, 8]))
+        colors = ["#8e5ba8", "#2a7ab9", "0.2", "#2a7ab9", "#8e5ba8"]
+        for th, c in zip(angles, colors):
+            d = np.array([np.cos(th), np.sin(th)])
+            for s in (1.3, 2.0, 2.7):
+                # a short crest of the plane wave
+                p = s*d
+                t = np.array([-d[1], d[0]])
+                ax.plot([p[0] - 0.14*t[0], p[0] + 0.14*t[0]], [p[1] - 0.14*t[1], p[1] + 0.14*t[1]],
+                        color=c, lw=1.1)
+            arrow(ax, 0.1, 0.0, 2.9*d[0], 2.9*d[1], color=c, lw=0.8)
+        txt = ("all directions, exact:\nk_z = √(k² − k_x² − k_y²)" if method == "spw"
+               else "small angles only:\nk_z ≈ k − (k_x² + k_y²)/2k")
+        label(ax, 1.7, -1.75, txt, fontsize=9)
+    elif method == "farfield":
+        ax.plot([4.0*np.cos(t) for t in np.linspace(-0.45, 0.45, 50)],
+                [4.0*np.sin(t) for t in np.linspace(-0.45, 0.45, 50)], color="0.3", lw=1.2, ls="--")
+        for th, c in zip(np.radians([-20, -10, 0, 10, 20]),
+                         ["#8e5ba8", "#2a7ab9", "0.2", "#2a7ab9", "#8e5ba8"]):
+            arrow(ax, 0.1, 0.0, 3.95*np.cos(th), 3.95*np.sin(th), color=c, lw=0.9)
+            ax.plot(4.0*np.cos(th), 4.0*np.sin(th), "o", color=c, ms=4, zorder=6)
+        label(ax, 2.2, -1.75, "far away: each direction θ\nlands at its own point", fontsize=9)
+    else:
+        f = 3.0
+        for y in np.linspace(-a + 0.05, a - 0.05, 7):
+            ax.plot([0.0, f + 1.0], [y, y - (f + 1.0)*y/f], color=RAY_COLOR, lw=1.0)
+        for s in (0.9, 1.9):
+            r = f - s
+            yy = np.linspace(-a*r/f, a*r/f, 30)
+            ax.plot(f - np.sqrt(r**2 - yy**2), yy, color="0.25", lw=1.1)
+        ax.plot(f, 0.0, "x", color="#c0392b", ms=8, mew=2)
+        label(ax, f, 0.35, "rays cross:\nfails here", color="#c0392b", fontsize=8, va="bottom")
+        label(ax, 1.7, -1.75, "each piece of the wavefront\nfollows its normal (a ray)", fontsize=9)
+    names = {"spw": "spectrum of plane waves", "fresnel": "Fresnel",
+             "farfield": "far field", "geometric": "geometrical optics"}
+    _finish(ax, (-0.4, 4.4), (-2.2, 1.8), names[method] if title is None else title)
+
+
+def _refract(d, nrm, n1, n2):
+    """Refract the unit direction d at a surface with unit normal nrm
+    (pointing against d) from index n1 into n2."""
+    cos_i = -np.dot(nrm, d)
+    r = n1/n2
+    k = 1 - r**2*(1 - cos_i**2)
+    return r*d + (r*cos_i - np.sqrt(k))*nrm
+
+
+def ball_lens_handover(ax, n=1.5, gap=0.25, title=None):
+    """Sketch of field tracing through a ball lens: rays through the glass
+    (geometrical optics with Fresnel coefficients at both surfaces), a
+    hand-over plane a short gap behind the sphere, and wave propagation
+    through the aberrated focus, where the rays cross (the caustic).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    n : number, optional
+        Refractive index of the sphere.
+    gap : number, optional
+        Distance of the hand-over plane behind the sphere (radius 1).
+    title : str, optional
+    """
+
+    a = 1.0
+    t = np.linspace(0, 2*np.pi, 200)
+    ax.add_patch(_patches().Polygon(np.c_[a*np.cos(t), a*np.sin(t)], closed=True,
+                                    facecolor=GLASS, edgecolor=EDGE, lw=1.2, zorder=2))
+    z_hand = a + gap
+    z_end = 3.4
+    ax.add_patch(_patches().Rectangle((z_hand, -1.25), z_end - z_hand, 2.5, facecolor=WAVE_COLOR,
+                                      alpha=0.08, edgecolor="none", zorder=0))
+    for h in np.linspace(-0.62, 0.62, 11):
+        z1 = -np.sqrt(a**2 - h**2)
+        p1 = np.array([z1, h])
+        d1 = _refract(np.array([1.0, 0.0]), p1/a, 1.0, n)
+        # second intersection with the sphere
+        b = np.dot(p1, d1)
+        s = -2*b
+        p2 = p1 + s*d1
+        d2 = _refract(d1, -p2/a, n, 1.0)
+        s3 = (z_hand - p2[0])/d2[0]
+        p3 = p2 + s3*d2
+        s4 = (z_end - p2[0])/d2[0]
+        p4 = p2 + s4*d2
+        ax.plot([-2.0, z1], [h, h], color=RAY_COLOR, lw=0.9, zorder=3)
+        ax.plot([p1[0], p2[0], p3[0]], [p1[1], p2[1], p3[1]], color=RAY_COLOR, lw=0.9, zorder=3)
+        ax.plot([p3[0], p4[0]], [p3[1], p4[1]], color=RAY_COLOR, lw=0.6, ls=":", zorder=3)
+    ax.plot([z_hand, z_hand], [-1.25, 1.25], color="0.3", lw=1.2, ls="--", zorder=4)
+    f_par = n*a/(2*(n - 1))
+    ax.plot(f_par, 0.0, "o", color=WAVE_COLOR, ms=4, zorder=5)
+    label(ax, f_par + 0.05, -0.9, "paraxial\nfocus", fontsize=8, va="top", color=WAVE_COLOR)
+    ax.plot([f_par, f_par], [-0.9, -0.05], color=WAVE_COLOR, lw=0.6)
+    label(ax, -1.0, 1.45, "Trace: rays through the glass\n(local plane waves, Fresnel at each surface)",
+          fontsize=9, color="#a07000", va="bottom")
+    label(ax, 2.35, 1.45, "Propagate: waves\nthrough the caustic", fontsize=9, color=WAVE_COLOR,
+          va="bottom")
+    label(ax, z_hand - 0.08, -1.0, "hand-over\nplane (gap)", fontsize=8, va="top", ha="right")
+    _finish(ax, (-2.1, 3.5), (-1.9, 2.15), title)
+
+
+def mach_zehnder_defect(ax, title=None):
+    """Sketch of a Mach-Zehnder interferometer with a plate in the
+    reference arm and a weak lens with a small defect in the test arm; the
+    camera records the interference of both arms (Newton's rings of the
+    lens, disturbed by the diffraction pattern of the defect).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    h = 0.3
+    z_bs1, z_bs2, z_cam, y_ref = 1.0, 4.6, 5.8, 2.0
+    ax.add_patch(_patches().Rectangle((-0.6, -h), 0.6, 2*h, facecolor="0.3", edgecolor="none",
+                                      zorder=4))
+    label(ax, -0.3, 0.0, "plane\nwave", color="white", fontsize=7, zorder=5)
+    band(ax, [0.0, z_bs1], [h, h], [0.0, z_bs1], [-h, -h], color=LASER)
+    # test arm: straight through
+    band(ax, [z_bs1, z_bs2], [h, h], [z_bs1, z_bs2], [-h, -h], color=TEST)
+    z_lens = 2.8
+    lens(ax, z_lens, 0.45, thickness=0.12)
+    ax.plot(z_lens + 0.06, 0.12, "o", color="0.1", ms=4, zorder=6)
+    label(ax, z_lens, -0.6, "lens R = 1 m\nwith a small defect", va="top", fontsize=8, color=TEST)
+    # reference arm: up, across, down
+    band(ax, [z_bs1 - h, z_bs1 - h, z_bs2 + h, z_bs2 + h], [0.0, y_ref + h, y_ref + h, 0.0],
+         [z_bs1 + h, z_bs1 + h, z_bs2 - h, z_bs2 - h], [0.0, y_ref - h, y_ref - h, 0.0],
+         color=REFERENCE, alpha=0.15)
+    ax.add_patch(_patches().Rectangle((z_lens - 0.07, y_ref - 0.42), 0.14, 0.84, facecolor=GLASS,
+                                      edgecolor=EDGE, lw=1, zorder=4))
+    label(ax, z_lens, y_ref + 0.5, "2 mm plate", va="bottom", fontsize=8, color=REFERENCE)
+    mirror(ax, z_bs1, y_ref, 0.6, np.pi/4)
+    mirror(ax, z_bs2, y_ref, 0.6, -np.pi/4)
+    band(ax, [z_bs2, z_cam], [h, h], [z_bs2, z_cam], [-h, -h], color="#8e5ba8")
+    beam_splitter(ax, z_bs1, 0.0, 0.6, "/", text="splitter", text_dy=-0.45)
+    beam_splitter(ax, z_bs2, 0.0, 0.6, "\\", text="combiner", text_dy=-0.45)
+    detector(ax, z_cam, 0.5, width=0.08)
+    label(ax, z_cam + 0.04, -0.6, "camera", va="top", fontsize=8)
+    label(ax, 2.8, y_ref + 0.95, "Parallel(reference arm, test arm)", fontsize=9, va="bottom")
+    _finish(ax, (-0.8, 6.5), (-1.25, y_ref + 1.35), title)
+
+
+def babinet_split(ax, title=None):
+    """Sketch of Babinet's principle for a small obstruction: the field
+    behind an opaque particle is the unobstructed field minus the field
+    that would pass through a hole of the particle's shape. The second part
+    is small and lives on its own fine grid.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    s = 1.6
+    centers = (0.0, 2.6, 5.2)
+    for zc in centers:
+        ax.add_patch(mpatches.Rectangle((zc - s/2, -s/2), s, s, facecolor="white", edgecolor="0.6",
+                                        lw=0.8, zorder=1))
+    # 1: beam with an obstruction
+    ax.add_patch(mpatches.Rectangle((centers[0] - 0.65, -0.65), 1.3, 1.3, facecolor=LASER,
+                                    alpha=0.45, edgecolor="none", zorder=2))
+    ax.add_patch(mpatches.Circle((centers[0] + 0.25, 0.15), 0.12, facecolor="0.1", zorder=3))
+    # 2: unobstructed beam
+    ax.add_patch(mpatches.Rectangle((centers[1] - 0.65, -0.65), 1.3, 1.3, facecolor=LASER,
+                                    alpha=0.45, edgecolor="none", zorder=2))
+    # 3: small part on its own fine grid
+    zc = centers[2]
+    g = 0.24
+    for v in np.linspace(-g, g, 7):
+        ax.plot([zc + 0.25 + v, zc + 0.25 + v], [0.15 - g, 0.15 + g], color="0.7", lw=0.5, zorder=2)
+        ax.plot([zc + 0.25 - g, zc + 0.25 + g], [0.15 + v, 0.15 + v], color="0.7", lw=0.5, zorder=2)
+    ax.add_patch(mpatches.Circle((zc + 0.25, 0.15), 0.12, facecolor=LASER, alpha=0.8, zorder=3))
+    label(ax, 1.3, 0.0, "=", fontsize=18)
+    label(ax, 3.9, 0.0, "−", fontsize=18)
+    label(ax, centers[0], -1.0, "field behind\nthe defect", fontsize=8, va="top")
+    label(ax, centers[1], -1.0, "unobstructed field\n(coarse grid)", fontsize=8, va="top")
+    label(ax, centers[2], -1.0, "field on the defect\n(own fine grid)", fontsize=8, va="top")
+    _finish(ax, (-1.0, 6.2), (-1.65, 1.0), title)
+
+
+def _plano_convex_ray(y0, R, t, n=1.5):
+    """A ray parallel to the axis at the height y0 through a spherical
+    plano-convex lens, curved front (radius R, vertex at z = 0) and flat back
+    at z = t. Returns the vertices (front, back) and the exit direction."""
+
+    zf = R - np.sqrt(R**2 - y0**2)
+    p1 = np.array([zf, y0])
+    d1 = _refract(np.array([1.0, 0.0]), (p1 - [R, 0.0])/R, 1.0, n)
+    p2 = p1 + (t - zf)/d1[0]*d1
+    d2 = _refract(d1, np.array([-1.0, 0.0]), n, 1.0)
+    return np.array([p1, p2]), d2
+
+
+def diode_collimator(ax, astigmatism=True, title=None):
+    """Sketch of a laser diode collimated by an asphere and focused by a
+    second lens. The emitter radiates from a waist at its facet in one
+    direction and from a waist a little in front of it in the other
+    (astigmatism); the collimator, stigmatic for the first waist, leaves the
+    beam from the second one slightly divergent, and the focusing lens images the two waists to two
+    foci.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    astigmatism : bool, optional
+        Draw the second waist and the split focus.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    n, f1, a1 = 1.5, 1.3, 0.85
+    sag, _, z_v = _hyperbolic_lens(a1, f1, n, edge=0.06)
+    # the collimator: hyperbolic face towards the emitter (mirror image of
+    # _hyperbolic_lens), focus at z = 0
+    z_flat = f1 + z_v
+    yy = np.linspace(-a1, a1, 81)
+    pts = np.r_[np.c_[z_flat - z_v - sag(yy), yy], np.c_[np.full(2, z_flat), [a1, -a1]]]
+    ax.add_patch(mpatches.Polygon(pts, closed=True, facecolor=GLASS, edgecolor=EDGE, lw=1,
+                                  zorder=3))
+    z_l2, f2, z_end = 4.6, 1.9, 7.0
+    lens(ax, z_l2, 0.9, thickness=0.16)
+    ax.add_patch(mpatches.Rectangle((-0.75, -0.18), 0.75, 0.36, facecolor="0.8", edgecolor="0.4",
+                                    lw=0.8, zorder=4))
+    label(ax, -0.37, -0.25, "laser diode", fontsize=8, va="top")
+    for h in np.linspace(-0.7, 0.7, 9):
+        verts, e = _lens_ray(h, 0.0, a1, f1, n, z_start=0.0)
+        # mirror the collimated-to-focus ray of _lens_ray about the lens
+        zq, yq = z_flat - verts[2, 0], verts[2, 1]
+        ax.plot([0.0, zq, z_flat, z_l2], [0.0, yq, h, h], color=LASER, lw=0.9, zorder=2)
+        ax.plot([z_l2, z_l2 + f2], [h, 0.0], color=LASER, lw=0.9, zorder=2)
+        ax.plot([z_l2 + f2, z_end], [0.0, -h*(z_end - z_l2 - f2)/f2], color=LASER, lw=0.6,
+                ls=":", zorder=2)
+    label(ax, f1 - 0.2, -a1 - 0.12, "asphere\n(collimator)", va="top", fontsize=8)
+    label(ax, z_l2, -1.02, "focusing\nlens", va="top", fontsize=8)
+    label(ax, (z_flat + z_l2)/2, 0.95, "collimated beam", fontsize=8, color=LASER)
+    if astigmatism:
+        d = 0.3
+        ax.plot(0.0, 0.0, "o", color=REFERENCE, ms=4, zorder=7)
+        ax.plot(d, 0.0, "o", color=LASER, ms=4, zorder=7)
+        label(ax, -0.05, 0.42, "waist x", fontsize=8, color=REFERENCE, ha="right")
+        label(ax, d + 0.05, 0.42, "waist y", fontsize=8, color=LASER, ha="left")
+        arrow(ax, 0.0, -0.45, d, -0.45, color="0.2", style="<|-|>")
+        label(ax, d/2, -0.58, "Δ", fontsize=8, va="top")
+        zf = z_l2 + f2
+        dd = 0.45
+        ax.plot(zf, 0.0, "o", color=REFERENCE, ms=4, zorder=7)
+        ax.plot(zf + dd, 0.0, "o", color=LASER, ms=4, zorder=7)
+        arrow(ax, zf, -0.55, zf + dd, -0.55, color="0.2", style="<|-|>")
+        label(ax, zf + dd/2, -0.68, "≈ Δ (f₂/f₁)²", fontsize=8, va="top")
+        label(ax, zf - 0.05, 0.25, "x focus", fontsize=8, color=REFERENCE, ha="right")
+        label(ax, zf + dd + 0.05, 0.25, "y focus", fontsize=8, color=LASER, ha="left")
+    _finish(ax, (-0.9, 7.1), (-1.45, 1.15), title)
+
+
+def fibre_coupling(ax, lens="aspheric", title=None):
+    """Sketch of a collimated Gaussian beam focused into a single-mode
+    fibre. A spherical lens focuses the outer rays short of the paraxial
+    focus (spherical aberration), an asphere brings all of them to one
+    point. The coupling efficiency is the overlap of the focused field with
+    the fibre mode.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    lens : str, optional
+        "aspheric" (a plano-convex lens with a hyperbolic back) or
+        "spherical" (a plano-convex lens with the curved side towards the
+        beam).
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    n, f, a = 1.5, 2.0, 0.8
+    z_lens, w = 1.4, 0.32
+    s = np.linspace(-1.0, 1.0, 101)
+    # Gaussian beam profile on the left
+    ax.plot(0.25 + 0.35*np.exp(-2*s**2/(w/0.75)**2*0.75**2), 0.75*s, color=LASER, lw=1.1,
+            zorder=4)
+    rays = np.linspace(-0.65, 0.65, 11)
+    if lens == "spherical":
+        R, t = (n - 1)*f, 0.5
+        zz = np.linspace(-a, a, 81)
+        front = R - np.sqrt(R**2 - zz**2)
+        z_back = z_lens + t
+        pts = np.r_[np.c_[z_lens + front, zz], np.c_[np.full(2, z_back), [a, -a]]]
+        ax.add_patch(mpatches.Polygon(pts, closed=True, facecolor=GLASS, edgecolor=EDGE, lw=1,
+                                      zorder=3))
+        z_focus = z_back + f - t/n
+        for h in rays:
+            verts, e = _plano_convex_ray(h, R, t, n)
+            verts = verts + [z_lens, 0.0]
+            p_end = verts[1] + (z_focus + 0.5 - verts[1, 0])/e[0]*e
+            ax.plot([0.0, verts[0, 0], verts[1, 0], p_end[0]], [h, h, verts[1, 1], p_end[1]],
+                    color=LASER, lw=0.9, zorder=2)
+        label(ax, z_lens + 0.2, -a - 0.12, "spherical lens", va="top", fontsize=8)
+        label(ax, z_focus - 0.75, 0.62, "outer rays focus\nshort (spherical\naberration)",
+              fontsize=8, color=STRAY, va="bottom")
+    else:
+        sag, _, z_v = _hyperbolic_lens(a, f, n)
+        yy = np.linspace(-a, a, 81)
+        pts = np.r_[np.c_[np.full(2, z_lens), [-a, a]], np.c_[z_lens + z_v + sag(yy[::-1]), yy[::-1]]]
+        ax.add_patch(mpatches.Polygon(pts, closed=True, facecolor=GLASS, edgecolor=EDGE, lw=1,
+                                      zorder=3))
+        z_focus = z_lens + z_v + f
+        for h in rays:
+            verts, e = _lens_ray(h, 0.0, a, f, n, z_start=0.0)
+            verts = verts + [z_lens, 0.0]
+            p_end = verts[2] + (z_focus + 0.5 - verts[2, 0])/e[0]*e
+            ax.plot([0.0, verts[1, 0], verts[2, 0], p_end[0]], [h, h, verts[2, 1], p_end[1]],
+                    color=LASER, lw=0.9, zorder=2)
+        label(ax, z_lens + 0.2, -a - 0.12, "asphere", va="top", fontsize=8)
+        label(ax, z_focus - 0.75, 0.62, "all rays meet\nin one point", fontsize=8,
+              color=EMISSION, va="bottom")
+    # fibre: cladding and core, the mode profile on its face
+    z_f = z_focus
+    ax.add_patch(mpatches.Rectangle((z_f, -0.42), 2.0, 0.84, facecolor="#eeeeee",
+                                    edgecolor="0.5", lw=0.8, zorder=1))
+    ax.add_patch(mpatches.Rectangle((z_f, -0.07), 2.0, 0.14, facecolor="#f6d7b0",
+                                    edgecolor="0.5", lw=0.6, zorder=1.5))
+    ax.plot(z_f + 1.25 + 0.35*np.exp(-2*(s*0.42)**2/0.07**2), s*0.42, color=REFERENCE, lw=1.1,
+            zorder=4)
+    label(ax, z_f + 1.0, -0.55, "single-mode fibre", va="top", fontsize=8)
+    label(ax, z_f + 1.25, 0.55, "mode M", fontsize=8, color=REFERENCE, va="bottom")
+    label(ax, 0.4, -0.9, "Gaussian\nbeam E", fontsize=8, color=LASER, va="top")
+    label(ax, z_f + 1.0, 1.05, "η = |∫ E·M* dA|² / (P_E P_M)", fontsize=9)
+    _finish(ax, (-0.1, z_f + 2.1), (-1.25, 1.25), title)

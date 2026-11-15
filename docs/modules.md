@@ -93,7 +93,9 @@ What each module does and how mature it is. Planned work is listed in
   over to wave optics behind it; `Parallel` arms (interferometers) and
   `Obstruction` (Babinet parts on their own grid) carry a `FieldSum` whose
   parts are added at the detector; operator "fresnel_ft" (single-FT
-  Fresnel) for small, strongly diffracting fields
+  Fresnel) for small, strongly diffracting fields; `Field.overlap(mode)`
+  and the detector quantity "coupling" give the power coupling efficiency
+  into a mode (e.g. of a single-mode fibre)
 - `polygons`: new, tested: polygons as (N, 2) vertex arrays: signed area,
   centroid and second moments, the exact Fourier transform of any polygon
   (Lee and Mittra's edge sum, with a Taylor series near k = 0 and vertices

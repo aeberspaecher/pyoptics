@@ -83,6 +83,7 @@ tweezers", Rev. Sci. Instrum. 75, 594-612 (2004).
 import numpy as np
 
 from .analytical import mie_amplitudes
+from .interfaces import R_p, R_s
 
 try:
     import numba as _nb
@@ -107,18 +108,14 @@ _EPS0 = 8.8541878128e-12
 
 
 def _fresnel(theta_i, n_rel):
-    """Power reflectance and transmittance of an interface (s and p)."""
+    """Power reflectances R_s, R_p and the (real) refraction angle of an
+    interface from the medium (index 1) into the sphere (index n_rel)."""
 
     theta_i = np.asarray(theta_i, dtype=float)
-    ci = np.cos(theta_i)
     st = np.sin(theta_i)/n_rel
     tir = st >= 1.0
-    ct = np.sqrt(np.clip(1 - st**2, 0, None))
-    with np.errstate(invalid="ignore", divide="ignore"):
-        rs = (ci - n_rel*ct)/(ci + n_rel*ct)
-        rp = (n_rel*ci - ct)/(n_rel*ci + ct)
-    Rs = np.where(tir, 1.0, rs**2)
-    Rp = np.where(tir, 1.0, rp**2)
+    Rs = np.where(tir, 1.0, R_s(theta_i, 1.0, n_rel))
+    Rp = np.where(tir, 1.0, R_p(theta_i, 1.0, n_rel))
 
     return Rs, Rp, np.arcsin(np.clip(st, -1, 1))
 

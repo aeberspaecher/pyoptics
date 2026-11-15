@@ -5,7 +5,7 @@
 
 A `System` is a sequence of `Surface` objects (spheres, conics and even
 aspheres, refracting or reflecting), optional `IdealLens` surfaces, cones
-(`Axicon`), surfaces with a Fringe Zernike departure (`ZernikeSurface`: figure
+(`Axicon`), surfaces with a Fringe or Noll Zernike departure (`ZernikeSurface`: figure
 errors, mount deformations, freeforms), ruled diffraction gratings on plane
 or curved surfaces (`GratingSurface`, one order per trace) and
 `CoordinateBreak` elements. Surfaces can be decentred and
@@ -175,7 +175,7 @@ from numpy import pi
 
 from . import abcd
 from . import imaging
-from .bases import fringe_zernike
+from .bases import fringe_zernike, zernike_indices, zernike_nm, zernike_nm_gradient
 from .fft import inv_FT
 from .geometry import R_x, R_y, R_z
 from .materials import Material, abbe_dispersion, complex_index, transverse_basis
@@ -682,40 +682,68 @@ class Axicon(Surface):
 
 
 class ZernikeSurface(Surface):
-    """Surface with a Fringe Zernike departure from its base sag (freeform).
+    """Surface with a Zernike departure from its base sag (freeform).
 
     The sag is ::
 
         z(x, y) = z_base(r**2) + sum_j c_j Z_j(x/r_norm, y/r_norm)
 
-    with the sag z_base of `Surface` (sphere, conic, aspheric terms) and the
-    Fringe Zernikes Z_j of `bases.fringe_zernike()` (peak value 1 on the
-    unit circle) in the local frame of the surface. Like Zemax's "Zernike
-    Fringe Sag" surface, it models figure errors and mount deformations of
-    a surface (a mirror on a three point mount, a clamped window) and
-    freeforms. The departure only enters the real ray trace; the paraxial
-    data, Seidel sums and draw() use the base surface. The compiled kernel
-    does not cover it, systems with Zernike surfaces are traced with NumPy.
+    with the sag z_base of `Surface` (sphere, conic, aspheric terms) and
+    Zernike polynomials Z_j in one of two orderings:
+
+    - ``ordering="fringe"`` (default): Fringe Zernikes of
+      `bases.fringe_zernike()`, peak value 1 on the unit circle, like Zemax's
+      "Zernike Fringe Sag" surface. Same ordering and normalization as
+      `System.zernike()`.
+    - ``ordering="noll"`` (or ``"standard"``): Noll Zernikes of
+      `bases.noll_zernike()`, RMS 1 over the unit disk, like Zemax's
+      "Zernike Standard Sag" surface.
+
+    Coordinates: (x, y) are the coordinates in the local frame of the surface
+    (after its decenter and tilt), the azimuth phi is counted from +x towards
+    +y and the polynomials are not truncated at r_norm. These are surface
+    coordinates, not pupil coordinates: a departure c_j on a surface in
+    or next to the stop of a system in air adds about -(n' - n) c_j Z_j to the OPD
+    of `System.opd()`/`System.zernike()` (n, n': indices in front of and behind it;
+    -2 n c_j for a mirror), in the entrance pupil coordinates of `System.zernike()`
+    only if the surface lies in object space, and point-mirrored with
+    respect to the image space pupil of `System.pupil()` and `imaging` for a
+    lens that forms a real image (see `System.zernike()`).
+
+    It models figure errors and mount deformations of a surface (a mirror on
+    a three point mount, a clamped window) and freeforms. The departure only
+    enters the real ray trace; the paraxial data, Seidel sums and draw() use
+    the base surface. The compiled kernel does not cover it, systems with
+    Zernike surfaces are traced with NumPy. The normals use the analytic
+    gradients of `bases.zernike_nm_gradient()`.
 
     Parameters
     ----------
     R, thickness, ... : optional
         As for `Surface` (all keyword arguments are passed on).
     zernike : dict, optional
-        {j: c_j}, Fringe index and coefficient in length units.
+        {j: c_j}, Zernike index in `ordering` and coefficient in length units.
     norm_radius : number, optional
         Normalization radius r_norm of the Zernikes.
+    ordering : {"fringe", "noll", "standard"}, optional
+        Index ordering and normalization of the Zernikes, see above.
     """
 
-    def __init__(self, R=np.inf, thickness=0.0, zernike=None, norm_radius=1.0, **kwargs):
+    def __init__(self, R=np.inf, thickness=0.0, zernike=None, norm_radius=1.0,
+                 ordering="fringe", **kwargs):
         super().__init__(R, thickness, **kwargs)
         # a sorted tuple of pairs keeps the state hashable (System._state_key)
         self.zernike = tuple(sorted((int(j), float(c)) for j, c in (zernike or {}).items()))
         self.norm_radius = float(norm_radius)
+        ordering = ordering.lower()
+        self.ordering = "noll" if ordering == "standard" else ordering
+        # (n, m, scale*c_j) of every term; raises for unknown orderings:
+        self._terms = tuple((n, m, scale*c) for (n, m, scale), c in
+                            ((zernike_indices(j, self.ordering), c) for j, c in self.zernike))
 
     def __repr__(self):
-        return "ZernikeSurface(R={}, thickness={}, zernike={}, norm_radius={})".format(
-            self.R, self.thickness, dict(self.zernike), self.norm_radius)
+        return "ZernikeSurface(R={}, thickness={}, zernike={}, norm_radius={}, ordering={!r})".format(
+            self.R, self.thickness, dict(self.zernike), self.norm_radius, self.ordering)
 
     def departure(self, x, y):
         """Zernike part of the sag at the points (x, y) of the local frame."""
@@ -723,10 +751,23 @@ class ZernikeSurface(Surface):
         x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
         u, v = x/self.norm_radius, y/self.norm_radius
         z = np.zeros(np.broadcast(u, v).shape)
-        for j, c in self.zernike:
-            z = z + c*fringe_zernike(j, u, v)
+        for n, m, c in self._terms:
+            z = z + c*zernike_nm(n, m, u, v)
 
         return z
+
+    def departure_gradient(self, x, y):
+        """Analytic (dz/dx, dz/dy) of the Zernike departure."""
+
+        x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+        u, v = x/self.norm_radius, y/self.norm_radius
+        gx = np.zeros(np.broadcast(u, v).shape)
+        gy = np.zeros_like(gx)
+        for n, m, c in self._terms:
+            zx, zy = zernike_nm_gradient(n, m, u, v)
+            gx, gy = gx + c*zx, gy + c*zy
+
+        return gx/self.norm_radius, gy/self.norm_radius
 
     def sag_xy(self, x, y):
         """Sag z(x, y), base sag plus the Zernike departure."""
@@ -734,12 +775,10 @@ class ZernikeSurface(Surface):
         return self.sag(x**2 + y**2) + self.departure(x, y)
 
     def _gradient(self, x, y):
-        """dz/dx and dz/dy of the full sag (departure by central differences)."""
+        """dz/dx and dz/dy of the full sag."""
 
         s = self._slope_over_r(x**2 + y**2)
-        h = 1e-6*self.norm_radius
-        gx = (self.departure(x + h, y) - self.departure(x - h, y))/(2*h)
-        gy = (self.departure(x, y + h) - self.departure(x, y - h))/(2*h)
+        gx, gy = self.departure_gradient(x, y)
 
         return x*s + gx, y*s + gy
 
