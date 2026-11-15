@@ -164,6 +164,7 @@ Sequential and polarization ray tracing, from rays to waves, glass catalogues, l
 - {doc}`notebooks/77_grin_optics`
 - {doc}`notebooks/102_sine_herschel_lagrange`
 - {doc}`notebooks/109_field_tracing`
+- {doc}`notebooks/112_field_tracing_applications`
 
 ```{toctree}
 :hidden:
@@ -183,6 +184,7 @@ notebooks/70_monte_carlo_tolerancing
 notebooks/77_grin_optics
 notebooks/102_sine_herschel_lagrange
 notebooks/109_field_tracing
+notebooks/112_field_tracing_applications
 ```
 
 ## Interferometry, holography and wavefront sensing

@@ -519,3 +519,56 @@ def test_babinet_obstruction_against_a_fine_grid():
     pts = np.stack(np.meshgrid(yd, xd, indexing="ij"), -1)
     Ib = RegularGridInterpolator((xb, xb), np.abs(u)**2)(pts)
     assert rel(res["d"].irradiance, Ib) < 2E-2
+
+
+# --------------------------------------------------------------------------
+# Mode overlap (fibre coupling)
+# --------------------------------------------------------------------------
+
+def test_overlap_of_gaussians_matches_analytic_values():
+    x = np.linspace(-0.05, 0.05, 201)
+    w = 5e-3
+    mode = ft.gaussian(w, WL, x, x)
+    assert np.isclose(ft.gaussian(w, WL, x, x, power=3.0).overlap(mode), 1.0, atol=1e-9)
+    # waist mismatch: (2 w1 w2/(w1**2 + w2**2))**2
+    w2 = 8e-3
+    eta = ft.gaussian(w2, WL, x, x).overlap(mode)
+    assert np.isclose(eta, (2*w*w2/(w**2 + w2**2))**2, rtol=1e-6)
+    # lateral offset d: exp(-d**2/w**2)
+    X, Y = np.meshgrid(x, x)
+    d = 4e-3
+    shifted = ft.from_array(np.exp(-((X - d)**2 + Y**2)/w**2), x, x, WL)
+    assert np.isclose(shifted.overlap(mode), np.exp(-d**2/w**2), rtol=1e-6)
+    # crossed polarization does not couple
+    assert ft.gaussian(w, WL, x, x, polarization="y").overlap(mode) < 1e-12
+
+
+def test_overlap_counts_curvature_and_field_outside_the_mode_grid():
+    w, z = 5e-3, 0.2
+    x = np.linspace(-0.1, 0.1, 401)
+    xm = np.linspace(-0.03, 0.03, 121)
+    mode = ft.gaussian(w, WL, xm, xm)
+    beam = ft.gaussian(w, WL, x, x, distance=z)
+    # analytic: two Gaussians with q parameters q1 = i zR and q2 = z + i zR
+    zR = np.pi*w**2/WL
+    wz = w*np.sqrt(1 + (z/zR)**2)
+    eta = 4/((wz/w + w/wz)**2 + (np.pi*w*wz/(WL*z*(1 + (zR/z)**2)))**2)
+    assert np.isclose(beam.overlap(mode), eta, rtol=2e-3)
+    # a beam wider than the mode window loses the part outside
+    wide = ft.gaussian(0.05, WL, x, x)
+    assert wide.overlap(mode) < (2*w*0.05/(w**2 + 0.05**2))**2*1.001
+
+
+def test_detector_coupling_into_a_fibre_mode():
+    # a weak thin lens (a paraxial phase, so a long focal length) focuses a
+    # collimated beam onto the matched mode
+    wl, f, w = 0.78e-3, 50.0, 0.33
+    x = np.linspace(-1.0, 1.0, 256)
+    w_f = wl*f/(np.pi*w)
+    xm = np.linspace(-4*w_f, 4*w_f, 161)
+    mode = ft.gaussian(w_f, wl, xm, xm)
+    r = ft.Chain([ft.ThinLens(f), ft.Propagate(f),
+                  ft.Detector("fibre", ("coupling",), x=xm, y=xm, mode=mode)]).run(ft.gaussian(w, wl, x, x))
+    assert r["fibre"].coupling > 0.99
+    with pytest.raises(ValueError):
+        ft.Detector("fibre", ("coupling",))
