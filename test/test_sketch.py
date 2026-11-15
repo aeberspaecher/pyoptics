@@ -189,6 +189,14 @@ def test_paraxial_ray_imaging():
     sketch.lithography_scanner,
     sketch.tcc_overlap,
     sketch.mask_3d,
+    sketch.field_tracing_chain,
+    sketch.propagation_operators,
+    lambda ax: sketch.propagation_operators(ax, "fresnel"),
+    lambda ax: sketch.propagation_operators(ax, "farfield"),
+    lambda ax: sketch.propagation_operators(ax, "geometric"),
+    sketch.ball_lens_handover,
+    sketch.mach_zehnder_defect,
+    sketch.babinet_split,
 ])
 def test_sketches_draw(draw):
     fig, ax = plt.subplots()
