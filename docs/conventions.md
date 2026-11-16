@@ -73,6 +73,16 @@ Maxwell's equations and checks each of them numerically. In particular:
   lower surface has the longer path and the larger phase, the fringe term
   is Re(r_S exp(2ik cos θ (z − h))) for the scan position z, and frequency
   domain analysis returns the phase K h − arg r_S.
+- Crystal optics (`crystals`): the 4×4 method uses ψ = (Ex, Hy, Ey, Hx)
+  with dψ/dz = i k₀ Δ ψ; Jones matrices are in the (p, s) basis, or in
+  the lab x-y basis when an azimuth is given, with amplitudes as lengths
+  of E (powers need `power_factor()`). A rotation angle is counted
+  counterclockwise from x towards y looking towards the source;
+  right-handed quartz rotates by −ρd. Faraday rotation keeps its sense
+  in the lab for both directions of travel, natural activity reverses.
+- Modulators (`electrooptics`) follow `fibrecomm`: a chirp parameter
+  α > 0 means blue-shifted rising edges, like a directly modulated laser,
+  and the instantaneous frequency shift is −dφ/dt for exp(−iωt).
 - Circular polarization is named about the direction of propagation (IEEE):
   `jones.J_RHCP` = [1, i]/√2 has positive helicity. Born & Wolf and Hecht
   call the same field left-circular.
