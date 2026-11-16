@@ -392,3 +392,15 @@ def test_3d_sensing_sketches(draw, kinds):
     with pytest.raises(ValueError):
         draw(ax, "unknown")
     plt.close(fig)
+
+
+def test_metrology_sketches():
+    for kind in ("csi", "ellipsometer", "scatterometry", "deflectometry"):
+        fig, ax = plt.subplots()
+        sketch.metrology_layout(ax, kind, title=kind)
+        assert ax.get_title() == kind and (ax.lines or ax.patches)
+        plt.close(fig)
+    fig, ax = plt.subplots()
+    with pytest.raises(ValueError):
+        sketch.metrology_layout(ax, "unknown")
+    plt.close(fig)
