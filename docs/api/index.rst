@@ -95,6 +95,7 @@ Imaging and ray tracing
    pyoptics.lightfield
    pyoptics.delano
    pyoptics.lens_optimization
+   pyoptics.scan_lenses
    pyoptics.tolerancing
    pyoptics.glasses
    pyoptics.qaspheres

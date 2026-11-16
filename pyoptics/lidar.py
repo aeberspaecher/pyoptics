@@ -97,7 +97,9 @@ Beam scanning
 `resolvable_spots()` is the number of resolvable spots theta*D/(a*lambda)
 of a scanner of full optical angle theta and aperture D. `galvo_xy()`
 traces a beam through two galvanometer mirrors exactly (the scan line bows
-because the second mirror sees a moving beam); `polygon_scan()` reflects a
+because the second mirror sees a moving beam), `galvo_beam()` gives the
+beam behind the second mirror (for a scan lens behind it, see
+`scan_lenses`); `polygon_scan()` reflects a
 beam on a rotating polygon in 2D; `lissajous()` gives the path of a
 two-axis resonant MEMS mirror. `opa_array_factor()` is the far field of
 an optical phased array of N emitters with the pitch d (grating lobes at
@@ -139,8 +141,8 @@ __all__ = ["C", "Q_E", "K_B", "H", "lambertian_return", "extinction_coefficient"
            "max_unambiguous_range", "c4", "c7", "ael_class1", "measurement_aperture",
            "aperture_fraction", "class1_pulse_energy", "range_resolution",
            "fmcw_beat_frequencies", "fmcw_range_velocity", "fmcw_beat_signal",
-           "coherent_fraction", "coherent_snr", "resolvable_spots", "galvo_xy", "polygon_scan",
-           "lissajous", "opa_array_factor", "grating_emission_angle", "risley_direction"]
+           "coherent_fraction", "coherent_snr", "resolvable_spots", "galvo_beam", "galvo_xy",
+           "polygon_scan", "lissajous", "opa_array_factor", "grating_emission_angle", "risley_direction"]
 
 
 C = 299792458.0         # m/s
@@ -883,6 +885,47 @@ def _reflect(d, n):
     return d - 2*np.sum(d*n, axis=-1, keepdims=True)*n
 
 
+def galvo_beam(theta_x, theta_y, separation):
+    """Beam leaving a two-mirror galvanometer scanner.
+
+    The geometry of `galvo_xy()`: the beam comes along +x and hits the x
+    mirror at the origin (axis z), which turns it into +y; the y mirror at
+    (0, separation, 0) (axis x) turns it into +z. Mechanical angles
+    theta_x and theta_y rotate the mirrors from their 45° rest positions.
+
+    Parameters
+    ----------
+    theta_x, theta_y : numbers or arrays
+        Mechanical angles (rad), broadcast against each other.
+    separation : number
+        Distance between the mirrors along the beam.
+
+    Returns
+    -------
+    points : array, shape (..., 3)
+        Points where the beam leaves the y mirror.
+    directions : array, shape (..., 3)
+        Unit directions of the beam behind the y mirror (+z at rest).
+    """
+
+    tx, ty = np.broadcast_arrays(np.asarray(theta_x, dtype=float),
+                                 np.asarray(theta_y, dtype=float))
+    d0 = np.array([1.0, 0.0, 0.0])
+    n1_0 = np.array([-1.0, 1.0, 0.0])/np.sqrt(2)
+    n2_0 = np.array([0.0, -1.0, 1.0])/np.sqrt(2)
+    p2 = np.array([0.0, separation, 0.0])
+    points = np.empty(tx.shape + (3,))
+    directions = np.empty(tx.shape + (3,))
+    for idx in np.ndindex(tx.shape):
+        n1 = _rot([0, 0, 1], -tx[idx]) @ n1_0
+        d1 = _reflect(d0, n1)
+        n2 = _rot([1, 0, 0], ty[idx]) @ n2_0
+        s = np.dot(p2, n2)/np.dot(d1, n2)          # hit the second mirror plane
+        points[idx] = s*d1
+        directions[idx] = _reflect(d1, n2)
+    return points, directions
+
+
 def galvo_xy(theta_x, theta_y, separation, distance):
     """Spot position of a two-mirror galvanometer scanner on a flat field.
 
@@ -891,7 +934,7 @@ def galvo_xy(theta_x, theta_y, separation, distance):
     (0, separation, 0) turns it into +z; its axis is x. The field is the
     plane z = distance. Mechanical angles theta_x and theta_y rotate the
     mirrors from their 45° rest positions; each deflects the beam by
-    twice its angle.
+    twice its angle. The beam itself is `galvo_beam()`.
 
     Parameters
     ----------
@@ -911,25 +954,10 @@ def galvo_xy(theta_x, theta_y, separation, distance):
         changes with theta_y.
     """
 
-    tx, ty = np.broadcast_arrays(np.asarray(theta_x, dtype=float),
-                                 np.asarray(theta_y, dtype=float))
-    d0 = np.array([1.0, 0.0, 0.0])
-    n1_0 = np.array([-1.0, 1.0, 0.0])/np.sqrt(2)
-    n2_0 = np.array([0.0, -1.0, 1.0])/np.sqrt(2)
-    x_out = np.empty(tx.shape)
-    y_out = np.empty(tx.shape)
-    for idx in np.ndindex(tx.shape):
-        n1 = _rot([0, 0, 1], -tx[idx]) @ n1_0
-        d1 = _reflect(d0, n1)
-        n2 = _rot([1, 0, 0], ty[idx]) @ n2_0
-        p2 = np.array([0.0, separation, 0.0])
-        s = np.dot(p2, n2)/np.dot(d1, n2)          # hit the second mirror plane
-        h = s*d1
-        d2 = _reflect(d1, n2)
-        s2 = (distance - h[2])/d2[2]
-        q = h + s2*d2
-        x_out[idx], y_out[idx] = q[0], q[1] - separation
-    return x_out, y_out
+    h, d2 = galvo_beam(theta_x, theta_y, separation)
+    s2 = (distance - h[..., 2])/d2[..., 2]
+    q = h + s2[..., None]*d2
+    return q[..., 0], q[..., 1] - separation
 
 
 def polygon_scan(rotation, n_facets, radius, offset=0.0):

@@ -561,7 +561,8 @@ What each module does and how mature it is. Planned work is listed in
   as in `LensOptimizer` (notebook 43, Delano diagrams, section 8: clearances as constraints
   and their prices); `predicted_gain()` ranks candidate variables (e.g. an
   asphere on each surface) by the linearized decrease of the merit function
-  (notebook 43, Delano diagrams, section 7)
+  (notebook 43, Delano diagrams, section 7); `ftheta()`, the F-theta law
+  h = f*theta of scan lenses as an operand (notebook 149, scan lenses)
 - `tolerancing`: Monte Carlo tolerancing, tested: tolerances (power in
   fringes, radius, thickness and air space, axial position of an element,
   image plane, index, Abbe number, element decentre, element tilt about a
@@ -607,6 +608,17 @@ What each module does and how mature it is. Planned work is listed in
   matrices, and `ProgressiveLens`, a lens traced as worn from the centre
   of rotation of the eye (power and prism along every line of sight)
   (notebook 129, progressive spectacle lenses)
+- `scan_lenses`: new, tested: scan lenses for laser scanning; the chief
+  ray heights against the F-theta law (`ftheta_error()`,
+  `ftheta_distortion()`), the image space telecentricity, the beam of a
+  two-mirror galvo scanner (`lidar.galvo_beam()`) traced through a lens
+  with the pupil anywhere between the mirrors (`galvo_spots()`), the
+  mirror angles for given spot positions by Newton's method
+  (`invert_scan()`) and `CorrectionTable`, the lookup table of scanner
+  controllers with bilinear or bicubic interpolation; checked against an
+  ideal lens (f tan theta, telecentric and one-mirror scans exact) and
+  `galvo_xy()`; an F-theta lens and a telecentric scan lens designed with
+  `lens_optimization` (notebook 149, scan lenses)
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
 - `modes`: mode analysis and fibres, tested: decomposition of any field into
@@ -843,7 +855,7 @@ What each module does and how mature it is. Planned work is listed in
   phase noise and nonlinear chirps (`fmcw_beat_signal()`), the coherent
   fraction and the SNR of a balanced coherent receiver
   (`coherent_snr()`); resolvable spots, an exact XY galvo
-  (`galvo_xy()`), a polygon mirror (`polygon_scan()`), Lissajous paths,
+  (`galvo_xy()`, the beam behind it `galvo_beam()`), a polygon mirror (`polygon_scan()`), Lissajous paths,
   the array factor of an optical phased array with quantized and noisy
   phases (`opa_array_factor()`), grating emitter angles and an exact
   Risley prism pair (`risley_direction()`); checked against Monte Carlo
