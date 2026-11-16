@@ -46,6 +46,11 @@ variances in a bandwidth Delta f are ::
     thermal: sigma_T**2 = 4 k_B T F_n Delta f/R_L
 
 receiver_noise() returns both; detect() adds them to a detected waveform.
+The intensity noise of the laser adds a third term that grows with the
+power, rin_noise(): sigma_RIN**2 = RIN (R P)**2 Delta f for a relative
+intensity noise RIN (1/Hz, from `pyoptics.lasers.DiodeLaser.rin()`); it
+caps the Q factor at about 1/(2 sqrt(RIN Delta f)) however strong the
+signal.
 With the means I1, I0 and standard deviations sigma1, sigma0 of the
 currents of ones and zeros at the decision time, the Q factor
 Q = (I1 - I0)/(sigma1 + sigma0) gives the bit error rate of Gaussian noise
@@ -90,7 +95,7 @@ from .fibres import beta2_from_D
 
 
 __all__ = ["Q_E", "K_B", "prbs", "nrz", "gaussian_pulse", "gaussian_width", "beta2_from_D",
-           "propagate", "photocurrent", "excess_noise", "receiver_noise", "detect",
+           "propagate", "photocurrent", "excess_noise", "receiver_noise", "rin_noise", "detect",
            "noise_bandwidth", "q_factor",
            "ber", "q_from_ber", "sensitivity", "optimum_apd_gain", "eye_diagram", "eye_opening",
            "dbm", "mw", "power_budget", "rise_time_budget", "dispersion_penalty"]
@@ -277,11 +282,20 @@ def receiver_noise(P, bandwidth_ghz, responsivity=1.0, gain=1.0, k_A=0.7, dark_n
     return s_shot*1E3, s_th*1E3 + 0*s_shot
 
 
+def rin_noise(P, bandwidth_ghz, rin_db_hz, responsivity=1.0, gain=1.0):
+    """Standard deviation (mA) of the photocurrent from the relative intensity
+    noise of the transmitter, M R P sqrt(RIN Delta f), with RIN in dB/Hz
+    (flat over the noise bandwidth Delta f)."""
+    rin = 10**(np.asarray(rin_db_hz, dtype=float)/10)
+    return gain*responsivity*np.asarray(P, dtype=float)*np.sqrt(rin*bandwidth_ghz*1E9)
+
+
 def detect(t, A, bandwidth_ghz, responsivity=1.0, gain=1.0, k_A=0.7, load_ohm=50.0,
-           noise_figure_db=3.0, rng=None, noise=True):
+           noise_figure_db=3.0, rng=None, noise=True, rin_db_hz=None):
     """Photocurrent of a field envelope behind a receiver with a Gaussian
     electrical filter of the given 3 dB bandwidth, with signal dependent
-    Gaussian shot noise and thermal noise.
+    Gaussian shot noise and thermal noise, and optionally the intensity
+    noise of the transmitter (rin_db_hz, see rin_noise()).
 
     Returns
     -------
@@ -302,7 +316,10 @@ def detect(t, A, bandwidth_ghz, responsivity=1.0, gain=1.0, k_A=0.7, load_ohm=50
     nbw = noise_bandwidth(bandwidth_ghz)
     s_shot, s_th = receiver_noise(np.maximum(Iw, 0)/(responsivity*gain), nbw, responsivity,
                                   gain, k_A, 0.0, load_ohm, noise_figure_db)
-    return Iw + rng.standard_normal(len(t))*np.sqrt(s_shot**2 + s_th**2)
+    var = s_shot**2 + s_th**2
+    if rin_db_hz is not None:
+        var = var + rin_noise(np.maximum(Iw, 0)/(responsivity*gain), nbw, rin_db_hz, responsivity, gain)**2
+    return Iw + rng.standard_normal(len(t))*np.sqrt(var)
 
 
 def noise_bandwidth(bandwidth_ghz):

@@ -267,6 +267,10 @@ Setup sketches for the other example notebooks:
   (notebook 139, electro-optic modulators), a nematic cell and a twisted
   nematic cell (notebook 140, liquid crystals), an acousto-optic modulator
   and tunable filter (notebook 141, acousto-optics).
+- laser_layout(): three and four level schemes and a diode pumped laser
+  (notebook 142, laser fundamentals), Q switched and mode-locked cavities
+  (notebook 143, Q-switching and mode-locking) and a laser diode chip
+  (notebook 144, laser diodes).
 
 text_scale() is a context manager that enlarges the labels of a sketch,
 for wide layouts that are shown scaled down.
@@ -346,7 +350,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "imaging_spectrometer_layout", "waveguide_combiner", "volume_grating_layout",
            "pancake_lens", "hud_layout", "zoom_cams", "qbfs_geometry",
            "progressive_lens_layout", "lidar_layout", "beam_scanner",
-           "structured_light_layout", "crystal_optics_layout", "modulator_layout", "text_scale"]
+           "structured_light_layout", "crystal_optics_layout", "modulator_layout", "laser_layout",
+           "text_scale"]
 
 
 GLASS = "#cfe3f3"
@@ -10877,3 +10882,156 @@ def modulator_layout(ax, kind="pockels", title=None):
             _finish(ax, (-2.9, 12.0), (-2.6, 2.8), title)
     else:
         raise ValueError("kind must be 'pockels', 'mzm', 'lc_cell', 'tn_cell', 'aom' or 'aotf'")
+
+
+PUMP = "#5aa469"
+
+
+def _level(ax, x0, x1, y, text=None, lw=2.0, color="0.2", fontsize=8, side="right"):
+    ax.plot([x0, x1], [y, y], color=color, lw=lw, solid_capstyle="butt", zorder=4)
+    if text:
+        if side == "right":
+            label(ax, x1 + 0.12, y, text, fontsize=fontsize, ha="left")
+        else:
+            label(ax, x0 - 0.12, y, text, fontsize=fontsize, ha="right")
+
+
+def _population(ax, x0, x1, y, n, color="0.35"):
+    for x in np.linspace(x0 + 0.15, x1 - 0.15, n) if n else []:
+        ax.plot(x, y + 0.09, "o", color=color, ms=3.2, zorder=5)
+
+
+def _mirror_block(ax, z, h, width=0.18, color="0.3", text=None, text_y=None, fontsize=8, coated=False):
+    mpatches = _patches()
+    ax.add_patch(mpatches.Rectangle((z - width/2, -h), width, 2*h, facecolor=GLASS if coated else color,
+                                    edgecolor=EDGE if coated else color, zorder=4))
+    if coated:
+        ax.plot([z - width/2, z - width/2], [-h, h], color="#c9a227", lw=2.5, zorder=5)
+    if text:
+        label(ax, z, -h - 0.25 if text_y is None else text_y, text, fontsize=fontsize, va="top")
+
+
+def laser_layout(ax, kind="end_pumped", title=None):
+    """Sketch of laser level schemes and layouts (notebooks
+    142 (laser fundamentals), 143 (Q-switching and mode-locking) and 144 (laser diodes)).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"levels", "end_pumped", "q_switched", "mode_locked", "diode"}, optional
+        "levels": three and four level schemes side by side, pump and laser
+        transitions and the populations at threshold. "end_pumped": a diode
+        pumped solid-state laser, pump optics, a gain crystal with a
+        dichroic coating, the cavity mode and the output coupler.
+        "q_switched": the same cavity with a polarizer and a Pockels cell
+        that hold the loss high until the switch opens. "mode_locked": a
+        cavity with a saturable absorber mirror and the pulse that bounces
+        in it, the output pulse train at the round-trip time. "diode": an
+        edge emitting laser diode chip: p-i-n layers, the active stripe,
+        cleaved facets and the elliptical, diverging output.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    if kind == "levels":
+        for x0, name, levels in ((0.0, "three level (ruby)", 3), (5.2, "four level (Nd:YAG)", 4)):
+            ys = {3: (0.0, 2.2, 3.2), 4: (0.0, 0.7, 2.2, 3.2)}[levels]
+            names = {3: ("1 ground = lower laser level", "2 upper laser level", "3 pump band"),
+                     4: ("0 ground", "1 lower laser level", "2 upper laser level", "3 pump band")}[levels]
+            for y, nm in zip(ys, names):
+                _level(ax, x0, x0 + 1.8, y, nm, lw=6 if y == ys[-1] else 2)
+            # pump
+            arrow(ax, x0 + 0.35, 0.05, x0 + 0.35, ys[-1] - 0.05, color=PUMP, lw=2.0)
+            label(ax, x0 + 0.2, ys[-1]/2, "pump", fontsize=8, color=PUMP, rotation=90, ha="right")
+            # fast decay
+            arrow(ax, x0 + 1.0, ys[-1] - 0.05, x0 + 1.0, ys[-2] + 0.05, color="0.4", lw=1.0)
+            label(ax, x0 + 1.12, (ys[-1] + ys[-2])/2, "fast", fontsize=7, color="0.4", ha="left")
+            lo = ys[0] if levels == 3 else ys[1]
+            arrow(ax, x0 + 1.45, ys[-2] - 0.05, x0 + 1.45, lo + 0.05, color=LASER, lw=2.4)
+            label(ax, x0 + 1.58, (ys[-2] + lo)/2 + 0.2, "laser", fontsize=8, color=LASER, ha="left")
+            if levels == 4:
+                arrow(ax, x0 + 1.0, ys[1] - 0.05, x0 + 1.0, 0.05, color="0.4", lw=1.0)
+                label(ax, x0 + 1.12, 0.35, "fast", fontsize=7, color="0.4", ha="left")
+                _population(ax, x0, x0 + 1.8, ys[2], 2)
+                _population(ax, x0, x0 + 1.8, ys[0], 7)
+                label(ax, x0 + 0.9, -0.55, "gain from the first excited atom on", fontsize=7)
+            else:
+                _population(ax, x0, x0 + 1.8, ys[1], 5)
+                _population(ax, x0, x0 + 1.8, ys[0], 4)
+                label(ax, x0 + 0.9, -0.55, "gain only after half the atoms are pumped", fontsize=7)
+            label(ax, x0 + 0.9, 3.75, name, fontsize=9)
+        _finish(ax, (-0.6, 9.9), (-0.9, 4.1), title)
+        return
+    if kind == "diode":
+        # perspective-free side view of the chip and the output beam
+        layers = [(-0.9, -0.25, "#d9c48a", "n-InP substrate"), (-0.25, -0.07, "#e9dcb3", "n cladding"),
+                  (-0.07, 0.07, LASER, "active layer (MQW)"), (0.07, 0.3, "#d8e6c4", "p cladding"),
+                  (0.3, 0.42, "#c9a227", "p contact")]
+        for y0, y1, c, nm in layers:
+            ax.add_patch(mpatches.Rectangle((0.0, y0), 5.0, y1 - y0, facecolor=c, edgecolor="0.4", lw=0.6,
+                                            zorder=3))
+        for y0, y1, c, nm in layers:
+            label(ax, -0.15, (y0 + y1)/2, nm, fontsize=7, ha="right")
+        ax.plot([0.0, 0.0], [-0.9, 0.42], color="0.15", lw=2.2, zorder=4)
+        ax.plot([5.0, 5.0], [-0.9, 0.42], color="0.15", lw=2.2, zorder=4)
+        label(ax, 0.0, -1.1, "cleaved facet\nR ≈ 0.32 (or HR)", fontsize=7, va="top")
+        label(ax, 5.0, -1.1, "cleaved facet\nR ≈ 0.32", fontsize=7, va="top")
+        label(ax, 2.5, -1.15, "L = 250 µm", fontsize=8, va="top")
+        for x in np.linspace(0.3, 4.7, 23):
+            ax.plot([x, x + 0.1], [-0.12, -0.08], color="0.25", lw=0.8, zorder=5)
+        label(ax, 2.5, -0.5, "DFB: grating next to the active layer", fontsize=7, color="0.2")
+        arrow(ax, 2.5, 0.95, 2.5, 0.45, color="0.3", lw=1.0)
+        label(ax, 2.5, 1.12, "current I", fontsize=8)
+        z = np.linspace(5.0, 7.8, 60)
+        band(ax, z, 0.07 + 0.3*(z - 5.0), z, -0.07 - 0.3*(z - 5.0), color=LASER, alpha=0.25)
+        label(ax, 6.9, -1.25, "fast axis: ≈ 35° FWHM\n(slow axis ≈ 10°)", fontsize=7)
+        _finish(ax, (-2.6, 8.6), (-1.7, 1.6), title)
+        return
+    # cavities: z from 0 (rear mirror) to 8 (output coupler)
+    h = 0.8
+    if kind == "mode_locked":
+        z_end = 8.0
+    else:
+        z_end = 8.0
+    w0, zR = 0.18, 3.0
+    z = np.linspace(0.6, z_end, 100)
+    w = w0*np.sqrt(1 + ((z - 0.6)/zR)**2)
+    band(ax, z, w, z, -w, color=LASER, alpha=0.22)
+    if kind in ("end_pumped", "q_switched"):
+        laser(ax, -1.6, 0.0, length=1.2, height=0.6, text="pump\ndiode", fontsize=7, color="0.35")
+        zp = np.linspace(-1.6, 0.6, 30)
+        band(ax, zp, 0.25 + 0*zp - 0.2*(zp + 1.6)/2.2, zp, -0.25 + 0.2*(zp + 1.6)/2.2, color=PUMP, alpha=0.3)
+        lens(ax, -0.6, 0.45)
+        label(ax, -1.0, -0.75, "808 nm", fontsize=7, color=PUMP)
+        _block(ax, [(0.6, -0.45), (1.8, -0.45), (1.8, 0.45), (0.6, 0.45)], color="#f2d7d0", edge="0.4")
+        ax.plot([0.6, 0.6], [-0.45, 0.45], color="#c9a227", lw=3.0, zorder=5)
+        label(ax, 1.2, 0.75, "Nd:YVO₄", fontsize=8)
+        label(ax, 0.6, -0.65, "HR 1064 nm,\nAR 808 nm", fontsize=7, va="top")
+    else:
+        _mirror_block(ax, 0.5, h, color="0.25", text="saturable absorber\nmirror (SESAM)", fontsize=7)
+        _block(ax, [(2.2, -0.45), (3.6, -0.45), (3.6, 0.45), (2.2, 0.45)], color="#f2d7d0", edge="0.4")
+        label(ax, 2.9, 0.75, "gain (Ti:sapphire,\nNd, Yb, Er)", fontsize=7, va="bottom")
+        # bouncing pulse
+        zz = np.linspace(4.2, 5.4, 60)
+        ax.plot(zz, 0.6*np.exp(-((zz - 4.8)/0.18)**2), color=LASER, lw=1.5, zorder=6)
+        arrow(ax, 5.3, 0.45, 6.0, 0.45, color=LASER, lw=1.0)
+    if kind == "q_switched":
+        _beam_element(ax, 3.6, 0.0, 0.0, 1.4, "#8c6d1f", "polarizer", (0.0, -0.95))
+        _block(ax, [(4.6, -0.5), (6.0, -0.5), (6.0, 0.5), (4.6, 0.5)])
+        label(ax, 5.3, -0.95, "Pockels cell", fontsize=8)
+        label(ax, 5.3, 0.85, "V: high loss → 0 V: switch open", fontsize=7)
+    ax.plot([z_end, z_end], [-h, h], color=EDGE, lw=1.0)
+    _mirror_block(ax, z_end, h, width=0.16, coated=True, text="output coupler\nT = 2 to 20 %"
+                  if kind != "mode_locked" else "output coupler", fontsize=7)
+    if kind == "mode_locked":
+        for k in range(4):
+            zz = np.linspace(8.6 + 0.8*k, 9.0 + 0.8*k, 30)
+            ax.plot(zz, 0.6*np.exp(-((zz - 8.8 - 0.8*k)/0.06)**2), color=LASER, lw=1.3)
+        ax.plot([8.4, 11.6], [0, 0], color="0.6", lw=0.6)
+        arrow(ax, 8.8, -0.35, 9.6, -0.35, color="0.3", style="<|-|>")
+        label(ax, 9.2, -0.6, "T_rt = 2L/c", fontsize=7, va="top")
+        _finish(ax, (-0.6, 11.9), (-1.6, 1.6), title)
+    else:
+        arrow(ax, 8.2, 0.0, 10.0, 0.0, color=LASER, lw=2.0)
+        label(ax, 9.2, 0.3, "1064 nm", fontsize=8, color=LASER)
+        _finish(ax, (-2.9, 10.3), (-1.7, 1.6), title)

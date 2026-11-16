@@ -653,7 +653,8 @@ What each module does and how mature it is. Planned work is listed in
   the Gaussian formulas), PIN and APD receivers with shot and thermal noise
   and a Gaussian filter, Q factor, BER and sensitivity (Agrawal), optimum
   APD gain, eye diagrams and openings, power and rise-time budgets and the
-  Bellcore dispersion penalty (notebooks 118 (pulse broadening) to 120 (fibre link))
+  Bellcore dispersion penalty, laser intensity noise (`rin_noise()`, the
+  `rin_db_hz` of `detect()`) (notebooks 118 (pulse broadening) to 120 (fibre link))
 - `TIE`: basic transport of intensity solver, partly tested
 - `ifta`: basic Gerchberg-Saxton and variants for beam shaping, tested
   (convergence of GS, HIO-HOO and over-compensation on a reachable target,
@@ -921,6 +922,24 @@ What each module does and how mature it is. Planned work is listed in
   resolvable spots, AOTF tuning, passband and transmission with TeO₂
   dispersion; checked against Bessel functions, the Bragg limit and
   Chang's passband (notebook 141, acousto-optics)
+- `lasers`: new, tested: gain, threshold, modes and pulses. Einstein
+  coefficients, line shapes and cross sections (`GAIN_MEDIA` for Nd:YAG,
+  Nd:YVO₄, ruby, Ti:sapphire, Yb:YAG, Er:glass and HeNe), saturation,
+  the saturated amplifier (`amplifier_gain()`, `frantz_nodvik()`),
+  three- and four-level inversion, the normalized rate equations with
+  active and passive Q switches (`rate_equations()`,
+  `relaxation_oscillation()`, `q_switch()`), threshold, photon lifetime,
+  output power, optimum output coupling and Rigrod, slope efficiency,
+  longitudinal and transverse modes of `abcd` resonators, Schawlow–Townes,
+  locked modes and combs (`mode_locked_field()`), Kuizenga–Siegman and
+  the Haus master equation with gain saturation, modulation, a saturable
+  loss (the hook for Kerr-lens mode-locking), dispersion and SPM
+  (`master_equation()`); `DiodeLaser`: rate equations of a laser diode
+  with gain compression, the L–I curve, modulation response, chirp
+  (α_H), RIN, the Henry linewidth, Langevin simulations, NRZ fields for
+  `fibrecomm` and multimode spectra; checked against ODE solutions,
+  Wagner–Birnbaum, the master equation and Langevin noise (notebooks
+  142 (laser fundamentals) to 144 (laser diodes))
 - `wpm`: wave propagation method (Cython extension) for inhomogeneous, also
   absorbing media, 2D and y-invariant 1D fields, multi-step driver; direct
   O(N^2) sum (OpenMP) or the fast "levels" variant (one FFT pair per distinct

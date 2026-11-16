@@ -292,6 +292,25 @@ sound wave changes it, and what the devices built on it can and cannot do.
 (real retarders in a VR lens), {doc}`20 Polarization ray tracing <notebooks/20_polarization_raytrace>`
 (crystals in a sequential ray trace).
 
+## Lasers
+
+For readers who use lasers or build them: where the gain comes from, what
+sets the threshold, the output and the linewidth, how pulses are made, and
+how a laser diode behaves when its current is modulated.
+
+| Step | Notebook | Why |
+|---|---|---|
+| 1 | {doc}`08 ABCD matrices <notebooks/08_abcd_matrices>` | Stable resonators, their Gaussian modes and Gouy phases. |
+| 2 | {doc}`142 Laser fundamentals <notebooks/142_laser_fundamentals>` | Cross sections, saturation, threshold, slope efficiency, output coupling, modes, linewidth and relaxation oscillations. |
+| 3 | {doc}`143 Q-switching and mode-locking <notebooks/143_q_switching_mode_locking>` | Giant pulses from Q-switching, locked modes and combs, active and soliton mode-locking. |
+| 4 | {doc}`144 Laser diodes <notebooks/144_laser_diodes>` | The L–I curve, modulation bandwidth, chirp, RIN and linewidth of a DFB laser. |
+| 5 | {doc}`120 Fibre link <notebooks/120_fibre_link>` | The DFB laser as the transmitter of a 10 Gb/s link: its chirp against dispersion and its RIN. |
+
+**Side trips:** {doc}`81 Ultrashort pulses <notebooks/81_ultrashort_pulses_lenses>` (what
+happens to a mode-locked pulse in a lens), {doc}`114 Spectral lines and absorption <notebooks/114_spectral_lines_absorption>`
+(line shapes behind the cross sections), {doc}`113 Fabry–Perot and filters <notebooks/113_fabry_perot_filters>`
+(the resonator as a filter).
+
 ## Metrology, microscopy and computational imaging
 
 For readers who measure wavefronts or build imaging systems that rely on

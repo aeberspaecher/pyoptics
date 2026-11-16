@@ -202,6 +202,14 @@ Crystal optics and light modulators
    pyoptics.liquid_crystals
    pyoptics.acoustooptics
 
+Lasers
+------
+
+.. autosummary::
+   :toctree: generated
+
+   pyoptics.lasers
+
 Utilities
 ---------
 
