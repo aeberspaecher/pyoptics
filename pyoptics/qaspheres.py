@@ -337,7 +337,7 @@ class QbfsSurface(_QSurface):
 
     The attribute R is the radius of the best fit sphere (the sphere through
     the vertex and the surface at r_norm); `c` is the vertex curvature,
-    which the paraxial data use. The surface is defined for r < 1/|c_bfs|.
+    which the paraxial data use. The surface is defined for r < 1/abs(c_bfs).
 
     Parameters
     ----------

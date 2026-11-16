@@ -327,7 +327,7 @@ def surface_power(x, y, z, n=1.5):
     mean : 2d array
         Mean surface power (D).
     cyl : 2d array
-        Surface astigmatism (D), 1000 (n - 1) |k1 - k2|.
+        Surface astigmatism (D), 1000 (n - 1) abs(k1 - k2).
     """
 
     hx, hy = x[1] - x[0], y[1] - y[0]

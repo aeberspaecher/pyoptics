@@ -118,8 +118,8 @@ def compensator_positions(z_object, z_image, f):
 
     With D = z_image - z_object the lens position z = z_object + x solves
     x**2 + D x + f D = 0 (real object and image, x = -s), so there are two
-    solutions for D**2 >= 4 f D (|D| >= 4f for a positive lens with a real
-    image), one with |magnification| < 1 and one with |magnification| > 1;
+    solutions for D**2 >= 4 f D (abs(D) >= 4f for a positive lens with a real
+    image), one with abs(magnification) < 1 and one with abs(magnification) > 1;
     they meet at magnification -1.
 
     Parameters
