@@ -210,6 +210,15 @@ Lasers
 
    pyoptics.lasers
 
+Nonlinear optics
+----------------
+
+.. autosummary::
+   :toctree: generated
+
+   pyoptics.nonlinear
+   pyoptics.splitstep
+
 Utilities
 ---------
 

@@ -654,7 +654,21 @@ What each module does and how mature it is. Planned work is listed in
   and a Gaussian filter, Q factor, BER and sensitivity (Agrawal), optimum
   APD gain, eye diagrams and openings, power and rise-time budgets and the
   Bellcore dispersion penalty, laser intensity noise (`rin_noise()`, the
-  `rin_db_hz` of `detect()`) (notebooks 118 (pulse broadening) to 120 (fibre link))
+  `rin_db_hz` of `detect()`) (notebooks 118 (pulse broadening) to 120 (fibre link));
+  nonlinear propagation is in `splitstep`
+- `splitstep`: new, tested: nonlinear pulse and beam propagation. The
+  nonlinear Schrödinger equation by symmetric split-step Fourier
+  (`nlse()`), the fourth-order Runge–Kutta interaction picture method
+  with adaptive steps for any linear and nonlinear operators and coupled
+  fields (`rk4ip()`), the generalized NLSE with self-steepening and the
+  Blow–Wood Raman response (`gnlse()`), paraxial Kerr beam propagation in
+  1D and 2D with multiphoton absorption and step control by the nonlinear
+  phase (`beam_propagate()`); dispersion and nonlinear lengths, soliton
+  order, period and fission length, SPM phase and broadening and the
+  soliton self-frequency shift; checked against the SPM broadening
+  formula, the fundamental and higher-order solitons, the convergence
+  orders dz² and dz⁴, Gordon's shift and free Gaussian beams (notebooks
+  121 (SPM and solitons in fibres) and 147 (Kerr effect and self-focusing))
 - `TIE`: basic transport of intensity solver, partly tested
 - `ifta`: basic Gerchberg-Saxton and variants for beam shaping, tested
   (convergence of GS, HIO-HOO and over-compensation on a reachable target,
@@ -933,13 +947,31 @@ What each module does and how mature it is. Planned work is listed in
   longitudinal and transverse modes of `abcd` resonators, Schawlow–Townes,
   locked modes and combs (`mode_locked_field()`), Kuizenga–Siegman and
   the Haus master equation with gain saturation, modulation, a saturable
-  loss (the hook for Kerr-lens mode-locking), dispersion and SPM
+  loss (the hook for Kerr-lens mode-locking, see `nonlinear.kerr_lens_loss()`), dispersion and SPM
   (`master_equation()`); `DiodeLaser`: rate equations of a laser diode
   with gain compression, the L–I curve, modulation response, chirp
   (α_H), RIN, the Henry linewidth, Langevin simulations, NRZ fields for
   `fibrecomm` and multimode spectra; checked against ODE solutions,
   Wagner–Birnbaum, the master equation and Langevin noise (notebooks
   142 (laser fundamentals) to 144 (laser diodes))
+- `nonlinear`: new, tested: second- and third-order nonlinear optics.
+  Sellmeier equations and d coefficients of BBO, KDP and (MgO:)LN
+  (`CRYSTALS`), n₂ of common materials (`N2`); phase mismatch for any
+  polarizations from the `crystals` index ellipsoid, type I and II phase
+  matching angles, d_eff, quasi phase matching periods and orders,
+  coherence length and acceptance bandwidths in angle, wavelength and
+  temperature; SHG undepleted, depleted (tanh²) and along z
+  (`shg()`), the three-wave equations with a z-dependent d for domain
+  patterns (`three_wave()`), Boyd–Kleinman focusing with walk-off
+  (`boyd_kleinman_h()`), SHG of short pulses with group velocity mismatch
+  (`shg_pulse()`); parametric gain, OPA gain and bandwidth, SRO and DRO
+  thresholds, SRO pump depletion and QPM tuning; Kerr phase and lens,
+  critical power, Marburger's self-focusing distance and the Kerr-lens
+  mode and loss of a cavity for `lasers.master_equation()`
+  (`kerr_lens_mode()`, `kerr_lens_loss()`); checked against Manley–Rowe,
+  the analytic SHG and OPA solutions, 2/π for QPM and Boyd–Kleinman's
+  optimum (notebooks 145 (second harmonic generation and phase matching)
+  to 147 (Kerr effect and self-focusing))
 - `wpm`: wave propagation method (Cython extension) for inhomogeneous, also
   absorbing media, 2D and y-invariant 1D fields, multi-step driver; direct
   O(N^2) sum (OpenMP) or the fast "levels" variant (one FFT pair per distinct

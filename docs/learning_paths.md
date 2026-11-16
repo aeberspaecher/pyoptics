@@ -197,6 +197,7 @@ throughout.
 | 5 | {doc}`118 Pulse broadening <notebooks/118_fibre_pulse_broadening>` | Pulses in dispersive fibre, the source width and the bit-rate limit of each fibre type. |
 | 6 | {doc}`119 Fibre Bragg gratings <notebooks/119_fibre_bragg_gratings>` | Coupled modes, apodization, chirped gratings that undo dispersion, drop filters and sensors. |
 | 7 | {doc}`120 A fibre link <notebooks/120_fibre_link>` | Loss, receivers and noise, eye diagrams, the bit error rate and link budgets. |
+| 8 | {doc}`121 SPM and solitons in fibres <notebooks/121_fibre_spm_solitons>` | The Kerr effect in a fibre: self-phase modulation, solitons, supercontinuum, the Raman self-frequency shift and the power limit of a link. |
 
 **Side trips:** {doc}`10 Interfaces and thin films <notebooks/10_interfaces_thin_films>` (total internal reflection and its
 phase), {doc}`77 GRIN optics <notebooks/77_grin_optics>` (curved rays in graded media), {doc}`60 FDTD photonic circuits <notebooks/60_fdtd_photonic_circuits>` (waveguides,
@@ -309,7 +310,29 @@ how a laser diode behaves when its current is modulated.
 **Side trips:** {doc}`81 Ultrashort pulses <notebooks/81_ultrashort_pulses_lenses>` (what
 happens to a mode-locked pulse in a lens), {doc}`114 Spectral lines and absorption <notebooks/114_spectral_lines_absorption>`
 (line shapes behind the cross sections), {doc}`113 Fabry–Perot and filters <notebooks/113_fabry_perot_filters>`
-(the resonator as a filter).
+(the resonator as a filter) and {doc}`147 Kerr effect and self-focusing <notebooks/147_kerr_effect_self_focusing>`
+(section 6: Kerr-lens mode-locking from a cavity design).
+
+## Nonlinear optics
+
+For readers who double, mix or broaden laser light, or need to know when
+their beam starts to do it on its own: the second-order processes that
+make new frequencies in crystals, the third-order Kerr effect that
+focuses beams and broadens pulses, and the split-step solver behind the
+pulse and beam simulations.
+
+| Step | Notebook | Why |
+|---|---|---|
+| 1 | {doc}`138 Crystal optics <notebooks/138_crystal_optics>` | Ordinary and extraordinary waves, the index ellipsoid and walk-off, which phase matching relies on. |
+| 2 | {doc}`145 Second harmonic generation <notebooks/145_second_harmonic_generation>` | χ(2), the coupled amplitude equations, birefringent and quasi phase matching, acceptance bandwidths, Boyd–Kleinman focusing and femtosecond SHG. |
+| 3 | {doc}`146 Parametric amplification and OPOs <notebooks/146_parametric_amplification_opo>` | Sum and difference frequencies, Manley–Rowe, parametric gain and bandwidth, tuning curves and OPO thresholds. |
+| 4 | {doc}`147 Kerr effect and self-focusing <notebooks/147_kerr_effect_self_focusing>` | n₂, the Kerr lens, critical power and collapse, filamentation seeds, SPM in bulk and Kerr-lens mode-locking. |
+| 5 | {doc}`121 SPM and solitons in fibres <notebooks/121_fibre_spm_solitons>` | The nonlinear Schrödinger equation, split-step accuracy, solitons, supercontinuum and the Raman self-frequency shift. |
+
+**Side trips:** {doc}`143 Q-switching and mode-locking <notebooks/143_q_switching_mode_locking>`
+(the master equation that the Kerr-lens loss plugs into), {doc}`81 Ultrashort pulses <notebooks/81_ultrashort_pulses_lenses>`
+(dispersion of femtosecond pulses in glass) and {doc}`117 Dispersion in fibres <notebooks/117_fibre_dispersion>`
+(the β₂ that balances SPM in a soliton).
 
 ## Metrology, microscopy and computational imaging
 

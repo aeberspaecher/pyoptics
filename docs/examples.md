@@ -108,8 +108,9 @@ Light guided in glass fibres and the basics of sending bits through them:
 the acceptance angle and rays in step and graded-index cores, fibre modes
 and the single-mode condition, material, waveguide and intermodal
 dispersion with real GeO₂–SiO₂ data, pulse broadening and the bit-rate
-limit, fibre Bragg gratings, and a basic link with its receiver noise, eye
-diagrams and budgets. Related: LP modes and fibre coupling in
+limit, fibre Bragg gratings, a basic link with its receiver noise, eye
+diagrams and budgets, and self-phase modulation, solitons and
+supercontinuum. Related: LP modes and fibre coupling in
 {doc}`notebooks/09_mode_analysis`, waveguides in
 {doc}`notebooks/60_fdtd_photonic_circuits`, GRIN rods in
 {doc}`notebooks/77_grin_optics` and pulses in glass in
@@ -121,6 +122,7 @@ diagrams and budgets. Related: LP modes and fibre coupling in
 - {doc}`notebooks/118_fibre_pulse_broadening`
 - {doc}`notebooks/119_fibre_bragg_gratings`
 - {doc}`notebooks/120_fibre_link`
+- {doc}`121 SPM and solitons in fibres <notebooks/121_fibre_spm_solitons>`
 
 ```{toctree}
 :hidden:
@@ -132,6 +134,7 @@ notebooks/117_fibre_dispersion
 notebooks/118_fibre_pulse_broadening
 notebooks/119_fibre_bragg_gratings
 notebooks/120_fibre_link
+notebooks/121_fibre_spm_solitons
 ```
 
 ## Thin films, coatings and polarization
@@ -605,6 +608,31 @@ the directly modulated laser of {doc}`120 Fibre link <notebooks/120_fibre_link>`
 notebooks/142_laser_fundamentals
 notebooks/143_q_switching_mode_locking
 notebooks/144_laser_diodes
+```
+
+## Nonlinear optics
+
+Light that changes the medium it travels in: second harmonic generation
+and phase matching in birefringent and periodically poled crystals,
+parametric amplifiers and oscillators that turn one laser into a tunable
+source, and the Kerr effect with self-focusing, self-phase modulation and
+the Kerr lens of femtosecond lasers. Related: crystal optics in
+{doc}`138 Crystal optics <notebooks/138_crystal_optics>`, mode-locked
+lasers in {doc}`143 Q-switching and mode-locking <notebooks/143_q_switching_mode_locking>`,
+and solitons and supercontinuum in
+{doc}`121 SPM and solitons in fibres <notebooks/121_fibre_spm_solitons>`.
+
+- {doc}`145 Second harmonic generation and phase matching <notebooks/145_second_harmonic_generation>`
+- {doc}`146 Parametric amplification and OPOs <notebooks/146_parametric_amplification_opo>`
+- {doc}`147 Kerr effect and self-focusing <notebooks/147_kerr_effect_self_focusing>`
+
+```{toctree}
+:hidden:
+:caption: Nonlinear optics
+
+notebooks/145_second_harmonic_generation
+notebooks/146_parametric_amplification_opo
+notebooks/147_kerr_effect_self_focusing
 ```
 
 ## Running the notebooks
