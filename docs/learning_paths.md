@@ -104,6 +104,8 @@ aberrations first can start with {doc}`103 Introduction to geometrical optics <n
 | 11 | {doc}`50 Magnification, distortion, telecentricity <notebooks/50_magnification_distortion_telecentricity>` | Magnification, distortion and telecentricity as Zernikes. |
 | 12 | {doc}`70 Monte Carlo tolerancing <notebooks/70_monte_carlo_tolerancing>` | Monte Carlo tolerancing. |
 
+**Lens design classics:** {doc}`127 Zoom lenses <notebooks/127_zoom_lenses>` (mechanical compensation, a patent zoom with real glasses, cams and their tolerances, inner focusing and focus breathing), {doc}`128 Forbes Q aspheres <notebooks/128_forbes_q_aspheres>` (slope-orthogonal asphere descriptions, manufacturability and better conditioned optimization), {doc}`129 Progressive spectacle lenses <notebooks/129_progressive_lenses>` (the Minkwitz theorem, hard and soft designs, the lens traced as worn and seen by the eye of {doc}`49 Eye aberrometer <notebooks/49_eye_aberrometer>`).
+
 **From rays to waves:** {doc}`21 Lens focus from rays to waves <notebooks/21_lens_focus_waves>`, {doc}`47 Rays and waves <notebooks/47_rays_and_waves>`, {doc}`46 Analytic phase propagation <notebooks/46_analytic_phase_propagation>` (propagating strongly curved
 wavefronts), {doc}`56 Gaussian beam decomposition <notebooks/56_gaussian_beam_decomposition>`.
 **Polarization and coatings:** {doc}`20 Polarization ray tracing <notebooks/20_polarization_raytrace>`, {doc}`14 Coated laser mirror <notebooks/14_coated_laser_mirror>`.

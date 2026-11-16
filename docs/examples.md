@@ -180,7 +180,7 @@ notebooks/79_lensless_coded_aperture_imaging
 
 ## Ray tracing and lens design
 
-Sequential and polarization ray tracing, from rays to waves, glass catalogues, lens optimization and tolerancing, and what a lens must conserve: the Lagrange invariant, the sine and the Herschel condition, and field tracing: rays through the lenses, waves where diffraction matters.
+Sequential and polarization ray tracing, from rays to waves, glass catalogues, lens optimization and tolerancing, and what a lens must conserve: the Lagrange invariant, the sine and the Herschel condition, and field tracing: rays through the lenses, waves where diffraction matters. Three lens design classics close the section: a mechanically compensated zoom from a patent, Forbes Q aspheres, and a progressive spectacle lens seen by a model eye.
 
 - {doc}`notebooks/19_ray_tracing`
 - {doc}`notebooks/20_polarization_raytrace`
@@ -197,6 +197,9 @@ Sequential and polarization ray tracing, from rays to waves, glass catalogues, l
 - {doc}`notebooks/102_sine_herschel_lagrange`
 - {doc}`notebooks/109_field_tracing`
 - {doc}`notebooks/112_field_tracing_applications`
+- {doc}`notebooks/127_zoom_lenses`
+- {doc}`notebooks/128_forbes_q_aspheres`
+- {doc}`notebooks/129_progressive_lenses`
 
 ```{toctree}
 :hidden:
@@ -217,6 +220,9 @@ notebooks/77_grin_optics
 notebooks/102_sine_herschel_lagrange
 notebooks/109_field_tracing
 notebooks/112_field_tracing_applications
+notebooks/127_zoom_lenses
+notebooks/128_forbes_q_aspheres
+notebooks/129_progressive_lenses
 ```
 
 ## Interferometry, holography and wavefront sensing
