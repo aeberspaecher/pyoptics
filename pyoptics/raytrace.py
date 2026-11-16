@@ -1106,7 +1106,7 @@ class DiffractiveSurface(Surface):
         return g
 
     def local_period(self, r):
-        """Local grating period 2*pi/|dphi/dr| of the zones at the radius r
+        """Local grating period 2*pi/abs(dphi/dr) of the zones at the radius r
         (infinite where the phase is stationary). Its smallest value over
         the aperture decides whether the kinoform can be made."""
 
@@ -1115,13 +1115,13 @@ class DiffractiveSurface(Surface):
             return 2*pi/np.abs(r*self._dphase_over_r(r**2))
 
     def zone_radii(self, n_zones=None, r_max=None):
-        """Radii at which |phi| passes 2*pi, 4*pi, ... (the zone edges of the
+        """Radii at which abs(phi) passes 2*pi, 4*pi, ... (the zone edges of the
         kinoform), up to r_max (default: the semi diameter) or n_zones.
 
         Returns
         -------
         r : array
-            Increasing radii, assuming |phi| grows monotonically.
+            Increasing radii, assuming abs(phi) grows monotonically.
         """
 
         r_max = self.semi_diameter if r_max is None else r_max
@@ -2532,7 +2532,7 @@ class System:
 
     def kinoform_depth(self, surface):
         """Groove depth of the kinoform on a diffractive surface:
-        design_order*lambda_0/|n' - n| with the indices on both sides at the
+        design_order*lambda_0/abs(n' - n) with the indices on both sides at the
         design wavelength lambda_0 (`fresnel.kinoform_depth()`).
 
         Parameters
