@@ -75,7 +75,9 @@ round trip by round trip: saturated gain with a parabolic gain filter,
 loss, an active amplitude modulator, a fast saturable loss, group delay
 dispersion and self-phase modulation. The saturable loss may be given as a
 function of the instantaneous power, which is the hook for an effective
-Kerr lens (Kerr-lens mode locking). active_ml_width() is the
+Kerr lens (Kerr-lens mode locking); nonlinear.kerr_lens_loss() computes
+that function from a cavity, a Kerr medium and an aperture (notebook 147,
+Kerr effect and self-focusing). active_ml_width() is the
 Kuizenga-Siegman pulse length of active mode locking.
 
 Laser diodes
@@ -716,7 +718,8 @@ def master_equation(t, A0, round_trips, g0, E_sat, dnu_g, loss, modulation=None,
     saturable_loss : tuple or callable, optional
         (q0, P_sat): fast saturable absorber, q = q0/(1 + P/P_sat); or a
         function q(P) of the instantaneous power, e.g. the effective loss of
-        a Kerr lens and an aperture (Kerr-lens mode locking).
+        a Kerr lens and an aperture (Kerr-lens mode locking), as returned
+        by `pyoptics.nonlinear.kerr_lens_loss`.
     gdd : number, optional
         Round trip group delay dispersion (units of t squared).
     spm : number, optional

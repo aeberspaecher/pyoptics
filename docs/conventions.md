@@ -88,6 +88,16 @@ Maxwell's equations and checks each of them numerically. In particular:
   sign as above: a positive linewidth enhancement factor α_H gives
   blue-shifted rising edges. The rate equations are normalized to the
   threshold inversion, and the pump r to its threshold value.
+- Nonlinear optics (`nonlinear`) uses SI units with Boyd's field
+  convention E = A exp(i(kz − ωt)) + c.c. (the pyoptics sign), amplitudes
+  normalized to the intensity (|a|² = I), the phase mismatch
+  Δk = k₁ + k₂ − k₃ (2k₁ − k₂ for SHG, + 2πm/Λ for quasi-phase matching)
+  and wavelengths in nm where a name says `wavelength_nm`; d coefficients
+  in `CRYSTALS` are in pm/V. Pulses (`splitstep`) follow `fibrecomm`:
+  spectra A~(Ω) = ∫A exp(iΩt) dt, positive Ω is a higher frequency, the
+  dispersion operator is i Σ β_k Ω^k/k! − α/2 and the Kerr phase is
+  +γ|A|²z, so that SPM shifts the rising edge to the red. Units are free
+  but consistent (ps, km, W in the fibre notebooks).
 - Circular polarization is named about the direction of propagation (IEEE):
   `jones.J_RHCP` = [1, i]/√2 has positive helicity. Born & Wolf and Hecht
   call the same field left-circular.

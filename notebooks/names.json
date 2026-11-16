@@ -120,6 +120,7 @@
   "118": "pulse broadening",
   "119": "fibre Bragg gratings",
   "120": "fibre link",
+  "121": "SPM and solitons in fibres",
   "122": "imaging spectroscopy",
   "123": "AR waveguide combiners",
   "124": "volume holographic gratings",
@@ -142,5 +143,8 @@
   "141": "acousto-optics",
   "142": "laser fundamentals",
   "143": "Q-switching and mode-locking",
-  "144": "laser diodes"
+  "144": "laser diodes",
+  "145": "second harmonic generation and phase matching",
+  "146": "parametric amplification and OPOs",
+  "147": "Kerr effect and self-focusing"
 }
