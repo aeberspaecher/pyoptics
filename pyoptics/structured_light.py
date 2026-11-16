@@ -468,7 +468,7 @@ def fanout_ifta(n, orders, n_iter=200, levels=None, rng=None, quantize_from=0.5,
     n : int
         Pixels per period (along both axes).
     orders : array, shape (m, 2)
-        Signal orders (m_x, m_y), |m| < n/2.
+        Signal orders (m_x, m_y), abs(m) < n/2.
     n_iter : int, optional
     levels : int, optional
         Number of phase levels of the fabricated element (None: continuous).
@@ -566,8 +566,8 @@ def dot_directions(emitters, focal_length, orders, period, wavelength):
     -------
     k : array, shape (m*k, 2)
         Direction cosines (k_x, k_y) of all dots: the emitter at e leaves
-        the collimator with -e/sqrt(|e|**2 + f**2), and the grating adds
-        m*lambda/period. Directions with |k| >= 1 are evanescent and
+        the collimator with -e/sqrt(abs(e)**2 + f**2), and the grating adds
+        m*lambda/period. Directions with abs(k) >= 1 are evanescent and
         dropped.
     """
 
