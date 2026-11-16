@@ -11035,3 +11035,99 @@ def laser_layout(ax, kind="end_pumped", title=None):
         arrow(ax, 8.2, 0.0, 10.0, 0.0, color=LASER, lw=2.0)
         label(ax, 9.2, 0.3, "1064 nm", fontsize=8, color=LASER)
         _finish(ax, (-2.9, 10.3), (-1.7, 1.6), title)
+
+
+def _photon(ax, z0, y0, z1, y1, color, n_waves=3.0, amplitude=0.07, lw=1.2, zorder=6):
+    """A wiggly arrow from (z0, y0) to (z1, y1): a photon."""
+    L = np.hypot(z1 - z0, y1 - y0)
+    s = np.linspace(0, 1, 120)
+    u = np.array([z1 - z0, y1 - y0])/L
+    nrm = np.array([-u[1], u[0]])
+    w = amplitude*np.sin(2*np.pi*n_waves*s)*np.clip(np.minimum(s, 1 - s)*8, 0, 1)
+    z = z0 + (z1 - z0)*s*0.92 + nrm[0]*w
+    y = y0 + (y1 - y0)*s*0.92 + nrm[1]*w
+    ax.plot(z, y, color=color, lw=lw, zorder=zorder)
+    ax.annotate("", xy=(z1, y1), xytext=(z[-1], y[-1]),
+                arrowprops=dict(arrowstyle="-|>", color=color, lw=lw), zorder=zorder)
+
+
+def detector_layout(ax, kind="pin", title=None):
+    """Sketch of photodetectors and photon experiments (notebook 148,
+    detectors and photon statistics).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"pin", "hom"}, optional
+        "pin": cross section of a reverse biased PIN photodiode with the
+        anti-reflection coating, the thin p layer, the depleted intrinsic
+        layer and the n substrate; blue light is absorbed near the surface,
+        red light deep inside, infrared light beyond the cutoff passes; the
+        photocurrent flows through the load resistor. "hom": the
+        Hong-Ou-Mandel experiment, a pair of photons from a nonlinear
+        crystal, one delayed by tau, meeting at a 50:50 beam splitter with
+        two single-photon detectors and a coincidence counter.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    if kind == "pin":
+        layers = [(2.6, 2.75, "#cfe3f3", "AR coating"), (2.25, 2.6, "#e7b9b0", "p⁺ (thin, 'dead')"),
+                  (0.6, 2.25, "#f7f1e1", "i: depleted, field E"), (-0.4, 0.6, "#c6d7ec", "n⁺ substrate")]
+        for y0, y1, c, nm in layers:
+            ax.add_patch(mpatches.Rectangle((0.0, y0), 5.0, y1 - y0, facecolor=c, edgecolor="0.4",
+                                            lw=0.6, zorder=3))
+            label(ax, 5.15, (y0 + y1)/2, nm, fontsize=8, ha="left")
+        for zc, depth, col, nm in ((0.8, 2.45, "#3b6fb6", "450 nm"), (2.0, 1.3, "#d6604d", "800 nm"),
+                                   (3.2, 0.25, "#8e3b2f", "1000 nm")):
+            _photon(ax, zc, 4.0, zc, depth, col)
+            label(ax, zc, 4.2, nm, fontsize=8, color=col)
+            ax.plot(zc - 0.12, depth - 0.08, "o", ms=5, color="0.15", zorder=7)
+            ax.plot(zc + 0.12, depth - 0.08, "o", ms=5, mfc="white", mec="0.15", zorder=7)
+        _photon(ax, 4.3, 4.0, 4.3, -0.9, "#6a3d9a")
+        label(ax, 4.3, 4.2, "1300 nm", fontsize=8, color="#6a3d9a")
+        label(ax, 4.45, -0.8, "below the gap:\npasses", fontsize=7, ha="left", color="#6a3d9a")
+        arrow(ax, 1.4, 2.0, 1.4, 0.8, color="0.3", lw=0.9)
+        label(ax, 1.5, 1.4, "e⁻", fontsize=8, ha="left")
+        arrow(ax, 2.6, 0.9, 2.6, 2.1, color="0.3", lw=0.9)
+        label(ax, 2.7, 1.5, "h⁺", fontsize=8, ha="left")
+        # circuit: top contact, bias, load
+        ax.plot([0.0, -0.9, -0.9], [2.68, 2.68, 1.9], color="0.2", lw=1.0)
+        ax.add_patch(mpatches.Rectangle((-1.1, 0.9), 0.4, 1.0, facecolor="white", edgecolor="0.2",
+                                        zorder=4))
+        label(ax, -1.25, 1.4, "R_L", fontsize=8, ha="right")
+        ax.plot([-0.9, -0.9, 0.0], [0.9, -0.4, -0.4], color="0.2", lw=1.0)
+        label(ax, -0.95, -0.6, "reverse bias", fontsize=7, ha="left", va="top")
+        _finish(ax, (-2.0, 7.6), (-1.2, 4.5), title)
+        return
+    if kind == "hom":
+        _block(ax, [(-0.3, -0.3), (0.3, -0.3), (0.3, 0.3), (-0.3, 0.3)], color="#f2d7d0", edge="0.4")
+        label(ax, 0.0, -0.55, "χ⁽²⁾ crystal\n(SPDC)", fontsize=8, va="top")
+        arrow(ax, -2.2, 0.0, -0.32, 0.0, color="#6a3d9a", lw=1.6)
+        label(ax, -1.3, 0.3, "pump 405 nm", fontsize=8, color="#6a3d9a")
+        # signal up, idler down, mirrors to the beam splitter at (5, 0)
+        ax.plot([0.3, 2.2, 5.0], [0.12, 1.6, 0.0], color=LASER, lw=1.0, ls=":")
+        ax.plot([0.3, 2.2, 5.0], [-0.12, -1.6, 0.0], color=LASER, lw=1.0, ls=":")
+        _photon(ax, 0.5, 0.3, 1.9, 1.4, LASER, n_waves=2)
+        _photon(ax, 0.5, -0.3, 1.9, -1.4, LASER, n_waves=2)
+        mirror(ax, 2.2, 1.6, 0.6, 0.0, text=None)
+        mirror(ax, 2.2, -1.6, 0.6, 0.0, text=None)
+        _block(ax, [(2.0, 1.75), (2.4, 1.75), (2.4, 1.95), (2.0, 1.95)], color="0.6", edge="0.3")
+        arrow(ax, 1.9, 2.15, 2.5, 2.15, color="0.3", style="<|-|>")
+        label(ax, 2.2, 2.35, "delay τ", fontsize=8)
+        beam_splitter(ax, 5.0, 0.0, 0.9, orientation="/", text="50:50", text_dy=-0.55)
+        for s in (1, -1):
+            ax.plot([5.0, 6.5], [0.0, 1.5*s], color=LASER, lw=1.0, ls=":")
+            ax.add_patch(mpatches.FancyBboxPatch((6.5, 1.5*s - 0.25), 0.7, 0.5,
+                                                 boxstyle="round,pad=0.02", facecolor="0.35",
+                                                 edgecolor="0.2", zorder=4))
+            label(ax, 6.85, 1.5*s, "SPAD", fontsize=7, color="white", zorder=5)
+            ax.plot([7.2, 8.0, 8.0], [1.5*s, 1.5*s, 0.3*s], color="0.3", lw=1.0)
+        ax.add_patch(mpatches.FancyBboxPatch((7.4, -0.3), 1.2, 0.6, boxstyle="round,pad=0.02",
+                                             facecolor="white", edgecolor="0.3", zorder=4))
+        label(ax, 8.0, 0.0, "coinc.", fontsize=8, zorder=5)
+        label(ax, 5.0, 2.3, "identical photons leave together:\n|1,1⟩ → (|2,0⟩ + |0,2⟩)/√2",
+              fontsize=8)
+        _finish(ax, (-2.4, 9.0), (-2.2, 2.9), title)
+        return
+    raise ValueError("unknown kind " + repr(kind))

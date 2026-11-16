@@ -219,6 +219,14 @@ Nonlinear optics
    pyoptics.nonlinear
    pyoptics.splitstep
 
+Detectors and photon statistics
+-------------------------------
+
+.. autosummary::
+   :toctree: generated
+
+   pyoptics.detectors
+
 Utilities
 ---------
 

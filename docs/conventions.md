@@ -98,6 +98,10 @@ Maxwell's equations and checks each of them numerically. In particular:
   dispersion operator is i Σ β_k Ω^k/k! − α/2 and the Kerr phase is
   +γ|A|²z, so that SPM shifts the rising edge to the red. Units are free
   but consistent (ps, km, W in the fibre notebooks).
+- Detectors (`detectors`) use SI units (W, A, Hz, m, s), wavelengths in
+  nm where a name says `wavelength_nm`, band gaps in eV and D* in Jones
+  (cm Hz^½/W). `fibrecomm` wraps its receiver functions in mW, mA and
+  GHz. The beam splitter is symmetric, t = √T and r = i√R.
 - Circular polarization is named about the direction of propagation (IEEE):
   `jones.J_RHCP` = [1, i]/√2 has positive helicity. Born & Wolf and Hecht
   call the same field left-circular.

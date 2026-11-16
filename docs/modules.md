@@ -972,6 +972,22 @@ What each module does and how mature it is. Planned work is listed in
   the analytic SHG and OPA solutions, 2/π for QPM and Boyd–Kleinman's
   optimum (notebooks 145 (second harmonic generation and phase matching)
   to 147 (Kerr effect and self-focusing))
+- `detectors`: new, tested: photodetectors and photon statistics in SI
+  units. Responsivity and quantum efficiency, band gaps (Varshni for Si
+  and InGaAs, Hansen for HgCdTe) and cutoffs, absorption coefficients
+  (Green's table for Si, direct gap and Kane region models with Urbach
+  tails) and the quantum efficiency of a layer, junction capacitance, RC
+  and transit time bandwidth, shot, thermal, RIN and APD excess noise,
+  NEP, D*, the background limited and R₀A limited detectivity, Q, BER,
+  sensitivity and the optimum APD gain (wrapped by `fibrecomm`, whose
+  receiver functions keep their units; `lidar.excess_noise()` comes from
+  here), the quantum limit of photon counting; SPAD click probability,
+  paralyzable and non-paralyzable dead time with simulation and
+  correction; Poisson, thermal (negative binomial) and number state
+  distributions, Mandel Q, g2, binomial thinning, chaotic light and
+  counts in windows; number states on a beam splitter, HBT cross
+  correlation and the Hong–Ou–Mandel dip; checked against the closed
+  forms by Monte Carlo (notebook 148, detectors and photon statistics)
 - `wpm`: wave propagation method (Cython extension) for inhomogeneous, also
   absorbing media, 2D and y-invariant 1D fields, multi-step driver; direct
   O(N^2) sum (OpenMP) or the fast "levels" variant (one FFT pair per distinct
