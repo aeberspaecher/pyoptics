@@ -191,6 +191,17 @@ Surface and thin-film metrology
    pyoptics.scatterometry
    pyoptics.deflectometry
 
+Crystal optics and light modulators
+-----------------------------------
+
+.. autosummary::
+   :toctree: generated
+
+   pyoptics.crystals
+   pyoptics.electrooptics
+   pyoptics.liquid_crystals
+   pyoptics.acoustooptics
+
 Utilities
 ---------
 

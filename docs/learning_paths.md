@@ -271,6 +271,27 @@ interferometer, the low orders deflectometry is weak on), {doc}`36 Rigorous mask
 (the RCWA behind scatterometry), {doc}`128 Forbes Q aspheres <notebooks/128_forbes_q_aspheres>` (the
 slope orthogonal polynomials that describe what deflectometry measures).
 
+## Crystal optics and light modulators
+
+For readers who use polarizers, wave plates, isolators and modulators, or
+design with them: where birefringence comes from, how a voltage or a
+sound wave changes it, and what the devices built on it can and cannot do.
+
+| Step | Notebook | Why |
+|---|---|---|
+| 1 | {doc}`11 Jones and Mueller calculus <notebooks/11_polarization>` | Jones vectors and matrices, retarders and polarizers, the language of everything below. |
+| 2 | {doc}`138 Crystal optics <notebooks/138_crystal_optics>` | The index ellipsoid, walk-off, the 4×4 matrix method, polarizing prisms, optical activity and the Faraday isolator. |
+| 3 | {doc}`139 Electro-optic modulators <notebooks/139_electro_optic_modulators>` | Pockels and Kerr cells, the Mach–Zehnder modulator, its chirp, extinction and bandwidth. |
+| 4 | {doc}`140 Liquid crystals <notebooks/140_liquid_crystals>` | The Fréedericksz transition, director profiles, LC retarders and the TN cell with its viewing angle. |
+| 5 | {doc}`141 Acousto-optics <notebooks/141_acousto_optics>` | Raman–Nath and Bragg diffraction, AOMs, AODs and the acousto-optic tunable filter. |
+| 6 | {doc}`113 Fabry–Perot and filters <notebooks/113_fabry_perot_filters>` | Lyot and Šolc filters from real calcite plates, their dispersion and field of view. |
+
+**Side trips:** {doc}`120 Fibre link <notebooks/120_fibre_link>` (the modulator in a
+10 Gb/s link: chirp against dispersion), {doc}`122 Imaging spectroscopy <notebooks/122_imaging_spectroscopy>`
+(an LC tunable filter and an AOTF in a hyperspectral camera), {doc}`125 Pancake lenses <notebooks/125_pancake_lenses>`
+(real retarders in a VR lens), {doc}`20 Polarization ray tracing <notebooks/20_polarization_raytrace>`
+(crystals in a sequential ray trace).
+
 ## Metrology, microscopy and computational imaging
 
 For readers who measure wavefronts or build imaging systems that rely on

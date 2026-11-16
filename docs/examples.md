@@ -555,6 +555,35 @@ notebooks/136_scatterometry
 notebooks/137_deflectometry
 ```
 
+## Crystal optics and light modulators
+
+Light in anisotropic and gyrotropic media and the devices that switch,
+steer and filter it: the index ellipsoid and double refraction, polarizing
+prisms, optical activity and Faraday isolators, Pockels and Kerr cells and
+the Mach–Zehnder modulator of every fibre link, liquid crystal cells from
+the elastic theory of the director to the viewing angle of a TN display,
+and acousto-optic modulators, deflectors and tunable filters. Related:
+Lyot and Šolc filters with real plates in
+{doc}`113 Fabry–Perot and filters <notebooks/113_fabry_perot_filters>`, a
+real modulator in {doc}`120 Fibre link <notebooks/120_fibre_link>`, and an
+LC tunable filter and an AOTF in
+{doc}`122 Imaging spectroscopy <notebooks/122_imaging_spectroscopy>`.
+
+- {doc}`138 Crystal optics <notebooks/138_crystal_optics>`
+- {doc}`139 Electro-optic modulators <notebooks/139_electro_optic_modulators>`
+- {doc}`140 Liquid crystals <notebooks/140_liquid_crystals>`
+- {doc}`141 Acousto-optics <notebooks/141_acousto_optics>`
+
+```{toctree}
+:hidden:
+:caption: Crystal optics and light modulators
+
+notebooks/138_crystal_optics
+notebooks/139_electro_optic_modulators
+notebooks/140_liquid_crystals
+notebooks/141_acousto_optics
+```
+
 ## Running the notebooks
 
 ```{include} ../notebooks/README.md

@@ -884,6 +884,43 @@ What each module does and how mature it is. Planned work is listed in
   and the contrast of the defocused screen; checked by exact slopes from
   traced points and the convergence of the reconstruction (notebook 137,
   deflectometry)
+- `crystals`: new, tested: crystal optics. Dielectric tensors of uniaxial,
+  biaxial and gyrotropic media (`uniaxial_eps()`, `biaxial_eps()`,
+  `gyrotropic_eps()`, `faraday_g()`, `director()`, `rotate_eps()`),
+  dispersion of calcite, quartz, its rotatory power and the Verdet
+  constant of TGG; plane waves for any direction from the index
+  ellipsoid with walk-off (`wave_indices()`, `walkoff()`); the 4×4
+  (Berreman) matrix method for stacks of anisotropic layers at any angle
+  and azimuth, coherent or forward-only (`delta_matrix()`, `modes()`,
+  `stack_jones()`); refraction into o and e waves at crystal surfaces
+  and through prisms (`refract()`, `trace_interfaces()`,
+  `glan_prism()`, `wollaston()`, `rochon()`); rotators, elliptical
+  retarders and isolators as Jones matrices; checked against
+  `thin_films`, energy conservation, Jones wave plates and the
+  non-reciprocity of Faraday rotation (notebook 138, crystal optics)
+- `electrooptics`: new, tested: the Pockels effect with the r tensors of
+  3m and −42m crystals (`r_3m()`, `r_42m()`, `pockels_eps()`) for
+  LiNbO₃ and KDP, half-wave voltages, the Kerr effect and phase
+  modulation sidebands; the Mach–Zehnder modulator (`mzm_field()`,
+  `mzm_power()`, `mzm_extinction()`, `mzm_chirp()`), NRZ transmitters
+  with chirp and finite extinction in the conventions of `fibrecomm`
+  (`mzm_nrz()`) and the travelling-wave response with velocity mismatch
+  and electrode loss (`travelling_wave_response()`, `bandwidth_3db()`)
+  (notebook 139, electro-optic modulators)
+- `liquid_crystals`: new, tested: nematic cells. E7 constants and
+  indices, the Fréedericksz threshold, director profiles minimizing the
+  Frank and dielectric energy at a fixed voltage with an analytic
+  gradient (`director_profile()`), retardance, slices for
+  `crystals.stack_jones()` (`cell_layers()`), Gooch–Tarry and the
+  Mauguin parameter, response times; checked against the threshold, the
+  sin profile above it and Gooch–Tarry (notebook 140, liquid crystals)
+- `acoustooptics`: new, tested: the Klein–Cook parameter, coupled orders
+  of Raman–Nath and Bragg diffraction (`coupled_orders()`), two-wave
+  Bragg efficiency with mismatch, index amplitude from acoustic power and
+  the figure of merit (`MATERIALS`), AOM rise time, AOD deflection and
+  resolvable spots, AOTF tuning, passband and transmission with TeO₂
+  dispersion; checked against Bessel functions, the Bragg limit and
+  Chang's passband (notebook 141, acousto-optics)
 - `wpm`: wave propagation method (Cython extension) for inhomogeneous, also
   absorbing media, 2D and y-invariant 1D fields, multi-step driver; direct
   O(N^2) sum (OpenMP) or the fast "levels" variant (one FFT pair per distinct
