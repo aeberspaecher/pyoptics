@@ -7,8 +7,10 @@ A `System` is a sequence of `Surface` objects (spheres, conics and even
 aspheres, refracting or reflecting), optional `IdealLens` surfaces, cones
 (`Axicon`), surfaces with a Fringe or Noll Zernike departure (`ZernikeSurface`: figure
 errors, mount deformations, freeforms), ruled diffraction gratings on plane
-or curved surfaces (`GratingSurface`, one order per trace) and
-`CoordinateBreak` elements. Surfaces can be decentred and
+or curved surfaces (`GratingSurface`, one order per trace), rotationally
+symmetric diffractive surfaces with a phase polynomial (`DiffractiveSurface`:
+kinoforms and hybrid refractive-diffractive lenses, with their power, Seidel
+sums, colour and efficiency) and `CoordinateBreak` elements. Surfaces can be decentred and
 tilted. Rays are traced exactly (exact intersections, vector law of refraction and
 reflection); paraxial marginal and chief rays, the pupils, the powers of
 the system, its surfaces and elements, the Seidel sums of every surface, the
@@ -962,6 +964,367 @@ class GratingSurface(Surface):
         return d2, dopl
 
 
+class DiffractiveSurface(Surface):
+    """Rotationally symmetric diffractive surface (kinoform, hybrid lens).
+
+    A phase function ::
+
+        phi(r) = sum_k A_k (r/norm_radius)**(2 k),   k = 1, 2, ...
+
+    in radians, on a refracting (or reflecting) base surface of `Surface`
+    (sphere, conic, aspheric terms). This is Zemax's "Binary 2" surface:
+    phi describes the zone structure, its zones lie where phi passes
+    multiples of 2*pi, and it does not depend on the wavelength. A ray of
+    vacuum wavelength lambda in the diffraction order m leaves by the local
+    grating equation on the tangent plane (as `GratingSurface`, whose
+    grating phase is 2*pi*u/period) ::
+
+        n' d'_t = n d_t + m*lambda/(2*pi) grad_t(phi),
+
+    and the optical path gains m*lambda*phi(r)/(2*pi), so that OPDs and PSFs
+    behind it are those of the diffracted wave. For a reflecting surface
+    (mirror=True) the sign of m flips as for `GratingSurface`.
+
+    Paraxially the phase adds the power ::
+
+        phi_D = -m*lambda*A_1/(pi*norm_radius**2)
+
+    to the power c*(n' - n) of the base surface (A_1 < 0 converges). It is
+    proportional to the wavelength: the Abbe number of a diffractive lens is
+    lambda_d/(lambda_F - lambda_C) = -3.45 (`fresnel.diffractive_abbe_number()`),
+    strong and of the opposite sign to glass, and its partial dispersion
+    P_gF = (lambda_g - lambda_F)/(lambda_F - lambda_C) = 0.296 lies far
+    below the normal line of the glasses. A_2, A_3, ... act like aspheric
+    terms whose strength also scales with the wavelength.
+
+    The Seidel sums of `System.seidel()` are those of the Sweatt model, a
+    thin lens of a very high index N that follows N - n ~ lambda, in the
+    limit N -> infinity (`System.sweatt_model()` builds it for a check): no
+    Petzval sum, a fourth order term -8*m*lambda*A_2/(2*pi*norm_radius**4)
+    like an asphere (plus -c**2*phi_D on a substrate of curvature c, since
+    phi(x, y) is spread over the arc of the surface), and the bending terms
+    of a thin lens whose surfaces both have the curvature of the substrate.
+    `System.chromatic_seidel()` adds the change of phi_D across the band.
+
+    The diffraction efficiency is that of a kinoform with the groove depth
+    of design_order waves at the design wavelength between the two media
+    of the surface (`System.diffraction_efficiency()`); only the order m is
+    traced, the other orders are lost light (or ghosts).
+
+    The compiled kernel does not cover diffractive surfaces; systems with
+    them are traced with NumPy. Polarization ray tracing treats the surface
+    as its base surface.
+
+    Parameters
+    ----------
+    R, thickness, ... : optional
+        As for `Surface` (all keyword arguments are passed on).
+    phase : sequence, optional
+        Coefficients (A_1, A_2, ...) of the phase (radians) in powers
+        rho**2, rho**4, ... of rho = r/norm_radius.
+    norm_radius : number, optional
+        Normalization radius of the phase.
+    order : int, optional
+        Diffraction order m that is traced.
+    design_wavelength : number, optional
+        Wavelength (length unit of the system) at which the kinoform depth
+        gives a step of design_order waves; None: the wavelength of the
+        system.
+    design_order : int, optional
+        Step of the kinoform in waves at the design wavelength (1: an
+        ordinary kinoform; p > 1: a multi-order or harmonic diffractive
+        lens, used in the order m = p). Default: order.
+    """
+
+    has_seidel = True
+
+    def __init__(self, R=np.inf, thickness=0.0, phase=(), norm_radius=1.0, order=1,
+                 design_wavelength=None, design_order=None, **kwargs):
+        super().__init__(R, thickness, **kwargs)
+        if not norm_radius > 0:
+            raise ValueError("norm_radius must be positive.")
+        self.phase = tuple(float(a) for a in phase)
+        self.norm_radius = float(norm_radius)
+        self.order = int(order)
+        self.design_wavelength = design_wavelength
+        self.design_order = self.order if design_order is None else int(design_order)
+
+    def __repr__(self):
+        return ("DiffractiveSurface(R={}, thickness={}, n_after={}, material={}, phase={}, "
+                "norm_radius={}, order={}, semi_diameter={})".format(
+                    self.R, self.thickness, self.n_after, self.material, self.phase,
+                    self.norm_radius, self.order, self.semi_diameter))
+
+    @classmethod
+    def from_power(cls, power, wavelength, R=np.inf, thickness=0.0, norm_radius=1.0, order=1,
+                   **kwargs):
+        """Diffractive surface whose phase adds the paraxial power `power`
+        at `wavelength` (in the order `order`).
+
+        Parameters
+        ----------
+        power : number
+            Diffractive power phi_D (1/length) at wavelength.
+        wavelength : number
+            Vacuum wavelength in the length unit of the system.
+        R, thickness, norm_radius, order, **kwargs
+            As for the constructor (e.g. further phase terms are not set;
+            give design_wavelength for the efficiency).
+
+        Returns
+        -------
+        DiffractiveSurface
+        """
+
+        A1 = -power*pi*norm_radius**2/(order*wavelength)
+
+        return cls(R, thickness, phase=(A1,), norm_radius=norm_radius, order=order, **kwargs)
+
+    @property
+    def _sign(self):
+        return -1.0 if self.mirror else 1.0
+
+    def phase_at(self, r):
+        """Phase phi(r) in radians at the radius r (not wrapped)."""
+
+        rho2 = (np.asarray(r, dtype=float)/self.norm_radius)**2
+        phi = np.zeros_like(rho2)
+        for k, A in enumerate(self.phase, start=1):
+            phi = phi + A*rho2**k
+
+        return phi
+
+    def _dphase_over_r(self, r2):
+        """(dphi/dr)/r at the squared radius r2."""
+
+        rn2 = self.norm_radius**2
+        rho2 = np.asarray(r2, dtype=float)/rn2
+        g = np.zeros_like(rho2)
+        for k, A in enumerate(self.phase, start=1):
+            g = g + 2*k*A*rho2**(k - 1)/rn2
+
+        return g
+
+    def local_period(self, r):
+        """Local grating period 2*pi/abs(dphi/dr) of the zones at the radius r
+        (infinite where the phase is stationary). Its smallest value over
+        the aperture decides whether the kinoform can be made."""
+
+        r = np.asarray(r, dtype=float)
+        with np.errstate(divide="ignore"):
+            return 2*pi/np.abs(r*self._dphase_over_r(r**2))
+
+    def zone_radii(self, n_zones=None, r_max=None):
+        """Radii at which abs(phi) passes 2*pi, 4*pi, ... (the zone edges of the
+        kinoform), up to r_max (default: the semi diameter) or n_zones.
+
+        Returns
+        -------
+        r : array
+            Increasing radii, assuming abs(phi) grows monotonically.
+        """
+
+        r_max = self.semi_diameter if r_max is None else r_max
+        if r_max is None:
+            raise ValueError("Give r_max (the surface has no semi_diameter).")
+        r = np.linspace(0.0, r_max, 20001)
+        phi = np.abs(self.phase_at(r))/(2*pi)
+        k = np.arange(1, int(np.floor(phi.max())) + 1)
+        if n_zones is not None:
+            k = k[:n_zones]
+        if not np.all(np.diff(phi) >= 0):
+            warnings.warn("|phi| is not monotonic, zone radii are those of its running maximum.")
+            phi = np.maximum.accumulate(phi)
+
+        return np.interp(k, phi, r)
+
+    def diffractive_power(self, wavelength):
+        """Paraxial power -m*lambda*A_1/(pi*norm_radius**2) of the phase
+        alone (sign flipped on a mirror).
+
+        Parameters
+        ----------
+        wavelength : number
+            Vacuum wavelength in the length unit of the system.
+
+        Returns
+        -------
+        power : number
+        """
+
+        A1 = self.phase[0] if self.phase else 0.0
+
+        return -self._sign*self.order*wavelength*A1/(pi*self.norm_radius**2)
+
+    def diffractive_departure(self, wavelength):
+        """Coefficient of r**4 in the optical path m*lambda*phi/(2*pi) that
+        the phase adds (sign flipped on a mirror)."""
+
+        A2 = self.phase[1] if len(self.phase) > 1 else 0.0
+
+        return self._sign*self.order*wavelength*A2/(2*pi*self.norm_radius**4)
+
+    def paraxial_power(self, n1, n2, wavelength=None):
+        """Paraxial power c*(n2 - n1) of the base surface plus the
+        diffractive power at the wavelength.
+
+        Parameters
+        ----------
+        n1, n2 : numbers
+            Signed refractive indices in front of and behind the surface.
+        wavelength : number
+            Vacuum wavelength in the length unit of the system (`System`
+            passes it).
+
+        Returns
+        -------
+        power : number
+        """
+
+        if wavelength is None:
+            raise ValueError("A diffractive surface needs the wavelength.")
+
+        return super().paraxial_power(n1, n2) + self.diffractive_power(wavelength)
+
+    def abcd_matrix(self, n1, n2, sigma, wavelength=None):
+        """ABCD matrix of the base surface times that of a thin lens with the
+        diffractive power (reduced angles).
+
+        Parameters
+        ----------
+        n1, n2 : numbers
+            Refractive indices in front of and behind the surface.
+        sigma : {1, -1}
+            Direction of the light along z.
+        wavelength : number
+            Vacuum wavelength in the length unit of the system.
+
+        Returns
+        -------
+        M : 2x2 array
+        """
+
+        if wavelength is None:
+            raise ValueError("A diffractive surface needs the wavelength.")
+        M = super().abcd_matrix(n1, n2, sigma)
+
+        return np.array([[1.0, 0.0], [-self.diffractive_power(wavelength), 1.0]]) @ M
+
+    def deflect(self, Q, d, n1, n2, wavelength=None):
+        """Diffract the directions d at the points Q into the order m.
+
+        Parameters
+        ----------
+        Q : (N, 3) array
+            Intersection points in the local frame of the surface.
+        d : (N, 3) array
+            Unit directions of the incident rays.
+        n1, n2 : numbers
+            Refractive indices in front of and behind the surface.
+        wavelength : number
+            Vacuum wavelength in the length unit of the system (passed by
+            `System.trace()`).
+
+        Returns
+        -------
+        d2 : array
+            New unit directions, NaN where the local order is evanescent.
+        dopl : array
+            Optical path m*lambda*phi(r)/(2*pi) of the phase.
+        """
+
+        if wavelength is None:
+            raise ValueError("A diffractive surface needs the wavelength.")
+        N = self.normal(Q)
+        r2 = Q[:, 0]**2 + Q[:, 1]**2
+        mu = self._sign*self.order*wavelength/(2*pi)
+        # gradient of phi(x, y) (independent of z), projected onto the tangent plane:
+        gr = self._dphase_over_r(r2)
+        G = np.stack([Q[:, 0]*gr, Q[:, 1]*gr, np.zeros(len(Q))], axis=-1)
+        G_t = G - _dot(G, N)[:, None]*N
+        cos_i = _dot(d, N)
+        t_out = n1*(d - cos_i[:, None]*N) + mu*G_t
+        n_out = n1 if self.mirror else n2
+        with np.errstate(invalid="ignore"):
+            normal = np.sqrt(n_out**2 - _dot(t_out, t_out))
+        side = np.sign(cos_i)*(-1.0 if self.mirror else 1.0)
+        d2 = (t_out + (side*normal)[:, None]*N)/n_out
+        dopl = mu*self.phase_at(np.sqrt(r2))
+
+        return d2, dopl
+
+
+class _SweattSurface(Surface):
+    """Front surface of the Sweatt layer of `System.sweatt_model()`: the base
+    surface moved along its normal by the polynomial sum_k b_k r**(2k), to
+    first order in the b_k (the sag gains Delta(r)*sqrt(1 + z'(r)**2))."""
+
+    def __init__(self, base, extra, thickness, **kwargs):
+        c = base.c + 2*(extra[0] if extra else 0.0)
+        super().__init__(np.inf if c == 0 else 1/c, thickness, **kwargs)
+        self._base = copy.copy(base)
+        self.extra = tuple(extra)
+        self.conic = base.conic
+
+    def _delta(self, r2):
+        D = np.zeros_like(np.asarray(r2, dtype=float))
+        dD = np.zeros_like(D)  # (dDelta/dr)/r
+        for k, b in enumerate(self.extra, start=1):
+            D = D + b*r2**k
+            dD = dD + 2*k*b*r2**(k - 1)
+
+        return D, dD
+
+    def sag(self, r2):
+        D, _ = self._delta(r2)
+        s0 = self._base._slope_over_r(r2)
+
+        return self._base.sag(r2) + D*np.sqrt(1 + r2*s0**2)
+
+    def _slope_over_r(self, r2):
+        r2 = np.asarray(r2, dtype=float)
+        D, dD = self._delta(r2)
+        s0 = self._base._slope_over_r(r2)
+        w = np.sqrt(1 + r2*s0**2)
+        # d(r*s0)/dr by a central difference in r (the term is of the order of b_k):
+        r = np.sqrt(r2)
+        h = 1e-6*(1 + r)
+        g = lambda rr: rr*self._base._slope_over_r(rr**2)
+        dg = (g(r + h) - g(np.abs(r - h))*np.sign(r - h + 1e-300))/(2*h)
+        dw_over_r = s0*dg/w
+
+        return s0 + dD*w + D*dw_over_r
+
+    def fourth_order_departure(self):
+        b = self.extra
+        c0 = self._base.c
+        b1 = b[0] if b else 0.0
+        b2 = b[1] if len(b) > 1 else 0.0
+        r4 = ((1 + self._base.conic)*c0**3/8 + (self._base.aspheric[0] if self._base.aspheric
+                                                 else 0.0) + b2 + b1*c0**2/2)
+
+        return r4 - self.c**3/8
+
+    def intersect(self, P, d):
+        t = self._base.intersect(P, d)
+        t = np.where(np.isfinite(t), t, -P[:, 2]/d[:, 2])
+        for _ in range(50):
+            Q = P + t[:, None]*d
+            r2 = Q[:, 0]**2 + Q[:, 1]**2
+            G = Q[:, 2] - self.sag(r2)
+            dG = d[:, 2] - self._slope_over_r(r2)*(Q[:, 0]*d[:, 0] + Q[:, 1]*d[:, 1])
+            with np.errstate(invalid="ignore", divide="ignore"):
+                step = G/dG
+            t = t - step
+            with np.errstate(invalid="ignore"):
+                if np.all(~np.isfinite(step) | (np.abs(step) < 1e-15*(1 + np.abs(t)))):
+                    break
+        Q = P + t[:, None]*d
+        t = np.where(np.isfinite(self.sag(Q[:, 0]**2 + Q[:, 1]**2)), t, np.nan)
+
+        return t
+
+
 class CoordinateBreak(Surface):
     """Change of the axis frame for all following surfaces.
 
@@ -1755,6 +2118,21 @@ class System:
         return self.with_image_distance(self.paraxial().image_distance)
 
     # paraxial optics:
+    def _surface_power(self, s, n1, n2):
+        """Paraxial power of the surface s, at the wavelength of the system
+        for diffractive surfaces."""
+
+        if isinstance(s, DiffractiveSurface):
+            return s.paraxial_power(n1, n2, self.wavelength)
+
+        return s.paraxial_power(n1, n2)
+
+    def _surface_abcd(self, s, n1, n2, sigma):
+        if isinstance(s, DiffractiveSurface):
+            return s.abcd_matrix(n1, n2, sigma, self.wavelength)
+
+        return s.abcd_matrix(n1, n2, sigma)
+
     def _paraxial_trace(self, y, u, first=0, last=None):
         """Trace a paraxial ray (y, u) given in the vertex plane of surface
         `first` (in front of it) through surfaces first...last - 1.
@@ -1767,7 +2145,7 @@ class System:
         ys, us = [], []
         for i in range(first, last):
             s = self.surfaces[i]
-            u = (n_s[i]*u - y*s.paraxial_power(n_s[i], n_s[i + 1]))/n_s[i + 1]
+            u = (n_s[i]*u - y*self._surface_power(s, n_s[i], n_s[i + 1]))/n_s[i + 1]
             ys.append(y)
             us.append(u)
             y = y + u*s.thickness
@@ -1783,7 +2161,7 @@ class System:
         for i, s in enumerate(self.surfaces):
             if i > 0:
                 elements.append(abcd.free_space(abs(self.surfaces[i - 1].thickness), n[i]))
-            elements.append(s.abcd_matrix(n[i], n[i + 1], sigma[i]))
+            elements.append(self._surface_abcd(s, n[i], n[i + 1], sigma[i]))
 
         return abcd.compose(*elements)
 
@@ -1794,7 +2172,8 @@ class System:
         n = self.n
         system = abcd.OpticalSystem(n=self.n_object)
         for i, s in enumerate(self.surfaces):
-            system.element(s.abcd_matrix(n[i], n[i + 1], self.sigma[i]), n=n[i + 1], label=s.label)
+            system.element(self._surface_abcd(s, n[i], n[i + 1], self.sigma[i]), n=n[i + 1],
+                           label=s.label)
             system.free_space(abs(s.thickness))
 
         return system
@@ -1933,7 +2312,17 @@ class System:
             c, y, yb = s.c, ym[i], yc[i]
             A = n1*(u_in[i] + y*c)
             Ab = n1*(ub_in[i] + yb*c)
-            d_u = um[i]/n2 - u_in[i]/n1
+            diffractive = isinstance(s, DiffractiveSurface)
+            if diffractive:
+                if s.mirror:
+                    S[i] = S_asph[i] = np.nan
+                    continue
+                # slopes behind the refraction alone, before the phase:
+                phi_D = s.diffractive_power(self.wavelength)
+                u_r = um[i] + y*phi_D/n2
+            else:
+                u_r = um[i]
+            d_u = u_r/n2 - u_in[i]/n1
             d_1n = 1/n2 - 1/n1
             d_1n2 = 1/n2**2 - 1/n1**2
             S_I = -A**2*y*d_u
@@ -1944,6 +2333,20 @@ class System:
             # departure of the surface from the sphere to fourth order:
             a4 = s.fourth_order_departure()
             dS = 8*a4*(n2 - n1)
+            if diffractive:
+                # Sweatt model: a thin lens of index N -> infinity in the medium n2,
+                # both surfaces with the curvature c (A, Ab are invariant under the
+                # refraction; primes: behind the phase):
+                Ap, Abp = A - y*phi_D, Ab - yb*phi_D
+                S_I += -y/n2*(Ap**2*um[i] - A**2*u_r)
+                S_II += -y/n2*(Ap*Abp*um[i] - A*Ab*u_r)
+                S_III += -y/n2*(Abp**2*um[i] - Ab**2*u_r)
+                S_V += (-y/n2**2*(Abp**3 - Ab**3)
+                        + c/n2*yb*(Abp*(2*y*Abp - yb*Ap) - Ab*(2*y*Ab - yb*A)))
+                # the r**4 term of the phase acts like an asphere; on a curved
+                # substrate the phase phi(x, y) is spread over the longer arc of
+                # the surface, which adds -c**2 phi_D to the r**4 term:
+                dS += -8*s.diffractive_departure(self.wavelength) - c**2*phi_D
             S[i] = [S_I + dS*y**4, S_II + dS*y**3*yb, S_III + dS*y**2*yb**2, S_IV,
                     S_V + dS*y*yb**3]
             S_asph[i] = [dS*y**4, dS*y**3*yb, dS*y**2*yb**2, 0.0, dS*y*yb**3]
@@ -2100,18 +2503,161 @@ class System:
         ub_in = np.concatenate([[u_c], uc[:-1]])
         C = np.zeros((len(self.surfaces), 2))
         for i, s in enumerate(self.surfaces):
-            if isinstance(s, IdealLens):
+            if isinstance(s, IdealLens) or (isinstance(s, DiffractiveSurface) and s.mirror):
                 C[i] = np.nan
                 continue
             n1, n2 = n_s[i], n_s[i + 1]
             A = n1*(u_in[i] + ym[i]*s.c)
             Ab = n1*(ub_in[i] + yc[i]*s.c)
+            if isinstance(s, DiffractiveSurface):
+                # Sweatt limit: the medium behind sees the invariants behind the
+                # phase, the phase adds the change of its power over the band
+                phi = s.diffractive_power(self.wavelength)
+                d_phi = (s.diffractive_power(self.wavelength - d_wavelength/2)
+                         - s.diffractive_power(self.wavelength + d_wavelength/2))
+                Ap, Abp = A - ym[i]*phi, Ab - yc[i]*phi
+                C[i] = [ym[i]*(Ap*dn_s[i + 1]/n2 - A*dn_s[i]/n1) + ym[i]**2*d_phi,
+                        ym[i]*(Abp*dn_s[i + 1]/n2 - Ab*dn_s[i]/n1) + ym[i]*yc[i]*d_phi]
+                continue
             d = dn_s[i + 1]/n2 - dn_s[i]/n1
             C[i] = [A*ym[i]*d, Ab*ym[i]*d]
         tot = C.sum(axis=0)
         nu = n_s[-1]*um[-1]
 
         return ChromaticSeidel(C, tot, -tot[0]/(nu*um[-1]), tot[1]/nu, n_short - n_long)
+
+    # diffractive surfaces:
+    def _diffractive_indices(self):
+        return [i for i, s in enumerate(self.surfaces) if isinstance(s, DiffractiveSurface)]
+
+    def kinoform_depth(self, surface):
+        """Groove depth of the kinoform on a diffractive surface:
+        design_order*lambda_0/abs(n' - n) with the indices on both sides at the
+        design wavelength lambda_0 (`fresnel.kinoform_depth()`).
+
+        Parameters
+        ----------
+        surface : int
+            Index of a `DiffractiveSurface`.
+
+        Returns
+        -------
+        depth : number
+            In the length unit of the system.
+        """
+
+        s = self.surfaces[surface]
+        if not isinstance(s, DiffractiveSurface):
+            raise ValueError("Surface {} is not a DiffractiveSurface.".format(surface))
+        wl0 = self.wavelength if s.design_wavelength is None else s.design_wavelength
+        n = self.with_wavelength(wl0).n
+        dn = abs(n[surface + 1] - n[surface]) if not s.mirror else 2*n[surface]
+
+        return s.design_order*wl0/dn
+
+    def diffraction_efficiency(self, wavelengths=None, surfaces=None):
+        """Scalar efficiency of the traced orders of the diffractive surfaces.
+
+        A kinoform with the groove depth of `kinoform_depth()` delays by
+        alpha = p*lambda_0*Dn(lambda)/(lambda*Dn(lambda_0)) waves at the
+        wavelength lambda (Dn: index step across the surface, p:
+        design_order); the order m receives sinc**2(alpha - m) of the power
+        (`fresnel.kinoform_efficiency()`), the rest goes into the other orders.
+        Shadowing by the zone walls and the polarization are ignored (scalar
+        thin element, good for zones much wider than the wavelength).
+
+        Parameters
+        ----------
+        wavelengths : number or array, optional
+            Vacuum wavelengths in the length unit (default: the system's).
+        surfaces : sequence of int, optional
+            Diffractive surfaces to include (default: all).
+
+        Returns
+        -------
+        eta : array
+            Product of the efficiencies of the surfaces, shape of wavelengths.
+        """
+
+        wls = np.atleast_1d(np.asarray(self.wavelength if wavelengths is None else wavelengths,
+                                       dtype=float))
+        surfaces = self._diffractive_indices() if surfaces is None else list(surfaces)
+        eta = np.ones(len(wls))
+        for i in surfaces:
+            s = self.surfaces[i]
+            depth = self.kinoform_depth(i)
+            for j, wl in enumerate(wls):
+                n = self.with_wavelength(wl).n
+                dn = abs(n[i + 1] - n[i]) if not s.mirror else 2*n[i]
+                alpha = depth*dn/wl
+                eta[j] *= np.sinc(alpha - s.order)**2
+        eta = eta.reshape(np.shape(self.wavelength if wavelengths is None else wavelengths))
+
+        return eta
+
+    def sweatt_model(self, index=1e4):
+        """Copy of the system with every diffractive surface replaced by its
+        Sweatt model.
+
+        The phase of a `DiffractiveSurface` is turned into a thin layer of
+        the index N(lambda) = n'(lambda) + index*lambda/lambda_s (lambda_s:
+        the wavelength of the system), in front of the base surface: the
+        front surface of the layer is the base surface moved along its
+        normal by -m*lambda_s*phi(r)/(2*pi*index), the back surface is the
+        base surface, so that the layer adds the optical path
+        m*lambda*phi/(2*pi) + O(1/index) at every wavelength. For a large
+        index the rays, the Seidel sums and the colour of the Sweatt model
+        approach those of the diffractive surface (W. C. Sweatt, 1977).
+
+        Parameters
+        ----------
+        index : number, optional
+            Index step of the layer at the wavelength of the system.
+
+        Returns
+        -------
+        System
+            With two surfaces for every diffractive one (the stop index is
+            moved accordingly; the layer has zero thickness).
+        """
+
+        other = self.copy()
+        new, stop = [], other.stop_index
+        wl_s_nm = self.wavelength_nm
+        for i, s in enumerate(other.surfaces):
+            if not isinstance(s, DiffractiveSurface):
+                new.append(s)
+                continue
+            if s.mirror:
+                raise ValueError("No Sweatt model for diffractive mirrors.")
+            # index behind the surface as a function of the wavelength:
+            j = max([k for k in range(i + 1) if other.surfaces[k].changes_medium], default=None)
+            if j is None:
+                n_obj = other.n_object
+                medium = (lambda wl, n_obj=n_obj: n_obj)
+            else:
+                ref = other.surfaces[j]
+                medium = (lambda wl, ref=ref: ref.index(wl, 1.0))
+            K = float(index)
+            layer = (lambda wl, medium=medium, K=K: medium(wl) + K*wl/wl_s_nm)
+            scale = -s.order*self.wavelength/(2*pi*K)
+            rn2 = s.norm_radius**2
+            extra = tuple(scale*A/rn2**k for k, A in enumerate(s.phase, start=1))
+            base = Surface(s.R, 0.0, conic=s.conic, aspheric=s.aspheric)
+            front = _SweattSurface(base, extra, 0.0, material=layer,
+                                   semi_diameter=s.semi_diameter, decenter=s.decenter,
+                                   tilt=s.tilt, label=s.label)
+            back = Surface(s.R, s.thickness, conic=s.conic, aspheric=s.aspheric,
+                           material=medium, semi_diameter=s.semi_diameter, decenter=s.decenter,
+                           tilt=s.tilt, coating=s.coating)
+            if i < self.stop_index:
+                stop += 1
+            new.extend([front, back])
+        other.surfaces = new
+        other.stop_index = stop
+        other.__dict__.pop("_constants", None)
+
+        return other
 
     # powers:
     def power(self):
@@ -2126,7 +2672,7 @@ class System:
 
         n_s = self.n*self.sigma
 
-        return np.array([s.paraxial_power(n_s[i], n_s[i + 1])
+        return np.array([self._surface_power(s, n_s[i], n_s[i + 1])
                          for i, s in enumerate(self.surfaces)])
 
     def power_contributions(self):
@@ -2553,7 +3099,7 @@ class System:
             opl = opl + n[i]*t
             if clip and s.semi_diameter is not None:
                 valid &= np.hypot(Q[:, 0], Q[:, 1]) <= s.semi_diameter*(1 + 1e-9)
-            if isinstance(s, GratingSurface):
+            if isinstance(s, (GratingSurface, DiffractiveSurface)):
                 d_l, dopl = s.deflect(Q, d_l, n[i], n[i + 1], self.wavelength)
             else:
                 d_l, dopl = s.deflect(Q, d_l, n[i], n[i + 1])

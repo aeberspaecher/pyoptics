@@ -60,3 +60,13 @@ def test_no_dispersion():
 def test_invalid_V_d(V_d):
     with pytest.raises(ValueError):
         cauchy_coeffs_from_abbe(1.5, V_d)
+
+
+def test_infrared_materials():
+    from pyoptics.materials import germanium_index, zinc_selenide_index
+    # published values: ZnSe 2.4028 at 10.6 um (Tatian), Ge 4.0038 at 10 um (Icenogle)
+    assert abs(zinc_selenide_index(10600) - 2.4028) < 2e-4
+    assert abs(germanium_index(10000) - 4.0038) < 1e-3
+    # normal dispersion, ZnSe much more dispersive than Ge in 8-12 um
+    V = lambda n: (n(10000) - 1)/(n(8000) - n(12000))
+    assert 50 < V(zinc_selenide_index) < 65 and V(germanium_index) > 500

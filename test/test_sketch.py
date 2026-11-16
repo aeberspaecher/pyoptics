@@ -382,6 +382,8 @@ def test_pancake_sketch():
     (sketch.beam_scanner, ("galvo", "polygon", "mems", "opa", "risley")),
     (sketch.scan_lens_layout, ("head", "ftheta", "telecentric", "two_mirrors")),
     (sketch.structured_light_layout, ("triangulation", "fringe", "dots")),
+    (sketch.hybrid_lens_layout, ("refractive", "diffractive", "hybrid", "kinoform", "sweatt",
+                                 "orders")),
 ])
 def test_3d_sensing_sketches(draw, kinds):
     for kind in kinds:

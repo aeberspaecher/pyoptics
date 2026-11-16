@@ -256,6 +256,70 @@ def water_index(wavelength_nm):
     return np.sqrt(n2)[()]
 
 
+_ZNSE_SELLMEIER = ((4.45813734, 0.200859853**2), (0.467216334, 0.391371166**2),
+                   (2.89566290, 47.1362108**2))
+
+
+def zinc_selenide_index(wavelength_nm):
+    """Refractive index of CVD zinc selenide (ZnSe) at room temperature.
+
+    Sellmeier formula of Tatian [1]_ (fit to the data of Connolly et al.,
+    0.54 to 18.2 um): n = 2.4028 at 10.6 um. An infrared material for CO2
+    laser optics and thermal (8-12 um) imaging lenses; its dispersion in the
+    long wave band is moderate (Abbe number V_10 = (n_10 - 1)/(n_8 - n_12)
+    about 58).
+
+    Parameters
+    ----------
+    wavelength_nm : number or array
+        Vacuum wavelength in nm.
+
+    Returns
+    -------
+    n : number or array
+
+    References
+    ----------
+    .. [1] B. Tatian, "Fitting refractive-index data with the Sellmeier
+       dispersion formula", Appl. Opt. 23, 4477-4485 (1984).
+    """
+
+    l2 = (np.asarray(wavelength_nm, dtype=float)*1e-3)**2
+    n2 = 1.0 + sum(B*l2/(l2 - C) for B, C in _ZNSE_SELLMEIER)
+
+    return np.sqrt(n2)[()]
+
+
+def germanium_index(wavelength_nm):
+    """Refractive index of single crystal germanium at 295 K, 2 to 14 um.
+
+    Sellmeier formula of Icenogle et al. [1]_: n = 4.004 at 10 um. Its
+    index is high and its dispersion in the 8-12 um band small (Abbe
+    number about 800), the reason why most thermal imaging lenses are
+    germanium.
+
+    Parameters
+    ----------
+    wavelength_nm : number or array
+        Vacuum wavelength in nm.
+
+    Returns
+    -------
+    n : number or array
+
+    References
+    ----------
+    .. [1] H. W. Icenogle, B. C. Platt and W. L. Wolfe, "Refractive indexes
+       and temperature coefficients of germanium and silicon", Appl. Opt.
+       15, 2348-2351 (1976).
+    """
+
+    l2 = (np.asarray(wavelength_nm, dtype=float)*1e-3)**2
+    n2 = 9.28156 + 6.72880*l2/(l2 - 0.44105) + 0.21307*l2/(l2 - 3870.1)
+
+    return np.sqrt(n2)[()]
+
+
 def air_index(wavelength_nm):
     """Refractive index of standard air (15 deg C, 101325 Pa, dry, 450 ppm
     CO2) after Ciddor [1]_.
