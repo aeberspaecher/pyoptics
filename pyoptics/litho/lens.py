@@ -61,6 +61,12 @@ hands the real pupil (off axis not centred on the chief ray) and its
 transmission to Projector(apodization=...), so that the simulation shows
 the resulting pattern shift through focus.
 
+Axial colour
+------------
+axial_colour() gives the shift of the paraxial focus with the wavelength
+(System.with_wavelength()) in nm per pm, the input of the focus blur from
+the laser bandwidth (pyoptics.litho.focus_blur).
+
 Two ray traced projection lenses come with pyoptics.raytrace: Caldwell's
 dry KrF design (caldwell_krf_lens(), NA 0.56, 4x) and a Zeiss water
 immersion ArF design from a patent (zeiss_arfi_lens(), NA 1.35, 8x, 11
@@ -870,3 +876,33 @@ def through_slit(sim, system, x, y=(0.0,), threshold=0.3, dose=1.0, foci=None, c
 
     return SlitResult(x, y, np.array([r.cd for r in out]), np.array([r.placement for r in out]),
                       np.array([r.best_focus for r in out]), aberrations)
+
+
+def axial_colour(system, delta=1e-9, length_unit=1e-6):
+    """Axial colour of a lens: the shift of the paraxial image plane per
+    wavelength change.
+
+    Parameters
+    ----------
+    system : pyoptics.raytrace.System
+        Lens at its design wavelength (in the units of the system, e.g. mm).
+    delta : number, optional
+        Half step of the central difference in the units of the system
+        (1e-9 mm = 1 pm).
+    length_unit : number, optional
+        Unit of the result's focus shift in units of the system (1e-6: nm
+        for a system in mm); the wavelength step is counted in pm
+        (1e-9 mm) for systems in mm.
+
+    Returns
+    -------
+    dz_dlambda : number
+        Focus shift (nm, positive away from the lens) per pm of wavelength
+        for a system in mm.
+    """
+
+    w = system.wavelength
+    z_p = system.with_wavelength(w + delta).paraxial().image_distance
+    z_m = system.with_wavelength(w - delta).paraxial().image_distance
+
+    return float((z_p - z_m)/length_unit/(2*delta/1e-9))

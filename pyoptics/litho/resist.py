@@ -186,12 +186,16 @@ def open_frame_in_resist(sim, focus=0.0, N_z=40):
     return LatentImage(np.zeros(1), z, I, 0.0, True, d, 1.0)
 
 
-def _diffuse(u, kx2, kz2, s2):
+def _diffuse(u, kx2, kz2, s2, periodic_z=False):
     """Gaussian blur with variance s2 of u (shape (N_z, N_x)), periodic in x
-    and with no flux through the top and bottom (cosine transform)."""
+    and with no flux through the top and bottom (cosine transform), or
+    periodic in both directions."""
 
     if s2 == 0:
         return u
+    if periodic_z:
+        U = np.fft.rfft2(u)*np.exp(-0.5*s2*(kz2[:, None] + kx2[None, :]))
+        return np.fft.irfft2(U, s=u.shape)
     U = rfft(dct(u, type=2, axis=0, norm="ortho"), axis=1)
     U = U*np.exp(-0.5*s2*(kz2[:, None] + kx2[None, :]))
 
@@ -494,7 +498,7 @@ class ResistModel(object):
 
         return 1 - np.exp(-self.C*dose*np.asarray(I))
 
-    def bake(self, acid, dx, dz):
+    def bake(self, acid, dx, dz, quencher=None, periodic_z=False):
         """Post exposure bake: acid diffusion, quenching and amplification.
 
         Parameters
@@ -505,6 +509,14 @@ class ResistModel(object):
             Grid spacing in x (periodic).
         dz : number
             Spacing of the cell centers in z.
+        quencher : (N_z, N_x) array, optional
+            Initial quencher concentration (relative to the acid generator);
+            default: the uniform self.quencher. The stochastic resist
+            (pyoptics.litho.stochastics) passes the quencher counts of each
+            cell here.
+        periodic_z : bool, optional
+            Periodic along the first axis as well (a top-down x-y grid)
+            instead of no flux through the top and bottom.
 
         Returns
         -------
@@ -516,21 +528,27 @@ class ResistModel(object):
 
         N_z, N_x = acid.shape
         kx2 = (2*np.pi*np.fft.rfftfreq(N_x, dx))**2
-        kz2 = (np.pi*np.arange(N_z)/(N_z*dz))**2
+        if periodic_z:
+            kz2 = (2*np.pi*np.fft.fftfreq(N_z, dz))**2
+        else:
+            kz2 = (np.pi*np.arange(N_z)/(N_z*dz))**2
         dtau = 1.0/self.n_steps
         s2_h = self.diffusion_length**2*dtau
         s2_q = self.quencher_diffusion_length**2*dtau
         h = np.array(acid, dtype=float)
-        q = np.full_like(h, float(self.quencher))
+        if quencher is None:
+            q = np.full_like(h, float(self.quencher))
+        else:
+            q = np.array(np.broadcast_to(quencher, h.shape), dtype=float)
         m = np.ones_like(h)
-        has_q = self.quencher > 0
+        has_q = np.any(q > 0)
         if has_q and self.neutralization is None:
             h, q = _neutralize(h, q, None, 0.0)
         for _ in range(self.n_steps):
             m *= np.exp(-0.5*self.amplification*h*dtau)
-            h = _diffuse(h, kx2, kz2, s2_h)
+            h = _diffuse(h, kx2, kz2, s2_h, periodic_z)
             if has_q:
-                q = _diffuse(q, kx2, kz2, s2_q)
+                q = _diffuse(q, kx2, kz2, s2_q, periodic_z)
                 h, q = _neutralize(h, q, self.neutralization, dtau)
             m *= np.exp(-0.5*self.amplification*h*dtau)
 

@@ -193,7 +193,16 @@ What each module does and how mature it is. Planned work is listed in
   `tolerancing`, sensitivities about the nominal lens per slit position, a
   lithographic error vector for the compensators, CD, placement and best
   focus changes, their statistics and the yield; notebook 150,
-  lens tolerances and wafer yield); `litho.hopkins` computes transmission cross
+  lens tolerances and wafer yield); `litho.stochastics` runs the resist
+  chain with Poisson photons, binomial or Poisson acids from the acid yield
+  per photon, discrete quencher and protecting groups on a top-down grid
+  (any wavelength and photon energy), and measures LER, LWR, edge PSDs
+  (model fit and random edges), local CDU and missing or merged contacts;
+  `litho.flare` gives power-law flare PSFs or ones from an ABC roughness PSD
+  (TIS of lens surfaces and mirrors), the flare level from the pattern
+  density and a die map; `litho.focus_blur` averages images over laser
+  bandwidth times axial colour (`litho.lens.axial_colour()`) and stage MSD
+  (notebook 152, litho stochastics, flare and focus blur); `litho.hopkins` computes transmission cross
   coefficients (TCC) and their SOCS decomposition, equal to Abbe's method
   for thin masks and fast for many masks with the same optics; swing
   curves and BARC optimization (`litho.wafer`, absorbed energy exact

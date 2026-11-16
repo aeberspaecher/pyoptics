@@ -327,6 +327,7 @@ Projection lithography from the mask to the resist: imaging models, mask models,
 - {doc}`notebooks/50_magnification_distortion_telecentricity`
 - {doc}`notebooks/107_litho_fourier_interpolation_cd`
 - {doc}`150 Lens tolerances and wafer yield <notebooks/150_lens_tolerances_wafer_yield>`
+- {doc}`152 Litho stochastics, flare and focus blur <notebooks/152_litho_stochastics_flare_focus_blur>`
 
 ```{toctree}
 :hidden:
@@ -351,6 +352,7 @@ notebooks/44_seidel_caldwell_lens
 notebooks/50_magnification_distortion_telecentricity
 notebooks/107_litho_fourier_interpolation_cd
 notebooks/150_lens_tolerances_wafer_yield
+notebooks/152_litho_stochastics_flare_focus_blur
 ```
 
 ## Illumination optics

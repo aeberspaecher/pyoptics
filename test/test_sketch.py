@@ -384,6 +384,8 @@ def test_pancake_sketch():
     (sketch.structured_light_layout, ("triangulation", "fringe", "dots")),
     (sketch.hybrid_lens_layout, ("refractive", "diffractive", "hybrid", "kinoform", "sweatt",
                                  "orders")),
+    (sketch.litho_stochastics_layout, ("shot_noise", "roughness", "contacts", "flare",
+                                       "focus_blur")),
 ])
 def test_3d_sensing_sketches(draw, kinds):
     for kind in kinds:
