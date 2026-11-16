@@ -28,6 +28,7 @@ usual operands:
   the image plane on rings of the pupil (the spot sizes; zero defocus,
   spherical aberration, coma, astigmatism, field curvature),
 - `distortion()`: chief ray image height against the nominal magnification,
+- `ftheta()`: chief ray image height against f*theta (scan lenses),
 - `image_telecentricity()`, `object_telecentricity()`: chief ray slopes in
   image and object space,
 - `paraxial_target()`: any attribute of `raytrace.Paraxial` (magnification,
@@ -262,6 +263,43 @@ def distortion(magnification, fields=(0.5, 0.75, 1.0), tolerance=1e-5, aim=False
             out = [(_chief(system, fk)[0][1] - magnification*fk)/tolerance for fk in f]
 
         return np.nan_to_num(np.array(out), nan=FAILED)
+
+    return operand
+
+
+def ftheta(efl=None, fields=(0.3, 0.5, 0.7, 0.85, 1.0), tolerance=1e-3, aim=False):
+    """F-theta law of a scan lens: chief ray image height minus f*theta
+    (object at infinity, fields are scan angles).
+
+    Parameters
+    ----------
+    efl : number, optional
+        Focal length f of the law. Default: the paraxial focal length of
+        the system in each evaluation (then only the shape of h(theta) is
+        corrected, the scale follows the focal length).
+    fields : sequence, optional
+        Fields as fractions of the maximum field angle.
+    tolerance : number, optional
+        Tolerance in the length unit (default 1 um for mm).
+    aim : bool, optional
+        Use the real chief ray through the centre of the stop (see
+        `distortion()`). Not needed when the stop is the first surface
+        (a scanner in front of the lens).
+
+    Returns
+    -------
+    operand : callable
+    """
+
+    def operand(system):
+        th = np.array(_fields(system, fields))
+        f = system.paraxial().efl if efl is None else efl
+        if aim:
+            h = _aimed_chief(system, list(th))[1][:, 1]
+        else:
+            h = np.array([_chief(system, t)[0][1] for t in th])
+
+        return np.nan_to_num((h - f*th)/tolerance, nan=FAILED)
 
     return operand
 
