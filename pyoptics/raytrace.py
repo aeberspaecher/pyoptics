@@ -354,6 +354,12 @@ class Surface:
 
         return n_before
 
+    def fourth_order_departure(self):
+        """Coefficient of r**4 in the departure of the sag from the vertex
+        sphere (enters the Seidel sums of `System.seidel()`)."""
+
+        return self.conic*self.c**3/8 + (self.aspheric[0] if self.aspheric else 0.0)
+
     def sag(self, r2):
         """Sag z at the squared radius r2 = x**2 + y**2 (NaN beyond the conic)."""
 
@@ -1936,7 +1942,7 @@ class System:
             S_IV = -H**2*c*d_1n
             S_V = -Ab**3*y*d_1n2 + c*d_1n*Ab*yb*(2*y*Ab - yb*A)
             # departure of the surface from the sphere to fourth order:
-            a4 = s.conic*c**3/8 + (s.aspheric[0] if s.aspheric else 0.0)
+            a4 = s.fourth_order_departure()
             dS = 8*a4*(n2 - n1)
             S[i] = [S_I + dS*y**4, S_II + dS*y**3*yb, S_III + dS*y**2*yb**2, S_IV,
                     S_V + dS*y*yb**3]
