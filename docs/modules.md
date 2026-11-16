@@ -803,6 +803,40 @@ What each module does and how mature it is. Planned work is listed in
   and the unfolded distance of plane mirrors (notebooks
   123 (AR waveguide combiners), 124 (volume holographic gratings),
   125 (pancake lenses) and 126 (head-up displays))
+- `lidar`: new, tested: LiDAR link budgets and scanners. The echo of a
+  Lambertian target (`lambertian_return()`), Kim's extinction of haze and
+  fog (`extinction_coefficient()`), a model of the direct solar spectrum
+  and the background in a receiver (`solar_irradiance()`,
+  `background_power()`); APD SNR with excess noise (`apd_snr()`),
+  detection probability and Rice's false alarm rate; Coates' first-photon
+  histogram of a SPAD and its correction (`coates_histogram()`,
+  `coates_correction()`); class 1 eye safety after IEC 60825-1:2014 for
+  700 to 1400 and 1500 to 1800 nm (`ael_class1()`, C4, C7, measurement
+  apertures, the three pulse train rules in `class1_pulse_energy()`);
+  FMCW beat frequencies, range and velocity, a simulated beat with laser
+  phase noise and nonlinear chirps (`fmcw_beat_signal()`), the coherent
+  fraction and the SNR of a balanced coherent receiver
+  (`coherent_snr()`); resolvable spots, an exact XY galvo
+  (`galvo_xy()`), a polygon mirror (`polygon_scan()`), Lissajous paths,
+  the array factor of an optical phased array with quantized and noisy
+  phases (`opa_array_factor()`), grating emitter angles and an exact
+  Risley prism pair (`risley_direction()`); checked against Monte Carlo
+  of Rice's rate, first photons and phase noise, the shot noise limit,
+  Ruze's formula and first order prism deviations (notebooks
+  130 (time-of-flight LiDAR), 131 (FMCW LiDAR) and 132 (beam scanning))
+- `structured_light`: new, tested: triangulation and structured light.
+  Pinhole cameras and projectors (`Pinhole`, `look_at()`), rays against
+  depth map scenes by fixed point iteration or marching with bisection
+  (`intersect_depth()`); laser triangulation depth, sensitivity and the
+  speckle limit; phase shifted fringe patterns with projector gamma,
+  temporal phase unwrapping and triangulation against planes of light
+  (`fringe_patterns()`, `temporal_unwrap()`, `triangulate_column()`);
+  fan-out gratings by IFTA with quantization and a pixel search
+  (`fanout_ifta()`, `order_efficiencies()`), the dots of a VCSEL array
+  and grating (`dot_directions()`, `render_dots()`), block matching with
+  normalized cross correlation and depth from disparity; checked by exact
+  round trips of camera, projector and phase
+  (notebook 133, triangulation and structured light)
 - `wpm`: wave propagation method (Cython extension) for inhomogeneous, also
   absorbing media, 2D and y-invariant 1D fields, multi-step driver; direct
   O(N^2) sum (OpenMP) or the fast "levels" variant (one FFT pair per distinct
@@ -837,7 +871,9 @@ What each module does and how mature it is. Planned work is listed in
   mechanisms, a fibre Bragg grating and a basic link); AR/VR and head-up
   displays (a waveguide combiner from the side and with a fold grating, a
   volume grating at Bragg, a pancake lens, a windshield HUD and its double
-  image)
+  image); 3D sensing (time-of-flight and FMCW LiDARs, galvo, polygon,
+  MEMS, phased array and Risley scanners, laser triangulation, fringe
+  projection and a dot projector)
 - `interpolator`: trigonometric (Fourier) interpolation of periodic images
   and complex fields, tested: along one axis at any points
   (`trig_interpolate()`), in 2D on any grid or at scattered points

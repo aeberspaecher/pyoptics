@@ -171,6 +171,15 @@ Measurement and phase retrieval
    pyoptics.wavefront_shaping
    pyoptics.processing
 
+3D sensing and LiDAR
+--------------------
+
+.. autosummary::
+   :toctree: generated
+
+   pyoptics.lidar
+   pyoptics.structured_light
+
 Utilities
 ---------
 

@@ -506,6 +506,31 @@ notebooks/125_pancake_lenses
 notebooks/126_head_up_displays
 ```
 
+## 3D sensing and LiDAR
+
+How machines measure depth with light: the link budget of a
+time-of-flight LiDAR against sunlight, detector noise and the class 1
+eye safety limits that favour 1550 nm; FMCW LiDAR with its coherent
+receiver, Doppler, speckle fading and the demands on the laser; the beam
+scanners that sweep LiDARs over the scene; and triangulation, from laser
+spot sensors and fringe projection to the dot projector of a phone's
+depth camera.
+
+- {doc}`130 Time-of-flight LiDAR <notebooks/130_time_of_flight_lidar>`
+- {doc}`131 FMCW LiDAR <notebooks/131_fmcw_lidar>`
+- {doc}`132 Beam scanning <notebooks/132_beam_scanning>`
+- {doc}`133 Triangulation and structured light <notebooks/133_triangulation_structured_light>`
+
+```{toctree}
+:hidden:
+:caption: 3D sensing and LiDAR
+
+notebooks/130_time_of_flight_lidar
+notebooks/131_fmcw_lidar
+notebooks/132_beam_scanning
+notebooks/133_triangulation_structured_light
+```
+
 ## Running the notebooks
 
 ```{include} ../notebooks/README.md

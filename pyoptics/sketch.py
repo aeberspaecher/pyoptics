@@ -253,6 +253,14 @@ Setup sketches for the other example notebooks:
   lens with its three passes and the ghost (notebook 125, pancake lenses);
   hud_layout(): a windshield head-up display and the double image of the
   windshield's two surfaces (notebook 126, head-up displays).
+- lidar_layout(): a pulsed time-of-flight LiDAR in sunlight and an FMCW
+  LiDAR with its local oscillator and balanced receiver (notebooks
+  130, time-of-flight LiDAR, and 131, FMCW LiDAR); beam_scanner(): galvo
+  mirrors, a polygon, a resonant MEMS mirror, an optical phased array
+  and Risley prisms (notebook 132, beam scanning);
+  structured_light_layout(): a laser triangulation sensor, fringe
+  projection and a dot projector with its camera
+  (notebook 133, triangulation and structured light).
 
 text_scale() is a context manager that enlarges the labels of a sketch,
 for wide layouts that are shown scaled down.
@@ -331,7 +339,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "spectrometer_layout", "fts_layout", "fabry_perot_layout", "absorption_layout",
            "imaging_spectrometer_layout", "waveguide_combiner", "volume_grating_layout",
            "pancake_lens", "hud_layout", "zoom_cams", "qbfs_geometry",
-           "progressive_lens_layout", "text_scale"]
+           "progressive_lens_layout", "lidar_layout", "beam_scanner",
+           "structured_light_layout", "text_scale"]
 
 
 GLASS = "#cfe3f3"
@@ -10055,3 +10064,316 @@ def progressive_lens_layout(ax, view="front", title=None):
                 arrowprops=dict(arrowstyle="<->", color="0.4", lw=0.8))
     label(ax, zc/2, -1.5, "≈ 27 mm (vertex distance + 13.5 mm)", fontsize=7)
     _finish(ax, (-4.6, 4.0), (-1.9, 1.6), title)
+
+
+# --------------------------------------------------------------------------
+# 3D sensing and LiDAR (notebooks 130, time-of-flight LiDAR, to 133, triangulation and
+# structured light)
+# --------------------------------------------------------------------------
+
+NIR = "#b2182b"
+LO_COLOR = "#2a7ab9"
+
+
+def _lidar_box(ax, z, y, w, h, text, color="0.92", fontsize=8):
+    ax.add_patch(_patches().FancyBboxPatch((z, y - h/2), w, h, boxstyle="round,pad=0.05",
+                                           facecolor=color, edgecolor="0.3", lw=0.9, zorder=4))
+    label(ax, z + w/2, y, text, fontsize=fontsize, zorder=5)
+
+
+def _pulse(ax, z, y, width=0.5, height=0.35, color=NIR, sigma=0.06):
+    t = np.linspace(-width/2, width/2, 80)
+    ax.plot(z + t, y + height*np.exp(-t**2/(2*sigma**2)), color=color, lw=1.2)
+
+
+def lidar_layout(ax, kind="tof", title=None):
+    """Sketch of a LiDAR (notebooks 130, time-of-flight LiDAR, and 131,
+    FMCW LiDAR).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"tof", "fmcw"}, optional
+        "tof": a pulsed laser and a scanner send a pulse to a Lambertian
+        target in sunlight; the echo passes a lens, a narrow band filter
+        and reaches an APD or SPAD, whose timing gives the range. "fmcw":
+        a chirped narrow line laser is split into the transmitted beam and
+        the local oscillator; the echo and the LO beat on a balanced
+        receiver, and the beat frequency gives range and Doppler.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    if kind == "tof":
+        _lidar_box(ax, 0.0, 1.6, 1.4, 0.6, "pulsed laser\n905 / 1550 nm", "#fde2d6")
+        mirror(ax, 2.2, 1.6, 0.6, np.pi/4 + 0.15)
+        label(ax, 2.2, 2.2, "scanner", fontsize=8)
+        arrow(ax, 1.45, 1.6, 2.1, 1.6, color=NIR, lw=1.4)
+        _pulse(ax, 1.75, 1.75, 0.3, 0.25, sigma=0.04)
+        # outgoing beam to target
+        ax.plot([2.2, 8.0], [1.6, 1.05], color=NIR, lw=1.4)
+        ax.add_patch(mpatches.Rectangle((8.0, -0.3), 0.25, 2.2, facecolor="#d8cfc4",
+                                        edgecolor="0.4", lw=0.9))
+        label(ax, 8.12, -0.55, "Lambertian target\nreflectivity ρ, range R", fontsize=8,
+              va="top")
+        # scattered light
+        for a in np.radians(np.linspace(110, 250, 8)):
+            ax.plot([8.0, 8.0 + 0.6*np.cos(a)], [1.05, 1.05 + 0.6*np.sin(a)], color=NIR, lw=0.6,
+                    alpha=0.7)
+        band(ax, [8.0, 3.2], [1.05, 0.55], [8.0, 3.2], [1.05, -0.35], color=NIR, alpha=0.12)
+        # sun
+        ax.add_patch(mpatches.Circle((6.0, 3.0), 0.3, facecolor="#f6c945", edgecolor="#e0a000"))
+        for a in np.linspace(0, 2*np.pi, 12, endpoint=False):
+            ax.plot([6.0 + 0.38*np.cos(a), 6.0 + 0.52*np.cos(a)],
+                    [3.0 + 0.38*np.sin(a), 3.0 + 0.52*np.sin(a)], color="#e0a000", lw=1)
+        arrow(ax, 6.3, 2.7, 7.95, 1.4, color="#e0a000", lw=1.0)
+        label(ax, 7.3, 2.6, "sunlight: background", fontsize=8, color="#b07800")
+        # receiver
+        lens(ax, 3.1, 0.5, text=None)
+        ax.add_patch(mpatches.Rectangle((2.45, -0.35), 0.1, 0.9, facecolor="#b9d7a8",
+                                        edgecolor="0.3", lw=0.8))
+        label(ax, 2.5, 0.75, "filter Δλ", fontsize=8)
+        label(ax, 3.1, -0.6, "aperture D", fontsize=8, va="top")
+        ax.plot([3.1, 1.6], [0.5, 0.1], color=NIR, lw=0.8)
+        ax.plot([3.1, 1.6], [-0.4, 0.1], color=NIR, lw=0.8)
+        detector(ax, 1.5, 0.25)
+        label(ax, 1.3, -0.55, "APD / SPAD\nfield of view θ", fontsize=8, va="top")
+        _lidar_box(ax, -0.1, 0.1, 1.2, 0.5, "timing\nt = 2R/c", "#efe6f4")
+        _pulse(ax, 4.6, 0.25, 0.3, 0.15, sigma=0.04)
+        label(ax, 4.6, 0.65, "weak echo", fontsize=8, color=NIR)
+        _finish(ax, (-0.4, 9.0), (-1.2, 3.6), title)
+        return
+    if kind != "fmcw":
+        raise ValueError("kind must be 'tof' or 'fmcw'")
+    _lidar_box(ax, 0.0, 1.6, 1.5, 0.6, "chirped laser\nν(t): ramp B in T", "#fde2d6")
+    # chirp inset
+    t = np.linspace(0, 1, 50)
+    ax.plot(0.1 + 1.2*t, 2.25 + 0.4*np.abs(((2*t) % 2) - 1)[::-1], color=NIR, lw=1.0)
+    label(ax, 0.75, 2.85, "triangular chirp", fontsize=8)
+    ax.plot([1.55, 2.4], [1.6, 1.6], color=NIR, lw=1.4)
+    beam_splitter(ax, 2.6, 1.6, 0.4)
+    label(ax, 2.6, 2.05, "tap", fontsize=8)
+    ax.plot([2.8, 3.8], [1.6, 1.6], color=NIR, lw=1.4)
+    ax.add_patch(mpatches.Circle((4.1, 1.6), 0.3, facecolor="white", edgecolor="0.3", lw=1.0))
+    ax.annotate("", xy=(4.25, 1.75), xytext=(3.95, 1.75),
+                arrowprops=dict(arrowstyle="-|>", connectionstyle="arc3,rad=-0.6", color="0.3"))
+    label(ax, 4.1, 2.15, "circulator", fontsize=8)
+    ax.plot([4.4, 5.1], [1.6, 1.6], color=NIR, lw=1.4)
+    ax.add_patch(mpatches.Ellipse((5.2, 1.6), 0.16, 0.9, facecolor=GLASS, edgecolor=EDGE, lw=1.0))
+    ax.plot([5.3, 8.0], [1.6, 1.6], color=NIR, lw=1.4)
+    ax.add_patch(mpatches.Rectangle((8.0, 0.6), 0.25, 2.0, facecolor="#d8cfc4", edgecolor="0.4",
+                                    lw=0.9))
+    arrow(ax, 8.6, 1.6, 8.3, 1.6, color="0.3", text="v", text_pos=(8.7, 1.85))
+    label(ax, 8.12, 0.4, "target: R, v", fontsize=8, va="top")
+    ax.plot([5.3, 7.9], [1.45, 1.45], color=NIR, lw=0.8, ls="--")
+    label(ax, 6.6, 1.2, "echo, delayed by τ = 2R/c,\nDoppler shifted 2v/λ", fontsize=8,
+          va="top")
+    # echo down to the combiner
+    ax.plot([4.1, 4.1], [1.3, 0.2], color=NIR, lw=1.0, ls="--")
+    # LO path
+    ax.plot([2.6, 2.6], [1.4, 0.2], color=LO_COLOR, lw=1.4)
+    label(ax, 2.35, 0.8, "LO", fontsize=8, color=LO_COLOR, ha="right")
+    ax.plot([2.6, 3.2], [0.2, 0.2], color=LO_COLOR, lw=1.4)
+    ax.plot([4.1, 3.6], [0.2, 0.2], color=NIR, lw=1.0, ls="--")
+    _lidar_box(ax, 3.2, 0.2, 0.4, 0.4, "2×2", "#e8eef6")
+    for dy in (0.35, 0.05):
+        ax.plot([3.6, 4.6], [0.2 + (dy - 0.2), -0.5 + dy], color="0.4", lw=1.0)
+    detector(ax, 4.6, 0.15, width=0.08)
+    ax.add_patch(mpatches.Rectangle((4.6, -0.6), 0.08, 0.3, facecolor="0.35"))
+    label(ax, 5.1, -0.3, "balanced\nphotodiodes", fontsize=8, ha="left")
+    t = np.linspace(0, 1, 300)
+    ax.plot(6.3 + 1.6*t, -0.25 + 0.25*np.sin(2*np.pi*9*t), color="0.25", lw=0.8)
+    label(ax, 7.1, -0.75, "beat f_b = κτ ∓ 2v/λ → FFT", fontsize=8)
+    _finish(ax, (-0.3, 9.1), (-1.0, 3.1), title)
+
+
+def beam_scanner(ax, kind="galvo", title=None):
+    """Sketch of a beam scanner (notebook 132, beam scanning).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"galvo", "polygon", "mems", "opa", "risley"}, optional
+        "galvo": two galvanometer mirrors one behind the other. "polygon":
+        a rotating polygon mirror, each facet sweeping the beam. "mems": a
+        resonant MEMS mirror on torsion springs and its sinusoidal angle.
+        "opa": an optical phased array, emitters with a phase gradient
+        and the tilted wavefront. "risley": two rotating wedge prisms.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    if kind == "galvo":
+        ax.plot([0, 2.0], [0, 0], color=NIR, lw=1.4)
+        mirror(ax, 2.2, 0.0, 0.8, np.pi/4)
+        ax.plot([2.2, 2.2], [0.0, 1.6], color=NIR, lw=1.4)
+        mirror(ax, 2.2, 1.8, 0.8, -np.pi/4 + 0.1)
+        for a in np.radians([-12, 0, 12]):
+            ax.plot([2.2, 2.2 + 4*np.cos(a)], [1.8, 1.8 + 4*np.sin(a)], color=NIR, lw=1.0,
+                    alpha=0.8)
+        ax.add_patch(mpatches.Arc((2.2, 0.0), 1.0, 1.0, theta1=20, theta2=70, color="0.3"))
+        label(ax, 2.95, -0.2, "x mirror\n(axis ⊥ page)", fontsize=8)
+        label(ax, 1.3, 2.2, "y mirror", fontsize=8)
+        label(ax, 4.9, -0.75, "deflection = 2 × mechanical angle;\nthe x lever changes with y: bow",
+              fontsize=8)
+        _finish(ax, (-0.2, 6.8), (-1.2, 3.0), title)
+    elif kind == "polygon":
+        n = 6
+        a = np.linspace(0, 2*np.pi, n + 1) + 0.25
+        R = 1.0
+        ax.add_patch(mpatches.Polygon(np.c_[R*np.cos(a), R*np.sin(a)], closed=True,
+                                      facecolor="0.85", edgecolor="0.3", lw=1.2))
+        ax.annotate("", xy=(0.45, 0.3), xytext=(0.45, -0.3),
+                    arrowprops=dict(arrowstyle="-|>", connectionstyle="arc3,rad=0.6",
+                                    color="0.3"))
+        ax.plot([4.0, 0.88], [0.3, 0.3], color=NIR, lw=1.4)
+        for ang in np.radians([-50, -20, 10, 40]):
+            ax.plot([0.88, 0.88 + 3.5*np.cos(ang)], [0.3, 0.3 + 3.5*np.sin(ang)], color=NIR,
+                    lw=0.9, alpha=0.75)
+        label(ax, 3.0, -1.6, "each facet sweeps 720°/N;\nfast, uniform speed, one axis",
+              fontsize=8)
+        _finish(ax, (-1.3, 4.6), (-2.3, 2.6), title)
+    elif kind == "mems":
+        ax.add_patch(mpatches.Rectangle((-1.6, -0.9), 3.2, 1.8, facecolor="0.9",
+                                        edgecolor="0.4", lw=0.9))
+        ax.add_patch(mpatches.Circle((0, 0), 0.55, facecolor="#cfd8e3", edgecolor="0.3", lw=1.2))
+        for s in (-1, 1):
+            zz = np.linspace(0.55, 1.6, 40)*s
+            ax.plot(zz, 0.05*np.sin(np.linspace(0, 8*np.pi, 40)), color="0.3", lw=1.0)
+        label(ax, 0, -1.2, "mirror on torsion springs, at resonance", fontsize=8)
+        t = np.linspace(0, 1, 200)
+        ax.plot(2.3 + 2.4*t, 0.6*np.sin(2*np.pi*2*t), color=NIR, lw=1.2)
+        ax.plot([2.3, 4.7], [0, 0], color="0.6", lw=0.6)
+        label(ax, 3.5, 1.0, "angle(t) = A sin(2π f t)", fontsize=8)
+        label(ax, 3.5, -1.0, "slow at the edges:\nmore points there", fontsize=8)
+        _finish(ax, (-1.8, 5.0), (-1.5, 1.4), title)
+    elif kind == "opa":
+        N = 9
+        d = 0.4
+        for j in range(N):
+            z = j*d
+            ax.add_patch(mpatches.Rectangle((z - 0.08, -0.15), 0.16, 0.15, facecolor="#cfd8e3",
+                                            edgecolor="0.3", lw=0.8))
+            ph = (0.25*j) % 1
+            ax.add_patch(mpatches.Rectangle((z - 0.08, -0.55), 0.16, 0.3*ph + 0.02,
+                                            facecolor="#e0a000", edgecolor="none"))
+        label(ax, (N - 1)*d/2, -0.8, "phase shifters: φ_j = −2π j d sinθ₀/λ (mod 2π)",
+              fontsize=8)
+        th = np.radians(25)
+        for m in range(4):
+            r = 0.6 + 0.6*m
+            zz = np.linspace(-0.2, (N - 1)*d + 0.2, 2)
+            ax.plot(zz, r/np.cos(th) - (zz - (N - 1)*d/2)*np.tan(th) + 0.0, color="0.4", lw=0.8)
+        arrow(ax, (N - 1)*d/2, 0.3, (N - 1)*d/2 + 2.8*np.sin(th), 0.3 + 2.8*np.cos(th),
+              color=NIR, lw=1.4)
+        label(ax, (N - 1)*d/2 - 2.0, 3.2, "tilted wavefront:\nbeam at θ₀", fontsize=8)
+        label(ax, (N - 1)*d + 1.1, 0.0, "pitch d > λ/2:\ngrating lobes", fontsize=8)
+        _finish(ax, (-1.6, (N - 1)*d + 2.2), (-1.1, 3.6), title)
+    elif kind == "risley":
+        w = 0.35
+        for z0, flip in ((0.0, False), (1.4, True)):
+            if not flip:
+                pts = [[z0, -1], [z0, 1], [z0 + 0.3 + w, 1], [z0 + 0.3, -1]]
+            else:
+                pts = [[z0 + w, -1], [z0, 1], [z0 + 0.65, 1], [z0 + 0.65, -1]]
+            ax.add_patch(mpatches.Polygon(pts, closed=True, facecolor=GLASS, edgecolor=EDGE,
+                                          lw=1.0))
+            ax.add_patch(mpatches.Arc((z0 + 0.32, -1.25), 0.6, 0.25, theta1=200, theta2=340,
+                                      color="0.3"))
+        ax.plot([-1.2, 0.0], [0.0, 0.0], color=NIR, lw=1.4)
+        ax.plot([0.0, 2.05, 4.2], [0.0, 0.16, 0.6], color=NIR, lw=1.4)
+        label(ax, 0.9, -1.6, "two wedges rotating at ω₁ and ω₂", fontsize=8)
+        label(ax, 3.4, 1.2, "deviations add as vectors:\n0 to 2(n−1)α", fontsize=8)
+        _finish(ax, (-1.4, 4.6), (-1.9, 1.7), title)
+    else:
+        raise ValueError("kind must be 'galvo', 'polygon', 'mems', 'opa' or 'risley'")
+
+
+def structured_light_layout(ax, kind="triangulation", title=None):
+    """Sketch of a triangulation sensor
+    (notebook 133, triangulation and structured light).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"triangulation", "fringe", "dots"}, optional
+        "triangulation": a laser at the baseline b from a camera; a spot at
+        two depths images to two positions on the sensor. "fringe": a
+        projector casts sinusoidal fringes onto an object, which a camera
+        at the baseline sees distorted. "dots": a VCSEL array, a
+        collimator and a fan-out grating project a dot pattern; the camera
+        sees the dots shifted by the disparity d against a reference plane.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    if kind == "triangulation":
+        ax.add_patch(mpatches.Rectangle((-0.5, -0.8), 0.12, 0.8, facecolor="0.35"))
+        lens(ax, 0.8, 0.5)
+        label(ax, -0.45, -0.9, "sensor", fontsize=8, va="top")
+        label(ax, 0.8, -0.65, "camera lens", fontsize=8, va="top")
+        _lidar_box(ax, 0.3, 3.0, 1.0, 0.45, "laser", "#fde2d6")
+        z1, z2 = 6.0, 8.0
+        th = np.radians(8)
+        y = lambda z: 3.0 - (z - 0.8)*np.tan(th)
+        ax.plot([1.3, z2 + 0.5], [3.0, y(z2 + 0.5)], color=NIR, lw=1.3)
+        for z, c in ((z1, IMAGING), (z2, "#5aa469")):
+            ax.plot([z, z], [y(z) - 0.7, y(z) + 0.7], color="0.4", lw=2.0)
+            ax.plot(z, y(z), "o", color=NIR, ms=5)
+            yi = -y(z)*1.3/(z - 0.8)
+            ax.plot([z, 0.8, -0.38], [y(z), 0.0, yi], color=c, lw=0.9)
+            ax.plot(-0.38, yi, "o", color=c, ms=4)
+        ax.annotate("", xy=(0.3, 3.0), xytext=(0.3, 0.0),
+                    arrowprops=dict(arrowstyle="<->", color="0.3"))
+        label(ax, 0.15, 1.5, "b", fontsize=10, ha="right")
+        label(ax, 2.4, 3.15, "θ", fontsize=10)
+        label(ax, 4.6, -0.9, "dZ/dx = Z²/(f b): resolution falls with distance squared",
+              fontsize=8)
+        _finish(ax, (-1.0, 9.0), (-1.3, 3.6), title)
+    elif kind == "fringe":
+        _lidar_box(ax, 0.0, 2.6, 0.9, 0.5, "projector", "#fde2d6")
+        ax.add_patch(mpatches.Rectangle((0.0, -0.25), 0.9, 0.5, facecolor="0.85",
+                                        edgecolor="0.3", lw=0.9))
+        label(ax, 0.45, 0.0, "camera", fontsize=8)
+        yy = np.linspace(-0.2, 3.6, 400)
+        zz = 6.0 - 1.0*np.exp(-(yy - 1.6)**2/0.5)
+        ax.fill_betweenx(yy, zz, 7.0, color="#e8e2d8")
+        ax.plot(zz, yy, color="0.35", lw=1.2)
+        for k in range(9):
+            y0 = 0.1 + 0.42*k
+            ax.plot([0.9, 6.0], [2.6, y0 + 0.0], color="#e0a000", lw=0.6, alpha=0.8)
+        ax.plot([0.9, 5.2], [0.0, 1.6], color=IMAGING, lw=1.2)
+        ax.plot([0.9, 5.4], [2.6, 1.6], color=NIR, lw=1.2, ls="--")
+        label(ax, 3.2, 3.4, "fringes I_k = a + b cos(2π u_p/p − δ_k)", fontsize=8)
+        label(ax, 3.4, -0.6, "the camera reads the phase → projector column → plane of light",
+              fontsize=8)
+        _finish(ax, (-0.3, 7.2), (-0.9, 3.8), title)
+    elif kind == "dots":
+        for y in np.linspace(-0.35, 0.35, 6):
+            ax.add_patch(mpatches.Rectangle((0.0, y - 0.03), 0.12, 0.06, facecolor=NIR))
+        label(ax, 0.06, -0.7, "VCSEL\narray", fontsize=8, va="top")
+        lens(ax, 1.0, 0.55)
+        label(ax, 1.0, -0.7, "collimator", fontsize=8, va="top")
+        ax.add_patch(mpatches.Rectangle((1.6, -0.55), 0.08, 1.1, facecolor="#cfe8cf",
+                                        edgecolor="0.3", lw=0.8))
+        label(ax, 1.65, -0.7, "fan-out\nDOE", fontsize=8, va="top")
+        rng = np.random.default_rng(4)
+        for a in np.radians(np.linspace(-25, 25, 7)):
+            ax.plot([1.7, 6.0], [0.0, 4.3*np.tan(a)], color=NIR, lw=0.6, alpha=0.6)
+        ax.plot([6.0, 6.0], [-2.3, 2.3], color="0.4", lw=1.6)
+        ys = rng.uniform(-2.1, 2.1, 40)
+        ax.plot(6.0 + 0*ys, ys, ".", color=NIR, ms=3)
+        label(ax, 6.0, -2.55, "reference plane Z_ref", fontsize=8, va="top")
+        ax.add_patch(mpatches.Rectangle((0.0, -2.0), 0.6, 0.5, facecolor="0.85", edgecolor="0.3",
+                                        lw=0.9))
+        label(ax, 0.3, -1.75, "IR cam", fontsize=7)
+        ax.annotate("", xy=(0.3, -0.75), xytext=(0.3, -1.5),
+                    arrowprops=dict(arrowstyle="<->", color="0.3"))
+        label(ax, 0.45, -1.15, "b", fontsize=10, ha="left")
+        ax.plot([0.6, 4.4], [-1.75, 0.4], color=IMAGING, lw=0.9)
+        ax.add_patch(mpatches.Ellipse((4.4, 0.4), 0.6, 1.4, facecolor="#e8e2d8", edgecolor="0.4"))
+        label(ax, 3.4, 2.4, "closer object: dots shift by\nd = f b (1/Z − 1/Z_ref)",
+              fontsize=8)
+        _finish(ax, (-0.4, 7.0), (-2.9, 2.9), title)
+    else:
+        raise ValueError("kind must be 'triangulation', 'fringe' or 'dots'")

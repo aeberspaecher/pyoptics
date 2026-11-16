@@ -225,6 +225,28 @@ Coddington astigmatism in a Czerny–Turner), {doc}`51 Fresnel lenses <notebooks
 pancakes), {doc}`83 Étendue <notebooks/83_etendue_brightness_theorem>` (why a small projector cannot fill a large eye box
 for free).
 
+## 3D sensing and LiDAR
+
+For readers who build or choose depth sensors and want to know where
+their range, precision and eye safety limits come from: photon budgets,
+detectors, scanners and triangulation geometry, with the numbers of
+automotive LiDARs and phone depth cameras.
+
+| Step | Notebook | Why |
+|---|---|---|
+| 1 | {doc}`105 Radiometry and photometry <notebooks/105_radiometry_photometry>` | Radiance, solid angles and Lambertian surfaces, the language of every link budget. |
+| 2 | {doc}`130 Time-of-flight LiDAR <notebooks/130_time_of_flight_lidar>` | The LiDAR equation, sunlight, APDs and SPADs with pile-up, and the class 1 limits at 905 and 1550 nm. |
+| 3 | {doc}`131 FMCW LiDAR <notebooks/131_fmcw_lidar>` | Chirps, range and Doppler, the shot noise limited coherent receiver, speckle fading and the laser it needs. |
+| 4 | {doc}`132 Beam scanning <notebooks/132_beam_scanning>` | Galvos, polygons, MEMS mirrors, phased arrays and Risley prisms, and the invariant of resolvable spots. |
+| 5 | {doc}`133 Triangulation and structured light <notebooks/133_triangulation_structured_light>` | Laser triangulation and its speckle limit, fringe projection with temporal unwrapping, and the dot projector of depth cameras. |
+
+**Side trips:** {doc}`120 Fibre link <notebooks/120_fibre_link>` (the APD noise model and
+Q factors), {doc}`83 Étendue <notebooks/83_etendue_brightness_theorem>` (why a single mode receiver
+sees no sunlight), {doc}`87 Speckle reduction <notebooks/87_speckle_reduction>` (speckle statistics
+and diversity), {doc}`23 Interferometry <notebooks/23_interferometry>` and {doc}`22 Phase unwrapping <notebooks/22_phase_unwrapping>`
+(phase shifting and unwrapping behind fringe projection), {doc}`30 IFTA beam shaping <notebooks/30_IFTA>`
+(the algorithm behind the fan-out grating).
+
 ## Metrology, microscopy and computational imaging
 
 For readers who measure wavefronts or build imaging systems that rely on
