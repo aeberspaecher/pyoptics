@@ -231,6 +231,16 @@ Setup sketches for the other example notebooks:
 - mask_3d(): a thin mask against a mask whose absorber is about a
   wavelength thick: shadowing and blurred, shifted edges (notebooks 36,
   37, 65).
+- waveguide_combiner(): a diffractive waveguide combiner seen from the
+  side (in-coupler, total internal reflection, out-coupler replicating the
+  pupil) and from the front (in-coupler, fold grating and out-coupler with
+  their grating vectors) (notebook 123, AR waveguide combiners);
+  volume_grating_layout(): a thick transmission or reflection volume
+  grating at the Bragg angle with its wave vector triangle (notebook 124,
+  volume holographic gratings); pancake_lens(): the polarization folded VR
+  lens with its three passes and the ghost (notebook 125, pancake lenses);
+  hud_layout(): a windshield head-up display and the double image of the
+  windshield's two surfaces (notebook 126, head-up displays).
 
 text_scale() is a context manager that enlarges the labels of a sketch,
 for wide layouts that are shown scaled down.
@@ -307,7 +317,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "dispersion_mechanisms", "fibre_bragg_grating", "fibre_link",
            "resonator_unfolded", "resonator_types", "folded_resonator",
            "spectrometer_layout", "fts_layout", "fabry_perot_layout", "absorption_layout",
-           "imaging_spectrometer_layout", "text_scale"]
+           "imaging_spectrometer_layout", "waveguide_combiner", "volume_grating_layout",
+           "pancake_lens", "hud_layout", "text_scale"]
 
 
 GLASS = "#cfe3f3"
@@ -9455,3 +9466,383 @@ def imaging_spectrometer_layout(ax, kind="pushbroom", title=None):
                                     zorder=5))
     label(ax, x0 + 0.4, -0.95, "detector: bands\nshifted and summed", fontsize=8, va="top")
     _finish(ax, (-1.3, 8.2), (-1.6, 1.0), title)
+
+
+# --------------------------------------------------------------------------
+# AR/VR and head-up displays (notebooks 123 to 126)
+# --------------------------------------------------------------------------
+
+AR_IMAGE = "#2f9e44"
+AR_WORLD = "0.55"
+AR_GHOST = "#d6604d"
+
+
+def _eye_icon(ax, z, y, size=0.35, facing="left", zorder=6):
+    """A schematic eye (ball, cornea and pupil) looking left, right, up or
+    down."""
+
+    mpatches = _patches()
+    u = {"left": (-1, 0), "right": (1, 0), "up": (0, 1), "down": (0, -1)}[facing]
+    ax.add_patch(mpatches.Circle((z, y), size, facecolor="white", edgecolor="0.3", lw=1.0,
+                                 zorder=zorder))
+    w, h = (0.22*size, 0.75*size) if u[1] == 0 else (0.75*size, 0.22*size)
+    ax.add_patch(mpatches.Ellipse((z + u[0]*0.78*size, y + u[1]*0.78*size), w, h,
+                                  facecolor="#9fc5e0", edgecolor="0.3", lw=0.8, zorder=zorder + 0.1))
+    v = (-u[1], u[0])
+    c = np.array([z + u[0]*size, y + u[1]*size])
+    ax.plot([c[0] - 0.28*size*v[0], c[0] + 0.28*size*v[0]],
+            [c[1] - 0.28*size*v[1], c[1] + 0.28*size*v[1]], color="0.15", lw=1.6,
+            zorder=zorder + 0.2)
+
+
+def waveguide_combiner(ax, kind="side", title=None):
+    """Sketch of a diffractive waveguide combiner (notebook 123).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"side", "epe2d"}, optional
+        "side": a projector, the in-coupling grating, the guided zigzag by
+        total internal reflection and the out-coupling grating that
+        replicates the pupil towards the eye, with the light of the world
+        passing through. "epe2d": the plate seen from the front with the
+        in-coupler, the fold grating that expands the pupil along one
+        direction and the out-coupler that expands it along the other,
+        with their grating vectors summing to zero.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    if kind == "epe2d":
+        ax.add_patch(mpatches.FancyBboxPatch((0.0, 0.0), 6.0, 3.6, boxstyle="round,pad=0.05",
+                                             facecolor=GLASS, edgecolor=EDGE, lw=1.0, alpha=0.6))
+        ic = mpatches.Circle((0.8, 2.8), 0.45, facecolor="#f1d48a", edgecolor="0.3", lw=0.9)
+        ax.add_patch(ic)
+        fold = mpatches.Polygon([[1.6, 2.4], [5.6, 2.4], [5.6, 3.3], [1.6, 3.3]], closed=True,
+                                facecolor="#cfe8cf", edgecolor="0.3", lw=0.9)
+        ax.add_patch(fold)
+        oc = mpatches.Rectangle((1.6, 0.25), 4.0, 1.95, facecolor="#e8d9f3", edgecolor="0.3", lw=0.9)
+        ax.add_patch(oc)
+        for x in np.linspace(0.45, 1.15, 6):            # in-coupler grooves (vertical)
+            h = np.sqrt(max(0.45**2 - (x - 0.8)**2, 0.0))
+            ax.plot([x, x], [2.8 - h, 2.8 + h], color="0.35", lw=0.6)
+        for t in np.linspace(1.0, 6.6, 18):              # fold grooves at 45°
+            line, = ax.plot([t - 1.0, t + 1.0], [3.85, 1.85], color="0.45", lw=0.5)
+            line.set_clip_path(fold)
+        for y in np.linspace(0.4, 2.05, 9):              # out-coupler grooves (horizontal)
+            ax.plot([1.65, 5.55], [y, y], color="0.45", lw=0.5)
+        arrow(ax, 0.8, 2.8, 2.0, 2.8, color=AR_IMAGE, lw=1.6)
+        for x in np.linspace(2.2, 5.2, 4):
+            arrow(ax, x, 2.85, x, 2.2, color=AR_IMAGE, lw=1.1)
+            for y in (1.7, 1.1, 0.5):
+                ax.add_patch(mpatches.Circle((x, y), 0.08, facecolor=AR_IMAGE, edgecolor="none",
+                                             alpha=0.6))
+        label(ax, 0.8, 3.45, "in-coupler", fontsize=8)
+        label(ax, 3.6, 3.5, "fold grating: expands along x, turns the light down", fontsize=8)
+        label(ax, 3.6, 0.05, "out-coupler: expands along y, sends the copies to the eye",
+              fontsize=8, va="top")
+        # k-space triangle
+        o = np.array([7.4, 1.4])
+        G1 = np.array([1.2, 0.0])
+        G2 = np.array([-0.6, -1.04])
+        G3 = -(G1 + G2)
+        for start, G, txt in ((o, G1, r"$\mathbf{G}_\mathrm{in}$"), (o + G1, G2, r"$\mathbf{G}_\mathrm{fold}$"),
+                              (o + G1 + G2, G3, r"$\mathbf{G}_\mathrm{out}$")):
+            arrow(ax, *start, *(start + G), color="0.25", lw=1.3)
+            mid = start + G/2 + 0.25*np.array([-G[1], G[0]])/np.hypot(*G)
+            label(ax, *mid, txt, fontsize=9)
+        label(ax, 8.0, 2.35, "grating vectors\nsum to zero:\nthe image leaves\nas it came in",
+              fontsize=8)
+        _finish(ax, (-0.3, 9.2), (-0.5, 3.9), title)
+        return
+    if kind != "side":
+        raise ValueError("kind must be 'side' or 'epe2d'")
+    t = 0.6
+    ax.add_patch(mpatches.Rectangle((0.0, 0.0), 9.0, t, facecolor=GLASS, edgecolor=EDGE, lw=1.0))
+    _sawtooth(ax, (0.3, t), (1.5, t), n=6, depth=0.07)
+    for x in np.linspace(3.2, 8.6, 28):
+        ax.plot([x, x], [t, t + 0.06], color="0.3", lw=0.8)
+    ax.plot([3.15, 8.65], [t, t], color="0.3", lw=0.8)
+    # projector above the in-coupler, light from the top
+    ax.add_patch(mpatches.FancyBboxPatch((0.3, 2.1), 1.2, 0.6, boxstyle="round,pad=0.03",
+                                         facecolor="0.85", edgecolor="0.35", lw=0.9))
+    label(ax, 0.9, 2.4, "projector", fontsize=8)
+    band(ax, [0.5, 0.5], [2.1, t], [1.3, 1.3], [2.1, t], color=AR_IMAGE, alpha=0.25)
+    # zigzag inside, coming out at the bottom (eye side)
+    zz = [0.9, 1.6]
+    y = [t, 0.0]
+    while zz[-1] < 8.6:
+        zz.append(zz[-1] + 0.7)
+        y.append(t if y[-1] == 0.0 else 0.0)
+    zz, y = np.array(zz), np.array(y)
+    ax.plot(zz, y, color=AR_IMAGE, lw=1.4)
+    hits = zz[(y == t) & (zz > 3.1) & (zz < 8.7)]
+    for k, x in enumerate(hits):
+        a = 0.85*0.86**k
+        arrow(ax, x, 0.0, x, -1.0, color=AR_IMAGE, lw=1.2*a + 0.3)
+        ax.plot([x, x], [t, 0.0], color=AR_IMAGE, lw=0.6, ls=":", alpha=0.7)
+    label(ax, 2.2, 0.3, "TIR", fontsize=8, color=AR_IMAGE)
+    label(ax, 0.9, -0.12, "in-coupler", fontsize=8, va="top")
+    label(ax, 5.9, 0.85, "out-coupler: a little light leaves at every hit", fontsize=8,
+          va="bottom")
+    _eye_icon(ax, 5.8, -1.75, size=0.32, facing="up")
+    ax.plot([4.6, 7.0], [-1.25, -1.25], color="0.4", lw=0.8, ls="--")
+    label(ax, 7.1, -1.25, "eye box", fontsize=8, ha="left")
+    for x in (4.0, 7.6):
+        arrow(ax, x, 1.9, x, -0.9, color=AR_WORLD, lw=1.0)
+    label(ax, 7.7, 1.6, "world", fontsize=8, ha="left", color=AR_WORLD)
+    _finish(ax, (-0.2, 9.4), (-2.3, 2.9), title)
+
+
+def volume_grating_layout(ax, kind="transmission", title=None):
+    """Sketch of a thick volume holographic grating (notebook 124).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"transmission", "reflection"}, optional
+        Fringes nearly perpendicular to the surface (the diffracted beam
+        leaves through the back) or nearly parallel to it (the diffracted
+        beam leaves through the front), with the incident wave R, the
+        signal S and the grating vector K = R - S at the Bragg angle.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    if kind not in ("transmission", "reflection"):
+        raise ValueError("kind must be 'transmission' or 'reflection'")
+    d, w = 1.6, 4.0
+    ax.add_patch(mpatches.Rectangle((0.0, 0.0), w, d, facecolor="#f3ead9", edgecolor="0.4", lw=1.0))
+    phi = np.radians(80.0 if kind == "transmission" else 15.0)   # angle of K to the normal (y)
+    K = np.array([np.sin(phi), -np.cos(phi)])                     # normal along -y (into the slab)
+    t = np.array([K[1], -K[0]])                                    # along the fringes
+    spacing = 0.28 if kind == "transmission" else 0.2
+    for s in np.arange(-12, 13)*spacing:
+        c = np.array([w/2, d/2]) + s*K
+        p0, p1 = c - 5*t, c + 5*t
+        # clip to the slab
+        ts = np.linspace(0, 1, 400)
+        pts = p0[None, :] + ts[:, None]*(p1 - p0)[None, :]
+        m = (pts[:, 0] > 0) & (pts[:, 0] < w) & (pts[:, 1] > 0) & (pts[:, 1] < d)
+        if m.sum() > 1:
+            ax.plot(pts[m, 0], pts[m, 1], color="#b5651d", lw=0.8, alpha=0.7)
+    # Bragg geometry: R makes the same angle with the fringes as S
+    beta = 1.0
+    Kmag = 0.7 if kind == "transmission" else 1.6
+    cos_arg = Kmag/(2*beta)
+    th = phi - np.arccos(cos_arg)                    # Kogelnik's theta from the normal
+    R = beta*np.array([np.sin(th), -np.cos(th)])
+    S = R - Kmag*K
+    entry = np.array([w/2 - 0.5*np.tan(th)*d, d])
+    hit = np.array([w/2, d/2])
+    ax.plot([entry[0] - 1.2*R[0], hit[0]], [entry[1] - 1.2*R[1], hit[1]], color=AR_IMAGE, lw=1.8)
+    arrow(ax, entry[0] - 1.2*R[0], entry[1] - 1.2*R[1], entry[0] - 0.6*R[0], entry[1] - 0.6*R[1],
+          color=AR_IMAGE, lw=1.8)
+    zero = hit + 1.6*R
+    ax.plot([hit[0], zero[0]], [hit[1], zero[1]], color=AR_IMAGE, lw=1.0, ls="--", alpha=0.6)
+    out = hit + 1.6*S/np.hypot(*S)
+    arrow(ax, *hit, *out, color=AR_GHOST, lw=1.8)
+    label(ax, entry[0] - 1.25*R[0] - 0.1, entry[1] - 1.25*R[1], "R", fontsize=10, color=AR_IMAGE,
+          ha="right")
+    label(ax, out[0] + 0.15*np.sign(S[0] + 1e-9), out[1], "S", fontsize=10, color=AR_GHOST,
+          ha="left" if S[0] >= 0 else "right")
+    # vector triangle, labels pushed away from its centroid
+    o = np.array([w + 1.5, 1.7 if kind == "transmission" else 0.3])
+    cen = o + (R + S)/3
+    for p0, p1, color, txt in ((o, o + R, AR_IMAGE, r"$\mathbf{k}_R$"), (o, o + S, AR_GHOST, r"$\mathbf{k}_S$"),
+                               (o + S, o + R, "#b5651d", r"$\mathbf{K}$")):
+        mid = (p0 + p1)/2
+        off = mid - cen
+        arrow(ax, *p0, *p1, color=color, lw=1.4, text=txt,
+              text_pos=mid + 0.28*off/np.hypot(*off))
+    label(ax, w/2, d + 1.55, r"Bragg: $\mathbf{k}_S = \mathbf{k}_R - \mathbf{K}$ with "
+          r"$|\mathbf{k}_S| = |\mathbf{k}_R|$", fontsize=9)
+    label(ax, w, -0.15, "thickness $d$, index $n_0 + n_1\\cos(\\mathbf{K}\\cdot\\mathbf{r})$",
+          fontsize=8, va="top", ha="right")
+    _finish(ax, (-1.6, w + 2.9), (-1.8, d + 1.9), title)
+
+
+def pancake_lens(ax, ghost=True, title=None):
+    """Sketch of a pancake (polarization folded) VR lens (notebook 125).
+
+    Display with a polarizer and a quarter wave plate (circular light), a
+    curved half mirror, a quarter wave plate and a reflective polarizer;
+    the image light passes the cavity three times (unfolded drawing of the
+    three passes side by side), the direct leak through the reflective
+    polarizer is the ghost.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    ghost : bool, optional
+        Also draw the ghost path.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    h = 1.5
+    z_d, z_hm, z_q, z_rp, z_eye = 0.0, 1.2, 2.4, 2.8, 4.6
+    ax.add_patch(mpatches.Rectangle((z_d - 0.2, -h), 0.2, 2*h, facecolor="0.3", edgecolor="0.2"))
+    label(ax, z_d - 0.1, -h - 0.15, "display\n+ polarizer\n+ QWP", fontsize=8, va="top")
+    yy = np.linspace(-h, h, 50)
+    ax.plot(z_hm + 0.25*(1 - (yy/h)**2), yy, color="#5b7fa6", lw=3)
+    label(ax, z_hm + 0.1, -h - 0.15, "half mirror\n(curved)", fontsize=8, va="top")
+    ax.add_patch(mpatches.Rectangle((z_q - 0.06, -h), 0.12, 2*h, facecolor="#e8d9f3",
+                                    edgecolor="#6a4c93", lw=0.8))
+    label(ax, z_q, h + 0.15, "QWP", fontsize=8, va="bottom")
+    ax.plot([z_rp, z_rp], [-h, h], color="0.25", lw=3)
+    for y in np.linspace(-h + 0.2, h - 0.2, 7):
+        ax.plot([z_rp + 0.03, z_rp + 0.12], [y, y], color="0.25", lw=0.8)
+    label(ax, z_rp + 0.1, -h - 0.15, "reflective\npolarizer", fontsize=8, va="top")
+    _eye_icon(ax, z_eye, 0.0, size=0.35, facing="left")
+    # the three passes, drawn at three heights
+    ys = (0.9, 0.55, 0.2)
+    zh = z_hm + 0.25*(1 - (ys[0]/h)**2)
+    arrow(ax, z_d + 0.05, ys[0], zh, ys[0], color=AR_IMAGE, lw=1.6)
+    ax.plot([zh, z_rp], [ys[0], ys[0]], color=AR_IMAGE, lw=1.6)
+    ax.plot([z_rp, z_rp], [ys[0], ys[1]], color=AR_IMAGE, lw=1.0)
+    zh1 = z_hm + 0.25*(1 - (ys[1]/h)**2)
+    arrow(ax, z_rp, ys[1], zh1 + 0.02, ys[1], color=AR_IMAGE, lw=1.6)
+    ax.plot([zh1, zh1], [ys[1], ys[2]], color=AR_IMAGE, lw=1.0)
+    arrow(ax, zh1, ys[2], z_eye - 0.4, ys[2], color=AR_IMAGE, lw=1.6)
+    label(ax, (z_d + zh)/2, ys[0] + 0.12, "circular", fontsize=7, va="bottom", color=AR_IMAGE)
+    label(ax, (z_q + z_rp)/2, ys[0] + 0.12, "x", fontsize=7, va="bottom", color=AR_IMAGE)
+    label(ax, (z_q + zh1)/2 - 0.2, ys[1] + 0.1, "reflected", fontsize=7, va="bottom",
+          color=AR_IMAGE)
+    label(ax, (z_rp + z_eye)/2, ys[2] + 0.1, "y: passes", fontsize=7, va="bottom", color=AR_IMAGE)
+    if ghost:
+        yg = -0.6
+        zg = z_hm + 0.25*(1 - (yg/h)**2)
+        ax.plot([z_d + 0.05, zg], [yg, yg], color=AR_GHOST, lw=1.2, ls="--")
+        arrow(ax, zg, yg, z_eye - 0.4, yg, color=AR_GHOST, lw=1.2, style="-|>")
+        ax.plot([zg, z_eye - 0.4], [yg, yg], color=AR_GHOST, lw=1.2, ls="--")
+        label(ax, (z_rp + z_eye)/2, yg - 0.12,
+              "ghost: leaks through\nwhen the QWP is not\nexactly a quarter wave", fontsize=7,
+              va="top", color=AR_GHOST)
+    label(ax, 2.3, h + 0.6, "three passes through the cavity: power of a mirror, length of one third",
+          fontsize=8)
+    _finish(ax, (-0.8, 5.3), (-h - 1.0, h + 0.9), title)
+
+
+def hud_layout(ax, kind="layout", title=None):
+    """Sketch of a windshield head-up display (notebook 126).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"layout", "double_image"}, optional
+        "layout": picture generating unit, fold mirror and concave (freeform)
+        mirror in the dashboard, the windshield as the last, off-axis
+        mirror, the eye box and the virtual image in front of the car.
+        "double_image": a windshield cross-section with the reflections at
+        the inner and outer surface, which give two images, and a wedge
+        that brings them together.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+
+    def unit(v):
+        v = np.asarray(v, dtype=float)
+        return v/np.hypot(*v)
+
+    def refl(d, nrm):
+        return d - 2*np.dot(d, nrm)*nrm
+
+    def refr(d, nrm, n1, n2):
+        nrm = -nrm if np.dot(d, nrm) > 0 else nrm
+        c = -np.dot(d, nrm)
+        r = n1/n2
+        return r*d + (r*c - np.sqrt(1 - r**2*(1 - c**2)))*nrm
+
+    def hit_line(p, d, q, t):
+        s_, _ = np.linalg.solve(np.array([[d[0], -t[0]], [d[1], -t[1]]]), q - p)
+        return p + s_*d
+
+    if kind == "double_image":
+        t_ws = unit([-0.62, 0.78])                 # along the windshield, upwards towards the roof
+        n_ws = np.array([t_ws[1], -t_ws[0]])       # outwards (to the car's front)
+        q0 = np.array([1.0, 1.0])
+        thick, n_g, wedge = 0.45, 1.5, np.radians(3.5)
+        rot = np.array([[np.cos(wedge), -np.sin(wedge)], [np.sin(wedge), np.cos(wedge)]])
+        t_out = rot @ t_ws
+        q1 = q0 + thick*n_ws
+        poly = [q0 - 1.9*t_ws, q0 + 2.1*t_ws, q1 + 2.1*t_out, q1 - 1.9*t_out]
+        ax.add_patch(mpatches.Polygon(poly, closed=True, facecolor=GLASS, edgecolor=EDGE, lw=1.0))
+        eye = np.array([-2.6, 1.3])
+        _eye_icon(ax, *eye, size=0.28, facing="right")
+        start = eye + [0.3, 0.0]
+        # primary: eye ray to the inner surface
+        d = unit(q0 - start)
+        r = refl(d, n_ws)
+        ax.plot(*np.c_[start, q0], color=AR_IMAGE, lw=1.6)
+        ax.plot(*np.c_[q0, q0 + 2.6*r], color=AR_IMAGE, lw=1.6)
+        arrow(ax, *(q0 + 1.6*r), *(q0 + 1.2*r), color=AR_IMAGE, lw=1.6)
+        # secondary: a parallel eye ray slightly lower, through the glass
+        d2 = d
+        p_in = hit_line(start + np.array([0.0, -0.12]), d2, q0, t_ws)
+        d_g = refr(d2, n_ws, 1.0, n_g)
+        n_out = np.array([t_out[1], -t_out[0]])
+        p_back = hit_line(p_in, d_g, q1, t_out)
+        d_g2 = refl(d_g, n_out)
+        p_out = hit_line(p_back, d_g2, q0, t_ws)
+        d_out = refr(d_g2, n_ws, n_g, 1.0)
+        pts = np.array([start + [0.0, -0.12], p_in, p_back, p_out])
+        ax.plot(pts[:, 0], pts[:, 1], color=AR_GHOST, lw=1.1, ls="--")
+        ax.plot(*np.c_[p_out, p_out + 2.6*d_out], color=AR_GHOST, lw=1.1, ls="--")
+        arrow(ax, *(p_out + 1.6*d_out), *(p_out + 1.2*d_out), color=AR_GHOST, lw=1.1)
+        label(ax, *(q0 + 2.75*r + np.array([0.0, -0.1])), "from the HUD mirror", fontsize=8,
+              va="top", color=AR_IMAGE)
+        label(ax, eye[0], eye[1] - 0.45, "eye", fontsize=8, va="top")
+        label(ax, *(q0 + 1.6*t_ws + 0.9*n_ws), "inner surface: image\nouter surface: ghost",
+              fontsize=8, ha="left")
+        label(ax, *(q1 - 1.2*t_out + 0.35*n_ws), "wedge (PVB interlayer)\nturns the ghost\n"
+              "onto the image", fontsize=8, ha="left", va="top")
+        _finish(ax, (-3.2, 4.6), (-2.0, 3.4), title)
+        return
+    if kind != "layout":
+        raise ValueError("kind must be 'layout' or 'double_image'")
+    ws0, ws1 = np.array([1.6, 1.2]), np.array([-1.0, 4.4])
+    t_ws = unit(ws1 - ws0)
+    n_ws = np.array([t_ws[1], -t_ws[0]])
+    ax.add_patch(mpatches.Polygon([[-1.6, 0.0], [1.7, 0.0], [1.7, 1.2], [-1.6, 1.2]], closed=True,
+                                  facecolor="0.93", edgecolor="0.6", lw=0.8))
+    label(ax, -1.5, 0.08, "dashboard", fontsize=7, ha="left", va="bottom", color="0.4")
+    ax.plot(*np.c_[ws0, ws1], color=EDGE, lw=4, alpha=0.6)
+    label(ax, ws1[0] - 0.1, ws1[1] + 0.1, "windshield", fontsize=8, va="bottom")
+    eye = np.array([-3.0, 2.75])
+    hit = ws0 + 0.42*(ws1 - ws0)
+    d = unit(hit - (eye + [0.3, 0.0]))
+    r = refl(d, n_ws)                       # direction from the hit towards the HUD mirror
+    m = hit + 1.45*(-r) if (hit + 1.45*(-r))[1] < 1.2 else hit + 1.45*r
+    fold = np.array([-0.9, 0.55])
+    pgu = np.array([0.6, 0.3])
+
+    def draw_mirror(c, a, b, half, curve):
+        nrm = unit(unit(a - c) + unit(b - c))
+        tan = np.array([nrm[1], -nrm[0]])
+        s_ = np.linspace(-1, 1, 30)
+        pts = c[None, :] + half*s_[:, None]*tan[None, :] - curve*(1 - s_[:, None]**2)*nrm[None, :]
+        ax.plot(pts[:, 0], pts[:, 1], color="0.3", lw=3, solid_capstyle="round")
+
+    draw_mirror(m, fold, hit, 0.4, 0.08)
+    draw_mirror(fold, pgu, m, 0.3, 0.0)
+    ax.add_patch(mpatches.Rectangle((pgu[0] - 0.3, pgu[1] - 0.12), 0.6, 0.12, facecolor="0.3"))
+    for p, q in ((pgu, fold), (fold, m), (m, hit), (hit, eye + [0.3, 0.0])):
+        ax.plot(*np.c_[p, q], color=AR_IMAGE, lw=1.5)
+    arrow(ax, *(0.5*(hit + eye + [0.3, 0.0]) + 0.1*d), *(0.5*(hit + eye + [0.3, 0.0]) - 0.1*d),
+          color=AR_IMAGE, lw=1.5)
+    label(ax, pgu[0] + 0.4, pgu[1] - 0.08, "display (PGU)", fontsize=8, ha="left", va="center")
+    label(ax, fold[0], fold[1] + 0.35, "fold\nmirror", fontsize=8, va="bottom")
+    label(ax, m[0] - 0.4, m[1] + 0.5, "concave freeform\nmirror", fontsize=8, ha="right")
+    _eye_icon(ax, *eye, size=0.3, facing="right")
+    ax.add_patch(mpatches.Rectangle((eye[0] - 0.15, eye[1] - 0.45), 0.3, 0.9, fill=False,
+                                    edgecolor="0.4", lw=0.8, ls="--"))
+    label(ax, eye[0], eye[1] - 0.55, "eye box", fontsize=8, va="top")
+    vi = hit + 4.6*d
+    ax.plot(*np.c_[hit, vi], color=AR_IMAGE, lw=1.0, ls=":")
+    ax.add_patch(mpatches.Rectangle((vi[0] - 0.05, vi[1] - 0.35), 0.1, 0.7, facecolor=AR_IMAGE,
+                                    alpha=0.35, edgecolor=AR_IMAGE))
+    label(ax, vi[0], vi[1] + 0.45, "virtual image\n2 to 15 m ahead", fontsize=8, va="bottom",
+          color=AR_IMAGE)
+    _finish(ax, (-3.6, 6.4), (-0.3, 5.0), title)

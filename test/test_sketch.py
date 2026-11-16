@@ -350,3 +350,28 @@ def test_prism_sketch_bends_blue_most():
             ends.setdefault(c, []).append(y[-1])
     assert min(ends[sketch._SPECTRUM["blue"]]) < min(ends[sketch._SPECTRUM["red"]])
     plt.close(fig)
+
+
+@pytest.mark.parametrize("draw, kinds", [
+    (sketch.waveguide_combiner, ("side", "epe2d")),
+    (sketch.volume_grating_layout, ("transmission", "reflection")),
+    (sketch.hud_layout, ("layout", "double_image")),
+])
+def test_arvr_sketches(draw, kinds):
+    for kind in kinds:
+        fig, ax = plt.subplots()
+        draw(ax, kind, title=kind)
+        assert ax.get_title() == kind and (ax.lines or ax.patches)
+        plt.close(fig)
+    fig, ax = plt.subplots()
+    with pytest.raises(ValueError):
+        draw(ax, "unknown")
+    plt.close(fig)
+
+
+def test_pancake_sketch():
+    for ghost in (True, False):
+        fig, ax = plt.subplots()
+        sketch.pancake_lens(ax, ghost=ghost, title="p")
+        assert ax.get_title() == "p" and ax.lines
+        plt.close(fig)
