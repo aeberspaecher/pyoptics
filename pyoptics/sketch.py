@@ -259,7 +259,10 @@ Setup sketches for the other example notebooks:
   mirrors, a polygon, a resonant MEMS mirror, an optical phased array
   and Risley prisms (notebook 132, beam scanning); scan_lens_layout(): a
   laser processing head, an F-theta and a telecentric scan lens and the
-  two galvo pivots unfolded (notebook 149, scan lenses);
+  two galvo pivots unfolded (notebook 149, scan lenses); hybrid_lens_layout():
+  the colour of refractive, diffractive and hybrid lenses, the zones of a
+  kinoform, its Sweatt model and its diffraction orders (notebook 151,
+  hybrid diffractive lenses);
   structured_light_layout(): a laser triangulation sensor, fringe
   projection and a dot projector with its camera
   (notebook 133, triangulation and structured light).
@@ -353,7 +356,7 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "pancake_lens", "hud_layout", "zoom_cams", "qbfs_geometry",
            "progressive_lens_layout", "lidar_layout", "beam_scanner", "scan_lens_layout",
            "structured_light_layout", "crystal_optics_layout", "modulator_layout", "laser_layout",
-           "text_scale"]
+           "hybrid_lens_layout", "text_scale"]
 
 
 GLASS = "#cfe3f3"
@@ -11241,3 +11244,149 @@ def detector_layout(ax, kind="pin", title=None):
         _finish(ax, (-2.4, 9.0), (-2.2, 2.9), title)
         return
     raise ValueError("unknown kind " + repr(kind))
+
+
+HYBRID_COLORS = {"blue": "#2a7ab9", "green": "#5aa469", "red": "#d6604d"}
+
+
+def _kinoform_profile(z0, h, n_zones, depth, side=1.0, n=2001):
+    """Outline (z, y) of a kinoform on the plane z = z0 between -h and h:
+    sawtooth zones of the given depth with edges at h*sqrt(j/n_zones), the
+    teeth towards +z (side=1) or -z."""
+
+    y = np.linspace(-h, h, n)
+    u = (y/h)**2*n_zones  # phase in zones
+    frac = u - np.minimum(np.floor(u), n_zones - 1)
+
+    return z0 + side*depth*(1 - frac), y
+
+
+def _kinoform_plate(ax, z0, h, n_zones, depth, thickness, side=1.0, color=GLASS, zorder=3,
+                    front=None):
+    """A plate whose back (side=1, at z0) carries a kinoform; front: optional
+    sag function of the front surface (a refracting lens) at z0 - thickness."""
+
+    mpatches = _patches()
+    zk, yk = _kinoform_profile(z0, h, n_zones, depth, side)
+    yf = np.linspace(h, -h, 80)
+    zf = z0 - thickness + (np.zeros_like(yf) if front is None else front(yf))
+    poly = np.column_stack([np.concatenate([zk, zf]), np.concatenate([yk, yf])])
+    ax.add_patch(mpatches.Polygon(poly, closed=True, facecolor=color, edgecolor=EDGE, lw=1.0,
+                                  zorder=zorder))
+
+
+def hybrid_lens_layout(ax, kind="hybrid", title=None):
+    """Sketch of diffractive and hybrid lenses (notebook 151, hybrid
+    diffractive lenses).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"refractive", "diffractive", "hybrid", "kinoform", "sweatt", "orders"}, optional
+        "refractive": a glass lens focuses blue in front of red (normal
+        dispersion, V > 0). "diffractive": a kinoform on a plate focuses red
+        in front of blue, much more strongly (f ~ 1/lambda, V = -3.45).
+        "hybrid": a plano-convex lens with a weak kinoform on its plane side
+        brings blue and red to one focus. "kinoform": the zones of a
+        diffractive lens, depth lambda_0/(n - 1), radii sqrt(2 j lambda_0 f),
+        the local period and the local grating equation. "sweatt": the
+        kinoform and its Sweatt model, a thin lens of a huge index N whose
+        thickness gives the same optical path. "orders": the orders 0, 1 and
+        2 of a kinoform focus at infinity, f and f/2.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    C = HYBRID_COLORS
+    h = 1.2
+
+    def converge(z_lens, foci, z_end, heights=(-h*0.85, h*0.85), lw=1.2):
+        for col, zf in foci:
+            for y0 in heights:
+                ax.plot([-1.2, z_lens], [y0, y0], color="0.55", lw=0.9, zorder=1)
+                s = -y0/(zf - z_lens)
+                ax.plot([z_lens, z_end], [y0, y0 + s*(z_end - z_lens)], color=col, lw=lw,
+                        alpha=0.9, zorder=2)
+            ax.plot(zf, 0.0, "o", color=col, ms=4, zorder=4)
+
+    if kind == "refractive":
+        lens(ax, 0.0, h, thickness=0.35)
+        converge(0.0, [(C["blue"], 4.0), (C["green"], 4.35), (C["red"], 4.6)], 5.6)
+        label(ax, 0.0, -1.55, "glass lens, V > 0", fontsize=9)
+        label(ax, 4.3, 0.55, "blue first", fontsize=8)
+        _finish(ax, (-1.4, 5.8), (-1.9, 1.6), title)
+    elif kind == "diffractive":
+        _kinoform_plate(ax, 0.06, h, 6, 0.1, 0.12)
+        converge(0.06, [(C["red"], 3.3), (C["green"], 4.35), (C["blue"], 5.4)], 5.8)
+        label(ax, 0.0, -1.55, "kinoform, V = −3.45", fontsize=9)
+        label(ax, 4.3, 0.55, "red first, f ∝ 1/λ", fontsize=8)
+        _finish(ax, (-1.4, 6.0), (-1.9, 1.6), title)
+    elif kind == "hybrid":
+        R = 2.6
+        front = lambda y: (R - np.sqrt(R**2 - y**2)) - (R - np.sqrt(R**2 - h**2))
+        _kinoform_plate(ax, 0.1, h, 3, 0.07, 0.42, front=front)
+        converge(0.1, [(C["blue"], 4.35), (C["green"], 4.35), (C["red"], 4.35)], 5.6)
+        label(ax, 0.0, -1.55, "glass + weak kinoform", fontsize=9)
+        label(ax, 4.35, 0.55, "one focus", fontsize=8)
+        _finish(ax, (-1.4, 5.8), (-1.9, 1.6), title)
+    elif kind == "kinoform":
+        H = 2.0
+        n_z = 5
+        _kinoform_plate(ax, 0.6, H, n_z, 0.25, 0.5)
+        edges = H*np.sqrt(np.arange(n_z + 1)/n_z)
+        for r in edges[1:-1]:
+            ax.plot([0.75, 1.15], [r, r], color="0.5", lw=0.6, ls=":")
+        label(ax, 1.25, edges[1], "r₁ = √(2λ₀f)", fontsize=8, ha="left")
+        label(ax, 1.25, edges[3], "r_j = √(2jλ₀f)", fontsize=8, ha="left")
+        ax.annotate("", xy=(1.05, edges[-2]), xytext=(1.05, edges[-1]),
+                    arrowprops=dict(arrowstyle="<->", color="0.3", lw=0.8))
+        label(ax, 1.25, 0.5*(edges[-2] + edges[-1]), "local period Λ(r) = 2π/|φ′(r)|",
+              fontsize=8, ha="left")
+        ax.annotate("", xy=(0.6, -edges[-2] + 0.02), xytext=(0.95, -edges[-2] + 0.02),
+                    arrowprops=dict(arrowstyle="<->", color="0.3", lw=0.8))
+        label(ax, 1.05, -edges[-2], "depth λ₀/(n − 1)", fontsize=8, ha="left")
+        label(ax, 4.3, -0.4, "local grating equation:\nn′ sin θ′ = n sin θ + mλ/Λ(r)",
+              fontsize=9)
+        label(ax, 4.3, 0.6, "phase φ(r) = Σ A_k (r/r_n)^(2k),\nwrapped to steps of 2π",
+              fontsize=9)
+        _finish(ax, (-0.5, 6.2), (-2.4, 2.4), title)
+    elif kind == "sweatt":
+        H = 1.6
+        _kinoform_plate(ax, 0.6, H, 4, 0.3, 0.4)
+        label(ax, 0.4, -2.0, "kinoform:\nzones of 2π", fontsize=8)
+        arrow(ax, 1.4, 0.0, 2.4, 0.0, text="N → ∞", text_pos=(1.9, 0.25))
+        # thin lens of huge index on the plate: (N - 1) t(r) = m lambda phi / 2 pi + const
+        y = np.linspace(-H, H, 101)
+        t = 0.18*(1 - (y/H)**2)
+        ax.add_patch(mpatches.Polygon(np.column_stack([np.r_[3.0 + 0*y, (3.0 + t)[::-1]],
+                                                       np.r_[y, y[::-1]]]), closed=True,
+                                      facecolor="#f3d9c6", edgecolor=EDGE, lw=1.0, zorder=4))
+        ax.add_patch(mpatches.Rectangle((2.6, -H), 0.4, 2*H, facecolor=GLASS, edgecolor=EDGE,
+                                        lw=1.0, zorder=3))
+        label(ax, 3.2, -2.0, "Sweatt model: a thin lens\nof index N(λ) − n ∝ λ", fontsize=8)
+        label(ax, 4.9, 0.0, "(N − n) t(r) = mλφ(r)/2π\nsame rays, Seidel sums\nand colour",
+              fontsize=8, ha="left")
+        _finish(ax, (-0.3, 7.4), (-2.6, 2.0), title)
+    elif kind == "orders":
+        _kinoform_plate(ax, 0.06, h, 5, 0.1, 0.12)
+        f = 2.6
+        for m, col, zf in ((0, "0.55", None), (1, C["green"], f), (2, "#8e5ba8", f/2)):
+            for y0 in (-h*0.85, h*0.85):
+                ax.plot([-1.2, 0.06], [y0, y0], color="0.55", lw=0.9, zorder=1)
+                if zf is None:
+                    ax.plot([0.06, 5.6], [y0, y0], color=col, lw=1.0, ls="--", zorder=1)
+                else:
+                    s = -y0/(zf - 0.06)
+                    z_end = min(5.6, 0.06 + 1.8*(zf - 0.06))
+                    ax.plot([0.06, z_end], [y0, y0 + s*(z_end - 0.06)], color=col, lw=1.2,
+                            zorder=2)
+            if zf is not None:
+                ax.plot(zf, 0.0, "o", color=col, ms=4, zorder=4)
+                label(ax, zf, -1.6, "m = {}: f/{}".format(m, m) if m > 1 else "m = 1: f",
+                      fontsize=8, color=col)
+        label(ax, 4.8, 1.45, "m = 0: no power", fontsize=8, color="0.45")
+        label(ax, 0.0, 1.6, "η_m = sinc²(α − m)", fontsize=8)
+        _finish(ax, (-1.4, 5.8), (-2.0, 1.9), title)
+    else:
+        raise ValueError("kind must be 'refractive', 'diffractive', 'hybrid', 'kinoform', "
+                         "'sweatt' or 'orders'")

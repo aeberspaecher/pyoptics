@@ -124,7 +124,8 @@ What each module does and how mature it is. Planned work is listed in
 - `materials`: Abbe (n_d, V_d) dispersion model via a two-term Cauchy
   formula, the index of water (Daimon and Masumura, 20 deg C) and of
   standard air (Ciddor), and of GeO₂-doped silica (Fleming's Sellmeier
-  data for SiO₂ and GeO₂ with a linear mixing rule), tested
+  data for SiO₂ and GeO₂ with a linear mixing rule), and of the infrared
+  materials ZnSe (Tatian) and germanium (Icenogle), tested
 - `rainbow`: new, tested: rays through a spherical drop with any number of
   internal reflections (exact vector trace, Fresnel factors for s and p),
   Descartes' angles, the geometric cross section of every order, Airy's
@@ -534,7 +535,13 @@ What each module does and how mature it is. Planned work is listed in
   `materials.CubicCrystal`); power along every ray, transmittance, output
   fields and Jones matrices; vectorial focus of the traced rays
   (`System.vectorial_focus()`, Debye-Wolf integral with the coatings and the
-  OPD)
+  OPD); diffractive (kinoform) surfaces (`DiffractiveSurface`: a Binary 2
+  phase polynomial on any base surface, traced with the local grating
+  equation, its paraxial power, Seidel sums and primary colour in the limit
+  of the Sweatt model, checked with `System.sweatt_model()`, zone radii and
+  local period, kinoform depth and scalar efficiency with
+  `System.diffraction_efficiency()`, multi-order lenses; notebook 151,
+  hybrid diffractive lenses)
 - `delano`: Delano's y-ybar diagram, tested: the diagram of any centred
   `raytrace.System` (powers, spacings, magnification, NA, pupils and
   cardinal points agree with the paraxial trace and `abcd`), thin lens
@@ -562,7 +569,9 @@ What each module does and how mature it is. Planned work is listed in
   and their prices); `predicted_gain()` ranks candidate variables (e.g. an
   asphere on each surface) by the linearized decrease of the merit function
   (notebook 43, Delano diagrams, section 7); `ftheta()`, the F-theta law
-  h = f*theta of scan lenses as an operand (notebook 149, scan lenses)
+  h = f*theta of scan lenses as an operand (notebook 149, scan lenses);
+  `DiffractivePhase` and `diffractive()`, the phase terms of a diffractive
+  surface as variables (notebook 151, hybrid diffractive lenses)
 - `tolerancing`: Monte Carlo tolerancing, tested: tolerances (power in
   fringes, radius, thickness and air space, axial position of an element,
   image plane, index, Abbe number, element decentre, element tilt about a

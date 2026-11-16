@@ -7,8 +7,9 @@ Two optimizers:
 
 - `DampedLeastSquares`, the classical lens design optimizer (see the section
   further down): `Variable` objects (`Curvature`, `Thickness`, `AirSpace`,
-  `Conic`, `Aspheric`, model glasses `GlassIndex`/`GlassAbbe` with
-  `glass()`), solves (`solve_paraxial_focus()`, `solve_entrance_pupil()`,
+  `Conic`, `Aspheric`, the phase coefficients of diffractive surfaces
+  `DiffractivePhase` with `diffractive()`, model glasses
+  `GlassIndex`/`GlassAbbe` with `glass()`), solves (`solve_paraxial_focus()`, `solve_entrance_pupil()`,
   `solve_curvature_for_efl()`), operands (the factories below plus
   `polychromatic_ray_errors()`, `spot_rms()`, `wavefront()`, `seidel()`,
   `chromatic()`, `focal_shift()`) and `Constraint` objects held with
@@ -1061,6 +1062,70 @@ class Aspheric(Variable):
 
     def typical(self, system):
         return 100*system.wavelength
+
+
+class DiffractivePhase(Variable):
+    """Phase coefficient A_k of a `raytrace.DiffractiveSurface` (of
+    rho**(2k)), as the phase A_k (rim/norm_radius)**(2k) in radians at the
+    radius `rim`. k = 1 is the diffractive power, k = 2, 3, ... act like
+    aspheric terms (scaled with the wavelength).
+
+    Parameters
+    ----------
+    surface : int
+        Index of the diffractive surface.
+    k : int
+        Term of the phase polynomial, 1 for rho**2.
+    rim : number
+        Radius at which the variable is the phase (e.g. the semi diameter).
+    bounds : (lower, upper), optional
+    """
+
+    def __init__(self, surface, k, rim, bounds=(None, None)):
+        super().__init__(bounds)
+        if k < 1:
+            raise ValueError("k counts from 1 (the rho**2 term).")
+        self.surface, self.k, self.rim = surface, int(k), float(rim)
+        self.name = "phi{}_{}".format(2*self.k, surface)
+
+    def _coefficients(self, system):
+        a = list(system.surfaces[self.surface].phase)
+
+        return a + [0.0]*(self.k - len(a))
+
+    def _scale(self, system):
+        return (self.rim/system.surfaces[self.surface].norm_radius)**(2*self.k)
+
+    def get(self, system):
+        return self._coefficients(system)[self.k - 1]*self._scale(system)
+
+    def set(self, system, value):
+        a = self._coefficients(system)
+        a[self.k - 1] = value/self._scale(system)
+        system.surfaces[self.surface].phase = tuple(a)
+
+    def typical(self, system):
+        return 20*2*np.pi
+
+
+def diffractive(surface, rim, terms=(1, 2), bounds=(None, None)):
+    """Phase variables of a diffractive surface: [DiffractivePhase(surface,
+    k, rim) for k in terms] (default: power and the rho**4 term).
+
+    Parameters
+    ----------
+    surface : int
+    rim : number
+        Radius at which the variables are phases in radians.
+    terms : sequence of int, optional
+    bounds : (lower, upper), optional
+
+    Returns
+    -------
+    list of Variable
+    """
+
+    return [DiffractivePhase(surface, k, rim, bounds) for k in terms]
 
 
 def _model_glass(surface):

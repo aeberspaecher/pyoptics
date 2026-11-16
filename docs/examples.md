@@ -204,6 +204,7 @@ Sequential and polarization ray tracing, from rays to waves, glass catalogues, l
 - {doc}`notebooks/128_forbes_q_aspheres`
 - {doc}`notebooks/129_progressive_lenses`
 - {doc}`notebooks/149_scan_lenses`
+- {doc}`151 Hybrid diffractive lenses <notebooks/151_hybrid_diffractive_lenses>`
 
 ```{toctree}
 :hidden:
@@ -228,6 +229,7 @@ notebooks/127_zoom_lenses
 notebooks/128_forbes_q_aspheres
 notebooks/129_progressive_lenses
 notebooks/149_scan_lenses
+notebooks/151_hybrid_diffractive_lenses
 ```
 
 ## Interferometry, holography and wavefront sensing
