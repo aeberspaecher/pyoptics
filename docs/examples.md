@@ -474,6 +474,32 @@ notebooks/114_spectral_lines_absorption
 notebooks/122_imaging_spectroscopy
 ```
 
+## AR/VR and head-up displays
+
+The optics of augmented and virtual reality and of head-up displays:
+waveguide combiners analysed in k-space, with slanted in-couplers from
+RCWA, pupil replication over the eye box and the rainbow artefact; volume
+holographic gratings with Kogelnik's coupled wave theory checked against
+RCWA and thin films; pancake lenses that fold a VR eyepiece with
+polarization, with real quartz retarders and their ghosts; and windshield
+head-up displays with the double image, the wedge and a ray traced
+freeform mirror.
+
+- {doc}`123 AR waveguide combiners <notebooks/123_ar_waveguide_combiners>`
+- {doc}`124 Volume holographic gratings <notebooks/124_volume_holographic_gratings>`
+- {doc}`125 Pancake lenses <notebooks/125_pancake_lenses>`
+- {doc}`126 Head-up displays <notebooks/126_head_up_displays>`
+
+```{toctree}
+:hidden:
+:caption: AR/VR and head-up displays
+
+notebooks/123_ar_waveguide_combiners
+notebooks/124_volume_holographic_gratings
+notebooks/125_pancake_lenses
+notebooks/126_head_up_displays
+```
+
 ## Running the notebooks
 
 ```{include} ../notebooks/README.md

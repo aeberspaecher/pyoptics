@@ -201,6 +201,28 @@ couplers and rings on a chip), {doc}`81 Ultrashort pulses <notebooks/81_ultrasho
 (Bragg mirrors as thin films), {doc}`112 Field tracing applications <notebooks/112_field_tracing_applications>` (coupling a beam into a single-mode
 fibre with a lens).
 
+## AR/VR and display optics
+
+For readers who work on head-mounted displays or head-up displays and
+want to see where the numbers of a datasheet (field of view, eye box,
+ghosts, image distance) come from. Real glasses from the SCHOTT
+catalogue, crystal quartz and windshield geometry throughout.
+
+| Step | Notebook | Why |
+|---|---|---|
+| 1 | {doc}`10 Interfaces and thin films <notebooks/10_interfaces_thin_films>` | Total internal reflection, Brewster's angle and Fresnel reflectance, on which everything below rests. |
+| 2 | {doc}`123 AR waveguide combiners <notebooks/123_ar_waveguide_combiners>` | The field of view in k-space, slanted in-couplers with RCWA, pupil replication, the eye box and the rainbow artefact. |
+| 3 | {doc}`124 Volume holographic gratings <notebooks/124_volume_holographic_gratings>` | Kogelnik's coupled waves, Bragg selectivity and why holographic combiners trade field of view for transparency. |
+| 4 | {doc}`125 Pancake lenses <notebooks/125_pancake_lenses>` | Folding a VR eyepiece with polarization, and the ghosts of real retarders over the spectrum and the field. |
+| 5 | {doc}`126 Head-up displays <notebooks/126_head_up_displays>` | The windshield as an off-axis mirror: double images, wedges and a freeform HUD mirror judged by vergence and disparity. |
+
+**Side trips:** {doc}`11 Jones and Mueller calculus <notebooks/11_polarization>` (the polarization
+algebra behind the pancake), {doc}`36 Rigorous mask (RCWA) <notebooks/36_litho_rigorous_mask>` (the method behind the grating
+efficiencies), {doc}`110 Grating and prism spectrometers <notebooks/110_grating_prism_spectrometers>` (off-axis mirrors and
+Coddington astigmatism in a Czerny–Turner), {doc}`51 Fresnel lenses <notebooks/51_fresnel_lenses>` (the VR lens before
+pancakes), {doc}`83 Étendue <notebooks/83_etendue_brightness_theorem>` (why a small projector cannot fill a large eye box
+for free).
+
 ## Metrology, microscopy and computational imaging
 
 For readers who measure wavefronts or build imaging systems that rely on

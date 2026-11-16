@@ -750,6 +750,29 @@ What each module does and how mature it is. Planned work is listed in
   the dispersion of air (`best_glass_pairs()`) and the image of a
   dispersed star (`smeared_star()`); checked against Ciddor's formula,
   the exact refraction integral and the thin prism formula (notebook 101, atmospheric dispersion corrector)
+- `arvr`: new, tested: AR/VR and head-up display optics. Waveguide
+  combiners in k-space: field angles and transverse wave vectors
+  (`field_to_k()`, `k_to_field()`), the vector grating equation
+  (`diffract()`), guiding by total internal reflection (`is_guided()`),
+  the largest 1D field of view against the index (`max_fov_1d()`) and the
+  symmetric period; pupil replication: bounce spacing, out-coupling
+  efficiencies for equal copies (`uniform_outcoupling()`), the powers of
+  the copies and the eye box efficiency of an eye pupil
+  (`eyebox_efficiency()`); layers for `litho.rcwa` of binary, slanted and
+  volume gratings (`binary_grating()`, `slanted_grating()`,
+  `volume_grating()`); Kogelnik's coupled wave theory of thick
+  transmission and reflection gratings (`kogelnik()`, `bragg_angle()`);
+  crystal quartz after Ghosh, the exact retardance of an A-plate at any
+  angle of incidence (`aplate_retardance()`), Pancharatnam's achromatic
+  quarter wave plate and the Jones model of a pancake lens with its
+  direct and five-pass ghosts (`pancake_jones()`); the double image of a
+  windshield and the wedge that removes it (`windshield_double_image()`,
+  `wedge_for_distance()`), a ray traced HUD with a freeform mirror
+  (`hud_system()`) and the vergence matrix seen by the eye (`aim_ray()`,
+  `vergence()`); checked against RCWA, thin film matrices, tanh² at Bragg
+  and the unfolded distance of plane mirrors (notebooks
+  123 (AR waveguide combiners), 124 (volume holographic gratings),
+  125 (pancake lenses) and 126 (head-up displays))
 - `wpm`: wave propagation method (Cython extension) for inhomogeneous, also
   absorbing media, 2D and y-invariant 1D fields, multi-step driver; direct
   O(N^2) sum (OpenMP) or the fast "levels" variant (one FFT pair per distinct
@@ -781,7 +804,10 @@ What each module does and how mature it is. Planned work is listed in
   flat-top shaper and a freeform lens projecting a picture; fibres (step,
   graded and single-mode cross sections, the acceptance cone, skew rays in
   an end view, the transverse resonance of a slab, the dispersion
-  mechanisms, a fibre Bragg grating and a basic link)
+  mechanisms, a fibre Bragg grating and a basic link); AR/VR and head-up
+  displays (a waveguide combiner from the side and with a fold grating, a
+  volume grating at Bragg, a pancake lens, a windshield HUD and its double
+  image)
 - `interpolator`: trigonometric (Fourier) interpolation of periodic images
   and complex fields, tested: along one axis at any points
   (`trig_interpolate()`), in 2D on any grid or at scattered points
