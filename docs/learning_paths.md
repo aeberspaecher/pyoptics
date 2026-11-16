@@ -104,7 +104,7 @@ aberrations first can start with {doc}`103 Introduction to geometrical optics <n
 | 11 | {doc}`50 Magnification, distortion, telecentricity <notebooks/50_magnification_distortion_telecentricity>` | Magnification, distortion and telecentricity as Zernikes. |
 | 12 | {doc}`70 Monte Carlo tolerancing <notebooks/70_monte_carlo_tolerancing>` | Monte Carlo tolerancing. |
 
-**Lens design classics:** {doc}`127 Zoom lenses <notebooks/127_zoom_lenses>` (mechanical compensation, a patent zoom with real glasses, cams and their tolerances, inner focusing and focus breathing), {doc}`128 Forbes Q aspheres <notebooks/128_forbes_q_aspheres>` (slope-orthogonal asphere descriptions, manufacturability and better conditioned optimization), {doc}`129 Progressive spectacle lenses <notebooks/129_progressive_lenses>` (the Minkwitz theorem, hard and soft designs, the lens traced as worn and seen by the eye of {doc}`49 Eye aberrometer <notebooks/49_eye_aberrometer>`).
+**Lens design classics:** {doc}`127 Zoom lenses <notebooks/127_zoom_lenses>` (mechanical compensation, a patent zoom with real glasses, cams and their tolerances, inner focusing and focus breathing), {doc}`128 Forbes Q aspheres <notebooks/128_forbes_q_aspheres>` (slope-orthogonal asphere descriptions, manufacturability and better conditioned optimization), {doc}`129 Progressive spectacle lenses <notebooks/129_progressive_lenses>` (the Minkwitz theorem, hard and soft designs, the lens traced as worn and seen by the eye of {doc}`49 Eye aberrometer <notebooks/49_eye_aberrometer>`), {doc}`149 Scan lenses <notebooks/149_scan_lenses>` (an F-theta and a telecentric scan lens with damped least squares).
 
 **From rays to waves:** {doc}`21 Lens focus from rays to waves <notebooks/21_lens_focus_waves>`, {doc}`47 Rays and waves <notebooks/47_rays_and_waves>`, {doc}`46 Analytic phase propagation <notebooks/46_analytic_phase_propagation>` (propagating strongly curved
 wavefronts), {doc}`56 Gaussian beam decomposition <notebooks/56_gaussian_beam_decomposition>`.
@@ -171,10 +171,11 @@ For readers who build laser heads, fibre couplings or beam shapers.
 | 7 | {doc}`30 IFTA beam shaping <notebooks/30_IFTA>` | Designing a phase-only DOE with IFTA. |
 | 8 | {doc}`89 Freeform beam shaping <notebooks/89_freeform_beam_shaping>` | Refractive flat-top shapers and freeform lenses. |
 | 9 | {doc}`48 Laser head DOE <notebooks/48_laser_head_doe>` | A diffractive 5 × 5 spot splitter in a processing head. |
-| 10 | {doc}`68 Bessel and Airy beams <notebooks/68_bessel_airy_self_healing>` | Bessel and Airy beams. |
-| 11 | {doc}`69 Optical vortices <notebooks/69_optical_vortices>` | Vortex beams and mode converters. |
-| 12 | {doc}`81 Ultrashort pulses <notebooks/81_ultrashort_pulses_lenses>` | Femtosecond pulses through lenses, prisms and gratings. |
-| 13 | {doc}`75 Optical tweezers <notebooks/75_optical_tweezers>` | Optical forces in a tight focus. |
+| 10 | {doc}`149 Scan lenses <notebooks/149_scan_lenses>` | F-theta and telecentric scan lenses behind two galvos, the bow of the scan lines and its lookup table. |
+| 11 | {doc}`68 Bessel and Airy beams <notebooks/68_bessel_airy_self_healing>` | Bessel and Airy beams. |
+| 12 | {doc}`69 Optical vortices <notebooks/69_optical_vortices>` | Vortex beams and mode converters. |
+| 13 | {doc}`81 Ultrashort pulses <notebooks/81_ultrashort_pulses_lenses>` | Femtosecond pulses through lenses, prisms and gratings. |
+| 14 | {doc}`75 Optical tweezers <notebooks/75_optical_tweezers>` | Optical forces in a tight focus. |
 
 **Side trips:** {doc}`02 Vectorial diffraction <notebooks/02_vectorial_diffraction>` (high NA foci), {doc}`03 Tilted planes <notebooks/03_tilted_planes>`, {doc}`04 Chirp-z transform <notebooks/04_chirp_z_transform>`; for fibre delivery,
 {doc}`115 Light in a fibre <notebooks/115_fibre_rays_step_graded>` (NA, étendue and bend loss of multimode fibres), {doc}`116 Fibre modes <notebooks/116_fibre_modes>`

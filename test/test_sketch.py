@@ -380,6 +380,7 @@ def test_pancake_sketch():
 @pytest.mark.parametrize("draw, kinds", [
     (sketch.lidar_layout, ("tof", "fmcw")),
     (sketch.beam_scanner, ("galvo", "polygon", "mems", "opa", "risley")),
+    (sketch.scan_lens_layout, ("head", "ftheta", "telecentric", "two_mirrors")),
     (sketch.structured_light_layout, ("triangulation", "fringe", "dots")),
 ])
 def test_3d_sensing_sketches(draw, kinds):

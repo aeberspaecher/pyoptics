@@ -257,7 +257,9 @@ Setup sketches for the other example notebooks:
   LiDAR with its local oscillator and balanced receiver (notebooks
   130, time-of-flight LiDAR, and 131, FMCW LiDAR); beam_scanner(): galvo
   mirrors, a polygon, a resonant MEMS mirror, an optical phased array
-  and Risley prisms (notebook 132, beam scanning);
+  and Risley prisms (notebook 132, beam scanning); scan_lens_layout(): a
+  laser processing head, an F-theta and a telecentric scan lens and the
+  two galvo pivots unfolded (notebook 149, scan lenses);
   structured_light_layout(): a laser triangulation sensor, fringe
   projection and a dot projector with its camera
   (notebook 133, triangulation and structured light).
@@ -349,7 +351,7 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "spectrometer_layout", "fts_layout", "fabry_perot_layout", "absorption_layout",
            "imaging_spectrometer_layout", "waveguide_combiner", "volume_grating_layout",
            "pancake_lens", "hud_layout", "zoom_cams", "qbfs_geometry",
-           "progressive_lens_layout", "lidar_layout", "beam_scanner",
+           "progressive_lens_layout", "lidar_layout", "beam_scanner", "scan_lens_layout",
            "structured_light_layout", "crystal_optics_layout", "modulator_layout", "laser_layout",
            "text_scale"]
 
@@ -10298,6 +10300,114 @@ def beam_scanner(ax, kind="galvo", title=None):
         _finish(ax, (-1.4, 4.6), (-1.9, 1.7), title)
     else:
         raise ValueError("kind must be 'galvo', 'polygon', 'mems', 'opa' or 'risley'")
+
+
+def scan_lens_layout(ax, kind="ftheta", title=None):
+    """Sketch of a scan lens behind a scanner (notebook 149, scan lenses).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"head", "ftheta", "telecentric", "two_mirrors"}, optional
+        "head": a laser processing head, laser, beam expander, two galvo
+        mirrors, the scan lens and the workpiece, with the bowed lines of
+        the scan field. "ftheta": the scanner in front of an F-theta lens,
+        beams at three angles focused to h = f*theta on a flat field, the
+        chief rays oblique at the workpiece. "telecentric": the scanner in
+        the front focal plane, the chief rays leave parallel to the axis,
+        the last lens is as large as the field. "two_mirrors": the two
+        mirrors unfolded along the axis, their pivots in front of and
+        behind the focal plane, the beams of each tilted at the workpiece.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    cols = (IMAGING, NIR, EMISSION)
+
+    def beams(lenses, z_pivot, angles, half_width, z_end, z_start, lw=1.0):
+        for a, col in zip(angles, cols):
+            for dy in (-half_width, 0.0, half_width):
+                y0 = dy - (z_pivot - z_start)*a
+                draw_ray(ax, lenses, z_start, y0, a, z_end, color=col, lw=lw if dy else lw*1.3,
+                         alpha=0.9 if dy == 0 else 0.55, arrow=dy == 0)
+
+    if kind == "head":
+        laser(ax, 1.0, 4.0, length=1.4, height=0.4, text="laser")
+        ax.plot([1.0, 3.3], [4.0, 4.0], color=NIR, lw=2.2, alpha=0.7)
+        rotated_lens(ax, 1.5, 4.0, 0.18, rotate=0)
+        rotated_lens(ax, 2.1, 4.0, 0.35, rotate=0)
+        label(ax, 1.8, 4.65, "beam expander", fontsize=8)
+        ax.add_patch(mpatches.Ellipse((2.75, 4.0), 0.16, 0.55, facecolor="0.4", edgecolor="0.2"))
+        label(ax, 2.65, 3.3, "x mirror", fontsize=8)
+        mirror(ax, 3.3, 4.0, 0.7, -np.pi/4)
+        label(ax, 3.95, 4.45, "y mirror", fontsize=8)
+        zl, yl, f, w = 3.3, 2.4, 2.4, 0.13
+        ax.add_patch(mpatches.FancyBboxPatch((zl - 1.3, yl - 0.18), 2.6, 0.36,
+                                             boxstyle="round,pad=0.02", facecolor=GLASS,
+                                             edgecolor=EDGE, lw=1.0, zorder=3))
+        label(ax, zl + 2.0, yl, "scan lens", fontsize=8)
+        for a, col in zip((-0.3, 0.0, 0.3), cols):
+            z_hit = zl + (4.0 - yl)*np.tan(a)
+            focus = zl + f*a*1.05
+            for dz in (-w, 0.0, w):
+                ax.plot([3.3 + dz, z_hit + dz, focus], [4.0, yl, 0.0], color=col,
+                        lw=1.3 if dz == 0 else 0.7, alpha=0.95 if dz == 0 else 0.6)
+        ax.add_patch(mpatches.Rectangle((1.2, -0.25), 4.2, 0.25, facecolor="0.8",
+                                        edgecolor="0.4", lw=0.8))
+        label(ax, 3.3, -0.55, "workpiece (flat field)", fontsize=8)
+        # inset: the scan field with bowed lines
+        zc, yc, R = 7.6, 2.0, 1.5
+        t = np.linspace(-1, 1, 41)
+        for c in np.linspace(-1, 1, 5):
+            ax.plot(zc + R*c*(1 + 0.09*t**2), yc + R*t, color=NIR, lw=0.9)
+            ax.plot(zc + R*t, yc + R*c*(1 - 0.06*t**2), color=IMAGING, lw=0.9)
+        ax.add_patch(mpatches.Rectangle((zc - R, yc - R), 2*R, 2*R, fill=False, ls=":",
+                                        edgecolor="0.5", lw=0.8))
+        label(ax, zc, yc + R + 0.45, "scan field seen from above", fontsize=8)
+        label(ax, zc, yc - R - 0.55, "lines of constant mirror angle bow;\n"
+              "a lookup table of angles corrects", fontsize=8)
+        _finish(ax, (-1.0, 9.6), (-1.1, 5.0), title)
+    elif kind == "ftheta":
+        zl, f = 2.0, 4.0
+        lenses = [(zl, f)]
+        stop(ax, 0.0, 0.6, openings=((0.0, 0.3),), text="scanner\n(pupil)", text_y=-0.9)
+        beams(lenses, 0.0, (-0.28, 0.0, 0.28), 0.22, zl + f, -1.0)
+        lens(ax, zl, 1.25, text="F-theta lens", text_y=1.55)
+        plane(ax, zl + f, 1.6, text="flat field", text_y=1.8)
+        label(ax, zl + f + 1.0, f*0.28, "h = f·θ", fontsize=9)
+        ax.add_patch(mpatches.Arc((0.0, 0.0), 1.4, 1.4, theta1=0, theta2=np.degrees(0.28),
+                                  color="0.3"))
+        label(ax, 0.9, 0.12, "θ", fontsize=9)
+        label(ax, zl + f - 0.9, -1.45, "chief rays oblique\nat the workpiece", fontsize=8)
+        _finish(ax, (-1.2, 7.6), (-2.0, 2.1), title)
+    elif kind == "telecentric":
+        zl, f = 3.0, 3.0
+        lenses = [(zl, f)]
+        stop(ax, 0.0, 0.6, openings=((0.0, 0.3),), text="scanner in the\nfront focal plane",
+             text_y=-1.25)
+        beams(lenses, 0.0, (-0.3, 0.0, 0.3), 0.2, zl + f, -1.0)
+        lens(ax, zl, 1.3, text="telecentric lens", text_y=1.6)
+        plane(ax, zl + f, 1.5, text="flat field", text_y=1.75)
+        label(ax, zl + 1.6, -1.35, "chief rays ∥ axis:\nnormal incidence everywhere",
+              fontsize=8)
+        label(ax, zl + 0.95, 0.55, "lens ≥ field", fontsize=8)
+        _finish(ax, (-1.2, 6.8), (-2.0, 2.1), title)
+    elif kind == "two_mirrors":
+        zl, f, d = 3.0, 3.0, 0.45
+        lenses = [(zl, f)]
+        plane(ax, 0.0, 1.0, text="front focal plane\n(pupil half way)", text_y=1.35)
+        for zp, a, col, name in ((-d, 0.28, NIR, "x mirror"), (d, -0.28, IMAGING, "y mirror")):
+            ax.plot(zp, 0.0, "o", color=col, ms=5, zorder=5)
+            label(ax, zp, -0.4, name, fontsize=8, color=col)
+            draw_ray(ax, lenses, -1.0, -(zp + 1.0)*a, a, zl + f + 0.6, color=col, lw=1.3)
+            draw_ray(ax, lenses, -1.0, 0.0, 0.0, zl + f + 0.6, color="0.6", lw=0.8, arrow=False)
+        lens(ax, zl, 1.3)
+        plane(ax, zl + f, 1.3, text="workpiece", text_y=-1.55)
+        label(ax, zl + f + 1.7, 0.0, "pivot a distance d\nfrom the focal plane:\n"
+              "tilt ≈ h·d/f²", fontsize=8)
+        _finish(ax, (-1.4, 8.2), (-1.9, 1.9), title)
+    else:
+        raise ValueError("kind must be 'head', 'ftheta', 'telecentric' or 'two_mirrors'")
 
 
 def structured_light_layout(ax, kind="triangulation", title=None):
