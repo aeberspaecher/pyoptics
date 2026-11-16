@@ -635,6 +635,31 @@ notebooks/146_parametric_amplification_opo
 notebooks/147_kerr_effect_self_focusing
 ```
 
+## Detectors and photon statistics
+
+Where the numbers of a detector come from and what the photons
+themselves do: responsivity and band gap cutoffs of Si, InGaAs and
+HgCdTe, absorption depth and quantum efficiency, bandwidth against
+capacitance, NEP and D* with the background limit of infrared detectors,
+photon counting with SPADs and their dead time, Poisson, super- and
+sub-Poissonian light, the beam splitter with photons and the
+Hong–Ou–Mandel dip. Related: the receiver of a link in
+{doc}`120 Fibre link <notebooks/120_fibre_link>`, SPAD histograms in
+{doc}`130 Time-of-flight LiDAR <notebooks/130_time_of_flight_lidar>`,
+the Fellgett advantage in
+{doc}`111 Fourier transform spectroscopy <notebooks/111_fourier_transform_spectroscopy>`
+and intensity interferometry in
+{doc}`74 Coherence and stellar interferometry <notebooks/74_coherence_stellar_interferometry>`.
+
+- {doc}`148 Detectors and photon statistics <notebooks/148_detectors_photon_statistics>`
+
+```{toctree}
+:hidden:
+:caption: Detectors and photon statistics
+
+notebooks/148_detectors_photon_statistics
+```
+
 ## Running the notebooks
 
 ```{include} ../notebooks/README.md

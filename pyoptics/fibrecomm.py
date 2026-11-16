@@ -38,6 +38,9 @@ T1/T0 = sqrt((1 + C beta_2 z/T0**2)**2 + (beta_2 z/T0**2)**2).
 
 Receiver
 --------
+The receiver functions here wrap those of `pyoptics.detectors` (SI units)
+in the units of this module; responsivity from quantum efficiency,
+bandwidth, NEP and photon counting are found there.
 A photodiode with responsivity R (A/W) and, for an APD, the gain M and
 excess noise factor F(M) = k_A M + (1 - k_A)(2 - 1/M) (McIntyre). The noise
 variances in a bandwidth Delta f are ::
@@ -89,9 +92,10 @@ semiconductor laser wavelength chirping", Appl. Phys. Lett. 48, 613-615
 """
 
 import numpy as np
-from scipy.special import erfc, erfcinv
 
 from .fibres import beta2_from_D
+from . import detectors as _det
+from .detectors import Q_E, K_B, q_factor, ber, q_from_ber
 
 
 __all__ = ["Q_E", "K_B", "prbs", "nrz", "gaussian_pulse", "gaussian_width", "beta2_from_D",
@@ -101,8 +105,6 @@ __all__ = ["Q_E", "K_B", "prbs", "nrz", "gaussian_pulse", "gaussian_width", "bet
            "dbm", "mw", "power_budget", "rise_time_budget", "dispersion_penalty"]
 
 
-Q_E = 1.602176634E-19   # C
-K_B = 1.380649E-23      # J/K
 _C_NM_PER_PS = 2.99792458E5
 
 
@@ -242,15 +244,15 @@ def photocurrent(P, responsivity=1.0, gain=1.0):
 
 def excess_noise(M, k_A=0.7):
     """McIntyre's excess noise factor k_A M + (1 - k_A)(2 - 1/M) (k_A: about
-    0.02 for Si, 0.5 to 0.7 for InGaAs APDs)."""
-    M = np.asarray(M, dtype=float)
-    return k_A*M + (1 - k_A)*(2 - 1/M)
+    0.02 for Si, 0.5 to 0.7 for InGaAs APDs), `pyoptics.detectors.excess_noise()`."""
+    return _det.excess_noise(M, k_A)
 
 
 def receiver_noise(P, bandwidth_ghz, responsivity=1.0, gain=1.0, k_A=0.7, dark_na=0.0,
                    load_ohm=50.0, noise_figure_db=3.0, temperature=300.0):
     """Shot and thermal noise standard deviations (mA) of a PIN or APD
-    receiver.
+    receiver, `pyoptics.detectors.noise_currents()` in the units of this
+    module.
 
     Parameters
     ----------
@@ -274,20 +276,17 @@ def receiver_noise(P, bandwidth_ghz, responsivity=1.0, gain=1.0, k_A=0.7, dark_n
     sigma_shot, sigma_thermal : arrays (mA)
     """
 
-    df = bandwidth_ghz*1E9
-    F = 1.0 if gain == 1 else excess_noise(gain, k_A)
-    I = responsivity*np.asarray(P, dtype=float)*1E-3 + dark_na*1E-9
-    s_shot = np.sqrt(2*Q_E*gain**2*F*I*df)
-    s_th = np.sqrt(4*K_B*temperature*10**(noise_figure_db/10)*df/load_ohm)
-    return s_shot*1E3, s_th*1E3 + 0*s_shot
+    s_shot, s_th = _det.noise_currents(np.asarray(P, dtype=float)*1E-3, bandwidth_ghz*1E9,
+                                       responsivity, gain, k_A, dark_na*1E-9, load_ohm,
+                                       noise_figure_db, temperature)
+    return s_shot*1E3, s_th*1E3
 
 
 def rin_noise(P, bandwidth_ghz, rin_db_hz, responsivity=1.0, gain=1.0):
     """Standard deviation (mA) of the photocurrent from the relative intensity
     noise of the transmitter, M R P sqrt(RIN Delta f), with RIN in dB/Hz
-    (flat over the noise bandwidth Delta f)."""
-    rin = 10**(np.asarray(rin_db_hz, dtype=float)/10)
-    return gain*responsivity*np.asarray(P, dtype=float)*np.sqrt(rin*bandwidth_ghz*1E9)
+    (flat over the noise bandwidth Delta f), `pyoptics.detectors.rin_noise()`."""
+    return _det.rin_noise(P, bandwidth_ghz*1E9, rin_db_hz, responsivity, gain)
 
 
 def detect(t, A, bandwidth_ghz, responsivity=1.0, gain=1.0, k_A=0.7, load_ohm=50.0,
@@ -328,39 +327,19 @@ def noise_bandwidth(bandwidth_ghz):
     return np.sqrt(np.pi/(4*np.log(2)))*bandwidth_ghz
 
 
-def q_factor(I1, I0, sigma1, sigma0):
-    """Q = (I1 - I0)/(sigma1 + sigma0)."""
-    return (np.asarray(I1) - I0)/(np.asarray(sigma1) + sigma0)
-
-
-def ber(Q):
-    """Bit error rate erfc(Q/sqrt(2))/2 of Gaussian noise at the optimal
-    threshold."""
-    return 0.5*erfc(np.asarray(Q)/np.sqrt(2))
-
-
-def q_from_ber(ber_value):
-    """Q that gives the bit error rate."""
-    return np.sqrt(2)*erfcinv(2*np.asarray(ber_value))
-
-
 def sensitivity(Q, bandwidth_ghz, responsivity=1.0, gain=1.0, k_A=0.7, load_ohm=50.0,
                 noise_figure_db=3.0, temperature=300.0):
     """Average received power (mW) for the Q factor Q (ideal extinction,
-    no dark current), Agrawal's eq. 4.5.10."""
-    df = bandwidth_ghz*1E9
-    F = 1.0 if np.all(np.asarray(gain) == 1) else excess_noise(gain, k_A)
-    s_T = np.sqrt(4*K_B*temperature*10**(noise_figure_db/10)*df/load_ohm)
-    return np.asarray(Q)/responsivity*(Q_E*F*np.asarray(gain)*df*Q + s_T/gain)*1E3
+    no dark current), Agrawal's eq. 4.5.10, `pyoptics.detectors.sensitivity()`."""
+    return _det.sensitivity(Q, bandwidth_ghz*1E9, responsivity, gain, k_A, load_ohm,
+                            noise_figure_db, temperature)*1E3
 
 
 def optimum_apd_gain(Q, bandwidth_ghz, responsivity=1.0, k_A=0.7, **kwargs):
     """APD gain with the lowest sensitivity (numerical minimum over M in
     [1, 1000]); returns (M_opt, P_rec in mW)."""
-    M = np.logspace(0, 3, 3001)
-    P = sensitivity(Q, bandwidth_ghz, responsivity, M, k_A, **kwargs)
-    i = np.argmin(P)
-    return M[i], P[i]
+    M, P = _det.optimum_apd_gain(Q, bandwidth_ghz*1E9, responsivity, k_A, **kwargs)
+    return M, P*1E3
 
 
 def eye_diagram(t, signal, bit_rate, offset=0.0):

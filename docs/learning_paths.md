@@ -334,6 +334,25 @@ pulse and beam simulations.
 (dispersion of femtosecond pulses in glass) and {doc}`117 Dispersion in fibres <notebooks/117_fibre_dispersion>`
 (the β₂ that balances SPM in a soliton).
 
+## Detectors and photon statistics
+
+For readers who choose, use or design detectors, or count photons: where
+responsivity, bandwidth and noise come from, how to compare detectors,
+and what the statistics of the photons say about the light.
+
+| Step | Notebook | Why |
+|---|---|---|
+| 1 | {doc}`105 Radiometry and photometry <notebooks/105_radiometry_photometry>` | Watts, photons and black bodies: the units a detector sees. |
+| 2 | {doc}`148 Detectors and photon statistics <notebooks/148_detectors_photon_statistics>` | Responsivity, band gaps and absorption, bandwidth, NEP and D*, SPADs, photon statistics, HBT and the HOM dip. |
+| 3 | {doc}`120 Fibre link <notebooks/120_fibre_link>` | PIN and APD receivers at work: Q factor, bit error rate and sensitivity. |
+| 4 | {doc}`130 Time-of-flight LiDAR <notebooks/130_time_of_flight_lidar>` | Linear APDs against SPADs with pile-up in a LiDAR link budget. |
+| 5 | {doc}`18 Image processing <notebooks/18_image_processing>` | Camera noise in images: photon shot noise, read noise and the ADC. |
+
+**Side trips:** {doc}`111 Fourier transform spectroscopy <notebooks/111_fourier_transform_spectroscopy>`
+(the multiplex advantage of detector limited instruments), {doc}`74 Coherence and stellar interferometry <notebooks/74_coherence_stellar_interferometry>`
+(intensity interferometry after Hanbury Brown and Twiss) and {doc}`146 Parametric amplification and OPOs <notebooks/146_parametric_amplification_opo>`
+(the parametric process that makes photon pairs).
+
 ## Metrology, microscopy and computational imaging
 
 For readers who measure wavefronts or build imaging systems that rely on

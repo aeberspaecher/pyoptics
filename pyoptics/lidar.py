@@ -130,6 +130,7 @@ import numpy as np
 from scipy.special import erfc
 
 from .radiometry import planck_radiance, SOLAR_CONSTANT, blackbody_radiance
+from .detectors import excess_noise
 
 
 __all__ = ["C", "Q_E", "K_B", "H", "lambertian_return", "extinction_coefficient",
@@ -303,28 +304,8 @@ def photons(energy, wavelength_nm):
 
 
 # --------------------------------------------------------------------------
-# detectors
+# detectors (excess_noise() is imported from pyoptics.detectors)
 # --------------------------------------------------------------------------
-
-def excess_noise(M, k_A):
-    """McIntyre's excess noise factor ``k_A*M + (1 - k_A)*(2 - 1/M)``.
-
-    Parameters
-    ----------
-    M : number or array
-        Avalanche gain (1 for a PIN diode).
-    k_A : number
-        Ratio of the ionization coefficients (about 0.02 for Si, 0.5 to 0.7
-        for InGaAs).
-
-    Returns
-    -------
-    F : number or array
-    """
-
-    M = np.asarray(M, dtype=float)
-    return k_A*M + (1 - k_A)*(2 - 1/M)
-
 
 def apd_snr(P_s, bandwidth, responsivity, gain=1.0, k_A=0.02, P_bg=0.0, dark_current=0.0,
             input_noise=2e-12):
