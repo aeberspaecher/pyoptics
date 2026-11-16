@@ -13,8 +13,8 @@ paths of reference and surface agree within the coherence length. The
 position of the envelope peak is the height of the surface at that pixel,
 free of the 2 pi ambiguity of single-wavelength interferometry; the phase
 of the fringes refines it to a fraction of a nanometre. It is the same
-interference as in time-domain OCT (`oct`, notebook 82, optical coherence
-tomography), applied to a surface instead of a volume, with an objective
+interference as in time-domain optical coherence tomography (`oct`,
+notebook 82, OCT), applied to a surface instead of a volume, with an objective
 of high numerical aperture instead of a nearly collimated beam.
 
 Signal
