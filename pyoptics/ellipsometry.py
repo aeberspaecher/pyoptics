@@ -728,8 +728,9 @@ def fit_ncs(signal, polarizer, analyzer, compensator=None, retardance=90.0, side
 
 
 def rotating_analyzer_coefficients(psi, delta, polarizer=45.0):
-    """Normalized Fourier coefficients of a rotating analyzer ellipsometer,
-    I(A) proportional to 1 + alpha cos(2A) + beta sin(2A) ::
+    """Normalized Fourier coefficients of a rotating analyzer ellipsometer.
+
+    The intensity is proportional to 1 + alpha cos(2A) + beta sin(2A) with::
 
         alpha = (tan(Psi)**2 - tan(P)**2)/(tan(Psi)**2 + tan(P)**2),
         beta = 2 tan(Psi) cos(Delta) tan(P)/(tan(Psi)**2 + tan(P)**2).

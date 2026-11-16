@@ -540,7 +540,7 @@ thicknesses and optical constants, scatterometry of line gratings too
 small to image, and phase measuring deflectometry for the shape and the
 ripples of specular freeforms.
 
-- {doc}`134 Coherence scanning interferometry <notebooks/134_coherence_scanning_interferometry>`
+- {doc}`134 Coherence scanning interferometry (white light interferometry, WLI) <notebooks/134_coherence_scanning_interferometry>`
 - {doc}`135 Ellipsometry <notebooks/135_ellipsometry>`
 - {doc}`136 Scatterometry <notebooks/136_scatterometry>`
 - {doc}`137 Deflectometry <notebooks/137_deflectometry>`

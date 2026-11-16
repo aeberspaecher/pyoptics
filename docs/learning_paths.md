@@ -261,7 +261,7 @@ fits, and where the systematic errors hide.
 | 2 | {doc}`135 Ellipsometry <notebooks/135_ellipsometry>` | Psi and Delta, rotating analyzers and compensators, dispersion models and fits, and the correlation of thickness and index. |
 | 3 | {doc}`136 Scatterometry <notebooks/136_scatterometry>` | Line profiles from the zero order of a grating with RCWA: sensitivities, libraries, regression and model errors. |
 | 4 | {doc}`82 OCT <notebooks/82_optical_coherence_tomography>` | Depth from the coherence of broadband light, the physics of white-light interferometry. |
-| 5 | {doc}`134 Coherence scanning interferometry <notebooks/134_coherence_scanning_interferometry>` | Surface heights from envelope and phase, NA, metals, films and batwings. |
+| 5 | {doc}`134 Coherence scanning interferometry (white light interferometry, WLI) <notebooks/134_coherence_scanning_interferometry>` | Surface heights from envelope and phase, NA, metals, films and batwings. |
 | 6 | {doc}`133 Triangulation and structured light <notebooks/133_triangulation_structured_light>` | Phase shifted fringes and temporal unwrapping, used again by deflectometry. |
 | 7 | {doc}`137 Deflectometry <notebooks/137_deflectometry>` | Slopes of specular surfaces from a screen and a camera, the height-slope ambiguity and calibration. |
 
