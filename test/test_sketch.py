@@ -404,3 +404,17 @@ def test_metrology_sketches():
     with pytest.raises(ValueError):
         sketch.metrology_layout(ax, "unknown")
     plt.close(fig)
+
+
+def test_crystal_and_modulator_sketches():
+    for draw, kinds in ((sketch.crystal_optics_layout, ("calcite", "glan_taylor", "wollaston", "isolator")),
+                        (sketch.modulator_layout, ("pockels", "mzm", "lc_cell", "tn_cell", "aom", "aotf"))):
+        for kind in kinds:
+            fig, ax = plt.subplots()
+            draw(ax, kind, title=kind)
+            assert ax.get_title() == kind and (ax.lines or ax.patches)
+            plt.close(fig)
+        fig, ax = plt.subplots()
+        with pytest.raises(ValueError):
+            draw(ax, "unknown")
+        plt.close(fig)

@@ -261,6 +261,12 @@ Setup sketches for the other example notebooks:
   structured_light_layout(): a laser triangulation sensor, fringe
   projection and a dot projector with its camera
   (notebook 133, triangulation and structured light).
+- crystal_optics_layout(): double refraction in calcite, a Glan-Taylor
+  and a Wollaston prism, a Faraday isolator
+  (notebook 138, crystal optics); modulator_layout(): a Pockels cell, a Mach-Zehnder modulator
+  (notebook 139, electro-optic modulators), a nematic cell and a twisted
+  nematic cell (notebook 140, liquid crystals), an acousto-optic modulator
+  and tunable filter (notebook 141, acousto-optics).
 
 text_scale() is a context manager that enlarges the labels of a sketch,
 for wide layouts that are shown scaled down.
@@ -340,7 +346,7 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "imaging_spectrometer_layout", "waveguide_combiner", "volume_grating_layout",
            "pancake_lens", "hud_layout", "zoom_cams", "qbfs_geometry",
            "progressive_lens_layout", "lidar_layout", "beam_scanner",
-           "structured_light_layout", "text_scale"]
+           "structured_light_layout", "crystal_optics_layout", "modulator_layout", "text_scale"]
 
 
 GLASS = "#cfe3f3"
@@ -10568,3 +10574,306 @@ def _rotation_about(ax, center, angle):
     coordinates), for patches."""
     import matplotlib.transforms as mtransforms
     return mtransforms.Affine2D().rotate_deg_around(center[0], center[1], angle) + ax.transData
+
+
+CRYSTAL = "#d8ecf3"
+CRYSTAL_EDGE = "#4a6f8a"
+LC_ROD = "#8e5ba8"
+
+
+def _pol_icon(ax, z, y, state, r=0.28, color="0.15", lw=1.2):
+    """Polarization seen looking towards the source: a circle with a double
+    line at `state` degrees from the horizontal (x), "dot" for none and
+    "circ" for circular, "x" for blocked."""
+    mpatches = _patches()
+    ax.add_patch(mpatches.Circle((z, y), r, facecolor="white", edgecolor="0.55", lw=0.7, zorder=6))
+    if state == "dot":
+        return
+    if state == "circ":
+        ax.add_patch(mpatches.Arc((z, y), 1.2*r, 1.2*r, theta1=30, theta2=330, color=color, lw=lw,
+                                  zorder=7))
+        return
+    if state == "x":
+        for s in (1, -1):
+            ax.plot([z - 0.6*r, z + 0.6*r], [y - 0.6*s*r, y + 0.6*s*r], color="#c0392b", lw=lw, zorder=7)
+        return
+    if state == "unpol":
+        for a in (0, 60, 120):
+            ar = np.radians(a)
+            ax.plot([z - 0.8*r*np.cos(ar), z + 0.8*r*np.cos(ar)], [y - 0.8*r*np.sin(ar), y + 0.8*r*np.sin(ar)],
+                    color=color, lw=0.9, zorder=7)
+        return
+    a = np.radians(state)
+    ax.annotate("", xy=(z + 0.85*r*np.cos(a), y + 0.85*r*np.sin(a)),
+                xytext=(z - 0.85*r*np.cos(a), y - 0.85*r*np.sin(a)),
+                arrowprops=dict(arrowstyle="<->", color=color, lw=lw, shrinkA=0, shrinkB=0), zorder=7)
+
+
+def _block(ax, poly, color=CRYSTAL, edge=CRYSTAL_EDGE, lw=1.0, alpha=1.0, zorder=2):
+    ax.add_patch(_patches().Polygon(np.asarray(poly), closed=True, facecolor=color, edgecolor=edge,
+                                    lw=lw, alpha=alpha, zorder=zorder))
+
+
+def _ray(ax, pts, color=LASER, lw=1.4, arrow_at=None, ls="-", zorder=5):
+    pts = np.asarray(pts, dtype=float)
+    ax.plot(pts[:, 0], pts[:, 1], color=color, lw=lw, ls=ls, zorder=zorder)
+    if arrow_at is not None:
+        i = arrow_at
+        p, q = pts[i], pts[i + 1]
+        m = p + 0.55*(q - p)
+        ax.annotate("", xy=m + 0.01*(q - p), xytext=m - 0.01*(q - p),
+                    arrowprops=dict(arrowstyle="-|>", color=color, lw=lw, mutation_scale=12), zorder=zorder)
+
+
+def crystal_optics_layout(ax, kind="calcite", title=None):
+    """Sketch of crystal optics and polarization devices (notebook 138,
+    crystal optics).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"calcite", "glan_taylor", "wollaston", "isolator"}, optional
+        "calcite": double refraction in a calcite plate cut at 45° to the
+        optic axis; the ordinary ray passes straight, the extraordinary one
+        walks off in the plane of the axis and leaves parallel, displaced.
+        "glan_taylor": two calcite prisms with an air gap; the ordinary ray
+        is totally reflected at the gap, the extraordinary passes.
+        "wollaston": two cemented calcite wedges with crossed axes split
+        the beam symmetrically. "isolator": polarizer, 45° Faraday rotator
+        in a magnet and analyzer at 45°; the light coming back ends at 90°
+        and is blocked. The circles show the polarization looking towards
+        the source, with the plane of the drawing vertical.
+    title : str, optional
+    """
+
+    if kind == "calcite":
+        _block(ax, [(0, -1.4), (3.0, -1.4), (3.0, 1.4), (0, 1.4)])
+        # optic axis direction (in the plane, 45 degrees)
+        for c in np.linspace(0.2, 2.0, 4):
+            ax.plot([c, c + 0.8], [-1.3, -0.5], color=CRYSTAL_EDGE, lw=0.7, ls=":", zorder=3)
+        label(ax, 2.4, -1.05, "optic axis", fontsize=8, color=CRYSTAL_EDGE)
+        rho = np.radians(6.2)*2.5
+        _ray(ax, [(-2.6, 0.7), (0, 0.7)], arrow_at=0)
+        _ray(ax, [(0, 0.7), (3.0, 0.7), (5.4, 0.7)], color="#2a7ab9", arrow_at=1)
+        ye = 0.7 - 3.0*np.tan(rho)
+        _ray(ax, [(0, 0.7), (3.0, ye), (5.4, ye)], color="#d6604d", arrow_at=1)
+        _pol_icon(ax, -1.6, 0.7, "unpol")
+        _pol_icon(ax, 4.6, 0.7, 0)
+        _pol_icon(ax, 4.6, ye, 90)
+        label(ax, 5.6, 0.7, "o: E ⊥ axis, n_o", fontsize=8, ha="left")
+        label(ax, 5.6, ye, "e: E in the plane\nof the axis", fontsize=8, ha="left")
+        ax.add_patch(_patches().Arc((0, 0.7), 2.4, 2.4, theta1=-np.degrees(rho), theta2=0, color="0.3", lw=0.8))
+        label(ax, 1.5, 0.48, "walk-off ρ", fontsize=8, ha="left")
+        label(ax, 1.5, 1.65, "calcite", fontsize=9)
+        label(ax, -1.6, 1.25, "unpolarized", fontsize=8)
+        _finish(ax, (-2.8, 8.0), (-1.7, 2.0), title)
+    elif kind == "glan_taylor":
+        w, h = 2.0, 1.4
+        a = np.degrees(np.arctan(w/(2*h)))
+        _block(ax, [(0, -h), (w - 0.06, -h), (0.0, h)])
+        _block(ax, [(w, -h), (w, h), (0.06, h)])
+        label(ax, 0.5, 1.75, "calcite", fontsize=8)
+        label(ax, 1.55, 1.75, "calcite", fontsize=8)
+        label(ax, 1.75, 0.95, "air\ngap", fontsize=7)
+        _ray(ax, [(-2.4, 0.0), (1.0, 0.0)], arrow_at=0)
+        _ray(ax, [(1.0, 0.0), (4.4, 0.0)], color="#d6604d", arrow_at=0)
+        # o: total internal reflection at the gap, out through the side
+        gap_dir = np.array([-w, 2*h])/np.hypot(w, 2*h)
+        nrm = np.array([2*h, w])/np.hypot(w, 2*h)
+        d = np.array([1.0, 0.0])
+        r = d - 2*(d @ nrm)*nrm
+        p_end = np.array([1.0, 0.0]) + r*(-h - 0.0)/r[1] if r[1] < 0 else np.array([1.0, 0.0]) + r*1.6
+        _ray(ax, [(1.0, 0.0), tuple(p_end), tuple(p_end + r*0.8)], color="#2a7ab9", arrow_at=0)
+        _pol_icon(ax, -1.4, 0.0, "unpol")
+        _pol_icon(ax, 3.5, 0.0, 90)
+        label(ax, 3.5, 0.55, "e (p at the gap)", fontsize=8)
+        label(ax, p_end[0] + r[0]*0.8 + 0.1, p_end[1] + r[1]*0.8 - 0.2, "o: total internal\nreflection", fontsize=8,
+              ha="left")
+        for c in (0.3, 1.7):
+            ax.annotate("", xy=(c, -0.7), xytext=(c, -1.3),
+                        arrowprops=dict(arrowstyle="<->", color=CRYSTAL_EDGE, lw=0.9))
+        label(ax, -0.5, -1.0, "optic axes", fontsize=8, color=CRYSTAL_EDGE)
+        _finish(ax, (-2.6, 5.4), (-2.4, 2.1), title)
+        del a, gap_dir
+    elif kind == "wollaston":
+        w, h = 2.4, 1.4
+        _block(ax, [(0, -h), (w, -h), (0, h)])
+        _block(ax, [(w, -h), (w, h), (0, h)], color="#e4f0e0")
+        ax.annotate("", xy=(0.6, -0.9), xytext=(0.6, -0.3), arrowprops=dict(arrowstyle="<->", color=CRYSTAL_EDGE))
+        ax.plot([1.9], [0.8], "o", color=CRYSTAL_EDGE, ms=4)
+        label(ax, 0.6, -1.15, "axis", fontsize=8, color=CRYSTAL_EDGE)
+        label(ax, 1.9, 1.05, "axis ⊥ page", fontsize=8, color=CRYSTAL_EDGE)
+        _ray(ax, [(-2.2, 0.0), (1.2, 0.0)], arrow_at=0)
+        s = np.radians(12.0)
+        _ray(ax, [(1.2, 0.0), (w, 0.35), (5.0, 0.35 + (5.0 - w)*np.tan(s))], color="#2a7ab9", arrow_at=1)
+        _ray(ax, [(1.2, 0.0), (w, -0.35), (5.0, -0.35 - (5.0 - w)*np.tan(s))], color="#d6604d", arrow_at=1)
+        _pol_icon(ax, -1.3, 0.0, "unpol")
+        _pol_icon(ax, 4.6, 0.35 + 2.2*np.tan(s) + 0.45, 0)
+        _pol_icon(ax, 4.6, -0.35 - 2.2*np.tan(s) - 0.45, 90)
+        label(ax, 2.6, -1.65, "split ≈ 2 (n_o − n_e) tan(wedge)", fontsize=8, ha="left")
+        _finish(ax, (-2.4, 5.6), (-2.0, 1.9), title)
+    elif kind == "isolator":
+        mpatches = _patches()
+        _ray(ax, [(-1.0, 0.45), (8.4, 0.45)], arrow_at=0)
+        _ray(ax, [(8.4, -0.45), (0.9, -0.45)], color="#2a7ab9", arrow_at=0, ls="--")
+        for z, txt in ((0.9, "polarizer 0°"), (6.6, "polarizer 45°")):
+            _beam_element(ax, z, 0.0, 0.0, 2.0, "#8c6d1f", txt, (0.0, -1.95))
+        # Faraday rotator: rod in a ring magnet
+        ax.add_patch(mpatches.Rectangle((2.6, -1.25), 2.6, 0.35, facecolor="0.55", edgecolor="0.3"))
+        ax.add_patch(mpatches.Rectangle((2.6, 0.9), 2.6, 0.35, facecolor="0.55", edgecolor="0.3"))
+        ax.add_patch(mpatches.Rectangle((2.8, -0.8), 2.2, 1.6, facecolor="#e8f0d8", edgecolor="#5a7a3a", zorder=2))
+        label(ax, 3.9, 1.5, "ring magnet, B →", fontsize=8)
+        label(ax, 3.9, -1.95, "TGG rod, 45°", fontsize=8)
+        _pol_icon(ax, 0.0, 1.25, "unpol", r=0.25)
+        _pol_icon(ax, 1.9, 1.25, 0, r=0.25)
+        _pol_icon(ax, 5.9, 1.25, 45, r=0.25)
+        _pol_icon(ax, 7.6, 1.25, 45, r=0.25)
+        label(ax, 8.6, 0.45, "forward: passes", fontsize=8, ha="left")
+        _pol_icon(ax, 7.6, -1.25, 45, r=0.25)
+        _pol_icon(ax, 5.9, -1.25, 45, r=0.25)
+        _pol_icon(ax, 1.9, -1.25, 90, r=0.25)
+        _pol_icon(ax, 0.3, -1.25, "x", r=0.25)
+        label(ax, 8.6, -0.45, "backward: 45° + 45° = 90°,\nblocked", fontsize=8, ha="left")
+        _finish(ax, (-1.2, 11.4), (-2.3, 2.0), title)
+    else:
+        raise ValueError("kind must be 'calcite', 'glan_taylor', 'wollaston' or 'isolator'")
+
+
+def modulator_layout(ax, kind="pockels", title=None):
+    """Sketch of an electro-optic, liquid crystal or acousto-optic light
+    modulator (notebooks 139, electro-optic modulators, 140, liquid
+    crystals, and 141, acousto-optics).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"pockels", "mzm", "lc_cell", "tn_cell", "aom", "aotf"}, optional
+        "pockels": a longitudinal KDP Pockels cell with ring electrodes
+        between crossed polarizers. "mzm": top view of a LiNbO3
+        Mach-Zehnder modulator with Y branches and a travelling-wave
+        electrode. "lc_cell": side view of a nematic cell, the director
+        planar at 0 V and tilted up above the threshold. "tn_cell": a
+        twisted nematic cell between crossed polarizers, the director
+        turning by 90° and guiding the polarization. "aom": an acousto-optic
+        modulator, transducer, sound wave, the Bragg angle and the orders 0
+        and +1. "aotf": a TeO2 tunable filter: the matched wavelength is
+        diffracted into the other polarization and separated by angle.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    if kind == "pockels":
+        _ray(ax, [(-1.4, 0.0), (8.0, 0.0)], arrow_at=0)
+        _beam_element(ax, 0.6, 0.0, 0.0, 2.0, "#8c6d1f", "polarizer x", (0.0, -1.4))
+        _beam_element(ax, 6.4, 0.0, 0.0, 2.0, "#8c6d1f", "analyzer y", (0.0, -1.4))
+        _block(ax, [(2.0, -0.8), (5.0, -0.8), (5.0, 0.8), (2.0, 0.8)])
+        for z in (2.15, 4.85):
+            ax.add_patch(mpatches.Rectangle((z - 0.08, -0.95), 0.16, 1.9, facecolor="#c9a227", edgecolor="0.3", zorder=4))
+        ax.plot([2.15, 2.15, 4.85, 4.85], [0.95, 1.6, 1.6, 0.95], color="0.3", lw=0.9)
+        ax.add_patch(mpatches.Circle((3.5, 1.6), 0.22, facecolor="white", edgecolor="0.3", zorder=5))
+        label(ax, 3.5, 1.6, "V", fontsize=8, zorder=6)
+        label(ax, 3.5, -1.2, "KDP, optic axis and field along the beam", fontsize=8)
+        label(ax, 3.5, 0.45, "ring electrodes", fontsize=7, color="0.4")
+        _pol_icon(ax, 1.3, 1.15, 0, r=0.25)
+        _pol_icon(ax, 5.7, 1.15, "circ", r=0.25)
+        label(ax, 5.7, 1.65, "V = V_π/2", fontsize=7)
+        _pol_icon(ax, 7.3, 1.15, 90, r=0.25)
+        label(ax, 7.3, 1.65, "V = V_π", fontsize=7)
+        _finish(ax, (-1.6, 8.4), (-1.9, 2.1), title)
+    elif kind == "mzm":
+        z = np.linspace(0, 10, 400)
+        def arm(sign):
+            y = np.where(z < 2, sign*0.6*(1 - np.cos(np.pi*z/2))/2, sign*0.6)
+            return np.where(z > 8, sign*0.6*(1 - np.cos(np.pi*(10 - z)/2))/2, y)
+        ax.add_patch(mpatches.Rectangle((-1.5, -1.9), 13.0, 3.8, facecolor="#f3efe2", edgecolor="0.6", zorder=1))
+        for s in (1, -1):
+            ax.plot(z, arm(s), color=LASER, lw=2.2, zorder=4)
+        ax.plot([-1.5, 0], [0, 0], color=LASER, lw=2.2)
+        ax.plot([10, 11.5], [0, 0], color=LASER, lw=2.2)
+        ax.add_patch(mpatches.Rectangle((2.4, -0.25), 5.2, 0.5, facecolor="#e2b84a", edgecolor="0.35", zorder=3))
+        ax.add_patch(mpatches.Rectangle((2.4, 0.95), 5.2, 0.6, facecolor="#d9c48a", edgecolor="0.35", zorder=3))
+        ax.add_patch(mpatches.Rectangle((2.4, -1.55), 5.2, 0.6, facecolor="#d9c48a", edgecolor="0.35", zorder=3))
+        label(ax, 5.0, 1.25, "ground", fontsize=7)
+        label(ax, 5.0, -1.25, "ground", fontsize=7)
+        label(ax, 5.0, 0.0, "signal V(t)", fontsize=7)
+        ax.annotate("", xy=(7.6, 2.2), xytext=(2.4, 2.2), arrowprops=dict(arrowstyle="-|>", color="0.3"))
+        label(ax, 5.0, 2.5, "RF wave travels with the light (n_m ≠ n_g)", fontsize=8)
+        label(ax, 9.1, 1.0, "bias", fontsize=7)
+        ax.add_patch(mpatches.Rectangle((8.4, 0.75), 0.6, 0.25, facecolor="0.7", edgecolor="0.35", zorder=3))
+        label(ax, 1.0, -0.65, "Y branch", fontsize=7)
+        label(ax, 9.0, -0.65, "Y branch", fontsize=7)
+        label(ax, -0.8, 0.35, "laser in", fontsize=8)
+        label(ax, 10.8, 0.35, "out", fontsize=8)
+        label(ax, 5.0, -2.25, "LiNbO₃ (x-cut, push-pull: arms see ±E along z)", fontsize=8)
+        _finish(ax, (-1.8, 11.8), (-2.6, 2.8), title)
+    elif kind == "lc_cell":
+        for x0, V, tilt in ((0.0, "0 V: planar", lambda s: np.radians(3) + 0*s),
+                            (5.0, "V > V_th: tilted", lambda s: np.radians(3) + np.radians(80)*np.sin(np.pi*s))):
+            ax.add_patch(mpatches.Rectangle((x0, 1.5), 4.0, 0.35, facecolor=GLASS, edgecolor=EDGE))
+            ax.add_patch(mpatches.Rectangle((x0, -1.85), 4.0, 0.35, facecolor=GLASS, edgecolor=EDGE))
+            ax.plot([x0, x0 + 4.0], [1.5, 1.5], color="#c9a227", lw=2)
+            ax.plot([x0, x0 + 4.0], [-1.5, -1.5], color="#c9a227", lw=2)
+            for s in np.linspace(0.08, 0.92, 7):
+                y = -1.5 + 3.0*s
+                th = tilt(s)
+                for xc in np.linspace(x0 + 0.5, x0 + 3.5, 5):
+                    dx, dy = 0.28*np.cos(th), 0.28*np.sin(th)
+                    ax.add_patch(mpatches.Ellipse((xc, y), 0.55, 0.14, angle=np.degrees(th), facecolor=LC_ROD,
+                                                  edgecolor="none", alpha=0.8))
+                    del dx, dy
+            label(ax, x0 + 2.0, 2.2, V, fontsize=9)
+        label(ax, 9.3, 1.5, "ITO + rubbed\npolyimide", fontsize=7, ha="left")
+        label(ax, 9.3, 0.0, "nematic\n(E7, d ≈ 5 µm)", fontsize=7, ha="left")
+        _finish(ax, (-0.3, 11.2), (-2.1, 2.5), title)
+    elif kind == "tn_cell":
+        _ray(ax, [(-1.0, 0.0), (9.0, 0.0)], arrow_at=0)
+        _beam_element(ax, 0.6, 0.0, 0.0, 2.2, "#8c6d1f", "polarizer x", (0.0, -1.5))
+        _beam_element(ax, 7.6, 0.0, 0.0, 2.2, "#8c6d1f", "analyzer y", (0.0, -1.5))
+        ax.add_patch(mpatches.Rectangle((1.8, -1.1), 0.25, 2.2, facecolor=GLASS, edgecolor=EDGE))
+        ax.add_patch(mpatches.Rectangle((6.15, -1.1), 0.25, 2.2, facecolor=GLASS, edgecolor=EDGE))
+        for i, s in enumerate(np.linspace(0, 1, 8)):
+            z = 2.35 + 3.5*s
+            phi = np.pi/2*s
+            # projection of a rod twisting from x (in the page, vertical here) to y (out of the page)
+            L = 0.9*np.cos(phi) + 0.12
+            ax.add_patch(mpatches.Ellipse((z, 0.0), 0.16, L*2, facecolor=LC_ROD, edgecolor="none", alpha=0.85,
+                                          zorder=4))
+        label(ax, 4.1, 1.45, "director twists by 90°", fontsize=8)
+        _pol_icon(ax, 1.25, 1.55, 90, r=0.25)
+        _pol_icon(ax, 7.0, 1.55, 0, r=0.25)
+        label(ax, 4.1, -2.0, "0 V: polarization guided (u ≫ 1), bright;  V ≫ V_th: rods stand up, dark",
+              fontsize=8)
+        _finish(ax, (-1.2, 9.4), (-2.3, 2.0), title)
+    elif kind in ("aom", "aotf"):
+        _block(ax, [(0, -1.6), (5.0, -1.6), (5.0, 1.6), (0, 1.6)],
+               color="#e9f2e5" if kind == "aom" else "#f2e8f4")
+        ax.add_patch(mpatches.Rectangle((0.0, -2.0), 5.0, 0.4, facecolor="#c9a227", edgecolor="0.3"))
+        ax.add_patch(mpatches.Rectangle((0.0, 1.6), 5.0, 0.3, facecolor="0.3", edgecolor="0.3"))
+        label(ax, 2.5, -2.35, "piezo transducer, RF at f", fontsize=8)
+        label(ax, 2.5, 2.15, "absorber", fontsize=8)
+        for y in np.arange(-1.4, 1.5, 0.35):
+            ax.plot([0.1, 4.9], [y, y], color="0.6", lw=0.7, ls="--", zorder=3)
+        ax.annotate("", xy=(5.4, 1.0), xytext=(5.4, -1.0), arrowprops=dict(arrowstyle="-|>", color="0.35"))
+        label(ax, 5.55, 0.0, "sound, v", fontsize=8, ha="left")
+        th = np.radians(7.0)
+        z0, z1 = -2.6, 2.5
+        y_in = -(z1 - z0)*np.tan(th)
+        _ray(ax, [(z0, y_in), (z1, 0.0)], arrow_at=0, color="0.25" if kind == "aotf" else LASER)
+        if kind == "aom":
+            _ray(ax, [(z1, 0.0), (8.0, (8.0 - z1)*np.tan(th))], color=LASER, arrow_at=0)
+            _ray(ax, [(z1, 0.0), (8.0, (8.0 - z1)*np.tan(3*th))], color="#2a7ab9", arrow_at=0)
+            label(ax, 8.2, (8.0 - z1)*np.tan(th), "0 (ν)", fontsize=8, ha="left")
+            label(ax, 8.2, (8.0 - z1)*np.tan(3*th), "+1 (ν + f), 2θ_B", fontsize=8, ha="left")
+            label(ax, -1.2, y_in - 0.35, "θ_B = λf/(2nv)", fontsize=8)
+            _finish(ax, (-2.9, 11.0), (-2.6, 2.6), title)
+        else:
+            _beam_element(ax, -1.6, -(z1 + 1.6)*np.tan(th), th*180/np.pi, 1.2, "#8c6d1f", "polarizer", (0.0, -0.9))
+            _ray(ax, [(z1, 0.0), (8.5, (8.5 - z1)*np.tan(th))], color="0.25", arrow_at=0)
+            _ray(ax, [(z1, 0.0), (8.5, (8.5 - z1)*np.tan(4*th))], color="#d6604d", arrow_at=0)
+            _beam_element(ax, 7.4, (7.4 - z1)*np.tan(4*th), 4*th*180/np.pi, 1.0, "#8c6d1f", "analyzer", (0.0, 0.8))
+            label(ax, 8.7, (8.5 - z1)*np.tan(th), "white light, unchanged", fontsize=8, ha="left")
+            label(ax, 8.7, (8.5 - z1)*np.tan(4*th), "λ(f), other polarization", fontsize=8, ha="left")
+            label(ax, 2.5, -1.25, "TeO₂: anisotropic Bragg diffraction", fontsize=8)
+            _finish(ax, (-2.9, 12.0), (-2.6, 2.8), title)
+    else:
+        raise ValueError("kind must be 'pockels', 'mzm', 'lc_cell', 'tn_cell', 'aom' or 'aotf'")
