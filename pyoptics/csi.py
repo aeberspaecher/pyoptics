@@ -22,13 +22,16 @@ Signal
 With the scan position z of the objective (the height at which the
 reference path equals the surface path), a surface of height h and the
 wavenumber k = 2 pi/lambda, a plane wave in the pupil at the angle theta
-gives the fringe term 2 Re(r_R* r_S exp(2 i k cos(theta) (h - z))). The
+gives the fringe term 2 Re(r_R* r_S exp(2 i k cos(theta) (z - h))): a
+lower surface means a longer path and, in the convention of pyoptics
+(and of `thin_films`, whose r_S holds the deeper reflections of a stack
+as exp(+2 i k n d)), a larger phase. The
 correlogram sums it over the source spectrum S(k) and over the
 illuminated pupil (`correlogram()`, uniformly filled up to NA,
 `pupil_quadrature()`) ::
 
     I(z) = sum_k sum_theta S(k) w(theta) [abs(r_R)**2 + abs(r_S)**2
-                        + 2 Re(r_R* r_S exp(2 i k cos(theta) (h - z)))].
+                        + 2 Re(r_R* r_S exp(2 i k cos(theta) (z - h)))].
 
 The envelope peaks at z = h for any NA. The fringes, however, have the
 period lambda/(2 <cos(theta)>), longer than lambda/2 by the obliquity
@@ -41,15 +44,15 @@ Evaluation
 `envelope_peak()` finds the peak of the envelope (Hilbert transform, as
 `oct.demodulate()`) by its centroid or a parabola. Frequency domain
 analysis (FDA, de Groot and Deck) Fourier transforms the correlogram:
-its phase at the spatial frequency K = 2 k cos(theta) is K h plus the
+its phase at the spatial frequency K = 2 k cos(theta) is K h minus the
 phase of r_S. A straight line fitted to the phase gives the coherence
 height (slope) and, at the mean frequency K_0, the phase height, which is
 unambiguous once the coherence height picks its fringe order (`fda()`).
 FDA needs no knowledge of the NA or the spectrum.
 
 The phase of r_S breaks both: a metal reflects with a phase that differs
-from that of glass, which offsets the phase height by phi/(2 k) (tens of
-nanometres between materials), and a transparent film makes the phase of
+from that of glass, which offsets the phase height by -arg(r_S)/(2 k)
+(tens of nanometres between materials), and a transparent film makes the phase of
 r_S depend on k, which tilts the FDA phase and shifts the coherence
 height (the thin film effect). `film_reflectance()` gives r_S of layered
 surfaces from `thin_films` for both effects; fitting the measured spectral
@@ -298,7 +301,7 @@ def correlogram(z, k, spectrum, height=0.0, NA=0.0, reflectance=None, r_ref=1.0,
             dc = np.sum(w_t*(abs(r_ref)**2 + np.abs(r)**2))
             out += s*dc/len(refl)
             for c, w, rr in zip(cos_t, w_t, r):
-                out += s*w/len(refl)*2*np.real(np.conj(r_ref)*rr*np.exp(2j*kk*c*(h - z)))
+                out += s*w/len(refl)*2*np.real(np.conj(r_ref)*rr*np.exp(2j*kk*c*(z - h)))
     return out/np.sum(S)
 
 
@@ -328,12 +331,12 @@ def envelope_peak(z, signal, method="centroid", threshold=0.3):
         Scan positions, equidistant.
     signal : array, shape (..., len(z))
     method : {"centroid", "parabola", "max"}, optional
-        Centroid of the squared envelope above threshold*max, a parabola
-        through the logarithm of the envelope at the maximum and its two
-        neighbours (exact for a Gaussian envelope), or the sample at the
-        maximum.
+        Centroid of the squared envelope above threshold*max, a least
+        squares parabola through the logarithm of the envelope above
+        threshold*max around the maximum (a Gaussian fit, exact for a
+        Gaussian envelope), or the sample at the maximum.
     threshold : number, optional
-        For "centroid".
+        For "centroid" and "parabola".
 
     Returns
     -------
@@ -347,13 +350,17 @@ def envelope_peak(z, signal, method="centroid", threshold=0.3):
     if method == "max":
         return z[i]
     if method == "parabola":
-        n = len(z)
-        i = np.clip(i, 1, n - 2)
-        g = np.log(np.clip(np.take_along_axis(env, np.stack([i - 1, i, i + 1], axis=-1), -1),
-                           1e-300, None))
-        den = g[..., 0] - 2*g[..., 1] + g[..., 2]
-        off = np.where(den != 0, 0.5*(g[..., 0] - g[..., 2])/np.where(den != 0, den, 1), 0.0)
-        return z[i] + off*(z[1] - z[0])
+        # weighted least squares fit of a + b u + c u**2 to log(env), u = z - z_max,
+        # over the samples above threshold*max (weights env**2)
+        u = z - z[i][..., None]
+        w = np.where(env >= threshold*env.max(axis=-1, keepdims=True), env**2, 0.0)
+        g = np.log(np.clip(env, 1e-300, None))
+        M = np.stack([np.stack([np.sum(w*u**(a + b), axis=-1) for b in range(3)], axis=-1)
+                      for a in range(3)], axis=-2)
+        r = np.stack([np.sum(w*g*u**a, axis=-1) for a in range(3)], axis=-1)
+        c = np.linalg.solve(M, r[..., None])[..., 0]
+        off = np.where(c[..., 2] < 0, -c[..., 1]/(2*np.where(c[..., 2] < 0, c[..., 2], -1.0)), 0.0)
+        return z[i] + off
     if method == "centroid":
         e2 = env**2
         mask = env >= threshold*env.max(axis=-1, keepdims=True)
@@ -365,7 +372,8 @@ def envelope_peak(z, signal, method="centroid", threshold=0.3):
 def fourier_signal(z, signal, K):
     """Fourier transform of correlograms at the spatial frequencies K,
     F(K) = sum_z (I(z) - mean) exp(i K z), so that a surface at the height
-    h has the phase K h + arg(r_S).
+    h has the phase K h - arg(r_S) (the positive frequency half of the
+    fringe term r_S* exp(-i K (z - h)) + c.c.).
 
     Parameters
     ----------
@@ -384,7 +392,7 @@ def fourier_signal(z, signal, K):
     return s @ np.exp(1j*np.outer(np.asarray(z, dtype=float), K))
 
 
-def fda(z, signal, K_range, n_K=64, power_threshold=0.1):
+def fda(z, signal, K_range, n_K=64, power_threshold=0.1, phase_gap=0.0):
     """Frequency domain analysis of correlograms (de Groot and Deck).
 
     Parameters
@@ -400,6 +408,13 @@ def fda(z, signal, K_range, n_K=64, power_threshold=0.1):
     power_threshold : number, optional
         Frequencies with less than this fraction of the peak power are
         left out of the fit.
+    phase_gap : number, optional
+        Phase of r_S/r_R (the "phase gap" of de Groot et al.: the phase on
+        reflection of the surface material and of the instrument), added
+        to the phase before the fringe order is chosen; pi for glass (r_S
+        = -0.2) against a reference with r_R > 0. Without it the phase
+        height is offset by -phase_gap/K0 and the fringe order decision is
+        biased.
 
     Returns
     -------
@@ -415,7 +430,7 @@ def fda(z, signal, K_range, n_K=64, power_threshold=0.1):
     F = fourier_signal(z - zc, signal, K)
     P = np.abs(F)**2
     w = np.where(P >= power_threshold*P.max(axis=-1, keepdims=True), P, 0.0)
-    phi = np.unwrap(np.angle(F), axis=-1)
+    phi = np.unwrap(np.angle(F*np.exp(1j*phase_gap)), axis=-1)
     W = np.sum(w, axis=-1)
     K0 = np.sum(w*K, axis=-1)/W
     dK = K - K0[..., None]

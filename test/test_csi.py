@@ -59,14 +59,14 @@ def test_film_reflectance_bare_and_coated():
 
 
 def test_metal_phase_offset():
-    # Al and glass differ in the phase of r: the phase heights differ by phi/(2 k)
+    # Al and glass differ in the phase of r: the phase heights differ by -delta arg(r)/(2 k)
     hp = []
     for n in (1.5, 1.0 + 6.5j):
         I = csi.correlogram(Z, K, S, 0.0, reflectance=csi.film_reflectance([], n))
         hp.append(csi.fda(Z, I, (2*K.min()*0.9, 2*K.max()*1.05))[1])
     r_al = (1 - (1.0 + 6.5j))/(1 + (1.0 + 6.5j))
     k0 = np.sum(S*K)/np.sum(S)
-    assert hp[1] - hp[0] == pytest.approx((np.angle(r_al) - np.pi)/(2*k0), abs=2e-3)
+    assert hp[1] - hp[0] == pytest.approx(-np.angle(-r_al)/(2*k0), abs=2e-3)
 
 
 def test_profile_scan_flat_and_step():
@@ -79,3 +79,15 @@ def test_profile_scan_flat_and_step():
     P = csi.profile_scan(x, h, z, K[::3], S[::3], 0.4, n_illumination=5)
     _, hp, _ = csi.fda(z, P.T, (2*K.min()*0.85, 2*K.max()*1.05))
     assert hp[128] == pytest.approx(0.3, abs=2e-3) and hp[5] == pytest.approx(0.0, abs=2e-3)
+
+
+def test_film_bottom_appears_below_the_top():
+    # a thick film: the second envelope lies the optical thickness below the top
+    k = np.linspace(2*np.pi/0.75, 2*np.pi/0.42, 80)
+    S = csi.led_spectrum(k, 0.57, 0.1)
+    z = np.arange(-8.0, 2.0, 0.02)
+    I = csi.correlogram(z, k, S, 0.0, NA=0.1,
+                        reflectance=csi.film_reflectance([(1.46, 3.0)], 3.9 + 0.02j))
+    env = csi.envelope(I)
+    lower = z < -2.0
+    assert z[lower][np.argmax(env[lower])] == pytest.approx(-3.0*1.46, abs=0.25)
