@@ -83,6 +83,11 @@ Maxwell's equations and checks each of them numerically. In particular:
 - Modulators (`electrooptics`) follow `fibrecomm`: a chirp parameter
   α > 0 means blue-shifted rising edges, like a directly modulated laser,
   and the instantaneous frequency shift is −dφ/dt for exp(−iωt).
+- Lasers (`lasers`) use SI units, except `DiodeLaser.nrz()`, which returns
+  its field in the units of `fibrecomm` (ps, √mW). Its chirp has the same
+  sign as above: a positive linewidth enhancement factor α_H gives
+  blue-shifted rising edges. The rate equations are normalized to the
+  threshold inversion, and the pump r to its threshold value.
 - Circular polarization is named about the direction of propagation (IEEE):
   `jones.J_RHCP` = [1, i]/√2 has positive helicity. Born & Wolf and Hecht
   call the same field left-circular.

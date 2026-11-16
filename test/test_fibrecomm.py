@@ -102,3 +102,17 @@ def test_detect_filter_and_noise():
     s_th = fc.receiver_noise(0.0, fc.noise_bandwidth(f3))[1]
     assert np.isclose(I.std(), s_th, rtol=0.05)
     assert np.isclose(fc.noise_bandwidth(1.0), 1.0645, atol=1E-4)
+
+
+def test_rin_noise():
+    # RIN of -130 dB/Hz in 10 GHz: relative rms 1E-13*1E10 -> 0.0316
+    assert np.isclose(fc.rin_noise(2.0, 10.0, -130.0, 0.5), 2.0*0.5*np.sqrt(1E-3))
+    n, dt, f3 = 8192, 1.0, 5.0
+    t = np.arange(n)*dt
+    I0 = fc.detect(t, np.ones(n), f3, noise=True, rng=2)
+    I1 = fc.detect(t, np.ones(n), f3, noise=True, rng=2, rin_db_hz=-120.0)
+    nbw = fc.noise_bandwidth(f3)
+    s_sh, s_th = fc.receiver_noise(1.0, nbw)
+    s_rin = fc.rin_noise(1.0, nbw, -120.0)
+    assert np.isclose(I0.std(), np.hypot(s_sh, s_th), rtol=0.05)
+    assert np.isclose(I1.std(), np.sqrt(s_sh**2 + s_th**2 + s_rin**2), rtol=0.05)

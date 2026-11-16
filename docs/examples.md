@@ -584,6 +584,29 @@ notebooks/140_liquid_crystals
 notebooks/141_acousto_optics
 ```
 
+## Lasers
+
+How a laser works and what limits it: gain and saturation, the threshold
+and the best output coupler, the modes of the resonator and the width of a
+single one, relaxation oscillations, Q-switched and mode-locked pulses, and
+the laser diode of every fibre link with its chirp and noise. Related: the
+resonator in {doc}`08 ABCD matrices <notebooks/08_abcd_matrices>`, pulses
+in {doc}`81 Ultrashort pulses <notebooks/81_ultrashort_pulses_lenses>`, and
+the directly modulated laser of {doc}`120 Fibre link <notebooks/120_fibre_link>`.
+
+- {doc}`142 Laser fundamentals <notebooks/142_laser_fundamentals>`
+- {doc}`143 Q-switching and mode-locking <notebooks/143_q_switching_mode_locking>`
+- {doc}`144 Laser diodes <notebooks/144_laser_diodes>`
+
+```{toctree}
+:hidden:
+:caption: Lasers
+
+notebooks/142_laser_fundamentals
+notebooks/143_q_switching_mode_locking
+notebooks/144_laser_diodes
+```
+
 ## Running the notebooks
 
 ```{include} ../notebooks/README.md
