@@ -37,6 +37,11 @@ exchangeable:
   and best focus across a scanner slit, Zernike sensitivities; geometric
   and energetic telecentricity and the real (apodized) pupil of a coated
   lens,
+- `budget`: lens tolerances to the wafer: Zernikes and placements across
+  the slit as a performance vector for `pyoptics.tolerancing`, Zernike
+  sensitivities per slit position, CD, placement and best focus changes of
+  Monte Carlo lenses, their statistics and the yield, with scanner
+  compensators,
 - `hopkins`: Hopkins imaging with transmission cross coefficients (`TCC`)
   and their SOCS decomposition, exact against Abbe for thin masks and fast
   for many masks with the same optics,
@@ -103,5 +108,6 @@ from . import jones_pupil
 from . import source_opt
 from . import opc
 from . import illuminator
+from . import budget
 from .rcwa import RigorousMask
 from .fdtd_mask import FDTDMask
