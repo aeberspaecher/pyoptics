@@ -2,7 +2,7 @@
 #-*- coding:utf-8 -*-
 
 """Gravitational lensing: a mass as a gradient-index medium and as a thin
-lens, Einstein rings, arcs, caustics and magnification (notebook 99).
+lens, Einstein rings, arcs, caustics and magnification (notebook 99, Einstein rings).
 
 Weak field: in the isotropic coordinates of a static mass the light rays
 are those of a medium with the refractive index n = 1 - 2 Phi/c^2, for a

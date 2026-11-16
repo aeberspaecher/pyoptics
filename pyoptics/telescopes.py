@@ -4,7 +4,7 @@
 """Reflecting telescopes: the Newtonian, the classical Cassegrain, the
 Ritchey-Chrétien and the Schmidt camera as `raytrace.System` objects, with
 the closed form third order aberrations of conic mirrors to check them
-against (notebook 97).
+against (notebook 97, telescope zoo).
 
 All builders return systems for an object at infinity, light entering in
 +z, lengths in mm. The aperture stop is the primary mirror (the corrector

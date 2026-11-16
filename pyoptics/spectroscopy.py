@@ -3,7 +3,7 @@
 
 """Spectroscopy: line shapes, absorption, instrument functions, Fourier
 transform spectrometers, Fabry-Perot interferometers and birefringent
-filters (notebooks 110 to 114 and 122).
+filters (notebooks 110 (grating and prism spectrometers) to 114 (spectral lines and absorption) and 122 (imaging spectroscopy)).
 
 The functions do not care about units as long as they are used
 consistently; the notebooks use wavenumbers nu in cm^-1 with path

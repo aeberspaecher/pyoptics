@@ -15,7 +15,7 @@ bounce and the direction of the ray, in the **Birkhoff coordinates** ::
 chi the angle of incidence from the normal, positive for rays that travel
 counter-clockwise. The bounce map (s, p) -> (s', p') preserves the area
 ds dp (it is the Poincaré map of the billiard flow), so a uniform ray
-ensemble stays uniform: Liouville's theorem of notebook 83 on the surface of
+ensemble stays uniform: Liouville's theorem of notebook 83 (étendue) on the surface of
 section. The boundary is the same `PolarShape` (`fdtd.Limacon`,
 `fdtd.Stadium`, a circle) that the FDTD and FDFD solvers draw, so the ray
 picture and the modes of `pyoptics.fdfd` belong to the same cavity.

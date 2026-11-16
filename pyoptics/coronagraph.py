@@ -2,7 +2,7 @@
 #-*- coding:utf-8 -*-
 
 """Stellar coronagraphs: telescope pupils, apodizers, focal plane masks and
-Lyot stops for imaging faint planets next to bright stars (notebook 96).
+Lyot stops for imaging faint planets next to bright stars (notebook 96, coronagraphs).
 
 A coronagraph takes the light of an on-axis star out of the image while it
 lets an off-axis planet through. The classical layout has four planes:

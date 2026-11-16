@@ -11,7 +11,7 @@ a camera focused on the pupil (the test section or the mirror) sees the
 filtered field. Wave optically the focal field is the Fourier transform of
 the pupil field, and the camera sees the inverse transform of the filtered
 focal field, a 4f system with a pupil filter as in `microscopy` (notebooks
-52 and 53) with the roles of object and pupil exchanged.
+52 (Abbe image formation) and 53 (phase contrast and DIC)) with the roles of object and pupil exchanged.
 
 Conventions: the pupil field is ``A exp(i k W)`` with the wavefront
 (optical path) error W relative to the reference sphere centred on the
