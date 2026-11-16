@@ -375,3 +375,20 @@ def test_pancake_sketch():
         sketch.pancake_lens(ax, ghost=ghost, title="p")
         assert ax.get_title() == "p" and ax.lines
         plt.close(fig)
+
+
+@pytest.mark.parametrize("draw, kinds", [
+    (sketch.lidar_layout, ("tof", "fmcw")),
+    (sketch.beam_scanner, ("galvo", "polygon", "mems", "opa", "risley")),
+    (sketch.structured_light_layout, ("triangulation", "fringe", "dots")),
+])
+def test_3d_sensing_sketches(draw, kinds):
+    for kind in kinds:
+        fig, ax = plt.subplots()
+        draw(ax, kind, title=kind)
+        assert ax.get_title() == kind and (ax.lines or ax.patches)
+        plt.close(fig)
+    fig, ax = plt.subplots()
+    with pytest.raises(ValueError):
+        draw(ax, "unknown")
+    plt.close(fig)
