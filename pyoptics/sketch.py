@@ -247,8 +247,8 @@ Setup sketches for the other example notebooks:
   mirrors, a polygon, a resonant MEMS mirror, an optical phased array
   and Risley prisms (notebook 132, beam scanning);
   structured_light_layout(): a laser triangulation sensor, fringe
-  projection and a dot projector with its camera (notebook 133,
-  triangulation and structured light).
+  projection and a dot projector with its camera
+  (notebook 133, triangulation and structured light).
 
 text_scale() is a context manager that enlarges the labels of a sketch,
 for wide layouts that are shown scaled down.
@@ -9858,14 +9858,15 @@ def hud_layout(ax, kind="layout", title=None):
 
 
 # --------------------------------------------------------------------------
-# 3D sensing and LiDAR (notebooks 130 to 133)
+# 3D sensing and LiDAR (notebooks 130, time-of-flight LiDAR, to 133, triangulation and
+# structured light)
 # --------------------------------------------------------------------------
 
 NIR = "#b2182b"
 LO_COLOR = "#2a7ab9"
 
 
-def _box(ax, z, y, w, h, text, color="0.92", fontsize=8):
+def _lidar_box(ax, z, y, w, h, text, color="0.92", fontsize=8):
     ax.add_patch(_patches().FancyBboxPatch((z, y - h/2), w, h, boxstyle="round,pad=0.05",
                                            facecolor=color, edgecolor="0.3", lw=0.9, zorder=4))
     label(ax, z + w/2, y, text, fontsize=fontsize, zorder=5)
@@ -9895,7 +9896,7 @@ def lidar_layout(ax, kind="tof", title=None):
 
     mpatches = _patches()
     if kind == "tof":
-        _box(ax, 0.0, 1.6, 1.4, 0.6, "pulsed laser\n905 / 1550 nm", "#fde2d6")
+        _lidar_box(ax, 0.0, 1.6, 1.4, 0.6, "pulsed laser\n905 / 1550 nm", "#fde2d6")
         mirror(ax, 2.2, 1.6, 0.6, np.pi/4 + 0.15)
         label(ax, 2.2, 2.2, "scanner", fontsize=8)
         arrow(ax, 1.45, 1.6, 2.1, 1.6, color=NIR, lw=1.4)
@@ -9928,14 +9929,14 @@ def lidar_layout(ax, kind="tof", title=None):
         ax.plot([3.1, 1.6], [-0.4, 0.1], color=NIR, lw=0.8)
         detector(ax, 1.5, 0.25)
         label(ax, 1.3, -0.55, "APD / SPAD\nfield of view θ", fontsize=8, va="top")
-        _box(ax, -0.1, 0.1, 1.2, 0.5, "timing\nt = 2R/c", "#efe6f4")
+        _lidar_box(ax, -0.1, 0.1, 1.2, 0.5, "timing\nt = 2R/c", "#efe6f4")
         _pulse(ax, 4.6, 0.25, 0.3, 0.15, sigma=0.04)
         label(ax, 4.6, 0.65, "weak echo", fontsize=8, color=NIR)
         _finish(ax, (-0.4, 9.0), (-1.2, 3.6), title)
         return
     if kind != "fmcw":
         raise ValueError("kind must be 'tof' or 'fmcw'")
-    _box(ax, 0.0, 1.6, 1.5, 0.6, "chirped laser\nν(t): ramp B in T", "#fde2d6")
+    _lidar_box(ax, 0.0, 1.6, 1.5, 0.6, "chirped laser\nν(t): ramp B in T", "#fde2d6")
     # chirp inset
     t = np.linspace(0, 1, 50)
     ax.plot(0.1 + 1.2*t, 2.25 + 0.4*np.abs(((2*t) % 2) - 1)[::-1], color=NIR, lw=1.0)
@@ -9965,7 +9966,7 @@ def lidar_layout(ax, kind="tof", title=None):
     label(ax, 2.35, 0.8, "LO", fontsize=8, color=LO_COLOR, ha="right")
     ax.plot([2.6, 3.2], [0.2, 0.2], color=LO_COLOR, lw=1.4)
     ax.plot([4.1, 3.6], [0.2, 0.2], color=NIR, lw=1.0, ls="--")
-    _box(ax, 3.2, 0.2, 0.4, 0.4, "2×2", "#e8eef6")
+    _lidar_box(ax, 3.2, 0.2, 0.4, 0.4, "2×2", "#e8eef6")
     for dy in (0.35, 0.05):
         ax.plot([3.6, 4.6], [0.2 + (dy - 0.2), -0.5 + dy], color="0.4", lw=1.0)
     detector(ax, 4.6, 0.15, width=0.08)
@@ -10080,8 +10081,8 @@ def beam_scanner(ax, kind="galvo", title=None):
 
 
 def structured_light_layout(ax, kind="triangulation", title=None):
-    """Sketch of a triangulation sensor (notebook 133, triangulation and
-    structured light).
+    """Sketch of a triangulation sensor
+    (notebook 133, triangulation and structured light).
 
     Parameters
     ----------
@@ -10102,7 +10103,7 @@ def structured_light_layout(ax, kind="triangulation", title=None):
         lens(ax, 0.8, 0.5)
         label(ax, -0.45, -0.9, "sensor", fontsize=8, va="top")
         label(ax, 0.8, -0.65, "camera lens", fontsize=8, va="top")
-        _box(ax, 0.3, 3.0, 1.0, 0.45, "laser", "#fde2d6")
+        _lidar_box(ax, 0.3, 3.0, 1.0, 0.45, "laser", "#fde2d6")
         z1, z2 = 6.0, 8.0
         th = np.radians(8)
         y = lambda z: 3.0 - (z - 0.8)*np.tan(th)
@@ -10121,7 +10122,7 @@ def structured_light_layout(ax, kind="triangulation", title=None):
               fontsize=8)
         _finish(ax, (-1.0, 9.0), (-1.3, 3.6), title)
     elif kind == "fringe":
-        _box(ax, 0.0, 2.6, 0.9, 0.5, "projector", "#fde2d6")
+        _lidar_box(ax, 0.0, 2.6, 0.9, 0.5, "projector", "#fde2d6")
         ax.add_patch(mpatches.Rectangle((0.0, -0.25), 0.9, 0.5, facecolor="0.85",
                                         edgecolor="0.3", lw=0.9))
         label(ax, 0.45, 0.0, "camera", fontsize=8)

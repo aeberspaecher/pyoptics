@@ -124,5 +124,9 @@
   "123": "AR waveguide combiners",
   "124": "volume holographic gratings",
   "125": "pancake lenses",
-  "126": "head-up displays"
+  "126": "head-up displays",
+  "130": "time-of-flight LiDAR",
+  "131": "FMCW LiDAR",
+  "132": "beam scanning",
+  "133": "triangulation and structured light"
 }
