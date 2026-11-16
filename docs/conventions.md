@@ -63,6 +63,16 @@ Maxwell's equations and checks each of them numerically. In particular:
   Hecht's reference directions (r_p = −r_s at normal incidence);
   `thin_films` and `coatings` give ratios of the tangential fields (r_p =
   r_s at normal incidence, t_p larger by cos θ₂/cos θ₁). R and T agree.
+- Ellipsometry (`ellipsometry`, `scatterometry`) reports Ψ and Δ in the
+  Nebraska conventions of the ellipsometry literature (Born & Wolf's r_p
+  and exp(+iωt)): ρ = tan Ψ exp(iΔ) is the complex conjugate of
+  −r_p/r_s with the tangential r_p of `thin_films`, so bare silicon has Δ
+  just below 180° and a native oxide lowers it. Optical constants stay
+  n + iκ, and `ellipsometry.pseudo_dielectric()` returns ε₁ + iε₂.
+- Coherence scanning interferometry (`csi`) follows the pyoptics sign: a
+  lower surface has the longer path and the larger phase, the fringe term
+  is Re(r_S exp(2ik cos θ (z − h))) for the scan position z, and frequency
+  domain analysis returns the phase K h − arg r_S.
 - Circular polarization is named about the direction of propagation (IEEE):
   `jones.J_RHCP` = [1, i]/√2 has positive helicity. Born & Wolf and Hecht
   call the same field left-circular.

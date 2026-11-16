@@ -131,5 +131,9 @@
   "130": "time-of-flight LiDAR",
   "131": "FMCW LiDAR",
   "132": "beam scanning",
-  "133": "triangulation and structured light"
+  "133": "triangulation and structured light",
+  "134": "coherence scanning interferometry",
+  "135": "ellipsometry",
+  "136": "scatterometry",
+  "137": "deflectometry"
 }
