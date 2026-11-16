@@ -480,8 +480,9 @@ def photon_lifetime(L, R1, R2, alpha_i=0.0, n=1.0, l_medium=None):
 
 
 def output_power(T, g0l2, delta_i, P_sat):
-    """Output power of a laser with a homogeneous gain medium, in the limit
-    of small losses (standing wave, Koechner eq. 3.70)::
+    """Output power of a laser with a homogeneous gain medium.
+
+    In the limit of small losses (standing wave, Koechner eq. 3.70)::
 
         P_out = (T P_sat/2) (g0l2/(T + delta_i) - 1)
 
@@ -517,9 +518,10 @@ def optimum_output_coupling(g0l2, delta_i, P_sat=None):
 
 
 def rigrod_output(g0, l, R1, R2, I_sat):
-    """Output intensity through mirror 2 of a laser with a homogeneous gain
-    medium of length l filling the cavity, any gain and reflectivities, no
-    internal loss (Rigrod)::
+    """Output intensity through mirror 2 of a laser (Rigrod).
+
+    The homogeneous gain medium of length l fills the cavity; any gain and
+    reflectivities, no internal loss::
 
         I_out = I_sat (1 - R2) sqrt(R1) (g0 l + ln sqrt(R1 R2))
                 /((sqrt(R1) + sqrt(R2))(1 - sqrt(R1 R2)))
