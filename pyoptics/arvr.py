@@ -212,7 +212,10 @@ def direction(k_x, k_y, n=1.0, sign=1.0):
     with np.errstate(invalid="ignore"):
         k_z = sign*np.sqrt(n**2 - k_x**2 - k_y**2)
 
-    return np.stack([k_x, k_y, k_z], axis=-1)/n
+    d = np.stack([k_x, k_y, k_z], axis=-1)/n
+    d[np.isnan(k_z)] = np.nan
+
+    return d
 
 
 def is_guided(k_x, k_y, n, max_angle=np.radians(75.0)):
