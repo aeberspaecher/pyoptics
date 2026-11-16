@@ -115,3 +115,22 @@ def test_dots_block_matching_depth():
     Z = sl.depth_from_disparity(np.median(inner), 30, 400, 600)
     assert Z == pytest.approx(450, rel=2e-3)
     assert np.median(score[20:-20, 40:-20]) > 0.9
+
+
+def test_intersect_depth_marching_steps():
+    # a step: the first hit along an oblique ray is the near surface's side
+    step = lambda X, Y: np.where(X > 0, 400.0, 600.0)
+    d = np.array([[0.3, 0.0, 1.0], [-0.1, 0.0, 1.0]])
+    d /= np.linalg.norm(d, axis=1, keepdims=True)
+    P = sl.intersect_depth([0, 0, 0], d, step, z_range=(100, 1000))
+    assert P[0, 2] == pytest.approx(400.0, abs=1e-6)
+    assert P[1, 2] == pytest.approx(600.0, abs=1e-6)
+    # a ray from the left of the step hits its face at X = 0
+    P = sl.intersect_depth([-100, 0, 0], np.array([[0.2, 0.0, 1.0]]), step, z_range=(100, 1000))
+    assert P[0, 0] == pytest.approx(0.0, abs=1e-3) and 400 <= P[0, 2] <= 600
+    # agrees with the fixed point iteration on a smooth surface
+    cam, _ = _cam_proj()
+    u, v = cam.pixel_grid()
+    r = cam.rays(u, v)
+    assert sl.intersect_depth(cam.position, r, _bump, z_range=(400, 600), n_iter=50) == \
+        pytest.approx(sl.intersect_depth(cam.position, r, _bump), abs=1e-6)

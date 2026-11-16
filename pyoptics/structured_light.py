@@ -12,8 +12,8 @@ backwards) with its centre, orientation (`look_at()`), focal length in
 pixels and principal point. `Pinhole.project()` maps world points to pixel
 coordinates, `Pinhole.rays()` pixels to rays. Scenes are depth maps
 Z = depth(X, Y) in world coordinates; `intersect_depth()` finds where rays
-meet them (fixed point iteration, valid for slopes below about 1 seen
-along the rays; no occlusion).
+meet them (a fixed point iteration for smooth scenes, or marching along
+the rays with bisection for scenes with steps).
 
 Laser triangulation
 -------------------
@@ -197,7 +197,7 @@ class Pinhole(object):
                            np.arange(self.size[1], dtype=float))
 
 
-def intersect_depth(origin, directions, depth, n_iter=40):
+def intersect_depth(origin, directions, depth, n_iter=40, z_range=None, n_march=200):
     """Points where rays meet a depth map surface Z = depth(X, Y).
 
     Parameters
@@ -209,7 +209,17 @@ def intersect_depth(origin, directions, depth, n_iter=40):
     depth : callable
         depth(X, Y) -> Z for arrays X, Y.
     n_iter : int, optional
-        Fixed point iterations.
+        Fixed point iterations (without z_range), or bisection steps (with
+        z_range).
+    z_range : (number, number), optional
+        Depth range of the scene. If given, each ray is marched from
+        z_min to z_max in n_march steps to the first point behind the
+        surface, and the crossing is refined by bisection: the first hit
+        along the ray, also for surfaces with steps (occlusions are then
+        correct). Without it, the fixed point iteration
+        s <- (depth(o + s d) - o_z)/d_z is used, which converges for
+        smooth surfaces seen at moderate slopes.
+    n_march : int, optional
 
     Returns
     -------
@@ -218,11 +228,39 @@ def intersect_depth(origin, directions, depth, n_iter=40):
 
     o = np.asarray(origin, dtype=float)
     d = np.asarray(directions, dtype=float)
-    s = (depth(o[0] + 0*d[..., 0], o[1] + 0*d[..., 1]) - o[2])/d[..., 2]
+
+    def point(Z):
+        s = (Z - o[2])/d[..., 2]
+        return o[0] + s*d[..., 0], o[1] + s*d[..., 1]
+
+    if z_range is None:
+        s = (depth(o[0] + 0*d[..., 0], o[1] + 0*d[..., 1]) - o[2])/d[..., 2]
+        for _ in range(n_iter):
+            X = o[0] + s*d[..., 0]
+            Y = o[1] + s*d[..., 1]
+            s = (depth(X, Y) - o[2])/d[..., 2]
+        return o + s[..., None]*d
+
+    z0, z1 = float(z_range[0]), float(z_range[1])
+    lo = np.full(d.shape[:-1], z0)
+    hi = np.full(d.shape[:-1], z1)
+    found = np.zeros(d.shape[:-1], dtype=bool)
+    prev = np.full(d.shape[:-1], z0)
+    for Z in np.linspace(z0, z1, n_march):
+        X, Y = point(np.full(d.shape[:-1], Z))
+        behind = (Z >= depth(X, Y)) & ~found
+        lo = np.where(behind, prev, lo)
+        hi = np.where(behind, Z, hi)
+        found |= behind
+        prev = np.where(found, prev, Z)
     for _ in range(n_iter):
-        X = o[0] + s*d[..., 0]
-        Y = o[1] + s*d[..., 1]
-        s = (depth(X, Y) - o[2])/d[..., 2]
+        mid = 0.5*(lo + hi)
+        X, Y = point(mid)
+        behind = mid >= depth(X, Y)
+        hi = np.where(behind, mid, hi)
+        lo = np.where(behind, lo, mid)
+    Z = np.where(found, 0.5*(lo + hi), np.nan)
+    s = (Z - o[2])/d[..., 2]
     return o + s[..., None]*d
 
 
@@ -540,7 +578,8 @@ def dot_directions(emitters, focal_length, orders, period, wavelength):
     return k[np.sum(k**2, axis=1) < 1]
 
 
-def render_dots(camera, source, directions, depth, sigma=0.8, weights=None, n_iter=40):
+def render_dots(camera, source, directions, depth, sigma=0.8, weights=None, n_iter=40,
+                z_range=None):
     """Camera image of dots projected onto a depth map surface.
 
     Parameters
@@ -557,6 +596,10 @@ def render_dots(camera, source, directions, depth, sigma=0.8, weights=None, n_it
     weights : array, optional
         Relative powers of the dots.
     n_iter : int, optional
+    z_range : (number, number), optional
+        Depth range for marching along the rays (`intersect_depth()`):
+        needed for scenes with steps. With it, dots that the camera
+        cannot see (hidden behind a nearer surface) are left out.
 
     Returns
     -------
@@ -567,8 +610,14 @@ def render_dots(camera, source, directions, depth, sigma=0.8, weights=None, n_it
 
     k = np.asarray(directions, dtype=float)
     d = np.c_[k, np.sqrt(1 - np.sum(k**2, axis=1))]
-    P = intersect_depth(source, d, depth, n_iter)
+    P = intersect_depth(source, d, depth, n_iter, z_range)
     u, v = camera.project(P)
+    if z_range is not None:
+        rc = P - camera.position
+        rc /= np.linalg.norm(rc, axis=-1, keepdims=True)
+        Pc = intersect_depth(camera.position, rc, depth, n_iter, z_range)
+        hidden = np.linalg.norm(Pc - P, axis=-1) > 1e-3*np.abs(P[..., 2])
+        u = np.where(hidden, np.nan, u)
     w = np.ones(len(u)) if weights is None else np.asarray(weights, dtype=float)
     W, Hh = camera.size
     img = np.zeros((Hh, W))
