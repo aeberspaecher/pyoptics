@@ -837,6 +837,53 @@ What each module does and how mature it is. Planned work is listed in
   normalized cross correlation and depth from disparity; checked by exact
   round trips of camera, projector and phase
   (notebook 133, triangulation and structured light)
+- `csi`: new, tested: coherence scanning (white-light) interferometry.
+  Correlograms of surfaces for any spectrum (`led_spectrum()`,
+  `white_led_spectrum()`) and a uniformly filled pupil
+  (`correlogram()`, `pupil_quadrature()`, `obliquity_factor()`), with
+  the reflectance of layered surfaces from `thin_films`
+  (`film_reflectance()`); envelope detection (`envelope()`,
+  `envelope_peak()` by centroid or Gaussian fit) and frequency domain
+  analysis with coherence and phase heights, the phase gap and the fringe
+  order (`fda()`, `fourier_signal()`); correlograms of line profiles with
+  scalar imaging for batwings and lateral resolution
+  (`profile_scan()`); checked against the obliquity factor, the phase on
+  reflection of metals, thick films at the optical thickness and flat
+  profiles (notebook 134, coherence scanning interferometry)
+- `ellipsometry`: new, tested: Psi and Delta of layered samples with
+  `thin_films`, in the Nebraska conventions (`rho()`, `psi_delta()`,
+  `rho_from_coefficients()`), the pseudo-dielectric function, Brewster
+  angle and film period; dispersion models (`cauchy()`, `sellmeier()`,
+  `sio2_index()`, `silicon_index()` from rounded values of Green,
+  `tauc_lorentz()` in closed form, `lorentz()`, `drude()`,
+  `bruggeman()`); ellipsometer signals for any polarizer, compensator
+  and analyzer angles with Mueller matrices and the linear inversion for
+  N, C, S (`ellipsometer_signal()`, `fit_ncs()`,
+  `psi_delta_from_ncs()` with the degree of polarization), rotating
+  analyzer Fourier coefficients; model fits with Jellison's MSE,
+  standard errors and correlations (`fit_psi_delta()`); checked against
+  `interfaces`, the Kramers-Kronig integral, the Bruggeman equation and
+  round trips through the instruments (notebook 135, ellipsometry)
+- `scatterometry`: new, tested: the forward model of optical CD
+  metrology with `litho.rcwa`: trapezoidal lines with top rounding and
+  sidewall asymmetry in lamellar slices (`trapezoid_slices()`,
+  `grating_layers()`, `profile_outline()`), the Jones matrix of the zero
+  order in the p-s basis for planar and conical mounts
+  (`zero_order_jones()`), Psi and Delta and normalized Mueller matrices;
+  no library or calibration helpers by design; checked against
+  `ellipsometry` for unpatterned films at any azimuth, reciprocity and
+  the block structure of the Mueller matrix of symmetric lines (notebook
+  136, scatterometry)
+- `deflectometry`: new, tested: phase measuring deflectometry. A screen
+  (`Screen`) and a pinhole camera (`structured_light.Pinhole`) above a
+  specular surface, the forward trace from camera pixels to screen
+  points (`trace()`), slopes from the law of reflection
+  (`slopes_from_points()`), the iterative reconstruction with a known
+  point and least squares integration (`reconstruct()`, with
+  `freeform.integrate_gradient()`), slope resolution, screen uncertainty
+  and the contrast of the defocused screen; checked by exact slopes from
+  traced points and the convergence of the reconstruction (notebook 137,
+  deflectometry)
 - `wpm`: wave propagation method (Cython extension) for inhomogeneous, also
   absorbing media, 2D and y-invariant 1D fields, multi-step driver; direct
   O(N^2) sum (OpenMP) or the fast "levels" variant (one FFT pair per distinct
@@ -873,7 +920,9 @@ What each module does and how mature it is. Planned work is listed in
   volume grating at Bragg, a pancake lens, a windshield HUD and its double
   image); 3D sensing (time-of-flight and FMCW LiDARs, galvo, polygon,
   MEMS, phased array and Risley scanners, laser triangulation, fringe
-  projection and a dot projector)
+  projection and a dot projector); surface and thin film metrology (a
+  Mirau white-light interferometer, an ellipsometer, a scatterometry
+  grating, a deflectometry setup)
 - `interpolator`: trigonometric (Fourier) interpolation of periodic images
   and complex fields, tested: along one axis at any points
   (`trig_interpolate()`), in 2D on any grid or at scattered points

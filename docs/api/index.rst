@@ -180,6 +180,17 @@ Measurement and phase retrieval
    pyoptics.lidar
    pyoptics.structured_light
 
+Surface and thin-film metrology
+-------------------------------
+
+.. autosummary::
+   :toctree: generated
+
+   pyoptics.csi
+   pyoptics.ellipsometry
+   pyoptics.scatterometry
+   pyoptics.deflectometry
+
 Utilities
 ---------
 

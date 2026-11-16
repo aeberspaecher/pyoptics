@@ -133,6 +133,7 @@ builds up an imaging simulation one part at a time.
 **The projection lens and the scanner:** {doc}`21 Lens focus from rays to waves <notebooks/21_lens_focus_waves>`, {doc}`33 Lens aberrations across the slit <notebooks/33_litho_lens_aberrations>`, {doc}`41 Telecentricity across the slit <notebooks/41_litho_telecentricity>`, {doc}`50 Magnification, distortion, telecentricity <notebooks/50_magnification_distortion_telecentricity>`
 (overlay), {doc}`43 Delano diagrams <notebooks/43_litho_delano_lens_design>`, {doc}`44 Seidel aberrations <notebooks/44_seidel_caldwell_lens>`, {doc}`70 Monte Carlo tolerancing <notebooks/70_monte_carlo_tolerancing>`, {doc}`42 KrF illuminator <notebooks/42_litho_illuminator>`, {doc}`86 Homogenizers <notebooks/86_homogenizers>`.
 **Computational lithography:** {doc}`39 Source optimization <notebooks/39_litho_source_optimization>`, then {doc}`40 OPC <notebooks/40_litho_opc>`, then {doc}`108 Arbitrary mask layouts <notebooks/108_litho_arbitrary_layouts>` (polygons at any angle, layouts from gdstk/gdspy).
+**Wafer metrology:** {doc}`135 Ellipsometry <notebooks/135_ellipsometry>` (film thicknesses and optical constants), then {doc}`136 Scatterometry <notebooks/136_scatterometry>` (CD, height and sidewall angle of printed lines with RCWA).
 
 ## Illumination engineer
 
@@ -246,6 +247,29 @@ sees no sunlight), {doc}`87 Speckle reduction <notebooks/87_speckle_reduction>` 
 and diversity), {doc}`23 Interferometry <notebooks/23_interferometry>` and {doc}`22 Phase unwrapping <notebooks/22_phase_unwrapping>`
 (phase shifting and unwrapping behind fringe projection), {doc}`30 IFTA beam shaping <notebooks/30_IFTA>`
 (the algorithm behind the fan-out grating).
+
+## Surface and thin-film metrology
+
+For readers who measure surfaces, films and patterned wafers, or choose
+the instruments that do: what an interferometer, an ellipsometer or a
+deflectometer actually measures, how the numbers come out of models and
+fits, and where the systematic errors hide.
+
+| Step | Notebook | Why |
+|---|---|---|
+| 1 | {doc}`10 Interfaces and thin films <notebooks/10_interfaces_thin_films>` | Fresnel coefficients and the characteristic matrices of thin film stacks, the forward model of everything below. |
+| 2 | {doc}`135 Ellipsometry <notebooks/135_ellipsometry>` | Psi and Delta, rotating analyzers and compensators, dispersion models and fits, and the correlation of thickness and index. |
+| 3 | {doc}`136 Scatterometry <notebooks/136_scatterometry>` | Line profiles from the zero order of a grating with RCWA: sensitivities, libraries, regression and model errors. |
+| 4 | {doc}`82 OCT <notebooks/82_optical_coherence_tomography>` | Depth from the coherence of broadband light, the physics of white-light interferometry. |
+| 5 | {doc}`134 Coherence scanning interferometry (white light interferometry, WLI) <notebooks/134_coherence_scanning_interferometry>` | Surface heights from envelope and phase, NA, metals, films and batwings. |
+| 6 | {doc}`133 Triangulation and structured light <notebooks/133_triangulation_structured_light>` | Phase shifted fringes and temporal unwrapping, used again by deflectometry. |
+| 7 | {doc}`137 Deflectometry <notebooks/137_deflectometry>` | Slopes of specular surfaces from a screen and a camera, the height-slope ambiguity and calibration. |
+
+**Side trips:** {doc}`23 Interferometry <notebooks/23_interferometry>` (phase shifting and Fourier
+fringe analysis), {doc}`24 Radius interferometer <notebooks/24_radius_interferometer>` (a Fizeau
+interferometer, the low orders deflectometry is weak on), {doc}`36 Rigorous mask (RCWA) <notebooks/36_litho_rigorous_mask>`
+(the RCWA behind scatterometry), {doc}`128 Forbes Q aspheres <notebooks/128_forbes_q_aspheres>` (the
+slope orthogonal polynomials that describe what deflectometry measures).
 
 ## Metrology, microscopy and computational imaging
 

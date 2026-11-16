@@ -10377,3 +10377,194 @@ def structured_light_layout(ax, kind="triangulation", title=None):
         _finish(ax, (-0.4, 7.0), (-2.9, 2.9), title)
     else:
         raise ValueError("kind must be 'triangulation', 'fringe' or 'dots'")
+
+
+def _beam_element(ax, z, y, angle, size, color, text=None, text_offset=(0.0, 0.0), fontsize=8,
+                  rotating=False):
+    """A thin plate across a beam running at `angle` (degrees) through (z, y)."""
+    a = np.radians(angle + 90.0)
+    dz, dy = 0.5*size*np.cos(a), 0.5*size*np.sin(a)
+    ax.plot([z - dz, z + dz], [y - dy, y + dy], color=color, lw=4.0, solid_capstyle="butt",
+            zorder=4)
+    if rotating:
+        ax.add_patch(_patches().Arc((z, y), 0.9*size, 0.9*size, angle=angle, theta1=200,
+                                    theta2=340, color="0.3", lw=0.9, zorder=5))
+    if text:
+        label(ax, z + text_offset[0], y + text_offset[1], text, fontsize=fontsize)
+
+
+def metrology_layout(ax, kind="csi", title=None):
+    """Sketch of a surface or thin film metrology instrument (notebooks
+    134, coherence scanning interferometry, 135, ellipsometry, 136,
+    scatterometry, and 137, deflectometry).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"csi", "ellipsometer", "scatterometry", "deflectometry"}, optional
+        "csi": a microscope with a Mirau objective, an LED and a camera,
+        scanned along its axis over a surface with a step. "ellipsometer":
+        a light source, polarizer, rotating compensator, the sample under
+        an oblique angle, analyzer and spectrometer. "scatterometry": the
+        cross section of a line grating with its CD, height and sidewall
+        angle on a film, lit obliquely; only the zero order leaves.
+        "deflectometry": a camera sees a fringe screen reflected in a
+        specular surface; the normal bisects the line of sight and the ray
+        to the screen.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    if kind == "csi":
+        # camera, tube lens, beam splitter, Mirau objective, sample (vertical axis = y)
+        ax.add_patch(mpatches.Rectangle((-0.6, 5.2), 1.2, 0.35, facecolor="0.35"))
+        label(ax, 0.9, 5.37, "camera", fontsize=8, ha="left")
+        rotated_lens(ax, 0.0, 4.4, 0.7)
+        label(ax, 0.9, 4.4, "tube lens", fontsize=8, ha="left")
+        beam_splitter(ax, 0.0, 3.3, 0.9, orientation="\\")
+        ax.add_patch(mpatches.Rectangle((-3.4, 3.1), 0.7, 0.4, facecolor="#fde9b8",
+                                        edgecolor="0.3", lw=0.9))
+        label(ax, -3.05, 3.75, "white LED", fontsize=8)
+        rotated_lens(ax, -1.8, 3.3, 0.45, rotate=0)
+        for dy in (-0.25, 0.25):
+            ax.plot([-2.7, -1.8, dy], [3.3 + dy*0.6, 3.3 + dy, 3.3 + dy], color=ILLUMINATION,
+                    lw=0.9)
+            ax.plot([dy, dy], [3.3 + dy, 2.25], color=ILLUMINATION, lw=0.9)
+            ax.plot([dy, dy], [3.3 - dy, 4.4], color=IMAGING, lw=0.9, alpha=0.8)
+            ax.plot([dy, 0.0], [4.4, 5.2], color=IMAGING, lw=0.9, alpha=0.8)
+        # Mirau objective body
+        ax.add_patch(mpatches.FancyBboxPatch((-1.0, 1.0), 2.0, 1.6, boxstyle="round,pad=0.05",
+                                             facecolor="0.93", edgecolor="0.4", lw=0.9))
+        rotated_lens(ax, 0.0, 2.25, 0.85)
+        ax.plot([-0.08, 0.08], [1.75, 1.75], color="0.15", lw=4)  # reference spot
+        ax.plot([-0.9, 0.9], [1.12, 1.12], color="#9fc5e0", lw=2.0)  # Mirau beam splitter
+        label(ax, -1.15, 1.75, "reference\nmirror", fontsize=7, ha="right")
+        label(ax, -1.15, 1.12, "beam splitter\nplate", fontsize=7, ha="right")
+        label(ax, 1.15, 2.25, "Mirau\nobjective", fontsize=8, ha="left")
+        for x0 in (-0.25, 0.25):
+            ax.plot([x0, 0.0], [2.25, 0.45], color=ILLUMINATION, lw=0.8)
+            ax.plot([x0*0.38, 0.0], [1.12, 1.75], color=REFERENCE, lw=0.8, ls="--")
+        ax.annotate("", xy=(1.6, 1.4), xytext=(1.6, 0.6),
+                    arrowprops=dict(arrowstyle="<->", color="0.3"))
+        label(ax, 1.75, 1.0, "piezo scan z", fontsize=8, ha="left")
+        # sample with a step
+        xs = np.array([-2.5, 0.1, 0.1, 2.5])
+        ys = np.array([0.25, 0.25, 0.45, 0.45])
+        ax.fill_between(xs, ys, -0.3, step=None, color="#e8e2d8")
+        ax.plot(xs, ys, color="0.35", lw=1.2)
+        label(ax, -1.6, -0.05, "surface h(x, y)", fontsize=8)
+        # correlogram inset
+        zz = np.linspace(-1.2, 1.2, 300)
+        sig = 0.35*np.exp(-zz**2/0.12)*np.cos(2*np.pi*zz/0.22)
+        ax.plot(3.0 + 0.0*zz + sig, 2.8 + zz, color=IMAGING, lw=0.8)
+        label(ax, 3.0, 4.25, "correlogram\nof one pixel", fontsize=8)
+        label(ax, 3.55, 2.8, "← peak at z = h", fontsize=7, ha="left")
+        _finish(ax, (-4.2, 5.2), (-0.5, 5.8), title)
+    elif kind == "ellipsometer":
+        th = np.radians(65.0)
+        L = 4.0
+        src = (-L*np.sin(th), L*np.cos(th))
+        det = (L*np.sin(th), L*np.cos(th))
+        ax.fill_between([-3.8, 3.8], [0, 0], [-0.5, -0.5], color="#d9d0e8")
+        ax.plot([-3.8, 3.8], [0, 0], color="0.3", lw=1.2)
+        ax.add_patch(mpatches.Rectangle((-3.8, 0.0), 7.6, 0.08, facecolor="#9fc5e0", lw=0))
+        label(ax, 2.6, -0.28, "substrate", fontsize=8)
+        label(ax, -2.6, 0.22, "film", fontsize=8)
+        ax.plot([src[0], 0, det[0]], [src[1], 0, det[1]], color=LASER, lw=1.4)
+        ax.plot([0, 0], [0, 1.5], color="0.5", lw=0.8, ls=":")
+        ax.add_patch(mpatches.Arc((0, 0), 1.6, 1.6, theta1=90, theta2=90 + 65, color="0.3", lw=0.8))
+        label(ax, -0.35, 1.0, "φ", fontsize=10)
+        ang = 90 + 65
+        f = lambda s: (src[0]*s, src[1]*s)
+        g = lambda s: (det[0]*s, det[1]*s)
+        _lidar_box(ax, src[0] - 0.55, src[1], 1.1, 0.5, "source", "#fde9b8")
+        _beam_element(ax, *f(0.78), -65, 0.6, "#8c6d1f", "P", (-0.35, 0.15))
+        _beam_element(ax, *f(0.58), -65, 0.6, "#5aa469", "C", (-0.35, 0.1), rotating=True)
+        _beam_element(ax, *g(0.62), 65, 0.6, "#8c6d1f", "A", (0.35, 0.1))
+        _lidar_box(ax, det[0] - 0.7, det[1], 1.4, 0.5, "spectrometer", "0.88")
+        label(ax, 0.0, 4.3, "ρ = r_p/r_s = tan Ψ exp(iΔ)", fontsize=9)
+        label(ax, 0.0, 3.75, "rotating compensator: I(t) = a₀ + Σ a₂ₙcos 2nωt + b₂ₙsin 2nωt → N, C, S",
+              fontsize=7)
+        _finish(ax, (-5.6, 5.6), (-0.6, 4.6), title)
+    elif kind == "scatterometry":
+        P = 1.8
+        ax.add_patch(mpatches.Rectangle((-4.5, -1.2), 9.0, 0.7, facecolor="#d9d0e8", lw=0))
+        ax.add_patch(mpatches.Rectangle((-4.5, -0.5), 9.0, 0.5, facecolor="#9fc5e0", lw=0))
+        label(ax, 3.9, -0.9, "Si", fontsize=8)
+        label(ax, 3.9, -0.25, "film", fontsize=8)
+        for c in np.arange(-2, 3)*P:
+            xs = np.array([c - 0.55, c - 0.4, c + 0.4, c + 0.55])
+            ax.add_patch(mpatches.Polygon(np.c_[xs, [0, 1.3, 1.3, 0]], closed=True,
+                                          facecolor="#f4c99a", edgecolor="0.35", lw=0.9))
+        ax.annotate("", xy=(-0.55, -0.12), xytext=(0.55, -0.12),
+                    arrowprops=dict(arrowstyle="<->", color="0.2", lw=0.8))
+        label(ax, 0.0, 0.25, "CD", fontsize=8)
+        ax.annotate("", xy=(0.75, 0.0), xytext=(0.75, 1.3),
+                    arrowprops=dict(arrowstyle="<->", color="0.2", lw=0.8))
+        label(ax, 0.95, 0.65, "h", fontsize=8, ha="left")
+        ax.add_patch(mpatches.Arc((-1.8 + 0.55, 0.0), 0.7, 0.7, theta1=97, theta2=180,
+                                  color="0.2", lw=0.8))
+        label(ax, -1.75, 0.5, "SWA", fontsize=7, ha="right")
+        ax.annotate("", xy=(1.8, 1.55), xytext=(3.6, 1.55),
+                    arrowprops=dict(arrowstyle="<->", color="0.2", lw=0.8))
+        label(ax, 2.7, 1.75, "pitch", fontsize=8)
+        th = np.radians(60)
+        ax.annotate("", xy=(0.0, 1.35), xytext=(-3.0*np.sin(th), 1.35 + 3.0*np.cos(th)),
+                    arrowprops=dict(arrowstyle="-|>", color=LASER, lw=1.3))
+        ax.annotate("", xy=(3.0*np.sin(th), 1.35 + 3.0*np.cos(th)), xytext=(0.0, 1.35),
+                    arrowprops=dict(arrowstyle="-|>", color=LASER, lw=1.3))
+        for a in (-35, 20):
+            ax.annotate("", xy=(0.8*np.sin(np.radians(a)), 1.35 + 0.35), xytext=(0.0, 1.35),
+                        arrowprops=dict(arrowstyle="-|>", color="0.55", lw=0.8, ls="--"))
+        label(ax, -2.9, 3.2, "polarized white light", fontsize=8)
+        label(ax, 2.9, 3.2, "zero order: Ψ(λ), Δ(λ)", fontsize=8)
+        label(ax, 0.0, 2.15, "higher orders evanescent (pitch < λ/2)", fontsize=7, color="0.45")
+        _finish(ax, (-4.6, 4.6), (-1.3, 3.5), title)
+    elif kind == "deflectometry":
+        # mirror surface at the bottom, camera upper left, screen upper right
+        xs = np.linspace(-2.5, 2.5, 200)
+        ys = 0.04*xs**2 + 0.03*np.sin(6*xs)
+        ax.fill_between(xs, ys, -0.6, color="#cfd8e0")
+        ax.plot(xs, ys, color="0.25", lw=1.6)
+        label(ax, 2.1, -0.35, "specular surface", fontsize=8)
+        C = np.array([-2.6, 4.0])
+        ax.add_patch(mpatches.Rectangle((C[0] - 0.7, C[1] - 0.22), 0.7, 0.45, facecolor="0.35",
+                                        transform=_rotation_about(ax, C, -55)))
+        label(ax, C[0] - 0.9, C[1] + 0.45, "camera", fontsize=8, ha="right")
+        # screen with fringes, tilted
+        s0, s1 = np.array([1.6, 4.6]), np.array([4.0, 3.2])
+        n_str = 14
+        for i in range(n_str):
+            a, b = s0 + (s1 - s0)*i/n_str, s0 + (s1 - s0)*(i + 1)/n_str
+            g = 0.5 + 0.45*np.cos(2*np.pi*i/4.0)
+            ax.plot([a[0], b[0]], [a[1], b[1]], color=str(round(1 - 0.85*g, 2)), lw=6,
+                    solid_capstyle="butt")
+        label(ax, 3.4, 4.5, "screen: phase-shifted\nfringes in u and v", fontsize=8,
+              ha="left")
+        P = np.array([0.2, 0.04*0.2**2 + 0.03*np.sin(1.2)])
+        S = s0 + 0.55*(s1 - s0)
+        ax.plot([C[0], P[0]], [C[1], P[1]], color=IMAGING, lw=1.2)
+        ax.plot([P[0], S[0]], [P[1], S[1]], color=ILLUMINATION, lw=1.2)
+        c = (C - P)/np.linalg.norm(C - P)
+        s = (S - P)/np.linalg.norm(S - P)
+        n = (c + s)/np.linalg.norm(c + s)
+        ax.annotate("", xy=P + 1.6*n, xytext=P, arrowprops=dict(arrowstyle="-|>", color="0.2"))
+        label(ax, P[0] + 1.7*n[0] + 0.15, P[1] + 1.7*n[1], "n", fontsize=10, ha="left")
+        ax.plot(*P, "o", color="0.15", ms=4)
+        label(ax, P[0] - 0.1, P[1] - 0.3, "P", fontsize=9)
+        ax.plot(*S, "o", color="0.15", ms=4)
+        label(ax, S[0] - 0.05, S[1] - 0.35, "S", fontsize=9)
+        label(ax, C[0] + 0.55, C[1] - 0.35, "C", fontsize=9)
+        label(ax, 0.2, 5.4, "n ∝ (C − P)/|C − P| + (S − P)/|S − P|", fontsize=8)
+        label(ax, -3.5, 0.9, "P anywhere on the line of sight:\nheight-slope ambiguity",
+              fontsize=7, color="0.4", ha="left")
+        _finish(ax, (-3.6, 5.6), (-0.7, 5.8), title)
+    else:
+        raise ValueError("kind must be 'csi', 'ellipsometer', 'scatterometry' or 'deflectometry'")
+
+
+def _rotation_about(ax, center, angle):
+    """Transform that rotates by `angle` degrees about `center` (data
+    coordinates), for patches."""
+    import matplotlib.transforms as mtransforms
+    return mtransforms.Affine2D().rotate_deg_around(center[0], center[1], angle) + ax.transData

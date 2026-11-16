@@ -531,6 +531,30 @@ notebooks/132_beam_scanning
 notebooks/133_triangulation_structured_light
 ```
 
+## Surface and thin-film metrology
+
+How fabs and optics shops measure surfaces and films: coherence scanning
+(white-light) interferometry for surface heights from nanometres to
+millimetres, spectroscopic ellipsometry and its model fits for film
+thicknesses and optical constants, scatterometry of line gratings too
+small to image, and phase measuring deflectometry for the shape and the
+ripples of specular freeforms.
+
+- {doc}`134 Coherence scanning interferometry (white light interferometry, WLI) <notebooks/134_coherence_scanning_interferometry>`
+- {doc}`135 Ellipsometry <notebooks/135_ellipsometry>`
+- {doc}`136 Scatterometry <notebooks/136_scatterometry>`
+- {doc}`137 Deflectometry <notebooks/137_deflectometry>`
+
+```{toctree}
+:hidden:
+:caption: Surface and thin-film metrology
+
+notebooks/134_coherence_scanning_interferometry
+notebooks/135_ellipsometry
+notebooks/136_scatterometry
+notebooks/137_deflectometry
+```
+
 ## Running the notebooks
 
 ```{include} ../notebooks/README.md
