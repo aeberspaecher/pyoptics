@@ -72,6 +72,17 @@ exchangeable:
   (US 5,982,558); conventional and annular settings, the pupil fill at any
   field point as an `Illumination`, field uniformity and the telecentricity
   against the projection lens,
+- `stochastics`: photon shot noise and discrete acid, quencher and
+  protecting groups on a top-down grid (the resist chain of `resist` with
+  counts, any wavelength and photon energy), line edge and width
+  roughness and their power spectra, local CD uniformity, missing and
+  merged contact holes,
+- `flare`: long-range scattered light, a power-law PSF or one from a
+  surface roughness PSD (total integrated scatter ~ 1/wavelength**2), the
+  flare level from the pattern density of a die,
+- `focus_blur`: images averaged over the focus spread of the laser
+  bandwidth times the axial colour of the lens (`lens.axial_colour()`)
+  and the vertical stage MSD, blurred by the lateral MSD,
 - `plot`: source, mask, pupil fill, images, Bossung plots, process windows.
 
 All lengths are image-side (wafer scale) values; mask dimensions are given
@@ -109,5 +120,8 @@ from . import source_opt
 from . import opc
 from . import illuminator
 from . import budget
+from . import stochastics
+from . import flare
+from . import focus_blur
 from .rcwa import RigorousMask
 from .fdtd_mask import FDTDMask

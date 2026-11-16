@@ -276,6 +276,11 @@ Setup sketches for the other example notebooks:
   (notebook 142, laser fundamentals), Q switched and mode-locked cavities
   (notebook 143, Q-switching and mode-locking) and a laser diode chip
   (notebook 144, laser diodes).
+- litho_stochastics_layout(): photon shot noise, acid and quencher in the
+  resist, line edge and width roughness with the edge PSD, contact holes
+  with missing and merged ones, flare from a rough lens surface and the
+  focus spread from the laser bandwidth and the stage
+  (notebook 152, litho stochastics, flare and focus blur).
 
 text_scale() is a context manager that enlarges the labels of a sketch,
 for wide layouts that are shown scaled down.
@@ -356,7 +361,7 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "pancake_lens", "hud_layout", "zoom_cams", "qbfs_geometry",
            "progressive_lens_layout", "lidar_layout", "beam_scanner", "scan_lens_layout",
            "structured_light_layout", "crystal_optics_layout", "modulator_layout", "laser_layout",
-           "hybrid_lens_layout", "text_scale"]
+           "hybrid_lens_layout", "litho_stochastics_layout", "text_scale"]
 
 
 GLASS = "#cfe3f3"
@@ -11390,3 +11395,195 @@ def hybrid_lens_layout(ax, kind="hybrid", title=None):
     else:
         raise ValueError("kind must be 'refractive', 'diffractive', 'hybrid', 'kinoform', "
                          "'sweatt' or 'orders'")
+
+
+# ------------------ notebook 152, litho stochastics, flare and focus blur
+
+LITHO_COLORS = {"photon": "#7b4fb3", "acid": "#d6604d", "quencher": "#2a7ab9",
+                "resist": "#f2e3b3", "resist_edge": "#a88a3c", "substrate": "#9a9a9a",
+                "flare": "#e0a000", "blue": "#2a7ab9", "green": "#5aa469", "red": "#d6604d"}
+
+
+def _rough_edge(y, x0, amplitude, seed, smooth=6):
+    """A smoothed random edge x(y) about x0 (for drawings)."""
+
+    rng = np.random.default_rng(seed)
+    e = rng.standard_normal(len(y) + 2*smooth)
+    k = np.exp(-0.5*(np.arange(-2*smooth, 2*smooth + 1)/smooth)**2)
+    e = np.convolve(e, k/np.sqrt(np.sum(k**2)), mode="same")[smooth:-smooth]
+
+    return x0 + amplitude*e/np.std(e)
+
+
+def litho_stochastics_layout(ax, kind="shot_noise", title=None):
+    """Sketch of stochastic effects, flare and focus blur in lithography
+    (notebook 152, litho stochastics, flare and focus blur).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"shot_noise", "roughness", "contacts", "flare", "focus_blur"}, optional
+        "shot_noise": photons arrive at random with a density that follows
+        the aerial image, the absorbed ones turn acid generator into acid,
+        the quencher is spread at random as well; the bake blurs both over
+        the diffusion length. "roughness": a line seen from the top with
+        rough edges, its CD, LER and LWR, and the PSD of the edge (flat
+        below 1/(2 pi xi), falling with the exponent 2H + 1 above).
+        "contacts": an array of contact holes with varying sizes (local
+        CDU), a missing and two merged holes. "flare": a rough lens surface
+        scatters a little of the light into a wide halo around every image
+        point; the halo adds a background that grows with the open area of
+        the mask. "focus_blur": the laser line spreads the wavelength, the
+        axial colour of the lens turns it into a spread of foci, the stage
+        moves the wafer up and down (z MSD) and sideways (xy MSD).
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    C = LITHO_COLORS
+    rng = np.random.default_rng(7)
+
+    if kind == "shot_noise":
+        u = np.linspace(-3.0, 3.0, 400)
+        I = 0.5 - 0.45*np.cos(2*np.pi*u/3.0)
+        ax.plot(u, 2.6 + 0.9*I, color="0.2", lw=1.3)
+        label(ax, 3.25, 3.0, "aerial image I(x)", fontsize=8, ha="left")
+        # photons with a density following I
+        n = 70
+        x_ph = rng.uniform(-3.0, 3.0, 4*n)
+        keep = rng.uniform(0, 1, 4*n) < 0.5 - 0.45*np.cos(2*np.pi*x_ph/3.0)
+        x_ph = x_ph[keep][:n]
+        y_ph = rng.uniform(1.25, 2.35, len(x_ph))
+        ax.plot(x_ph, y_ph, ".", color=C["photon"], ms=4)
+        label(ax, 3.25, 1.85, "photons:\nPoisson, D/E_ph\nper area", fontsize=8, ha="left",
+              color=C["photon"])
+        # resist with acid and quencher
+        ax.add_patch(mpatches.Rectangle((-3.0, 0.0), 6.0, 1.0, facecolor=C["resist"],
+                                        edgecolor=C["resist_edge"], lw=1.0, zorder=1))
+        ax.add_patch(mpatches.Rectangle((-3.0, -0.35), 6.0, 0.35, facecolor=C["substrate"],
+                                        edgecolor="0.4", lw=0.8, zorder=1))
+        x_a = x_ph[:int(0.6*len(x_ph))]
+        y_a = rng.uniform(0.12, 0.88, len(x_a))
+        ax.plot(x_a, y_a, "o", color=C["acid"], ms=3.5, zorder=3)
+        x_q, y_q = rng.uniform(-2.9, 2.9, 14), rng.uniform(0.12, 0.88, 14)
+        ax.plot(x_q, y_q, "s", color=C["quencher"], ms=3, zorder=3)
+        for xa, ya in zip(x_a[:3], y_a[:3]):
+            ax.add_patch(mpatches.Circle((xa, ya), 0.32, facecolor="none", edgecolor=C["acid"],
+                                         lw=0.7, ls="--", zorder=2))
+        label(ax, 3.25, 0.75, "acid (H⁺)", fontsize=8, ha="left", color=C["acid"])
+        label(ax, 3.25, 0.35, "quencher", fontsize=8, ha="left", color=C["quencher"])
+        label(ax, 3.25, -0.05, "- - diffusion\n    length", fontsize=8, ha="left", va="top",
+              color=C["acid"])
+        label(ax, 0.0, -0.6, "resist on the wafer: a few acids per nm² column", fontsize=8)
+        _finish(ax, (-3.4, 5.4), (-0.85, 3.7), title)
+    elif kind == "roughness":
+        y = np.linspace(-2.0, 2.0, 300)
+        left = _rough_edge(y, -0.6, 0.09, 1)
+        right = _rough_edge(y, 0.6, 0.09, 2)
+        ax.fill_betweenx(y, left, right, color=C["resist"], zorder=1)
+        ax.plot(left, y, color=C["resist_edge"], lw=1.2, zorder=2)
+        ax.plot(right, y, color=C["resist_edge"], lw=1.2, zorder=2)
+        for x0 in (-0.6, 0.6):
+            ax.plot([x0, x0], [-2.0, 2.0], color="0.4", lw=0.7, ls=":", zorder=3)
+        arrow(ax, -0.6, -2.3, 0.6, -2.3, style="<|-|>", text="CD", text_pos=(0.0, -2.55))
+        ax.annotate("", xy=(-0.6 - 0.27, 1.2), xytext=(-0.6 + 0.27, 1.2),
+                    arrowprops=dict(arrowstyle="<->", color=C["acid"], lw=0.9))
+        label(ax, -1.0, 1.2, "LER = 3σ\nof an edge", fontsize=8, ha="right", color=C["acid"])
+        label(ax, 1.0, -1.0, "LWR = 3σ\nof the width", fontsize=8, ha="left", color=C["quencher"])
+        label(ax, 0.0, 2.3, "line of resist, top view", fontsize=8)
+        # PSD inset
+        f = np.logspace(-1.5, 1.0, 100)
+        p = 1/(1 + f**2)**1.0
+        X, Y = 2.4 + 0.75*np.log10(f/10**-1.5), -1.6 + 0.7*(np.log10(p) + 2.0)*1.3
+        ax.plot([2.4, 4.4], [-1.7, -1.7], color="0.3", lw=0.8)
+        ax.plot([2.4, 2.4], [-1.7, 0.6], color="0.3", lw=0.8)
+        ax.plot(X, Y, color="0.15", lw=1.4)
+        label(ax, 3.4, -1.95, "log f", fontsize=8)
+        label(ax, 2.25, -0.4, "log PSD", fontsize=8, rotation=90, ha="right")
+        label(ax, 3.0, 0.55, "PSD(0)", fontsize=8)
+        label(ax, 4.0, -0.3, "~ f^-(2H+1)", fontsize=8)
+        x_c = 2.4 + 0.75*1.5
+        ax.plot([x_c, x_c], [-1.7, 0.2], color="0.5", lw=0.7, ls=":")
+        label(ax, x_c, -2.2, "1/(2πξ)", fontsize=8)
+        _finish(ax, (-2.0, 4.8), (-2.8, 2.6), title)
+    elif kind == "contacts":
+        p = 1.0
+        sizes = 0.3 + 0.06*rng.standard_normal((4, 4))
+        sizes[0, 3] = 0.0
+        for i in range(4):
+            for j in range(4):
+                x, y = i*p, j*p
+                ax.add_patch(mpatches.Rectangle((x - 0.5, y - 0.5), 1.0, 1.0, facecolor=C["resist"],
+                                                edgecolor="none", zorder=0))
+                if (i, j) == (0, 3):
+                    ax.add_patch(mpatches.Circle((x, y), 0.3, facecolor="none", edgecolor=C["acid"],
+                                                 lw=1.0, ls="--", zorder=2))
+                elif (i, j) in ((2, 0), (3, 0)):
+                    continue
+                else:
+                    t = np.linspace(0, 2*np.pi, 60)
+                    r = sizes[i, j]*(1 + 0.08*np.sin(3*t + i + 2*j) + 0.05*np.cos(5*t + j))
+                    ax.add_patch(mpatches.Polygon(np.column_stack([x + r*np.cos(t), y + r*np.sin(t)]),
+                                                  facecolor="white", edgecolor=C["resist_edge"],
+                                                  lw=1.0, zorder=2))
+        # merged pair
+        t = np.linspace(0, 2*np.pi, 80)
+        ax.add_patch(mpatches.Ellipse((2.5, 0.0), 1.55, 0.62, facecolor="white",
+                                      edgecolor=C["resist_edge"], lw=1.0, zorder=2))
+        label(ax, 1.0, 2.0 + 0.0, "", fontsize=8)
+        arrow(ax, -0.9, 4.0, -0.25, 3.3, color=C["acid"], text="missing", text_pos=(-1.0, 4.2))
+        arrow(ax, 2.5, -1.1, 2.5, -0.4, color=C["quencher"], text="merged",
+              text_pos=(2.5, -1.3))
+        label(ax, 4.0, 1.5, "local CDU =\n3σ of the\nhole CDs", fontsize=8, ha="left")
+        _finish(ax, (-1.6, 5.2), (-1.6, 4.4), title)
+    elif kind == "flare":
+        lens(ax, 0.0, 1.3, thickness=0.4)
+        lens(ax, 1.6, 1.3, thickness=0.4)
+        y = np.linspace(-1.2, 1.2, 200)
+        ax.plot(0.95 + 0.04*np.sin(37*y) + 0.02*np.sin(91*y), y, color=C["flare"], lw=1.0, zorder=4)
+        label(ax, 0.95, -1.75, "rough surface, σ", fontsize=8, color=C["flare"])
+        for y0 in (-0.9, 0.9):
+            ax.plot([-1.6, 0.0], [y0, y0], color=IMAGING, lw=1.0)
+            ax.plot([1.6, 5.0], [y0, 0.0 - 0.0*y0], color=IMAGING, lw=1.0)
+            ax.plot([0.0, 1.6], [y0, y0], color=IMAGING, lw=1.0)
+        for ang in (-0.35, -0.2, 0.15, 0.3, 0.45):
+            ax.plot([0.95, 5.0], [0.4, 0.4 + 4.05*np.tan(ang)*0.6], color=C["flare"], lw=0.7,
+                    ls="--")
+        ax.plot([5.0, 5.0], [-1.6, 1.6], color="0.3", lw=2.0)
+        label(ax, 5.0, -1.85, "wafer", fontsize=8)
+        # image with halo
+        r = np.linspace(-1.5, 1.5, 300)
+        ax.plot(5.2 + 0.9*np.exp(-(r/0.08)**2) + 0.12, r, color="0.15", lw=1.0)
+        ax.fill_betweenx(r, 5.2, 5.32, color=C["flare"], alpha=0.35)
+        label(ax, 6.3, 0.8, "image\npeak", fontsize=8, ha="left")
+        label(ax, 6.3, -0.9, "flare halo\nPSF ~ r^-β,\ntotal = TIS", fontsize=8, ha="left",
+              color=C["flare"])
+        label(ax, 1.2, 1.85, "TIS = (2π(n − 1)σ/λ)² per lens surface, (4πσ/λ)² per mirror",
+              fontsize=8)
+        _finish(ax, (-1.8, 7.9), (-2.2, 2.2), title)
+    elif kind == "focus_blur":
+        # laser line
+        lam = np.linspace(-1.0, 1.0, 200)
+        ax.plot(-3.4 + 1.2*lam, -0.9 + 1.1/(1 + (lam/0.2)**2), color="0.2", lw=1.2)
+        for lv, col in ((-0.35, C["blue"]), (0.0, C["green"]), (0.35, C["red"])):
+            ax.plot([-3.4 + 1.2*lv], [-0.9 + 1.1/(1 + (lv/0.2)**2)], "o", color=col, ms=4)
+        label(ax, -3.4, -1.25, "laser line, FWHM Δλ", fontsize=8)
+        lens(ax, 0.0, 1.3, thickness=0.4, text="lens with\naxial colour", text_y=-1.75)
+        foci = ((C["blue"], 3.6), (C["green"], 3.9), (C["red"], 4.2))
+        for col, zf in foci:
+            for y0 in (-1.0, 1.0):
+                ax.plot([-1.6, 0.0], [y0, y0], color="0.6", lw=0.8)
+                ax.plot([0.0, 4.9], [y0, y0 - y0/zf*4.9], color=col, lw=1.0, alpha=0.9)
+            ax.plot(zf, 0.0, "o", color=col, ms=3.5, zorder=5)
+        arrow(ax, 3.6, 1.6, 4.2, 1.6, style="<|-|>", text="Δz = (dz/dλ) Δλ", text_pos=(3.9, 1.9))
+        for zf in (3.6, 4.2):
+            ax.plot([zf, zf], [0.1, 1.6], color="0.5", lw=0.6, ls=":")
+        ax.plot([3.9, 3.9], [-1.4, 1.4], color="0.3", lw=2.0)
+        arrow(ax, 4.45, -1.2, 3.35, -1.2, style="<|-|>", color=C["acid"])
+        label(ax, 3.9, -1.5, "stage z MSD", fontsize=8, color=C["acid"])
+        arrow(ax, 5.1, 0.35, 5.1, -0.35, style="<|-|>", color=C["quencher"])
+        label(ax, 5.25, 0.0, "xy MSD", fontsize=8, ha="left", color=C["quencher"])
+        _finish(ax, (-4.8, 6.4), (-2.0, 2.2), title)
+    else:
+        raise ValueError("kind must be 'shot_noise', 'roughness', 'contacts', 'flare' or "
+                         "'focus_blur'")
