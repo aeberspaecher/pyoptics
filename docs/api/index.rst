@@ -115,6 +115,7 @@ Lithography
    pyoptics.litho.imaging
    pyoptics.litho.metrics
    pyoptics.litho.lens
+   pyoptics.litho.budget
    pyoptics.litho.hopkins
    pyoptics.litho.resist
    pyoptics.litho.rcwa

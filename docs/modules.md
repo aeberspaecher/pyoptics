@@ -187,7 +187,12 @@ What each module does and how mature it is. Planned work is listed in
   distortion, telecentricity, placement of a small feature), computes CD,
   placement and best focus across a scanner slit with scan averaging and
   the linear scanner correction, and Zernike sensitivities with a quick
-  aberration budget; `litho.hopkins` computes transmission cross
+  aberration budget; `litho.budget` chains lens tolerances to the wafer
+  (Zernikes and placements across the slit as a performance vector for
+  `tolerancing`, sensitivities about the nominal lens per slit position, a
+  lithographic error vector for the compensators, CD, placement and best
+  focus changes, their statistics and the yield; notebook 150,
+  lens tolerances and wafer yield); `litho.hopkins` computes transmission cross
   coefficients (TCC) and their SOCS decomposition, equal to Abbe's method
   for thin masks and fast for many masks with the same optics; swing
   curves and BARC optimization (`litho.wafer`, absorbed energy exact
@@ -560,13 +565,19 @@ What each module does and how mature it is. Planned work is listed in
   h = f*theta of scan lenses as an operand (notebook 149, scan lenses)
 - `tolerancing`: Monte Carlo tolerancing, tested: tolerances (power in
   fringes, radius, thickness and air space, axial position of an element,
-  image plane, index, Abbe number, element decentre) with Gaussian, uniform
+  image plane, index, Abbe number, element decentre, element tilt about a
+  pivot, wedge, surface irregularity in fringes of a Zernike shape, index
+  inhomogeneity of the blank) with Gaussian, uniform
   or end point distributions, applied before or after the compensators;
   performance vectors of the polychromatic RMS spot and the RMS wavefront per
   field (full pupil, valid for decentred lenses); compensators from
-  `lens_optimization` variables (focus, axial manipulators) and lateral
-  manipulators; sensitivity tables, variance budgets, full Monte Carlo runs and
-  the linear model (exact quadratic merit), compensator choice (notebook 70, Monte Carlo tolerancing)
+  `lens_optimization` variables (focus, axial manipulators), lateral and
+  tilt manipulators, image plane tilt and the wavelength, with soft ranges
+  (damped least squares); sensitivity tables, variance budgets, full Monte
+  Carlo runs (optionally keeping the performance vectors) and
+  the linear model (exact quadratic merit), compensator choice, inverse
+  sensitivity and tolerance allocation from a budget (notebooks 70,
+  Monte Carlo tolerancing, and 150, lens tolerances and wafer yield)
 - `qaspheres`: new, tested: Forbes' Q-type aspheres; the Q-bfs
   polynomials (orthonormal in slope, built by Gram–Schmidt with
   Gauss–Chebyshev quadrature) and the Q-con polynomials (Jacobi

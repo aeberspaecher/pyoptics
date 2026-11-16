@@ -8,9 +8,12 @@ radius, thickness, glass and element position is only made to within a
 tolerance. The ingredients:
 
 - **Tolerances** (`Radius`, `Power`, `Thickness`, `AxialShift`, `Index`,
-  `Abbe`, `Decenter`, `ImagePlane`): one scalar error each, with a limit
-  and a statistical distribution (`"normal"`: Gaussian with sigma = limit/2,
-  cut at the limit; `"uniform"`; `"endpoints"`: plus or minus the limit).
+  `Abbe`, `Decenter`, `ImagePlane`; `Tilt` of an element as a rigid body
+  about a pivot, `Wedge` of a surface, `Irregularity` in fringes of a
+  Fringe Zernike shape, `Inhomogeneity` of the index of a blank): one
+  scalar error each, with a limit and a statistical distribution
+  (`"normal"`: Gaussian with sigma = limit/2, cut at the limit;
+  `"uniform"`; `"endpoints"`: plus or minus the limit).
   `element_tolerances()` builds the usual set for a list of elements.
 - A **performance** vector whose sum of squares is the merit, block by
   block per field point: `SpotErrors` (transverse ray errors about the
@@ -20,7 +23,11 @@ tolerance. The ingredients:
   that they stay valid for decentred systems and keep their length.
 - **Compensators**: `lens_optimization.Variable` objects (the image
   distance `Thickness(-1)` for refocusing, `AirSpace` for axial element
-  manipulators, `LateralShift` here for lateral ones) that are adjusted after assembly to minimize the merit.
+  manipulators; here `LateralShift` for lateral ones, `ElementTilt`,
+  `ImageTilt` for the levelling of a wafer or detector and `Wavelength`)
+  that are adjusted after assembly to minimize the merit, optionally with
+  soft ranges (`ranges=`: damped least squares, for manipulators with a
+  limited stroke).
   Tolerances flagged `after_compensation` (such as the accuracy with which
   the focus is set, `ImagePlane`) are applied after the adjustment.
 - Scalar **metrics** (e.g. the axial colour) computed for every system.
@@ -39,9 +46,19 @@ tolerance. The ingredients:
   hundreds of thousands of lenses in seconds.
 - `compensator_jacobian()` and `with_compensators()`: other compensators
   without tracing the tolerances again, e.g. to choose manipulators.
+- `LinearModel.inverse_sensitivity()`: the error of each tolerance alone at
+  which the merit (or a metric) reaches a target, and
+  `LinearModel.allocate()`: tolerance limits that share an error budget
+  (root sum square, equal or weighted shares, some limits fixed), applied
+  with `with_limits()`.
 - `yield_fraction()`: the fraction of lenses within the specification.
 
-Notebook 70 (Monte Carlo tolerancing).
+Monte Carlo runs can keep the performance vectors (`vectors=True`), e.g.
+for `pyoptics.litho.budget`, which turns them into CD, placement and best
+focus changes on the wafer.
+
+Notebooks 70 (Monte Carlo tolerancing) and
+150 (lens tolerances and wafer yield).
 
 References
 ----------
@@ -56,12 +73,14 @@ lens centring errors and their influence on optical image quality", Br. J.
 Appl. Phys. 17, 33-54 (1966).
 """
 
+import copy
 from collections import namedtuple
 
 import numpy as np
 
 from .lens_optimization import Variable
-from .raytrace import CoordinateBreak, IdealLens
+from .bases import fringe_zernike, zernike_indices
+from .raytrace import CoordinateBreak, IdealLens, Surface, ZernikeSurface
 
 
 TEST_WAVELENGTH = 632.8e-6  # HeNe test plate wavelength in mm
@@ -390,9 +409,257 @@ class Decenter(Tolerance):
             system.surfaces[i].decenter = tuple(d)
 
 
+def _element_vertices(system, first, last):
+    """Axial positions of the vertices first...last relative to the first."""
+
+    z = [0.0]
+    for i in range(first, last):
+        z.append(z[-1] + system.surfaces[i].thickness)
+
+    return np.array(z)
+
+
+def _tilt_element(system, first, last, angle, axis, pivot):
+    """Rotate the surfaces first...last as a rigid body by an angle about the
+    x or y axis through a point on the axis (pivot: its distance behind the
+    first vertex in the untilted element; None: midway between the first and
+    the last vertex). The tilt already present (that of the first surface
+    about this axis, from earlier calls) is taken into account, so that
+    rotations about the same pivot add up exactly."""
+
+    if any(isinstance(system.surfaces[i], CoordinateBreak) for i in range(first, last + 1)):
+        raise ValueError("Element tilts need an element without coordinate breaks.")
+    k = 0 if axis == "x" else 1
+    a0 = system.surfaces[first].tilt[k]
+    a1 = a0 + angle
+    z = _element_vertices(system, first, last)/np.cos(a0)  # along the element's own axis
+    z = z - (0.5*z[-1] if pivot is None else pivot)
+    for i, zi in zip(range(first, last + 1), z):
+        s = system.surfaces[i]
+        t = list(s.tilt)
+        t[k] += angle
+        s.tilt = tuple(t)
+        # the vertex moves on a circle about the pivot (R_x(a): +z towards -y,
+        # R_y(a): +z towards +x)
+        d = list(s.decenter)
+        if axis == "x":
+            d[1] -= zi*(np.sin(a1) - np.sin(a0))
+        else:
+            d[0] += zi*(np.sin(a1) - np.sin(a0))
+        s.decenter = tuple(d)
+    # and along the axis by z (cos(a1) - cos(a0)): change the gaps, the
+    # surfaces behind the element stay
+    dz = z*(np.cos(a1) - np.cos(a0))
+    if first == 0:
+        if not system.infinite_object:
+            system.object_distance += dz[0]
+    else:
+        system.surfaces[first - 1].thickness += dz[0]
+    for i in range(first, last):
+        system.surfaces[i].thickness += dz[i - first + 1] - dz[i - first]
+    system.surfaces[last].thickness -= dz[-1]
+
+class Tilt(Tolerance):
+    """Tilt of an element (surfaces first...last rotate together as a rigid
+    body) about the x or y axis through a pivot on the optical axis.
+
+    Each surface is tilted by the angle and its vertex is moved on the
+    circle about the pivot (to first order in the angle). A tilt about x
+    (``axis="x"``) turns the element in the y-z plane, like a decentre
+    along y.
+
+    Parameters
+    ----------
+    first, last : int
+    limit : number
+        Angle in radians.
+    axis : {"x", "y"}, optional
+        Axis of the rotation.
+    pivot : number, optional
+        Axial position of the pivot behind the vertex of the first surface
+        (default: midway between the first and the last vertex).
+    **kwargs
+        See `Tolerance`.
+    """
+
+    group = "tilt"
+
+    def __init__(self, first, last, limit, axis="x", pivot=None, **kwargs):
+        if axis not in ("x", "y"):
+            raise ValueError("axis must be 'x' or 'y'")
+        self.first, self.last, self.axis, self.pivot = first, last, axis, pivot
+        self.name = "t{}{}-{}".format(axis, first + 1, last + 1)
+        super().__init__(limit, **kwargs)
+
+    def apply(self, system, value):
+        _tilt_element(system, self.first, self.last, value, self.axis, self.pivot)
+
+
+class Wedge(Tolerance):
+    """Tilt of one surface about its vertex, the wedge of an element (Zemax
+    TSTX/TSTY).
+
+    A wedge angle a of an element of diameter D is an edge thickness
+    difference (ETD, TIR) of about a*D.
+
+    Parameters
+    ----------
+    surface : int
+    limit : number
+        Angle in radians.
+    axis : {"x", "y"}, optional
+        Axis of the rotation.
+    **kwargs
+        See `Tolerance`.
+    """
+
+    group = "wedge"
+
+    def __init__(self, surface, limit, axis="x", **kwargs):
+        if axis not in ("x", "y"):
+            raise ValueError("axis must be 'x' or 'y'")
+        self.surface, self.axis = surface, axis
+        self.name = "w{}{}".format(axis, surface + 1)
+        super().__init__(limit, **kwargs)
+
+    def apply(self, system, value):
+        s = system.surfaces[self.surface]
+        t = list(s.tilt)
+        t[0 if self.axis == "x" else 1] += value
+        s.tilt = tuple(t)
+
+
+_PV_CACHE = {}
+
+
+def _fringe_pv(j):
+    """Peak-to-valley of the Fringe Zernike Z_j on the unit disk."""
+
+    if j not in _PV_CACHE:
+        r = np.sqrt(np.linspace(0.0, 1.0, 401))
+        a = np.linspace(0.0, 2*np.pi, 361)
+        R, A = np.meshgrid(r, a)
+        Z = fringe_zernike(j, R*np.cos(A), R*np.sin(A))
+        _PV_CACHE[j] = float(Z.max() - Z.min())
+
+    return _PV_CACHE[j]
+
+
+def _add_departure(system, surface, j, c, norm_radius):
+    """Add c*Z_j(x/norm_radius, y/norm_radius) (Fringe) to the sag of a surface;
+    a `raytrace.Surface` becomes a `raytrace.ZernikeSurface`."""
+
+    s = system.surfaces[surface]
+    if type(s) is Surface:
+        z = ZernikeSurface.__new__(ZernikeSurface)
+        z.__dict__.update(s.__dict__)
+        z.zernike, z.norm_radius, z.ordering = (), float(norm_radius), "fringe"
+        s = z
+    elif type(s) is not ZernikeSurface or s.ordering != "fringe":
+        raise ValueError("Surface {} is not a plain Surface or a ZernikeSurface with Fringe "
+                         "ordering.".format(surface))
+    # rescale to the surface's own normalization radius (exact only for the
+    # terms whose radial order does not mix under scaling: use the same rim)
+    if not np.isclose(s.norm_radius, norm_radius):
+        raise ValueError("Surface {} has another Zernike normalization radius ({} against {})."
+                         .format(surface, s.norm_radius, norm_radius))
+    coeffs = dict(s.zernike)
+    coeffs[int(j)] = coeffs.get(int(j), 0.0) + float(c)
+    s.zernike = tuple(sorted(coeffs.items()))
+    s._terms = tuple((n, m, scale*cj) for (n, m, scale), cj in
+                     ((zernike_indices(jj, "fringe"), cj) for jj, cj in s.zernike))
+    system.surfaces[surface] = s
+
+
+class Irregularity(Tolerance):
+    """Surface irregularity in fringes against a test plate: a figure error
+    of the shape of one Fringe Zernike term (astigmatism Z5, Z6, spherical
+    Z9, ...) whose peak-to-valley over the rim is N fringes, i.e.
+    N*wavelength/2 of sag.
+
+    The surface becomes a `raytrace.ZernikeSurface` (traced without the
+    compiled kernel). The usual irregularity specification "N fringes,
+    astigmatism and spherical" is modelled by one tolerance per term (5, 6
+    and 9, see `element_tolerances()`).
+
+    Parameters
+    ----------
+    surface : int
+    fringes : number
+        Limit in fringes (peak-to-valley of the departure).
+    rim : number
+        Radius of the tested aperture (normalization radius of the Zernikes).
+    term : int, optional
+        Fringe index (default 5, astigmatism at 0 degrees).
+    wavelength : number, optional
+        Test wavelength in the length unit (default HeNe in mm).
+    **kwargs
+        See `Tolerance`.
+    """
+
+    group = "irregularity"
+
+    def __init__(self, surface, fringes, rim, term=5, wavelength=TEST_WAVELENGTH, **kwargs):
+        if term < 2:
+            raise ValueError("term must be at least 2 (Z1 is piston)")
+        self.surface, self.rim, self.term = surface, float(rim), int(term)
+        self.test_wavelength = wavelength
+        self.name = "irr{}Z{}".format(surface + 1, term)
+        super().__init__(fringes, **kwargs)
+
+    def apply(self, system, value):
+        c = value*self.test_wavelength/2/_fringe_pv(self.term)
+        _add_departure(system, self.surface, self.term, c, self.rim)
+
+
+class Inhomogeneity(Tolerance):
+    """Index inhomogeneity of the glass of an element: an index variation
+    dn*f(x, y) across the blank, with the shape f of a Fringe Zernike term
+    scaled to a peak-to-valley of 1 over the rim (Z2, Z3: a linear gradient,
+    Z4: a radial, quadratic variation, Z5, Z6: astigmatic, e.g. from
+    stress).
+
+    The glass is thin compared with the radii of the wavefront, so the error
+    is the extra optical path t*dn*f(x, y) along the centre thickness t; it
+    is put on the first surface of the element as a departure of the sag of
+    -t*dn*f/(n' - n) (n, n': indices in front of and behind it), which adds
+    this path to the rays.
+
+    Parameters
+    ----------
+    first, last : int
+        The element; its glass lies between the surfaces first and last.
+    limit : number
+        Peak-to-valley dn of the index variation (e.g. 2e-6).
+    rim : number
+        Radius over which the variation is given (normalization radius).
+    term : int, optional
+        Fringe index of the shape (default 4).
+    **kwargs
+        See `Tolerance`.
+    """
+
+    group = "inhomogeneity"
+
+    def __init__(self, first, last, limit, rim, term=4, **kwargs):
+        if term < 2:
+            raise ValueError("term must be at least 2 (Z1 is a uniform index change, see Index)")
+        self.first, self.last, self.rim, self.term = first, last, float(rim), int(term)
+        self.name = "dn{}-{}Z{}".format(first + 1, last + 1, term)
+        super().__init__(limit, **kwargs)
+
+    def apply(self, system, value):
+        n = system.n
+        dn_surface = n[self.first + 1] - n[self.first]
+        t = _element_vertices(system, self.first, self.last)[-1]
+        c = -t*value/dn_surface/_fringe_pv(self.term)
+        _add_departure(system, self.first, self.term, c, self.rim)
+
+
 def element_tolerances(system, elements=None, fringes=None, radius=None, thickness=None,
-                       index=None, abbe=None, decenter=None, air=None, shift=None,
-                       distribution="normal"):
+                       index=None, abbe=None, decenter=None, air=None, shift=None, tilt=None,
+                       wedge=None, irregularity=None, irregularity_terms=(5, 6, 9),
+                       inhomogeneity=None, inhomogeneity_terms=(2, 3, 4), distribution="normal"):
     """The usual tolerances of a list of elements.
 
     Parameters
@@ -414,6 +681,25 @@ def element_tolerances(system, elements=None, fringes=None, radius=None, thickne
         Tolerance of the air spaces between the elements (despace).
     shift : number, optional
         Axial position tolerance of each element between its neighbours.
+    tilt : number, optional
+        Tilt of each element about x and y (radians, pivot midway between
+        its vertices).
+    wedge : number, optional
+        Wedge of each element (radians): tilt of its last surface about x
+        and y.
+    irregularity : number, optional
+        Irregularity of every surface in fringes, one tolerance per term of
+        irregularity_terms (rim: semi diameter).
+    irregularity_terms : sequence of int, optional
+        Fringe Zernike terms of the irregularity (default astigmatism Z5,
+        Z6 and spherical Z9).
+    inhomogeneity : number, optional
+        Peak-to-valley index inhomogeneity of each element, one tolerance
+        per term of inhomogeneity_terms (rim: semi diameter of its first
+        surface).
+    inhomogeneity_terms : sequence of int, optional
+        Shapes of the inhomogeneity (default linear gradients Z2, Z3 and
+        radial Z4).
     distribution : str, optional
 
     Returns
@@ -452,6 +738,26 @@ def element_tolerances(system, elements=None, fringes=None, radius=None, thickne
     if decenter is not None:
         for a, b in elements:
             out += [Decenter(a, b, decenter, axis, **kw) for axis in ("x", "y")]
+    if tilt is not None:
+        for a, b in elements:
+            out += [Tilt(a, b, tilt, axis, **kw) for axis in ("x", "y")]
+    if wedge is not None:
+        for _, b in elements:
+            out += [Wedge(b, wedge, axis, **kw) for axis in ("x", "y")]
+
+    def rim(i):
+        s = system.surfaces[i]
+
+        return s.semi_diameter if s.semi_diameter is not None else 1.0
+
+    if irregularity is not None:
+        for a, b in elements:
+            for i in range(a, b + 1):
+                out += [Irregularity(i, irregularity, rim(i), j, **kw) for j in irregularity_terms]
+    if inhomogeneity is not None:
+        for a, b in elements:
+            out += [Inhomogeneity(a, b, inhomogeneity, rim(a), j, **kw)
+                    for j in inhomogeneity_terms]
 
     return out
 
@@ -489,6 +795,99 @@ class LateralShift(Variable):
     def typical(self, system):
         return self._typical
 
+
+
+class ElementTilt(Variable):
+    """Compensator: tilt of an element (surfaces first...last) about x or y
+    through a pivot on the axis (a tilt manipulator, see `Tilt`). The value
+    is the tilt of the first surface about that axis (radians).
+
+    Parameters
+    ----------
+    first, last : int
+    axis : {"x", "y"}, optional
+    pivot : number, optional
+        Axial position of the pivot behind the first vertex (default:
+        midway between the first and the last vertex).
+    typical : number, optional
+        Typical change in radians (finite difference step 1e-4 of it).
+    """
+
+    def __init__(self, first, last, axis="x", pivot=None, typical=1e-3):
+        super().__init__()
+        if axis not in ("x", "y"):
+            raise ValueError("axis must be 'x' or 'y'")
+        self.first, self.last, self.axis, self.pivot = first, last, axis, pivot
+        self._typical = typical
+        self.name = "tilt {}{}-{}".format(axis, first + 1, last + 1)
+
+    def get(self, system):
+        return system.surfaces[self.first].tilt[0 if self.axis == "x" else 1]
+
+    def set(self, system, value):
+        _tilt_element(system, self.first, self.last, value - self.get(system), self.axis,
+                      self.pivot)
+
+    def typical(self, system):
+        return self._typical
+
+
+class ImageTilt(Variable):
+    """Compensator: tilt of the image plane about x or y (wafer or detector
+    levelling), `System.image_tilt`.
+
+    Parameters
+    ----------
+    axis : {"x", "y"}, optional
+    typical : number, optional
+        Typical change in radians.
+    """
+
+    def __init__(self, axis="y", typical=1e-4):
+        super().__init__()
+        if axis not in ("x", "y"):
+            raise ValueError("axis must be 'x' or 'y'")
+        self.k = 0 if axis == "x" else 1
+        self._typical = typical
+        self.name = "image tilt {}".format(axis)
+
+    def get(self, system):
+        return system.image_tilt[self.k]
+
+    def set(self, system, value):
+        t = list(system.image_tilt)
+        t[self.k] = value
+        system.image_tilt = tuple(t)
+
+    def typical(self, system):
+        return self._typical
+
+
+class Wavelength(Variable):
+    """Compensator: the wavelength of the source (a line narrowed laser is
+    tuned by fractions of a picometre; with the axial colour of a single
+    glass lens this moves focus and spherical aberration).
+
+    Parameters
+    ----------
+    typical : number, optional
+        Typical change in the length unit (default 1e-9: 1 pm in mm).
+    """
+
+    name = "wavelength"
+
+    def __init__(self, typical=1e-9):
+        super().__init__()
+        self._typical = typical
+
+    def get(self, system):
+        return system.wavelength
+
+    def set(self, system, value):
+        system.wavelength = value
+
+    def typical(self, system):
+        return self._typical
 
 # --- performance ----------------------------------------------------------------
 
@@ -671,6 +1070,25 @@ class WavefrontErrors:
         return [slice(j*n, (j + 1)*n) for j in range(len(self.fields))]
 
 
+def _solver(C, ranges=None):
+    """Matrices M, K of the compensation: dc = -M y for a lens with the
+    performance y, and a Gauss-Newton step -M y_c - K dc from a lens already
+    compensated by dc (y_c): M is the pseudo-inverse of C, or
+    (C^T C + R^-2)^-1 C^T with soft ranges R, and K = (C^T C + R^-2)^-1 R^-2
+    (zero without ranges)."""
+
+    if C.shape[1] == 0:
+        return None, None
+    if ranges is None:
+        return np.linalg.pinv(C), np.zeros((C.shape[1], C.shape[1]))
+    r = np.array([np.inf if v is None else float(v) for v in ranges])
+    if len(r) != C.shape[1]:
+        raise ValueError("One range per compensator.")
+    A = C.T @ C + np.diag(1/r**2)
+
+    return np.linalg.solve(A, C.T), np.linalg.solve(A, np.diag(1/r**2))
+
+
 def _block_rms(Y, blocks):
     """RMS per block of the rows of Y (n, m) -> (n, n_blocks)."""
 
@@ -681,10 +1099,13 @@ def _block_rms(Y, blocks):
 
 # --- analysis ------------------------------------------------------------------
 
-MonteCarloResult = namedtuple("MonteCarloResult", ["values", "rms", "metrics", "compensators"])
+MonteCarloResult = namedtuple("MonteCarloResult",
+                              ["values", "rms", "metrics", "compensators", "vectors"],
+                              defaults=(None,))
 MonteCarloResult.__doc__ = """Monte Carlo lenses: the errors (n, n_tolerances),
 the merit per field (n, n_fields) (RMS spot radius or RMS wavefront), the
-metrics {name: (n,)} and the compensator changes (n, n_compensators)."""
+metrics {name: (n,)}, the compensator changes (n, n_compensators) and, if
+asked for, the performance vectors (n, m) (None otherwise)."""
 
 Sensitivity = namedtuple("Sensitivity", ["names", "groups", "limits", "sigmas", "plus", "minus",
                                          "metrics_plus", "metrics_minus", "share"])
@@ -715,10 +1136,15 @@ class ToleranceAnalysis:
         typical change).
     iterations : int, optional
         Gauss-Newton steps of the compensation of a Monte Carlo lens.
+    ranges : sequence, optional
+        Soft range r_c of each compensator (None or inf: free): the
+        compensation minimizes ``|y|**2 + sum_c (dc_c/r_c)**2`` instead of
+        ``|y|**2`` (damped least squares), so that a compensator moves far only
+        where it pays, like a manipulator with a limited stroke.
     """
 
     def __init__(self, system, tolerances, performance, compensators=(), metrics=None, steps=None,
-                 iterations=1):
+                 iterations=1, ranges=None):
         self.system = _uncached(system)
         self.tolerances = list(tolerances)
         self.performance = performance
@@ -729,7 +1155,8 @@ class ToleranceAnalysis:
         self.blocks = performance.blocks(len(self.y0))
         self.m0 = {k: f(self.system) for k, f in self.metrics.items()}
         self.C, self.G_comp = self.compensator_jacobian(self.compensators, steps)
-        self._C_pinv = np.linalg.pinv(self.C) if self.compensators else None
+        self.ranges = ranges
+        self._C_pinv, self._C_damp = _solver(self.C, ranges)
 
     def compensator_jacobian(self, compensators, steps=None):
         """Jacobians of the performance vector and of the metrics with
@@ -758,7 +1185,7 @@ class ToleranceAnalysis:
         return (np.array(C).T.reshape(len(self.y0), len(compensators)),
                 np.array(G).reshape(len(compensators), len(self.metrics)).T)
 
-    def with_compensators(self, compensators, C=None, G=None, iterations=None):
+    def with_compensators(self, compensators, C=None, G=None, iterations=None, ranges=None):
         """The same analysis with other compensators, without tracing the
         nominal lens again.
 
@@ -769,6 +1196,8 @@ class ToleranceAnalysis:
             Their Jacobians from `compensator_jacobian()` (traced if not
             given).
         iterations : int, optional
+        ranges : sequence, optional
+            Soft ranges of the compensators (see `ToleranceAnalysis`).
 
         Returns
         -------
@@ -783,7 +1212,8 @@ class ToleranceAnalysis:
         nc = len(other.compensators)
         other.C = np.asarray(C, float).reshape(len(self.y0), nc)
         other.G_comp = np.asarray(G, float).reshape(len(self.metrics), nc)
-        other._C_pinv = np.linalg.pinv(other.C) if other.compensators else None
+        other.ranges = ranges
+        other._C_pinv, other._C_damp = _solver(other.C, ranges)
         if iterations is not None:
             other.iterations = iterations
 
@@ -845,7 +1275,7 @@ class ToleranceAnalysis:
                 y = self.performance(s)
                 if not np.all(np.isfinite(y)):
                     break
-                step = -self._C_pinv @ y
+                step = -self._C_pinv @ y - self._C_damp @ dc
                 for k, v in enumerate(self.compensators):
                     v.set(s, v.get(s) + step[k])
                 dc += step
@@ -876,7 +1306,7 @@ class ToleranceAnalysis:
         return np.column_stack([t.sample(n, rng) for t in self.tolerances]) \
             if self.tolerances else np.zeros((n, 0))
 
-    def monte_carlo(self, n=None, values=None, seed=None, compensate=True):
+    def monte_carlo(self, n=None, values=None, seed=None, compensate=True, vectors=False):
         """Full ray traces of random lenses.
 
         Parameters
@@ -886,6 +1316,8 @@ class ToleranceAnalysis:
         values : array (n, n_tolerances), optional
         seed : optional
         compensate : bool, optional
+        vectors : bool, optional
+            Keep the performance vectors (e.g. to evaluate them further).
 
         Returns
         -------
@@ -896,15 +1328,42 @@ class ToleranceAnalysis:
         rms = np.zeros((len(values), len(self.blocks)))
         dcs = np.zeros((len(values), len(self.compensators)))
         mets = {k: np.zeros(len(values)) for k in self.metrics}
+        Y = np.zeros((len(values), len(self.y0))) if vectors else None
         for i, v in enumerate(values):
             s, y, dc = self.perturbed(v, compensate)
             r = _block_rms(y, self.blocks)[0]
             rms[i] = np.where(np.isfinite(r), r, np.inf)
             dcs[i] = dc
+            if vectors:
+                Y[i] = y
             for k, f in self.metrics.items():
                 mets[k][i] = f(s)
 
-        return MonteCarloResult(values, rms, mets, dcs)
+        return MonteCarloResult(values, rms, mets, dcs, Y)
+
+    def with_limits(self, limits):
+        """The same analysis with other tolerance limits (copies of the
+        tolerances; e.g. from `LinearModel.allocate()`).
+
+        Parameters
+        ----------
+        limits : sequence
+            One limit per tolerance.
+
+        Returns
+        -------
+        ToleranceAnalysis
+        """
+
+        other = ToleranceAnalysis.__new__(ToleranceAnalysis)
+        other.__dict__.update(self.__dict__)
+        other.tolerances = []
+        for t, lim in zip(self.tolerances, limits):
+            t = copy.copy(t)
+            t.limit = float(abs(lim))
+            other.tolerances.append(t)
+
+        return other
 
     def _jacobian(self, fraction=1.0):
         """Central differences at +-fraction*limit of every tolerance:
@@ -1023,12 +1482,14 @@ class LinearModel:
             self.D = np.zeros((0, J.shape[1]))
             self.c0 = np.zeros(0)
 
-    def predict(self, values):
+    def predict(self, values, vectors=False):
         """Linear model of lenses with the given errors.
 
         Parameters
         ----------
         values : array (n, n_tolerances)
+        vectors : bool, optional
+            Return the performance vectors too.
 
         Returns
         -------
@@ -1042,9 +1503,10 @@ class LinearModel:
         for j, (k, m0) in enumerate(self.analysis.m0.items()):
             mets[k] = m0 + X @ self.G[j] + dc @ self.analysis.G_comp[j]
 
-        return MonteCarloResult(X, _block_rms(Y, self.analysis.blocks), mets, dc)
+        return MonteCarloResult(X, _block_rms(Y, self.analysis.blocks), mets, dc,
+                                Y if vectors else None)
 
-    def monte_carlo(self, n, seed=None, batch=20000):
+    def monte_carlo(self, n, seed=None, batch=20000, vectors=False):
         """Linear model of n random lenses.
 
         Parameters
@@ -1053,6 +1515,8 @@ class LinearModel:
         seed : optional
         batch : int, optional
             Lenses per batch (memory).
+        vectors : bool, optional
+            Return the performance vectors too (n x m numbers).
 
         Returns
         -------
@@ -1060,14 +1524,15 @@ class LinearModel:
         """
 
         rng = np.random.default_rng(seed)
-        parts = [self.predict(self.analysis.sample(min(batch, n - i), rng))
+        parts = [self.predict(self.analysis.sample(min(batch, n - i), rng), vectors)
                  for i in range(0, n, batch)]
 
         return MonteCarloResult(np.concatenate([p.values for p in parts]),
                                 np.concatenate([p.rms for p in parts]),
                                 {k: np.concatenate([p.metrics[k] for p in parts])
                                  for k in self.analysis.m0},
-                                np.concatenate([p.compensators for p in parts]))
+                                np.concatenate([p.compensators for p in parts]),
+                                np.concatenate([p.vectors for p in parts]) if vectors else None)
 
     def mean_square(self, tolerances=None):
         """Expected mean square merit (all fields together) of the linear
@@ -1089,7 +1554,7 @@ class LinearModel:
 
         return (self.a @ self.a + np.sum(sig[mask]**2*np.sum(self.B[:, mask]**2, axis=0)))/n_blocks
 
-    def with_compensators(self, compensators, C=None, G=None):
+    def with_compensators(self, compensators, C=None, G=None, ranges=None):
         """The same linear model with other compensators (the tolerances
         are not traced again).
 
@@ -1098,13 +1563,134 @@ class LinearModel:
         compensators : list of lens_optimization.Variable
         C, G : arrays, optional
             Their Jacobians from `ToleranceAnalysis.compensator_jacobian()`.
+        ranges : sequence, optional
+            Soft ranges of the compensators (see `ToleranceAnalysis`).
 
         Returns
         -------
         LinearModel
         """
 
-        return LinearModel(self.analysis.with_compensators(compensators, C, G), self.J, self.G)
+        return LinearModel(self.analysis.with_compensators(compensators, C, G, ranges=ranges),
+                           self.J, self.G)
+
+    def with_limits(self, limits):
+        """The same linear model with other tolerance limits (the Jacobians
+        are per unit error and stay).
+
+        Parameters
+        ----------
+        limits : sequence
+            One limit per tolerance.
+
+        Returns
+        -------
+        LinearModel
+        """
+
+        return LinearModel(self.analysis.with_limits(limits), self.J, self.G)
+
+    def _metric_jacobian(self, metric):
+        """Change of a metric per unit error, compensators included."""
+
+        j = list(self.analysis.m0).index(metric)
+
+        return self.G[j] + self.analysis.G_comp[j] @ self.D if len(self.D) else self.G[j]
+
+    def inverse_sensitivity(self, target, metric=None):
+        """Inverse sensitivity: for each tolerance alone, the error at which
+        the compensated merit reaches target (or a metric changes by
+        target).
+
+        For the merit, the RMS over the fields of the linear model,
+        ``sqrt(|a + B_k x|**2/n_fields)``, is set to target and solved for the
+        smaller ``|x|`` of both signs (zero if the nominal lens already misses
+        the target); for a metric, ``|g_k| |x| = target``.
+
+        Parameters
+        ----------
+        target : number
+            Merit (RMS over the fields) or change of the metric.
+        metric : str, optional
+            Name of a metric instead of the merit.
+
+        Returns
+        -------
+        array
+            One error limit per tolerance (inf where it has no effect).
+        """
+
+        if metric is not None:
+            g = np.abs(self._metric_jacobian(metric))
+            with np.errstate(divide="ignore"):
+                return np.where(g > 0, target/np.where(g > 0, g, 1.0), np.inf)
+        nb = len(self.analysis.blocks)
+        rest = nb*target**2 - self.a @ self.a
+        out = np.full(self.B.shape[1], np.inf)
+        if rest <= 0:
+            return np.zeros(self.B.shape[1])
+        for k in range(self.B.shape[1]):
+            b = self.B[:, k]
+            bb, ab = b @ b, self.a @ b
+            if bb == 0:
+                continue
+            # bb x**2 + 2 ab x - rest = 0, roots for x > 0 and x < 0:
+            root = np.sqrt(ab**2 + bb*rest)
+            out[k] = min((-ab + root)/bb, (ab + root)/bb)
+
+        return out
+
+    def allocate(self, target, metric=None, weights=None, fixed=None):
+        """Tolerance limits from an error budget (root sum square).
+
+        The expected mean square merit of the linear model (`mean_square()`)
+        or the variance of a metric is a sum over the tolerances of
+        sigma_k**2 times a squared sensitivity. What the target leaves after
+        the nominal lens and the fixed tolerances is shared out in proportion
+        to the weights (equal shares by default), and each limit is chosen so
+        that its tolerance takes exactly its share. A larger weight gives a
+        looser tolerance, e.g. for what is expensive to make better.
+
+        Parameters
+        ----------
+        target : number
+            Expected RMS merit (root of `mean_square()`), or the standard
+            deviation of the metric.
+        metric : str, optional
+            Name of a metric instead of the merit.
+        weights : sequence, optional
+            Share of each tolerance (default equal).
+        fixed : sequence of bool, optional
+            Tolerances that keep their limits.
+
+        Returns
+        -------
+        array
+            New limits (inf where a tolerance has no effect; pass them to
+            `with_limits()` after capping them).
+        """
+
+        tols = self.analysis.tolerances
+        ratio = np.array([t.sigma/t.limit for t in tols])  # sigma per unit limit
+        sig = np.array([t.sigma for t in tols])
+        if metric is None:
+            s2 = np.sum(self.B**2, axis=0)/len(self.analysis.blocks)
+            budget = target**2 - self.a @ self.a/len(self.analysis.blocks)
+        else:
+            s2 = self._metric_jacobian(metric)**2
+            budget = target**2
+        fixed = np.zeros(len(tols), bool) if fixed is None else np.asarray(fixed, bool)
+        budget -= np.sum(sig[fixed]**2*s2[fixed])
+        if budget <= 0:
+            raise ValueError("The nominal lens and the fixed tolerances use up the budget.")
+        w = np.ones(len(tols)) if weights is None else np.asarray(weights, float)
+        free = ~fixed & (s2 > 0)
+        out = np.array([t.limit for t in tols], float)
+        out[~fixed & (s2 == 0)] = np.inf
+        share = w[free]/w[free].sum()*budget
+        out[free] = np.sqrt(share/s2[free])/ratio[free]
+
+        return out
 
 
 def yield_fraction(result, spec, metric_specs=None, fields=None):
