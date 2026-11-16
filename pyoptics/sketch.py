@@ -11276,8 +11276,8 @@ def _kinoform_plate(ax, z0, h, n_zones, depth, thickness, side=1.0, color=GLASS,
 
 
 def hybrid_lens_layout(ax, kind="hybrid", title=None):
-    """Sketch of diffractive and hybrid lenses (notebook 151, hybrid
-    diffractive lenses).
+    """Sketch of diffractive and hybrid lenses
+    (notebook 151, hybrid diffractive lenses).
 
     Parameters
     ----------
