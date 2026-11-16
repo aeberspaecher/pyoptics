@@ -566,6 +566,36 @@ What each module does and how mature it is. Planned work is listed in
   `lens_optimization` variables (focus, axial manipulators) and lateral
   manipulators; sensitivity tables, variance budgets, full Monte Carlo runs and
   the linear model (exact quadratic merit), compensator choice (notebook 70, Monte Carlo tolerancing)
+- `qaspheres`: new, tested: Forbes' Q-type aspheres; the Q-bfs
+  polynomials (orthonormal in slope, built by Gram–Schmidt with
+  Gauss–Chebyshev quadrature) and the Q-con polynomials (Jacobi
+  P_m^(0,4)), their sags, `QbfsSurface` and `QconSurface` for the ray
+  tracer (Newton intersection, normals, paraxial curvature and fourth
+  order term for the Seidel sums), the best fit sphere through vertex and
+  rim, fits of any sag (`fit_qbfs()` by slope projection, stable under
+  truncation, and `fit_qcon()`), the rms slope as a manufacturability
+  measure and `QCoefficient`, a variable for
+  `lens_optimization.DampedLeastSquares`; checked against Forbes' closed
+  forms, numerical slopes and even aspheres
+  (notebook 128, Forbes Q aspheres)
+- `zoom`: new, tested: mechanically compensated zoom lenses; thin lens
+  conjugates, the two-group zoom (spacing and back focus for a focal
+  length), the four-group zoom with variator and compensator (afocal or
+  finite, both branches of the compensator), `ZoomLens` for a traced
+  system with variable gaps (spacings interpolated in log f, solved
+  spacings, refocusing, group positions and focal lengths) and the Olympus
+  4.7× compact zoom of US 7,583,450 with catalogue glasses
+  (`olympus_zoom_us7583450()`, also with its inner focusing for near
+  objects) (notebook 127, zoom lenses)
+- `spectacles`: new, tested: spectacle lenses and presbyopia; Hofstetter's
+  fits of Duane's amplitude of accommodation and the add for a reading
+  distance, the add profile along the corridor, progressive surfaces by
+  sparse least squares on the second derivatives (mean power and
+  astigmatism weights, hard and soft designs), the surface power and
+  cylinder from the fundamental forms, sphero-cylinders from power
+  matrices, and `ProgressiveLens`, a lens traced as worn from the centre
+  of rotation of the eye (power and prism along every line of sight)
+  (notebook 129, progressive spectacle lenses)
 - `beam_quality`: beam widths, azimuth and M² after ISO 11146 (second
   moments, iterated integration window, caustic fit), tested
 - `modes`: mode analysis and fibres, tested: decomposition of any field into

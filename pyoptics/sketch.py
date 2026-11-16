@@ -217,6 +217,18 @@ Setup sketches for the other example notebooks:
 - adc_layout(): atmospheric refraction of a star above the curved Earth,
   blue lifted more than red; or (kind="adc") two counter-rotating Amici
   prisms and the vector sum of their dispersions (notebook 101, atmospheric dispersion corrector).
+- zoom_cams(): a four-group zoom lens drawn at three zoom positions with
+  the cam curves of the variator and the compensator
+  (notebook 127, zoom lenses).
+- qbfs_geometry(): an asphere, its best fit sphere through vertex and rim
+  and the departure measured along the normal of the sphere
+  (notebook 128, Forbes Q aspheres).
+- progressive_lens_layout(): the zones of a progressive spectacle lens
+  seen from the front (distance zone, corridor, near zone, astigmatic
+  flanks, fitting cross and prism reference point), or (view="side") the
+  eye turning about its centre of rotation to look into the distance and
+  down through the corridor to a page at 40 cm
+  (notebook 129, progressive spectacle lenses).
 - fresnel_interface(): the plane of incidence with the incident, reflected
   and transmitted rays, their angles and the s and p directions
   (notebook 10, interfaces and thin films).
@@ -326,7 +338,8 @@ __all__ = ["lens", "stop", "plane", "prism", "mirror", "detector", "point_source
            "resonator_unfolded", "resonator_types", "folded_resonator",
            "spectrometer_layout", "fts_layout", "fabry_perot_layout", "absorption_layout",
            "imaging_spectrometer_layout", "waveguide_combiner", "volume_grating_layout",
-           "pancake_lens", "hud_layout", "lidar_layout", "beam_scanner",
+           "pancake_lens", "hud_layout", "zoom_cams", "qbfs_geometry",
+           "progressive_lens_layout", "lidar_layout", "beam_scanner",
            "structured_light_layout", "text_scale"]
 
 
@@ -9855,6 +9868,202 @@ def hud_layout(ax, kind="layout", title=None):
     label(ax, vi[0], vi[1] + 0.45, "virtual image\n2 to 15 m ahead", fontsize=8, va="bottom",
           color=AR_IMAGE)
     _finish(ax, (-3.6, 6.4), (-0.3, 5.0), title)
+
+
+# ----------------------------------------------------------------------------
+# lens design classics: zoom lenses, Q aspheres, progressive spectacle lenses
+# ----------------------------------------------------------------------------
+
+def _negative_lens(ax, z, h, thickness=None, color=GLASS, edgecolor=EDGE, zorder=3):
+    """Draw a thin biconcave lens of half height h at z."""
+
+    mpatches = _patches()
+    t = 0.22*h if thickness is None else thickness
+    yy = np.linspace(-h, h, 41)
+    bulge = t/2*(0.25 + (yy/h)**2)
+    pts = np.r_[np.c_[z + bulge, yy], np.c_[z - bulge[::-1], yy[::-1]]]
+    patch = mpatches.Polygon(pts, closed=True, facecolor=color, edgecolor=edgecolor, lw=1,
+                             zorder=zorder)
+    ax.add_patch(patch)
+    return patch
+
+
+def zoom_cams(ax, positions=(20.0, 30.0, 36.5), title=None):
+    """Mechanically compensated afocal zoom of four thin groups at three
+    zoom positions, with the cam paths of variator and compensator.
+
+    The groups (f = 60, -12, 30, 40 layout units) come from
+    `zoom.four_group_zoom()`: the variator (group 2) moves linearly, the
+    compensator (group 3) follows the curved cam that keeps the beam
+    behind it collimated, so the prime lens (group 4) always focuses into
+    the same image plane.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    positions : three numbers, optional
+        Variator positions (layout units) of the three rows.
+    title : str, optional
+    """
+
+    from .zoom import four_group_zoom
+
+    f1, f2, f3, f4, z4 = 60.0, -12.0, 30.0, 40.0, 110.0
+    s = 0.05                     # layout units -> drawing units
+    row = 2.0                    # vertical distance of the rows
+    h = 0.55
+    z2_cam = np.linspace(positions[0], positions[-1], 60)
+    z3_cam = four_group_zoom(f1, f2, f3, f4, z2_cam, z4=z4)[0]
+    names = ("wide", "middle", "tele")
+    rows = []
+    for k, z2 in enumerate(positions):
+        y0 = -k*row
+        z3, efl, zi = [v[0] for v in four_group_zoom(f1, f2, f3, f4, [z2], z4=z4)]
+        rows.append((z2, z3))
+        ax.axhline(y0, color="0.75", lw=0.6, zorder=1)
+        lens(ax, 0.0, h, text=None)
+        _negative_lens(ax, s*z2, 0.8*h)
+        lens(ax, s*z3, 0.8*h)
+        lens(ax, s*z4, 0.8*h)
+        for p in ax.patches[-4:]:
+            p.set_xy(p.get_xy() + np.array([0.0, y0]))
+        # marginal ray of an axial beam (height 0.4) in units of the layout
+        L = [(0.0, f1), (z2, f2), (z3, f3), (z4, f4)]
+        zz, yy = paraxial_ray(L, -12.0, 0.35/s*0.5, 0.0, zi + 10)
+        ax.plot(s*zz, y0 + s*yy*0.8, color=IMAGING, lw=1.0, zorder=2)
+        ax.plot(s*zz, y0 - s*yy*0.8, color=IMAGING, lw=1.0, zorder=2)
+        label(ax, -1.0, y0, "{}\nf = {:.0f}".format(names[k], efl), fontsize=8, ha="right")
+        plane(ax, s*zi, 0.35)
+        ax.plot([s*zi, s*zi], [y0 - 0.35, y0 + 0.35], color="0.3", lw=1.5)
+    # cam paths
+    ys = -np.arange(len(positions))*row
+    ax.plot([s*r[0] for r in rows], ys, color="#d6604d", ls="--", lw=1.0, zorder=1)
+    zcam = np.interp(np.linspace(0, len(positions) - 1, 60), np.arange(len(positions)),
+                     np.arange(len(positions)))
+    z2c = np.interp(zcam, np.arange(len(positions)), positions)
+    z3c = four_group_zoom(f1, f2, f3, f4, z2c, z4=z4)[0]
+    ax.plot(s*z3c, -zcam*row, color="#5aa469", ls="--", lw=1.0, zorder=1)
+    y_top = 0.95
+    label(ax, 0.2, y_top, "G1 (fixed,\nfocusing)", fontsize=8, va="bottom", ha="right")
+    label(ax, s*positions[0] - 0.1, y_top, "G2\nvariator", fontsize=8, va="bottom",
+          color="#d6604d", ha="right")
+    label(ax, s*rows[0][1] + 0.1, y_top, "G3\ncompensator", fontsize=8, va="bottom",
+          color="#5aa469", ha="left")
+    label(ax, s*z4, y_top, "G4 (fixed)", fontsize=8, va="bottom")
+    label(ax, s*(z4 + f4), y_top, "image", fontsize=8, va="bottom")
+    _finish(ax, (-2.2, s*(z4 + f4) + 0.8), (-(len(positions) - 1)*row - 1.0, 1.6), title)
+
+
+def qbfs_geometry(ax, title=None):
+    """A strong asphere, its best fit sphere through vertex and rim and the
+    departure measured along the normal of the sphere (Forbes' Q-bfs).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    title : str, optional
+    """
+
+    r = np.linspace(-1.0, 1.0, 301)
+    c_bfs = 0.75
+    u2 = r**2
+    dep = 0.55*u2*(1 - u2)*(1 - 1.4*u2)
+    zs = c_bfs*u2/(1 + np.sqrt(1 - c_bfs**2*u2))
+    # departure along the sphere normal
+    n_r = -c_bfs*r
+    n_z = np.sqrt(1 - c_bfs**2*u2)
+    za, ra = zs + dep*n_z, r + dep*n_r
+    ax.plot(zs, r, color="0.55", ls="--", lw=1.2)
+    ax.plot(za, ra, color=EDGE, lw=2.2)
+    for rr in (-0.75, -0.55, -0.35, 0.3, 0.45, 0.6, 0.75):
+        k = np.argmin(np.abs(r - rr))
+        arrow(ax, zs[k], r[k], za[k], ra[k], color="#d6604d", lw=1.0)
+    label(ax, zs[-1] + 0.05, 1.07, "rim: sphere and asphere meet (u = 1)", fontsize=8, ha="left")
+    label(ax, -0.08, 0.0, "vertex (u = 0)", fontsize=8, ha="right")
+    label(ax, 0.5, -0.95, "best fit sphere $c_\\mathrm{bfs}$", fontsize=8, color="0.4",
+          ha="left")
+    label(ax, 0.32, 0.42, "departure along\nthe normal", fontsize=8, color="#d6604d", ha="left")
+    label(ax, -0.12, -0.62, "asphere", fontsize=8, color=EDGE, ha="right")
+    ax.plot([0, 0], [-1.1, 1.1], color="0.8", lw=0.6)
+    ax.plot([-0.2, 0.9], [0, 0], color="0.6", lw=0.6, ls="-.")
+    label(ax, 0.9, 0.06, "z", fontsize=8)
+    label(ax, 0.03, 1.12, "r", fontsize=8)
+    _finish(ax, (-0.6, 1.5), (-1.25, 1.3), title)
+
+
+def progressive_lens_layout(ax, view="front", title=None):
+    """A progressive addition spectacle lens.
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    view : {"front", "side"}, optional
+        "front": the zones on the lens (distance zone, corridor, near zone,
+        astigmatic flanks; fitting cross and prism reference point).
+        "side": the eye turning about its centre of rotation behind the
+        lens, looking straight ahead into the distance zone and down
+        through the corridor to a page at 40 cm.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    if view == "front":
+        R = 1.0
+        ax.add_patch(mpatches.Ellipse((0, 0), 2.6*R, 2.0*R, facecolor="#f4f8fb",
+                                      edgecolor=EDGE, lw=1.5, zorder=1))
+        th = np.linspace(0, np.pi, 60)
+        ax.fill_between(1.25*np.cos(th), 0.08 + 0.05*np.sin(th), 0.08 + 0.92*np.sin(th),
+                        color="#cfe3f3", zorder=2)
+        label(ax, 0.0, 0.5, "distance zone", fontsize=9)
+        # corridor
+        yy = np.linspace(-0.62, 0.1, 40)
+        w = 0.06 + 0.02*(yy - 0.1)**2
+        ax.fill_betweenx(yy, -w, w, color="#9fc5e0", zorder=2)
+        label(ax, 0.17, -0.25, "corridor", fontsize=8, ha="left")
+        ax.add_patch(mpatches.Ellipse((-0.1, -0.72), 0.55, 0.28, facecolor="#9fc5e0",
+                                      edgecolor="none", zorder=2))
+        label(ax, -0.1, -0.72, "near", fontsize=8)
+        # schematic iso-astigmatism lines: zero along the corridor, growing
+        # sideways in proportion to the power gradient (Minkwitz)
+        X, Y = np.meshgrid(np.linspace(-1.3, 1.3, 261), np.linspace(-1.0, 0.1, 111))
+        grad = np.exp(-((Y + 0.3)/0.3)**2) + 0.4*np.exp(-((Y + 0.75)/0.25)**2)
+        A = 2.2*np.abs(X)*grad*(1 + 0.6*np.abs(X))
+        A[(X/1.3)**2 + Y**2 > 0.98] = np.nan
+        ax.contour(X, Y, A, levels=[0.5, 1.0, 1.5], colors="#d6604d", linewidths=0.8, zorder=3)
+        for sgn in (-1, 1):
+            label(ax, sgn*0.85, -0.55, "astigmatism", fontsize=8, color="#d6604d")
+        ax.plot([-0.1, 0.1], [0.15, 0.15], color="0.2", lw=1)
+        ax.plot([0, 0], [0.05, 0.25], color="0.2", lw=1)
+        label(ax, 0.3, 0.2, "fitting cross", fontsize=7, ha="left")
+        _finish(ax, (-1.5, 1.5), (-1.15, 1.15), title)
+        return
+    if view != "side":
+        raise ValueError("view must be 'front' or 'side'")
+    # side view: lens at z = 0, eye's centre of rotation at z = 2.5 (27 mm scaled)
+    zc = 2.6
+    t = np.linspace(-1.1, 1.1, 50)
+    ax.plot(0.12*t**2, t, color=EDGE, lw=2)
+    ax.plot(0.12*t**2 + 0.12, t, color=EDGE, lw=2)
+    ax.add_patch(mpatches.Circle((zc, 0.0), 1.15, facecolor="white", edgecolor="0.4", lw=1.2,
+                                 zorder=1))
+    ax.plot([zc], [0], "k+", ms=6)
+    label(ax, zc + 0.15, 0.25, "centre of\nrotation", fontsize=7, ha="left", va="bottom")
+    for ang, text in ((0.0, "distance: straight ahead"), (-0.42, "near: 40 cm, eye turned down")):
+        d = np.array([-np.cos(ang), np.sin(ang)])
+        p_lens = np.array([zc, 0]) + d*(zc/np.cos(ang))
+        ax.plot([zc, p_lens[0]], [0, p_lens[1]], color=IMAGING, lw=1.0)
+        q = p_lens + d*2.2
+        ax.plot([p_lens[0], q[0]], [p_lens[1], q[1]], color=IMAGING, lw=1.0, ls="--")
+        label(ax, q[0] - 0.05, q[1] + (0.15 if ang == 0 else -0.12), text, fontsize=8, ha="right")
+        # pupil
+        e = np.array([zc, 0]) + d*1.1
+        nn = np.array([-d[1], d[0]])*0.22
+        ax.plot([e[0] - nn[0], e[0] + nn[0]], [e[1] - nn[1], e[1] + nn[1]], color="0.2", lw=2.5)
+    label(ax, 0.06, 1.25, "progressive surface\n(front)", fontsize=8)
+    ax.annotate("", xy=(0.0, -1.35), xytext=(zc, -1.35),
+                arrowprops=dict(arrowstyle="<->", color="0.4", lw=0.8))
+    label(ax, zc/2, -1.5, "≈ 27 mm (vertex distance + 13.5 mm)", fontsize=7)
+    _finish(ax, (-4.6, 4.0), (-1.9, 1.6), title)
 
 
 # --------------------------------------------------------------------------

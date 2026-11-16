@@ -97,6 +97,9 @@ Imaging and ray tracing
    pyoptics.lens_optimization
    pyoptics.tolerancing
    pyoptics.glasses
+   pyoptics.qaspheres
+   pyoptics.zoom
+   pyoptics.spectacles
 
 Lithography
 -----------
