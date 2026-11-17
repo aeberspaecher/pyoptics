@@ -128,3 +128,25 @@ def test_quadratic_weights(setup):
     assert np.allclose(le.weights[:, -2:], 0.05)
     y = np.random.default_rng(1).normal(size=len(X_SLIT)*ab.block_size)
     assert np.allclose(le.unpack(le.from_aberrations(y))[0], y)
+
+
+def test_curved_slit_of_a_ring_field():
+    # a rotationally symmetric lens: on an arc around the axis the Zernikes
+    # only rotate, and the middle of the arc is the straight slit at y = R
+    system = caldwell_krf_lens()
+    R = 10.0
+    arc = budget.SlitAberrations(system, [0.0, 6.0], arc_radius=R, terms=range(4, 10),
+                                 scanner_correction=False)
+    straight = budget.SlitAberrations(system, [0.0], y=(R,), terms=range(4, 10),
+                                      scanner_correction=False)
+    assert np.allclose(arc.nominal_zernikes[0], straight.nominal_zernikes[0], atol=1e-9)
+    Z = arc.nominal_zernikes
+    t = list(arc.terms)
+    for j in (4, 9):   # rotationally symmetric terms stay
+        assert np.isclose(Z[0, t.index(j)], Z[1, t.index(j)], atol=2e-3)
+    for a, b in ((5, 6), (7, 8)):   # astigmatism and coma keep their magnitude
+        assert np.isclose(np.hypot(Z[0, t.index(a)], Z[0, t.index(b)]),
+                          np.hypot(Z[1, t.index(a)], Z[1, t.index(b)]), rtol=2e-2, atol=2e-3)
+    # the straight slit at x = 6 is farther from the axis: more astigmatism
+    off = budget.SlitAberrations(system, [6.0], y=(R,), terms=range(4, 10), scanner_correction=False)
+    assert not np.allclose(off.nominal_zernikes[0], Z[1], atol=1e-3)

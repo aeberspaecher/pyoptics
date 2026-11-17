@@ -112,10 +112,15 @@ class SlitAberrations:
     length_unit : number, optional
         Length unit of the lithography simulation in units of the system
         (1e-6: nm for a system in mm).
+    arc_radius : number, optional
+        Radius of a curved (ring field) slit around the axis, as in EUV
+        scanners: the slit position x and scan position y are then the
+        image field point (x, y + sqrt(arc_radius**2 - x**2)), an arc
+        centred on +y. None (default): a straight slit through the axis.
     """
 
     def __init__(self, system, x, y=(0.0,), terms=range(4, 26), NA=None, N=16, n_terms=None,
-                 scanner_correction=True, length_unit=1e-6):
+                 scanner_correction=True, length_unit=1e-6, arc_radius=None):
         self.x = np.atleast_1d(np.asarray(x, dtype=float))
         self.y = np.atleast_1d(np.asarray(y, dtype=float))
         self.terms = np.array(list(terms), dtype=int)
@@ -124,6 +129,7 @@ class SlitAberrations:
         self.n_terms = max(36, int(self.terms.max())) if n_terms is None else n_terms
         self.scanner_correction = scanner_correction
         self.length_unit = length_unit
+        self.arc_radius = arc_radius
         self.wavelength = system.wavelength/length_unit
         self.fields = list(self.x)
         self._proj = _correction_projector(self.x, self.y) if scanner_correction else None
@@ -139,10 +145,11 @@ class SlitAberrations:
         Z = np.zeros((ny, nx, len(self.terms)))
         P = np.zeros((ny, nx, 2))
         full = []
+        y_arc = np.zeros(nx) if self.arc_radius is None else np.sqrt(self.arc_radius**2 - self.x**2)
         for i, yi in enumerate(self.y):
             for k, xk in enumerate(self.x):
-                ab = lens.lens_aberrations(system, (xk, yi), self.n_terms, self.N, self.NA,
-                                           self.length_unit)
+                ab = lens.lens_aberrations(system, (xk, yi + y_arc[k]), self.n_terms, self.N,
+                                           self.NA, self.length_unit)
                 Z[i, k] = [ab.zernikes.get(int(j), 0.0) for j in self.terms]
                 P[i, k] = ab.placement
                 if keep:

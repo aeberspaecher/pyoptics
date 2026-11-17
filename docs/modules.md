@@ -202,7 +202,7 @@ What each module does and how mature it is. Planned work is listed in
   (TIS of lens surfaces and mirrors), the flare level from the pattern
   density and a die map; `litho.focus_blur` averages images over laser
   bandwidth times axial colour (`litho.lens.axial_colour()`) and stage MSD
-  (notebook 152, litho stochastics, flare and focus blur), with a secondary electron blur for EUV resists (`electron_blur`); `litho.euv` holds 13.5 nm optical constants, Mo/Si multilayer mirrors (reflectance, bandwidth, effective depth, graded coatings and Jones pupils), reflective masks at a chief ray angle through the reflected orders of `litho.rcwa` (shadowing, mask 3D phase, pattern shift), anamorphic and obscured pupils and a Schwarzschild mirror objective (notebooks 156, EUV multilayers and reflective masks, to 158, EUV stochastics and flare); `litho.hopkins` computes transmission cross
+  (notebook 152, litho stochastics, flare and focus blur), with a secondary electron blur for EUV resists (`electron_blur`); `litho.euv` holds 13.5 nm optical constants, Mo/Si multilayer mirrors (reflectance, bandwidth, effective depth, graded coatings and Jones pupils), reflective masks at a chief ray angle through the reflected orders of `litho.rcwa` (shadowing, mask 3D phase, pattern shift), anamorphic and obscured pupils, a Schwarzschild mirror objective (notebooks 156, EUV multilayers and reflective masks, to 158, EUV stochastics and flare) and a six-mirror NA 0.33 ring field projector designed from the y-ybar diagram (`six_mirror_projector()`, notebook 159, six-mirror EUV projector); `litho.hopkins` computes transmission cross
   coefficients (TCC) and their SOCS decomposition, equal to Abbe's method
   for thin masks and fast for many masks with the same optics; swing
   curves and BARC optimization (`litho.wafer`, absorbed energy exact
@@ -556,7 +556,11 @@ What each module does and how mature it is. Planned work is listed in
   cardinal points agree with the paraxial trace and `abcd`), thin lens
   systems from a drawn polygon, thick singlets with the same first order
   properties (principal planes, `thicken()`), `refine()` for hand drawn
-  layouts (Petzval sum, spaces, beam heights, power signs)
+  layouts (Petzval sum, spaces, beam heights, power signs); mirror systems
+  with signed indices: the Petzval sum of surfaces (`surface_petzval_sum()`),
+  the folded vertex positions, the clearance between beams and mirrors and
+  the folded meridional section drawn from the polygon (`vertex_z`,
+  `clearance()`, `draw_folded()`; notebook 159, six-mirror EUV projector)
 - `lens_optimization`: damped least squares lens optimization, tested
   (singlet bending for minimum spherical aberration, aspheres, solves):
   curvatures, thicknesses, object distance and even aspheric terms as
@@ -609,7 +613,10 @@ What each module does and how mature it is. Planned work is listed in
   Seidel conditions (`solve_conics()`), a Cook three-mirror anastigmat
   offset in aperture and field (`cook_tma()`), footprints and the
   clearance of every beam around every mirror and the detector
-  (`footprints()`, `beam_clearance()`), mirrors with Zernike freeform
+  (`footprints()`, `beam_clearance()`), the pupil proximity of every
+  surface from the footprints of the single field points, along and
+  across an off-axis field (`pupil_proximity()`, notebook 159, six-mirror
+  EUV projector), mirrors with Zernike freeform
   departures centred on their footprints (`freeform_mirrors()`),
   Zernikes and RMS over a field grid, full-field displays and layouts
   with the mirrors drawn over their footprints; operands over a

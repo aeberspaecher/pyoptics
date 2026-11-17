@@ -337,6 +337,7 @@ Projection lithography from the mask to the resist: imaging models, mask models,
 - {doc}`156 EUV multilayers and reflective masks <notebooks/156_euv_multilayers_reflective_masks>`
 - {doc}`157 EUV projector and pupil <notebooks/157_euv_projector_pupil>`
 - {doc}`158 EUV stochastics and flare <notebooks/158_euv_stochastics_flare>`
+- {doc}`159 Six-mirror EUV projector <notebooks/159_six_mirror_euv_projector>`
 
 ```{toctree}
 :hidden:
@@ -365,6 +366,7 @@ notebooks/152_litho_stochastics_flare_focus_blur
 notebooks/156_euv_multilayers_reflective_masks
 notebooks/157_euv_projector_pupil
 notebooks/158_euv_stochastics_flare
+notebooks/159_six_mirror_euv_projector
 ```
 
 ## Illumination optics

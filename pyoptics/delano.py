@@ -231,6 +231,134 @@ class DelanoDiagram:
 
         return np.sum(self.power/np.asarray(n_lens, dtype=float))
 
+    def surface_petzval_sum(self):
+        """Petzval sum sum(phi_k/(n_k n'_k)) when the inner points are single
+        surfaces (refracting surfaces or mirrors) between the media of the
+        diagram.
+
+        With the signed indices of the spaces (n' = -n behind a mirror), a
+        mirror of power phi = -2 n c adds -phi/n**2 = 2 c/n: in air the
+        Petzval sum of a mirror system is 2 (c_1 - c_2 + c_3 - ...), the
+        alternating sum of the curvatures, which concave and convex mirrors
+        can cancel without any glass.
+
+        Returns
+        -------
+        P : number
+            Petzval sum (1/radius of the Petzval surface is -n' P in the
+            last space; the Seidel sum S_IV of `raytrace.System.seidel()`
+            is H**2 P).
+        """
+
+        return np.sum(self.power/(self.n[:-1]*self.n[1:]))
+
+    @property
+    def vertex_z(self):
+        """z positions of the points along the folded axis: the signed
+        distances n*tau added up (z = 0 at the first point). Behind a
+        mirror (n < 0) the light runs towards -z, so mirror systems fold
+        back on themselves; see `clearance()`."""
+
+        return np.concatenate([[0.0], np.cumsum(self.thickness)])
+
+    def clearance(self, rim=0.0, depth=0.0):
+        """Meridional clearance between the mirrors (inner points) and the
+        beams that pass them in a folded system.
+
+        At the plane of point k the full beam of the field point ybar[0]
+        covers the meridional interval ybar_k +- ``|y_k|`` (the chief ray
+        height plus or minus the marginal ray height: the footprint of
+        the mirror, plus `rim`). Every other space j that crosses this plane
+        (heights linear along the edge from point j to j + 1) carries a
+        beam ybar +- ``|y|`` there; their gap is the clearance. With the
+        field on one side of the axis (``|ybar| > |y|``, a field-biased or
+        ring field system) the beams can pass each other; near a pupil
+        (``|ybar| < |y|``) the footprint covers the axis.
+
+        Parameters
+        ----------
+        rim : number, optional
+            Mechanical rim added to every footprint.
+        depth : number, optional
+            Thickness of the mirror bodies: the beams are also checked at
+            the planes z_k +- depth.
+
+        Returns
+        -------
+        gap : (K - 2, K - 1) array
+            Smallest gap between the footprint of inner point k (row k - 1)
+            and the beam of space j (column); negative: the beam hits the
+            mirror; NaN where the space does not cross the plane (or is
+            adjacent to the point).
+        """
+
+        z, yb, y = self.vertex_z, self.ybar, self.y
+        K = len(self)
+        gap = np.full((K - 2, K - 1), np.nan)
+        offsets = (0.0,) if depth == 0 else (-depth, 0.0, depth)
+        for k in range(1, K - 1):
+            lo, hi = yb[k] - abs(y[k]) - rim, yb[k] + abs(y[k]) + rim
+            for j in range(K - 1):
+                if j in (k - 1, k):
+                    continue
+                for dz in offsets:
+                    zk = z[k] + dz
+                    if (zk - z[j])*(zk - z[j + 1]) > 0 or z[j] == z[j + 1]:
+                        continue
+                    s = (zk - z[j])/(z[j + 1] - z[j])
+                    c = yb[j] + s*(yb[j + 1] - yb[j])
+                    h = abs(y[j] + s*(y[j + 1] - y[j]))
+                    g = max(lo - (c + h), (c - h) - hi)
+                    gap[k - 1, j] = g if np.isnan(gap[k - 1, j]) else min(gap[k - 1, j], g)
+
+        return gap
+
+    def draw_folded(self, ax=None, color="C0", beam_color="C1", alpha=0.18, annotate=True):
+        """Meridional section of a (folded) system straight from the diagram:
+        every inner point as a mirror (or lens) over its footprint ybar +-
+        ``|y|`` at its folded z, the beams between them as the bands between
+        the upper and lower marginal rays ybar +- y.
+
+        Parameters
+        ----------
+        ax : matplotlib axis, optional
+        color, beam_color : colors, optional
+        alpha : number, optional
+            Opacity of the beams.
+        annotate : bool, optional
+            Write the labels.
+
+        Returns
+        -------
+        ax : matplotlib axis
+        """
+
+        import matplotlib.pyplot as plt
+
+        if ax is None:
+            ax = plt.gca()
+        z, yb, y = self.vertex_z, self.ybar, self.y
+        for j in range(len(self) - 1):
+            ax.fill([z[j], z[j + 1], z[j + 1], z[j]],
+                    [yb[j] + y[j], yb[j + 1] + y[j + 1], yb[j + 1] - y[j + 1], yb[j] - y[j]],
+                    color=beam_color, alpha=alpha, lw=0)
+            ax.plot(z[j:j + 2], yb[j:j + 2], color=beam_color, lw=0.6, alpha=0.8)
+        for k in range(1, len(self) - 1):
+            ax.plot([z[k], z[k]], [yb[k] - abs(y[k]), yb[k] + abs(y[k])], color=color, lw=3,
+                    solid_capstyle="butt")
+        for k in (0, len(self) - 1):
+            ax.plot([z[k], z[k]], [yb[k] - 0.15*abs(yb[0]), yb[k] + 0.15*abs(yb[0])], color="0.3",
+                    lw=1.5)
+        if annotate:
+            for k in range(len(self)):
+                ax.annotate(self.labels[k], (z[k], yb[k] + abs(y[k])), textcoords="offset points",
+                            xytext=(3, 4), fontsize=8, color=color)
+        ax.axhline(0, color="0.6", lw=0.6, ls="-.")
+        ax.set_xlabel("z (folded) [mm]")
+        ax.set_ylabel("y [mm]")
+
+        return ax
+
     @property
     def magnification(self):
         """Lateral magnification between the first and the last point,

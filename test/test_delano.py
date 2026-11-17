@@ -193,3 +193,45 @@ def test_delano_krf_lens_without_aspheres():
     assert np.isclose(system.object_distance + system.image_z, 1000.0)
     assert not any(any(s.aspheric) for s in system.surfaces)
     assert system.rms_opd(field=0.0, N=16) < 0.6
+
+
+def two_mirrors():
+    """Concave primary and convex secondary (a Cassegrain-like relay to a
+    finite image) from a finite object, stop on the primary."""
+
+    s = [rt.Surface(R=-400.0, thickness=-150.0, mirror=True, semi_diameter=20.0, label="M1"),
+         rt.Surface(R=-250.0, thickness=300.0, mirror=True, label="M2")]
+    system = rt.System(s, 0, 13.5e-6, object_distance=900.0, object_height=50.0)
+
+    return system.at_paraxial_focus()
+
+
+def test_surface_petzval_sum_of_mirrors():
+    system = two_mirrors()
+    d = DelanoDiagram.from_system(system)
+    c = [1/s.R for s in system.surfaces]
+    # in air: 2 (c1 - c2)
+    assert np.isclose(d.surface_petzval_sum(), 2*(c[0] - c[1]))
+    # and the Seidel field curvature sum S_IV = H**2 P
+    assert np.isclose(system.seidel().total[3], d.H**2*d.surface_petzval_sum(), rtol=1e-6)
+    # for lenses, the thin lens sum with n = 1 agrees in sign with the surfaces
+    lens = rt.caldwell_krf_lens()
+    dl = DelanoDiagram.from_system(lens)
+    assert np.isclose(lens.seidel().total[3], dl.H**2*dl.surface_petzval_sum(), rtol=1e-6)
+
+
+def test_vertex_z_and_clearance_of_a_folded_system():
+    system = two_mirrors()
+    d = DelanoDiagram.from_system(system)
+    z = d.vertex_z
+    assert np.allclose(np.diff(z)[1:-1], [s.thickness for s in system.surfaces[:-1]])
+    assert np.isclose(z[-1], system.object_distance + system.image_z)
+    gap = d.clearance()
+    assert gap.shape == (2, 3)
+    # the object beam passes the secondary (it crosses its plane), and the
+    # field is too small to clear it: the secondary blocks it
+    assert np.isfinite(gap[1, 0]) and gap[1, 0] < 0
+    # adjacent spaces are never checked
+    assert np.isnan(gap[0, 0]) and np.isnan(gap[0, 1]) and np.isnan(gap[1, 2])
+    # a larger rim never increases the gap
+    assert np.all(np.nan_to_num(d.clearance(rim=5.0) - gap, nan=0.0) <= 1e-12)

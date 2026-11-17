@@ -148,3 +148,24 @@ def test_footprints_and_layout():
     oa.plot_full_field(ax, F, Z[:, 6] + 1j*Z[:, 7], "coma")
     oa.plot_full_field(ax, F, oa.field_rms(s, F, N=16), "rms")
     plt.close(fig)
+
+
+def test_pupil_proximity_paraxial_limit_and_ring_field():
+    # two mirrors, stop on the first, small aperture: the real-ray proximity
+    # of the edge fields +-h is the paraxial |y|/(|y| + |ybar|)
+    s = rt.System([rt.Surface(R=-400, thickness=-150, mirror=True),
+                   rt.Surface(R=-250, thickness=300, mirror=True)], 0, 550e-6,
+                  object_distance=900, object_height=50, entrance_pupil_radius=2.0).at_paraxial_focus()
+    p = s.paraxial()
+    y, yb = np.abs(p.marginal[:, 0]), np.abs(p.chief[:, 0])
+    r = oa.pupil_proximity(s, [(0.0, -50.0), (0.0, 50.0)], rings=(1.0,), spokes=32)
+    assert np.allclose(r.p, y/(y + yb), atol=2e-3)
+    assert np.isclose(r.p[0], 1.0) and np.allclose(r.px, 1.0)
+    # a short arc of a ring field shifts the footprints much less across (y)
+    # than along the arc (x): the second mirror is closer to a pupil in y
+    arc = oa.ring_field(40.0, np.radians(30), width=2.0, n_arc=3, n_radial=2)
+    r = oa.pupil_proximity(s, arc, rings=(1.0,), spokes=32)
+    assert r.py[1] > r.px[1] and r.shift[1, 0] > r.shift[1, 1]
+    assert 0 < r.p[1] < 1 and np.isclose(r.p[1], r.px[1], rtol=0.05)
+    with pytest.raises(ValueError):
+        oa.pupil_proximity(s, [(0.0, 0.0)])

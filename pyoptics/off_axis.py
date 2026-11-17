@@ -58,6 +58,9 @@ Functions:
   on their footprints, ready for optimization.
 - footprints(), beam_clearance(): footprints of the mirrors and the
   clearance of the other beams around them.
+- pupil_proximity(): how close each surface is to a pupil, from the
+  footprints of the single field points (the off-axis form of the
+  paraxial |y|/(|y| + |ybar|)).
 - field_zernikes(), field_rms(): Fringe Zernikes and RMS wavefront errors
   over a field grid; plot_full_field(): full-field displays of
   astigmatism, coma or RMS; draw_layout(): the meridional section with
@@ -98,7 +101,8 @@ from .bases import fringe_zernike
 
 __all__ = ["rectangular_field", "ring_field", "OffAxisConic", "off_axis_conic", "segment_sag",
            "segment_zernikes", "off_axis_parabola", "solve_conics", "cook_tma",
-           "freeform_mirrors", "Footprint", "footprints", "Clearance", "beam_clearance",
+           "freeform_mirrors", "Footprint", "footprints", "PupilProximity", "pupil_proximity",
+           "Clearance", "beam_clearance",
            "field_zernikes", "field_rms", "plot_full_field", "draw_layout", "field_wavefront",
            "focal_length", "clearance_penalty", "pupil_rings"]
 
@@ -586,6 +590,87 @@ def footprints(system, fields, rings=(0.5, 0.8, 1.0), spokes=16):
                              float(np.max(np.hypot(*(q - c).T))), _hull(q), q))
 
     return out
+
+
+PupilProximity = namedtuple("PupilProximity", ["p", "px", "py", "radius", "half_width", "shift"])
+PupilProximity.__doc__ = """Pupil proximity of every surface from the footprints of the
+single field points (`pupil_proximity()`).
+
+Attributes
+----------
+p : (S,) array, a/(a + d) with a the mean radius of the single-field
+    footprints and d half of the largest distance between their centres:
+    1 at a pupil (every field point fills the same patch), 0 at an image
+    (the footprints are points apart)
+px, py : (S,) arrays, the same along the local x and y axes, from the
+    half widths and the shifts of the footprints along each axis
+radius : (S,) array, a
+half_width : (S, 2) array, mean half widths of the single-field footprints
+shift : (S, 2) array, half of the largest centre distance along x and y
+"""
+
+
+def pupil_proximity(system, fields, rings=(0.5, 0.8, 1.0), spokes=16):
+    """How close each surface is to a pupil, from real-ray footprints.
+
+    In a rotationally symmetric system the paraxial marginal and chief ray
+    heights y and ybar give the pupil proximity |y|/(|y| + |ybar|) (the
+    footprint of one field point has the radius |y|, the edge fields +-h
+    shift it by +-ybar): 1 at a pupil, 0 at an image, and a measure of
+    how much a surface acts on the field dependent aberrations (a surface
+    at the pupil sees every field through the same patch). Off axis there
+    is no axis to measure ybar from; here every field point is traced on
+    its own, its footprint on each surface gives a centre and a radius, and
+    the proximity is a/(a + d) with a the mean footprint radius and d half
+    of the largest distance between two footprint centres. For fields
+    +-h on a symmetric system this is the paraxial value (for small
+    apertures). The field of an off-axis system is often long in one
+    direction and narrow in the other (the arc of a ring field), so `px`
+    and `py` give the proximity along each local axis.
+
+    Parameters
+    ----------
+    system : raytrace.System
+    fields : (N, 2) array
+        Field points (N >= 2), e.g. the corners and edges of the field.
+    rings, spokes : optional
+        Pupil sampling (`pupil_rings()`, without the centre).
+
+    Returns
+    -------
+    PupilProximity
+    """
+
+    fields = np.atleast_2d(np.asarray(fields, float))
+    if len(fields) < 2:
+        raise ValueError("At least two field points.")
+    px, py = pupil_rings(rings, spokes, centre=False)
+    P = _trace_fields(system, fields, px, py)[0]
+    S = len(system.surfaces)
+    p, radius, half, shift = np.ones(S), np.zeros(S), np.zeros((S, 2)), np.zeros((S, 2))
+    for i in range(S):
+        q = _local(system, i, P[i + 1].reshape(-1, 3))[:, :2].reshape(len(fields), len(px), 2)
+        c, r, w = [], [], []
+        for qf in q:
+            qf = qf[np.all(np.isfinite(qf), axis=1)]
+            if len(qf) == 0:
+                continue
+            lo, hi = qf.min(axis=0), qf.max(axis=0)
+            c.append((lo + hi)/2)
+            w.append((hi - lo)/2)
+            r.append(np.max(np.hypot(*(qf - c[-1]).T)))
+        c = np.array(c)
+        radius[i] = np.mean(r)
+        half[i] = np.mean(w, axis=0)
+        dc = c[:, None, :] - c[None, :, :]
+        shift[i] = np.max(np.abs(dc), axis=(0, 1))/2
+        d = np.max(np.hypot(dc[..., 0], dc[..., 1]))/2
+        if radius[i] + d > 0:
+            p[i] = radius[i]/(radius[i] + d)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        pxy = np.where(half + shift > 0, half/(half + shift), 1.0)
+
+    return PupilProximity(p, pxy[:, 0], pxy[:, 1], radius, half, shift)
 
 
 Clearance = namedtuple("Clearance", ["obstacles", "beams", "distance", "blocked", "names"])
