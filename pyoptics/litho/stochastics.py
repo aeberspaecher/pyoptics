@@ -35,6 +35,13 @@ This module follows the same chain on a top-down grid (x, y) with counts:
    mean, so it matters little at ArF (y of a few tenths); for y > 1 the
    variance grows to (1 + y) times the mean, the photon limit of EUV.
 
+   At EUV the absorbed photon (92 eV) first frees a photoelectron, whose
+   cascade of secondary electrons activates the acid generator a few
+   nanometres away. With electron_blur > 0 every acid is moved from the
+   cell of its photon by a random 2D Gaussian step of that standard
+   deviation (periodic in x and y). This blurs the acid image like the
+   bake does, but each acid moves on its own, so the counts stay discrete.
+
 3. Quencher. Poisson with the mean quencher*pag*V (quencher relative to the
    acid generator, as in resist.ResistModel).
 
@@ -192,10 +199,14 @@ class StochasticResist(object):
     noise : sequence of str, optional
         Noise sources to include, any of "photon", "acid", "quencher",
         "deprotection"; () gives the mean chain.
+    electron_blur : number, optional
+        Standard deviation (nm) of the random displacement of each acid
+        from the cell of its photon (secondary electrons at EUV); the mean
+        chain blurs the acid with a Gaussian of the same width.
     """
 
     def __init__(self, model=None, wavelength=193.368, thickness=90.0, absorption=1e-3, pag=0.07,
-                 blocking=1.5, development_length=2.0, noise=NOISE_SOURCES):
+                 blocking=1.5, development_length=2.0, noise=NOISE_SOURCES, electron_blur=0.0):
         self.model = ResistModel(C=0.05, diffusion_length=10.0, amplification=3.0, quencher=0.15,
                                  quencher_diffusion_length=5.0, n_steps=20) if model is None else model
         self.wavelength, self.thickness, self.absorption = wavelength, thickness, absorption
@@ -205,6 +216,7 @@ class StochasticResist(object):
         if unknown:
             raise ValueError("unknown noise sources {}".format(sorted(unknown)))
         self.noise = tuple(noise)
+        self.electron_blur = float(electron_blur)
 
     def with_(self, **kwargs):
         """Copy with some parameters exchanged."""
@@ -282,6 +294,9 @@ class StochasticResist(object):
         else:
             photons = n_bar
             acid_0 = rng.poisson(mean_acid).astype(float) if "acid" in noise else mean_acid
+        if self.electron_blur > 0:
+            acid_0 = _scatter(acid_0, self.electron_blur, dx, dy, rng,
+                              discrete="photon" in noise or "acid" in noise)
         mean_q = np.full_like(I, self.model.quencher*n_pag)
         quencher_0 = rng.poisson(mean_q).astype(float) if "quencher" in noise else mean_q
 
@@ -337,6 +352,28 @@ class StochasticResist(object):
                               D[i], D[i + 1], xtol=1e-6*D[i])
 
         return np.nan
+
+
+def _scatter(counts, sigma, dx, dy, rng, discrete=True):
+    """Move every count of a periodic (N_y, N_x) map by a random Gaussian
+    step of standard deviation sigma (nm); without discrete counts (the
+    mean chain) blur the map with the same Gaussian."""
+
+    if not discrete:
+        return gaussian_filter(counts, (sigma/dy, sigma/dx), mode="wrap")
+    n = np.rint(counts).astype(np.int64)
+    N_y, N_x = n.shape
+    j, i = np.nonzero(n)
+    k = n[j, i]
+    jj, ii = np.repeat(j, k), np.repeat(i, k)
+    # positions inside the cell (uniform) plus the Gaussian step
+    y = (jj + rng.uniform(-0.5, 0.5, len(jj)))*dy + rng.normal(0.0, sigma, len(jj))
+    x = (ii + rng.uniform(-0.5, 0.5, len(ii)))*dx + rng.normal(0.0, sigma, len(ii))
+    jn = np.rint(y/dy).astype(np.int64) % N_y
+    in_ = np.rint(x/dx).astype(np.int64) % N_x
+    out = np.bincount(jn*N_x + in_, minlength=N_y*N_x).astype(float)
+
+    return out.reshape(N_y, N_x)
 
 
 def _bright(feature):

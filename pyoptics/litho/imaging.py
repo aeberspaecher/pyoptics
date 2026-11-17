@@ -88,8 +88,11 @@ class Projector(object):
     n : number, optional
         Refractive index of the image space (immersion liquid; water at 193
         nm: 1.437).
-    magnification : number, optional
-        Reduction ratio M (4 for scanners); sets the angles at the mask.
+    magnification : number or (M_x, M_y), optional
+        Reduction ratio M (4 for scanners); sets the angles at the mask. A
+        pair is an anamorphic projector (4x/8x of high-NA EUV), supported by
+        the mask stacks that compute the angles per axis (ThinMask ignores
+        the angles, euv.ReflectiveMask uses both).
     vectorial : bool, optional
         Vectorial (aplanatic polarization rotation) or scalar model.
     obliquity : bool, optional

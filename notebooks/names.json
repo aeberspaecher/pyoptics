@@ -154,5 +154,8 @@
   "152": "litho stochastics, flare and focus blur",
   "153": "multi-configuration optimization",
   "154": "global optimization and saddle points",
-  "155": "off-axis mirrors and nodal aberrations"
+  "155": "off-axis mirrors and nodal aberrations",
+  "156": "EUV multilayers and reflective masks",
+  "157": "EUV projector and pupil",
+  "158": "EUV stochastics and flare"
 }

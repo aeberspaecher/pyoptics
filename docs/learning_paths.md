@@ -136,6 +136,8 @@ builds up an imaging simulation one part at a time.
 **Computational lithography:** {doc}`39 Source optimization <notebooks/39_litho_source_optimization>`, then {doc}`40 OPC <notebooks/40_litho_opc>`, then {doc}`108 Arbitrary mask layouts <notebooks/108_litho_arbitrary_layouts>` (polygons at any angle, layouts from gdstk/gdspy).
 
 **Beyond the mean image:** {doc}`152 Litho stochastics, flare and focus blur <notebooks/152_litho_stochastics_flare_focus_blur>` (photon and acid shot noise, LER, LWR and their spectra, local CDU and missing contacts; flare from lens roughness and pattern density; focus blur from the laser bandwidth and the stage), after {doc}`35 Resist and swing curves <notebooks/35_litho_resist_swing>`.
+
+**EUV:** {doc}`156 EUV multilayers and reflective masks <notebooks/156_euv_multilayers_reflective_masks>` (Mo/Si Bragg mirrors with Ru cap, their Jones pupil; a TaBN or low-n absorber at a 6° chief ray: shadowing, best focus through pitch, pattern shift, telecentricity) → {doc}`157 EUV projector and pupil <notebooks/157_euv_projector_pupil>` (NA 0.33 against anamorphic NA 0.55, central obscuration and forbidden pitches, a Schwarzschild mirror objective with graded coatings) → {doc}`158 EUV stochastics and flare <notebooks/158_euv_stochastics_flare>` (13.5 nm photon shot noise, secondary electron blur, Z factor, contact LCDU and flare scaling as 1/λ²), after {doc}`152 Litho stochastics, flare and focus blur <notebooks/152_litho_stochastics_flare_focus_blur>`.
 **Wafer metrology:** {doc}`135 Ellipsometry <notebooks/135_ellipsometry>` (film thicknesses and optical constants), then {doc}`136 Scatterometry <notebooks/136_scatterometry>` (CD, height and sidewall angle of printed lines with RCWA).
 
 ## Illumination engineer

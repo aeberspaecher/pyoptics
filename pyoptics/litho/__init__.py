@@ -83,6 +83,13 @@ exchangeable:
 - `focus_blur`: images averaged over the focus spread of the laser
   bandwidth times the axial colour of the lens (`lens.axial_colour()`)
   and the vertical stage MSD, blurred by the lateral MSD,
+- `euv`: EUV lithography at 13.5 nm: optical constants, Mo/Si
+  `Multilayer` mirrors (reflectance over angle and wavelength, effective
+  mirror plane, graded coatings for ray traced mirrors), the
+  `ReflectiveMask` (RCWA of a patterned absorber on a multilayer at an
+  oblique chief ray, also for anamorphic projectors), the mask-side cones
+  and chief ray angle, obscured pupils, a Schwarzschild objective and the
+  RLS figure of merit,
 - `plot`: source, mask, pupil fill, images, Bossung plots, process windows.
 
 All lengths are image-side (wafer scale) values; mask dimensions are given
@@ -123,5 +130,6 @@ from . import budget
 from . import stochastics
 from . import flare
 from . import focus_blur
+from . import euv
 from .rcwa import RigorousMask
 from .fdtd_mask import FDTDMask
