@@ -63,15 +63,19 @@ Operands and constraints of `lens_optimization` with ``jac="analytic"``:
   `polychromatic_ray_errors()`, `spot_rms()`, `off_axis.field_wavefront()`,
   `off_axis.zernike_wavefront()`.
 - **Differential trace of the chief rays** (aimed or not): `distortion()`,
-  `ftheta()`, `image_telecentricity()`, `object_telecentricity()`.
+  `ftheta()`, `image_telecentricity()`, `object_telecentricity()`,
+  `off_axis.focal_length()`.
 - **Small central differences on the systems of the linearization** (no
   rays, cheap): `seidel()`, `chromatic()`, `focal_shift()`,
   `paraxial_target()`, `clearances()`; the constraints `paraxial_value()`,
   `center_thickness()`, `edge_thickness()`, `total_length()`,
-  `glass_map_constraint()`.
-- **Central differences of complete evaluations** (2V evaluations):
-  everything else, e.g. own functions, `off_axis.clearance_penalty()`,
-  `off_axis.focal_length()` and Constraint objects used as operands.
+  `glass_map_constraint()`; Constraint objects of these used as penalty
+  operands.
+- `off_axis.clearance_penalty()`: zero while every beam keeps its
+  clearance (the usual case), else differences.
+- **Forward differences of complete evaluations** on the systems at x + h
+  of the linearization (V evaluations, `Linearization.forward_difference()`):
+  everything else, e.g. own functions and other constraints.
 
 Variables (`lens_optimization`): `Curvature`, `Conic`, `Aspheric`,
 `QCoefficient`, `ZernikeTerm`, `Thickness`, `AirSpace`, `ObjectDistance`
@@ -100,19 +104,18 @@ forward difference Jacobian traces all operands V times. So:
   `off_axis.field_wavefront()`, the chief ray operands). Examples: the
   KrF lens of notebook 43 (Delano diagrams) with 96 variables and 308 residuals:
   1.3 s instead of 17 s per Jacobian (`LensOptimizer`), 1.5 s instead of
-  12 s (`DampedLeastSquares` with 82 clearance constraints); the six mirror
-  EUV projector: 0.85 s instead of 20 s.
+  12 s (`DampedLeastSquares` with 82 clearance constraints); the freeform
+  three mirror anastigmat with 29 variables of
+  notebook 155 (off-axis mirrors and nodal aberrations): 0.16 s instead
+  of 4.3 s; the six mirror EUV projector: 0.85 s instead of 20 s.
 - **Keep differences** ("2-point", the default) for small problems (fewer
   than about 10 variables: the 2V systems of the linearization cost as much
   as the V traces they save; notebooks 58 (lens optimization) and 154
   (global optimization and saddle points)), for merit functions without real
   rays (Seidel sums and other paraxial data: nothing to trace, the
-  analytic mode takes central differences, twice the work), and when an
-  expensive operand has no ``linearize`` (it is differentiated by central
-  differences, twice the cost of forward differences; e.g. the
-  clearance operand `off_axis.clearance_penalty()` in
-  notebook 155 (off-axis mirrors and nodal aberrations): 16 s instead of
-  4 s per Jacobian).
+  analytic mode takes central differences, twice the work), and when the
+  expensive operands have no ``linearize`` (they get forward differences
+  as with "2-point", plus the cost of the linearization).
 - Not with a `lens_optimization.MultiConfiguration` (forward differences).
 - Parameters that the differential trace does not cover (see above) are
   differentiated column by column, so a few of them cost little.
@@ -840,11 +843,41 @@ class Linearization:
 
         return np.array(cols).T
 
+    def forward_difference(self, f, f0=None, columns=None):
+        """Forward difference columns of a function of the system, on the
+        systems at x + h that the linearization has built (no new systems;
+        the steps h are 10 times those of `DampedLeastSquares`' forward
+        differences).
+
+        Parameters
+        ----------
+        f : callable
+            system -> residuals.
+        f0 : array, optional
+            f(system), if already evaluated.
+        columns : sequence of int, optional
+            Parameters (default: all).
+
+        Returns
+        -------
+        (residuals, len(columns)) array
+        """
+
+        columns = range(self.n_parameters) if columns is None else columns
+        with np.errstate(all="ignore"):
+            f0 = np.atleast_1d(np.asarray(f(self.system) if f0 is None else f0, float))
+            cols = [(np.atleast_1d(np.asarray(f(self.plus[k]), float)) - f0)/self.h[k]
+                    for k in columns]
+
+        return np.array(cols).reshape(len(cols), len(f0)).T
+
     def jacobian(self, operand):
         """Residuals of an operand and their Jacobian: analytic if the
         operand has a method linearize(lin) (columns of parameters that the
         differential trace does not cover by central differences), else
-        central differences.
+        forward differences (`forward_difference()`: half the evaluations
+        of central differences, for operands without analytic derivatives
+        that are evaluated in every iteration).
 
         Parameters
         ----------
@@ -867,7 +900,7 @@ class Linearization:
         if r is None:
             with np.errstate(all="ignore"):
                 r = np.atleast_1d(np.asarray(operand(self.system), float))
-            return r, self.finite_difference(operand)
+            return r, self.forward_difference(operand, r)
         r, J = np.atleast_1d(np.asarray(r, float)), np.array(J, float).reshape(len(r), -1)
         bad = np.flatnonzero(self.unsupported)
         if len(bad):
