@@ -759,10 +759,35 @@ class LensOptimizer:
 #     [A                  0  ] [mu] = [  b   ],
 #
 # solved in the null space of A (the KKT matrix itself is badly conditioned
-# when the operands have small tolerances).
+# when the operands have small tolerances). J^T J is never formed: the step
+# is the least squares solution of the stacked system
+#
+#     [sqrt(lambda D)]        [ 0]
+#     [J             ] dx  =  [-r],
+#
+# as in MINPACK (Moré 1978), whose condition number is that of J and not its
+# square (the damping rows on top, which keeps the step accurate for a large
+# lambda). The columns are first scaled by powers of two to norms near 1
+# (LAPACK's dgeequb), which is exact.
 # A step that lowers the merit function (plus a penalty on the constraint
 # violation) is taken and lambda shrinks, else lambda grows and the step is
 # solved again (Nielsen's damping update).
+
+
+def _pow2_scales(norms):
+    """Powers of two 2**-e with norms = m 2**e, 0.5 <= m < 1 (as LAPACK's
+    dgeequb): scaling by them is exact. Zero or non-finite norms get 1."""
+
+    norms = np.asarray(norms, float)
+    e = np.frexp(np.where(np.isfinite(norms) & (norms > 0), norms, 1.0))[1]
+
+    return np.ldexp(1.0, -np.clip(e, -1000, 1000))
+
+
+def _lstsq(M, rhs):
+    """Least squares solution (SVD, minimum norm if M is rank deficient)."""
+
+    return np.linalg.lstsq(M, rhs, rcond=None)[0]
 
 
 def _uncached(system):
@@ -2545,35 +2570,53 @@ class DampedLeastSquares:
     def _step_unchecked(self, J, A, r, target, g, lam, active, bounds):
 
         D = self._scale
+        n = len(D)
         Js = J*D
-        H = Js.T @ Js
-        diag = np.diag(H).copy()
-        diag = np.maximum(diag, 1e-9*max(diag.max(initial=0.0), 1e-30) + 1e-30)
-        H = H + lam*np.diag(diag)
-        grad = Js.T @ r
-        free = np.ones(len(D), bool)
+        # Marquardt's damping diag(J^T J), from the column norms (J^T J
+        # itself is never formed: it squares the condition number)
+        norms = np.sqrt(np.sum(Js**2, axis=0))
+        dd = np.maximum(norms**2, 1e-9*max(np.max(norms**2, initial=0.0), 1e-30) + 1e-30)
+        free = np.ones(n, bool)
         free[bounds] = False
-        H = H[np.ix_(free, free)]
-        grad = grad[free]
-        if np.any(active):
-            As = (A*D)[np.ix_(active, free)]
+        n_active = int(np.sum(active))
+        if not np.isfinite(lam):
+            return np.zeros(n), np.zeros(n_active)  # the limit of infinite damping
+        # exact equilibration: powers of two that bring the column norms
+        # near 1 (they change no bit of the mantissas)
+        E = _pow2_scales(norms[free])
+        Jt = Js[:, free]*E
+        w = np.sqrt(lam)*(np.sqrt(dd[free])*E)  # damping rows, sqrt(lambda D)
+        if not (np.all(np.isfinite(Jt)) and np.all(np.isfinite(r))):
+            return np.full(n, np.nan), np.zeros(n_active)
+        if n_active:
+            At = (A*D)[np.ix_(active, free)]*E
             b = (target - g)[active]
             # null space method (better conditioned than the KKT matrix):
-            # dz = dz_p + Z y with As dz_p = b and As Z = 0
-            U, sv, Vt = np.linalg.svd(As)
+            # dt = dt_p + Z y with At dt_p = b and At Z = 0
+            U, sv, Vt = np.linalg.svd(At)
             rank = int(np.sum(sv > 1e-10*sv[0])) if len(sv) and sv[0] > 0 else 0
-            dz_p = Vt[:rank].T @ ((U[:, :rank].T @ b)/sv[:rank])
+            dt_p = Vt[:rank].T @ ((U[:, :rank].T @ b)/sv[:rank])
             Z = Vt[rank:].T
-            if Z.shape[1]:
-                y = np.linalg.solve(Z.T @ H @ Z, -Z.T @ (grad + H @ dz_p))
-                dz = dz_p + Z @ y
-            else:
-                dz = dz_p
-            mu = np.linalg.lstsq(As.T, -(grad + H @ dz), rcond=None)[0]
         else:
-            dz, mu = np.linalg.solve(H, -grad), np.zeros(0)
-        dx = np.zeros(len(D))
-        dx[free] = dz*D[free]
+            dt_p, Z = np.zeros(len(E)), np.eye(len(E))
+        dt = dt_p
+        if Z.shape[1]:
+            # min |r + Jt dt|^2 + |w dt|^2 over y, as the least squares
+            # problem of the stacked matrix [diag(w); Jt] (Moré 1978); the
+            # damping rows come first: they are the heavy rows for a large
+            # lambda, and below the others the step would lose
+            # sqrt(lambda) eps of its relative accuracy (Powell and Reid 1969)
+            M = np.vstack([w[:, None]*Z, Jt @ Z])
+            rhs = -np.concatenate([w*dt_p, r + Jt @ dt_p])
+            dt = dt_p + Z @ _lstsq(M, rhs)
+        if n_active:
+            # J^T r + (J^T J + lambda D) dt + A^T mu = 0 (same mu in every scaling)
+            grad = Jt.T @ (r + Jt @ dt) + w*(w*dt)
+            mu = _lstsq(At.T, -grad)
+        else:
+            mu = np.zeros(0)
+        dx = np.zeros(n)
+        dx[free] = dt*E*D[free]
 
         return dx, mu
 
