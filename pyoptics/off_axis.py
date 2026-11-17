@@ -922,7 +922,8 @@ def field_wavefront(fields, rings=(0.5, 0.85, 1.0), spokes=8, tolerance=0.05,
     Returns
     -------
     operand : callable
-        operand(system) returns the OPDs / tolerance.
+        operand(system) returns the OPDs / tolerance; operand.linearize(lin)
+        also their analytic Jacobian (`ray_derivatives`).
     """
 
     px, py = pupil_rings(rings, spokes, centre=True)
@@ -940,6 +941,27 @@ def field_wavefront(fields, rings=(0.5, 0.85, 1.0), spokes=8, tolerance=0.05,
             out.append(_clean(W/tolerance))
 
         return np.concatenate(out)
+
+    def linearize(lin):
+        # analytic Jacobian (ray_derivatives)
+        from .ray_derivatives import clean
+
+        system = lin.system
+        K = len(px)
+        rd = lin.trace_fields([tuple(f) for f in fields], px, py)
+        tilt = A @ np.linalg.pinv(A)
+        r, J = [], []
+        for j in range(len(fields)):
+            W, dW = lin.opd(rd, j*K, K)
+            W, dW = W/system.wavelength, dW.T/system.wavelength
+            if remove_tilt and np.all(np.isfinite(W)):
+                W, dW = W - tilt @ W, dW - tilt @ dW
+            r.append(W/tolerance)
+            J.append(dW/tolerance)
+
+        return clean(np.concatenate(r), np.concatenate(J))
+
+    operand.linearize = linearize
 
     return operand
 
