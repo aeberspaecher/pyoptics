@@ -53,6 +53,42 @@ differential trace does not cover (wavelength, field, surfaces other than
 and constraints get central differences of `Linearization.jacobian()`.
 Rays are traced without vignetting (clip=False), as by the operands.
 
+Which operands, constraints and variables are analytic
+------------------------------------------------------
+=========================================  ====================================
+Operands of `lens_optimization`            Jacobian with ``jac="analytic"``
+=========================================  ====================================
+`ray_errors()`, `wavefront()`,             differential ray trace
+`polychromatic_ray_errors()`,
+`spot_rms()`, `off_axis.field_wavefront()`
+`distortion()`, `ftheta()`,                differential trace of the chief rays
+`image_telecentricity()`,                  (aimed or not)
+`object_telecentricity()`
+`seidel()`, `chromatic()`,                 small central differences on the
+`focal_shift()`, `paraxial_target()`,      systems of the linearization (no
+`clearances()`; constraints                rays: cheap)
+`paraxial_value()`, `center_thickness()`,
+`edge_thickness()`, `total_length()`,
+`glass_map_constraint()`
+anything else (own functions,              central differences of complete
+`off_axis.clearance_penalty()`,            evaluations (2V evaluations)
+`off_axis.focal_length()`, Constraint
+objects used as operands)
+=========================================  ====================================
+
+Variables (`lens_optimization`): `Curvature`, `Conic`, `Aspheric`,
+`QCoefficient`, `ZernikeTerm`, `Thickness`, `AirSpace`, `ObjectDistance`
+(finite objects), `Tilt`, `Decenter`, `ImageTilt` and the model glasses
+(`GlassIndex`, `GlassAbbe`, through the derivatives of the indices) are
+analytic, with the paraxial solves applied; `wavefront()` at other
+wavelengths goes through `Linearization.mapped()`. Parameters that change
+the wavelength, the field or the object space index, and surfaces other
+than `raytrace.Surface`, Q-bfs, Q-con, Zernike surfaces and coordinate
+breaks (ideal lenses, gratings, diffractive surfaces, axicons, tabulated
+surfaces), get central differences column by column
+(`Linearization.unsupported` lists them). Rays are traced without
+vignetting (clip=False).
+
 When analytic Jacobians pay off
 -------------------------------
 ``jac="analytic"`` (`lens_optimization.DampedLeastSquares`,
