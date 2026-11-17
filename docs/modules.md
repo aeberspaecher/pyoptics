@@ -601,6 +601,35 @@ What each module does and how mature it is. Planned work is listed in
   with a Metropolis rule on the logarithm of the merit function; local
   runs count their merit function evaluations
   (notebook 154, global optimization and saddle points)
+- `off_axis`: new, tested: off-axis mirror systems: the local radii and
+  the Fringe Zernikes of an off-axis segment of a conic in its tangent
+  frame (`off_axis_conic()`, `segment_sag()`, `segment_zernikes()`),
+  aperture offsets (a decentred plane stop, `off_axis_parabola()`) and
+  field bias, rectangular and ring fields, conic constants from linear
+  Seidel conditions (`solve_conics()`), a Cook three-mirror anastigmat
+  offset in aperture and field (`cook_tma()`), footprints and the
+  clearance of every beam around every mirror and the detector
+  (`footprints()`, `beam_clearance()`), mirrors with Zernike freeform
+  departures centred on their footprints (`freeform_mirrors()`),
+  Zernikes and RMS over a field grid, full-field displays and layouts
+  with the mirrors drawn over their footprints; operands over a
+  two-dimensional field for damped least squares (`field_wavefront()`,
+  `focal_length()` from real chief rays, `clearance_penalty()`); with the
+  new variables `ZernikeTerm`, `Tilt`, `Decenter` and `ImageTilt` of
+  `lens_optimization` and the `centre` of `raytrace.ZernikeSurface`
+  (notebook 155, off-axis mirrors and nodal aberrations)
+- `nodal`: new, tested: nodal aberration theory: the field displacement
+  vectors of the spherical and aspheric part of every decentred or
+  tilted surface relative to the optical axis ray, the sums W131, A131,
+  W222, A222, B222, W220M, A220M, B220M and the distortion terms, Fringe
+  Zernikes over a field (closed form, or sampled over an offset
+  aperture), the nodes of binodal astigmatism, the coma-free pivot, a fit
+  of the nodal field dependence to ray traced Zernikes, the focus from the
+  boresight tilt and the field dependence of Zernike freeform departures;
+  checked against the ray tracer on a misaligned Ritchey–Chrétien (coma
+  and astigmatism within a few per cent), an off-axis paraboloid and
+  freeform terms on both mirrors
+  (notebook 155, off-axis mirrors and nodal aberrations)
 - `tolerancing`: Monte Carlo tolerancing, tested: tolerances (power in
   fringes, radius, thickness and air space, axial position of an element,
   image plane, index, Abbe number, element decentre, element tilt about a

@@ -8,7 +8,9 @@ Two optimizers:
 - `DampedLeastSquares`, the classical lens design optimizer (see the section
   further down): `Variable` objects (`Curvature`, `Thickness`, `AirSpace`,
   `Conic`, `Aspheric`, the phase coefficients of diffractive surfaces
-  `DiffractivePhase` with `diffractive()`, model glasses
+  `DiffractivePhase` with `diffractive()`, freeform terms `ZernikeTerm`
+  with `zernike_terms()`, `Tilt`, `Decenter` and `ImageTilt` of off-axis
+  systems (notebook 155, off-axis mirrors and nodal aberrations), model glasses
   `GlassIndex`/`GlassAbbe` with `glass()`), solves (`solve_paraxial_focus()`, `solve_entrance_pupil()`,
   `solve_curvature_for_efl()`), operands (the factories below plus
   `polychromatic_ray_errors()`, `spot_rms()`, `wavefront()`, `seidel()`,
@@ -1116,6 +1118,115 @@ class Aspheric(Variable):
 
     def typical(self, system):
         return 100*system.wavelength
+
+
+class Tilt(Variable):
+    """Tilt angle (radians) of a surface about its local x, y or z axis
+    (`raytrace.Surface.tilt`), e.g. of the mirrors of an off-axis system
+    (notebook 155, off-axis mirrors and nodal aberrations)."""
+
+    def __init__(self, surface, axis=0, bounds=(None, None)):
+        super().__init__(bounds)
+        self.surface, self.axis = surface, int(axis)
+        self.name = "tilt{}_{}".format("xyz"[self.axis], surface)
+
+    def get(self, system):
+        return system.surfaces[self.surface].tilt[self.axis]
+
+    def set(self, system, value):
+        t = list(system.surfaces[self.surface].tilt)
+        t[self.axis] = float(value)
+        system.surfaces[self.surface].tilt = tuple(t)
+
+    def typical(self, system):
+        return 1e-2
+
+
+class Decenter(Variable):
+    """Decentre of a surface in x (axis 0) or y (axis 1)
+    (`raytrace.Surface.decenter`)."""
+
+    def __init__(self, surface, axis=1, bounds=(None, None)):
+        super().__init__(bounds)
+        self.surface, self.axis = surface, int(axis)
+        self.name = "dec{}_{}".format("xy"[self.axis], surface)
+
+    def get(self, system):
+        return system.surfaces[self.surface].decenter[self.axis]
+
+    def set(self, system, value):
+        d = list(system.surfaces[self.surface].decenter)
+        d[self.axis] = float(value)
+        system.surfaces[self.surface].decenter = tuple(d)
+
+    def typical(self, system):
+        return 1e-2*_length_scale(system)
+
+
+class ImageTilt(Variable):
+    """Tilt (radians) of the image plane about its x, y or z axis
+    (`raytrace.System.image_tilt`)."""
+
+    def __init__(self, axis=0, bounds=(None, None)):
+        super().__init__(bounds)
+        self.axis = int(axis)
+        self.name = "image_tilt{}".format("xyz"[self.axis])
+
+    def get(self, system):
+        return system.image_tilt[self.axis]
+
+    def set(self, system, value):
+        t = list(system.image_tilt)
+        t[self.axis] = float(value)
+        system.image_tilt = tuple(t)
+
+    def typical(self, system):
+        return 1e-2
+
+
+class ZernikeTerm(Variable):
+    """Coefficient c_j of the Zernike departure of a
+    `raytrace.ZernikeSurface` (length units): freeform terms."""
+
+    def __init__(self, surface, j, bounds=(None, None)):
+        super().__init__(bounds)
+        self.surface, self.j = surface, int(j)
+        self.name = "Z{}_{}".format(self.j, surface)
+
+    def get(self, system):
+        return dict(system.surfaces[self.surface].zernike).get(self.j, 0.0)
+
+    def set(self, system, value):
+        system.surfaces[self.surface].set_zernike({self.j: value})
+
+    def typical(self, system):
+        return 100*system.wavelength
+
+
+def zernike_terms(system, surfaces, terms, bounds=(None, None)):
+    """`ZernikeTerm` variables for several terms on several surfaces.
+
+    Parameters
+    ----------
+    system : raytrace.System
+        Only used to check that the surfaces are Zernike surfaces.
+    surfaces : sequence of int
+    terms : sequence of int
+        Zernike indices (in the ordering of each surface).
+    bounds : optional
+
+    Returns
+    -------
+    list of ZernikeTerm
+    """
+
+    from .raytrace import ZernikeSurface
+
+    for i in surfaces:
+        if not isinstance(system.surfaces[i], ZernikeSurface):
+            raise TypeError("Surface {} is not a ZernikeSurface.".format(i))
+
+    return [ZernikeTerm(i, j, bounds) for i in surfaces for j in terms]
 
 
 class DiffractivePhase(Variable):
