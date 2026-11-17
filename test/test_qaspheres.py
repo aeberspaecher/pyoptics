@@ -117,3 +117,58 @@ def test_q_coefficient_variable():
     v.set(s, 0.003)
     assert v.get(s) == 0.003
     assert s.surfaces[1].q == (0.01, 0.0, 0.003)
+
+
+def _q2d_terms():
+    return [(0, 0, "cos"), (0, 2, "cos"), (1, 0, "cos"), (1, 1, "sin"), (2, 0, "cos"),
+            (2, 1, "sin"), (3, 0, "cos"), (3, 2, "cos"), (4, 1, "sin")]
+
+
+def test_q2d_gradients_are_orthonormal():
+    # (1/pi^2) int int grad f . grad g du dphi / sqrt(1 - u^2): Gauss-Chebyshev in u
+    n = 300
+    u = np.cos(np.pi*(np.arange(n) + 0.5)/(2*n))
+    phi = np.linspace(0, 2*np.pi, 97)[:-1]
+    U, PHI = np.meshgrid(u, phi)
+    grads = []
+    for m, k, kind in _q2d_terms():
+        terms = {(m, k): 1.0}
+        S = qa.Q2DSurface(np.inf, 0.0, cos=terms if kind == "cos" else None,
+                          sin=terms if kind == "sin" else None, norm_radius=1.0)
+        _, gx, gy = S._departure_and_gradient(U*np.cos(PHI), U*np.sin(PHI))
+        grads.append((gx, gy))
+    G = np.array([[np.mean(a[0]*b[0] + a[1]*b[1]) for b in grads] for a in grads])
+    G *= (np.pi/2)*(2*np.pi)/np.pi**2
+    assert np.allclose(G, np.eye(len(grads)), atol=1e-9)
+
+
+def test_q2d_m0_is_qbfs_and_gradient_is_analytic():
+    a = (0.02, -0.01, 0.005)
+    q2 = qa.Q2DSurface(25.0, 0.0, cos={(0, n): v for n, v in enumerate(a)}, norm_radius=6.0)
+    qb = qa.QbfsSurface(25.0, 0.0, a, 6.0)
+    r = np.linspace(0, 6.0, 31)
+    assert np.allclose(q2.sag_xy(r, 0*r), qb.sag(r**2), atol=1e-14)
+    assert np.isclose(q2.c, qb.c)
+    f = qa.Q2DSurface(20.0, 0.0, cos={(0, 1): 0.01, (2, 0): 0.02, (3, 1): -0.01, (1, 1): 0.005},
+                      sin={(2, 0): 0.01, (1, 0): 0.003}, norm_radius=5.0)
+    x, y = np.array([1.3, -0.4, 3.1]), np.array([-2.1, 0.7, 2.0])
+    gx, gy = f._gradient(x, y)
+    h = 1e-6
+    assert np.allclose(gx, (f.sag_xy(x + h, y) - f.sag_xy(x - h, y))/(2*h), atol=1e-8)
+    assert np.allclose(gy, (f.sag_xy(x, y + h) - f.sag_xy(x, y - h))/(2*h), atol=1e-8)
+
+
+def test_q2d_surface_traces_on_its_sag():
+    f = qa.Q2DSurface(-40.0, 0.0, cos={(2, 0): 0.02, (3, 0): 0.01}, sin={(1, 1): 0.004},
+                      norm_radius=8.0, mirror=True)
+    rng = np.random.default_rng(1)
+    P = np.column_stack([rng.uniform(-6, 6, 50), rng.uniform(-6, 6, 50), np.full(50, -20.0)])
+    d = np.column_stack([rng.normal(0, 0.05, 50), rng.normal(0, 0.05, 50), np.ones(50)])
+    d /= np.linalg.norm(d, axis=1)[:, None]
+    t = f.intersect(P, d)
+    Q = P + t[:, None]*d
+    assert np.allclose(Q[:, 2], f.sag_xy(Q[:, 0], Q[:, 1]), atol=1e-12)
+    v = qa.Q2DCoefficient(0, 2, 0, "cos")
+    assert v.name == "a2_0_0"
+    with pytest.raises(ValueError):
+        qa.Q2DCoefficient(0, 0, 1, "sin")
