@@ -11587,3 +11587,133 @@ def litho_stochastics_layout(ax, kind="shot_noise", title=None):
     else:
         raise ValueError("kind must be 'shot_noise', 'roughness', 'contacts', 'flare' or "
                          "'focus_blur'")
+
+
+# ------------------ notebook 153, multi-configuration optimization
+
+MULTICONFIG_COLORS = {"shared": "#2a7ab9", "config": ("#d6604d", "#5aa469", "#8e5ba8"),
+                      "merit": "#e0a000", "zero": "#f4f4f2"}
+
+
+def multiconfig_layout(ax, kind="configurations", title=None):
+    """Sketch of the optimization of several configurations of one lens
+    (notebook 153, multi-configuration optimization).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"configurations", "jacobian", "overrides"}, optional
+        "configurations": one prescription (radii, thicknesses, glasses) at
+        three zoom positions that differ only in the air spaces; the
+        residuals of all three enter one merit function. "jacobian": the
+        block structure of the Jacobian: the shared variables act on the
+        residuals of every configuration, a spacing of one configuration only
+        on its own rows. "overrides": what a configuration may change: the
+        zoom spacings, the object distance (focusing), the wavelength band
+        (with a refocus) and the temperature (indices and spacings).
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    C = MULTICONFIG_COLORS
+    if kind == "configurations":
+        h = 0.5
+        row = 1.55
+        gaps = (2.1, 1.2, 0.45)
+        backs = (1.6, 2.0, 2.55)
+        names = ("wide", "middle", "tele")
+        for k, (g, b) in enumerate(zip(gaps, backs)):
+            y0 = -k*row
+            col = C["config"][k]
+            zi = 4.3                  # the image plane stays, both groups move
+            z2 = zi - b
+            z1 = z2 - g
+            ax.plot([-1.0, zi], [y0, y0], color="0.85", lw=0.6, zorder=1)
+            p = _negative_lens(ax, z1, 0.95*h)
+            p.set_xy(p.get_xy() + np.array([0.0, y0]))
+            p = lens(ax, z2, 0.8*h)
+            p.set_xy(p.get_xy() + np.array([0.0, y0]))
+            # an axial beam: diverged by the front group, focused by the rear one
+            y_in, y_rear = 0.28, 0.28 + 0.12*g
+            for s in (1, -1):
+                ax.plot([-1.0, z1, z2, zi], [y0 + s*y_in, y0 + s*y_in, y0 + s*y_rear, y0],
+                        color=IMAGING, lw=0.9, zorder=2)
+            ax.plot([zi, zi], [y0 - 0.45, y0 + 0.45], color="0.3", lw=1.5)
+            arrow(ax, z1 + 0.12, y0 - 0.62, z2 - 0.12, y0 - 0.62, style="<|-|>", color=col)
+            label(ax, 0.5*(z1 + z2), y0 - 0.85, "d{}".format(k + 1), fontsize=8, color=col)
+            label(ax, -1.2, y0, names[k], fontsize=8, ha="right", color=col)
+            arrow(ax, zi + 0.25, y0, 5.15, -row, color=col, lw=0.9)
+        _box(ax, 6.65, -row, 2.9, 1.3, "one merit function",
+             ["Σ_k w_k Σ_i r_ik²", "(all configurations)"], edgecolor=C["merit"],
+             color="#fdf3dc")
+        label(ax, 1.4, 0.95, "shared: radii, glass thicknesses, glasses", fontsize=8,
+              color=C["shared"])
+        label(ax, 1.4, -2*row - 1.25, "per configuration: spacings d_k, focus, aperture, field",
+              fontsize=8, color=C["config"][0])
+        _finish(ax, (-2.3, 8.4), (-2*row - 1.5, 1.25), title)
+    elif kind == "jacobian":
+        n_rows, n_shared, n_conf = 3, 5, 3
+        w, hh = 0.42, 0.85            # cell width, height of a block of rows
+        x0, y0 = 0.0, 0.0
+        for k in range(n_rows):
+            y = y0 - (k + 1)*hh
+            for j in range(n_shared):
+                ax.add_patch(mpatches.Rectangle((x0 + j*w, y), w, hh, facecolor=C["shared"],
+                                                alpha=0.55, edgecolor="white", lw=1.0))
+            for j in range(n_conf):
+                on = j == k
+                ax.add_patch(mpatches.Rectangle((x0 + (n_shared + j)*w, y), w, hh,
+                                                facecolor=C["config"][k] if on else C["zero"],
+                                                alpha=0.75 if on else 1.0,
+                                                edgecolor="white" if on else "0.85", lw=1.0))
+                if not on:
+                    label(ax, x0 + (n_shared + j + 0.5)*w, y + hh/2, "0", fontsize=8,
+                          color="0.6")
+            label(ax, x0 - 0.15, y + hh/2, "residuals of\nconfiguration {}".format(k + 1),
+                  fontsize=8, ha="right", color=C["config"][k])
+        ax.add_patch(mpatches.Rectangle((x0, y0 - n_rows*hh), (n_shared + n_conf)*w, n_rows*hh,
+                                        fill=False, edgecolor="0.3", lw=1.0))
+        label(ax, x0 + n_shared*w/2, y0 + 0.3, "shared variables\n(radii, glasses...)",
+              fontsize=8, color=C["shared"], va="bottom")
+        label(ax, x0 + (n_shared + n_conf/2)*w, y0 + 0.3, "spacings\nd1  d2  d3", fontsize=8,
+              color="0.25", va="bottom")
+        label(ax, x0 + (n_shared + n_conf)*w + 0.3, y0 - n_rows*hh/2,
+              "J = ∂r/∂x:\na shared column\nchanges every\nconfiguration,\na spacing only\nits own",
+              fontsize=8, ha="left")
+        _finish(ax, (-2.3, x0 + (n_shared + n_conf)*w + 2.4), (y0 - n_rows*hh - 0.3, 1.3),
+                title)
+    elif kind == "overrides":
+        h = 0.42
+        panels = (("zoom position", "air spaces d_k"), ("focus", "object distance, focus group"),
+                  ("wavelength band", "λ set, refocus"), ("temperature", "n(T), spacings"))
+        for k, (name, what) in enumerate(panels):
+            x = 3.0*k
+            col = C["config"][k % 3] if k < 3 else "#e0a000"
+            if k == 0:
+                _negative_lens(ax, x - 0.5, h)
+                lens(ax, x + 0.1, h)
+                lens(ax, x + 0.45, h, color="#f6d7d0", edgecolor=col)
+                arrow(ax, x + 0.15, -0.7, x + 0.5, -0.7, color=col)
+            elif k == 1:
+                lens(ax, x, h)
+                for y in (-0.3, 0.3):
+                    ax.plot([x - 1.1, x], [0.0, y], color=IMAGING, lw=0.8)
+                ax.plot(x - 1.1, 0.0, "o", color=col, ms=3)
+                for y in (-0.3, 0.3):
+                    ax.plot([x, x + 1.0], [y, 0.0], color=IMAGING, lw=0.8)
+            elif k == 2:
+                lens(ax, x - 0.3, h)
+                for c, zf in (("#2a7ab9", 0.75), ("#d6604d", 1.05)):
+                    for y in (-0.3, 0.3):
+                        ax.plot([x - 1.1, x - 0.3, x - 0.3 + zf], [y, y, 0.0], color=c, lw=0.8)
+                ax.plot([x + 0.45, x + 0.45], [-0.35, 0.35], color="#2a7ab9", lw=1.2)
+                ax.plot([x + 0.75, x + 0.75], [-0.35, 0.35], color="#d6604d", lw=1.2)
+            else:
+                lens(ax, x, h, color="#fbe3c4", edgecolor=col)
+                label(ax, x + 0.6, 0.25, "T₁ … T₃", fontsize=8, ha="left", color=col)
+                label(ax, x + 0.6, -0.2, "dn/dT, α", fontsize=8, ha="left", color=col)
+            label(ax, x, 0.85, name, fontsize=9)
+            label(ax, x, -1.05, what, fontsize=8, color="0.3")
+        _finish(ax, (-1.4, 10.4), (-1.35, 1.15), title)
+    else:
+        raise ValueError("kind must be 'configurations', 'jacobian' or 'overrides'")
