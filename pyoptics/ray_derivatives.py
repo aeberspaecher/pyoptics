@@ -53,6 +53,42 @@ differential trace does not cover (wavelength, field, surfaces other than
 and constraints get central differences of `Linearization.jacobian()`.
 Rays are traced without vignetting (clip=False), as by the operands.
 
+When analytic Jacobians pay off
+-------------------------------
+``jac="analytic"`` (`lens_optimization.DampedLeastSquares`,
+`LensOptimizer.run()`) gives the same steps as differences, more
+accurately; whether it is faster depends on the problem. A linearization
+first builds the systems at x +- h for every variable (2V copies with the
+solves, no rays), then traces the rays once with V derivatives each. A
+forward difference Jacobian traces all operands V times. So:
+
+- **Use it** for many variables (about 20 and more) and operands that trace
+  many real rays and have a ``linearize`` method (`ray_errors()`,
+  `wavefront()`, `polychromatic_ray_errors()`, `spot_rms()`,
+  `off_axis.field_wavefront()`, the chief ray operands). Examples: the
+  KrF lens of notebook 43 (Delano diagrams) with 96 variables and 308 residuals:
+  1.3 s instead of 17 s per Jacobian (`LensOptimizer`), 1.5 s instead of
+  12 s (`DampedLeastSquares` with 82 clearance constraints); the six mirror
+  EUV projector: 0.85 s instead of 20 s.
+- **Keep differences** ("2-point", the default) for small problems (fewer
+  than about 10 variables: the 2V systems of the linearization cost as much
+  as the V traces they save; notebooks 58 (lens optimization) and 154
+  (global optimization and saddle points)), for merit functions without real
+  rays (Seidel sums and other paraxial data: nothing to trace, the
+  analytic mode takes central differences, twice the work), and when an
+  expensive operand has no ``linearize`` (it is differentiated by central
+  differences, twice the cost of forward differences; e.g. the
+  clearance operand `off_axis.clearance_penalty()` in
+  notebook 155 (off-axis mirrors and nodal aberrations): 16 s instead of
+  4 s per Jacobian).
+- Not with a `lens_optimization.MultiConfiguration` (forward differences).
+- Parameters that the differential trace does not cover (see above) are
+  differentiated column by column, so a few of them cost little.
+- The more accurate Jacobian can change the path of an optimization: in
+  ill conditioned problems the analytic run may go further (notebook 149
+  (scan lenses): merit 494 instead of 561) or stop elsewhere. For a check of
+  an operand's ``linearize``, compare with `Linearization.finite_difference()`.
+
 Own operands use `Linearization.trace()`, which returns a `RayDerivatives`
 with the image plane points and directions, the optical paths and the
 object space directions and their derivatives, e.g. for a chief ray::

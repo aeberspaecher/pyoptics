@@ -847,7 +847,9 @@ class LensOptimizer:
             instead of the default scales: the median curvature and
             thickness, 100 wavelengths for the aspheric sags).
             jac="analytic" uses `jacobian()` (analytic derivatives of the
-            real ray trace).
+            real ray trace; faster for many variables and ray traced
+            operands, see "When analytic Jacobians pay off" in
+            `ray_derivatives`).
 
         Returns
         -------
@@ -2564,7 +2566,10 @@ class DampedLeastSquares:
         the differential trace does not cover get central differences of
         complete evaluations. Solves are differentiated with
         the system (their paraxial effect by central differences). Not
-        with a `MultiConfiguration` (forward differences there).
+        with a `MultiConfiguration` (forward differences there). Faster
+        for many variables and ray traced operands, slower for small or
+        paraxial problems: see "When analytic Jacobians pay off" in
+        `ray_derivatives`.
     """
 
     def __init__(self, system, variables, operands, constraints=(), solves=(), weights=None,
