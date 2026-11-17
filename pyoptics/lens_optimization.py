@@ -1053,8 +1053,10 @@ def _length_scale(system):
 
 
 class Curvature(Variable):
-    """Vertex curvature c = 1/R of a surface (sensitivity:
-    `System.with_radius_change()`)."""
+    """Curvature 1/R of a surface (sensitivity:
+    `System.with_radius_change()`): the vertex curvature, of a Q-bfs or
+    Q-con surface the curvature of its base sphere (R), which is what
+    `set()` changes."""
 
     def __init__(self, surface, bounds=(None, None)):
         super().__init__(bounds)
@@ -1062,7 +1064,9 @@ class Curvature(Variable):
         self.name = "c{}".format(surface)
 
     def get(self, system):
-        return system.surfaces[self.surface].c
+        R = system.surfaces[self.surface].R
+
+        return 0.0 if np.isinf(R) else 1/R
 
     def set(self, system, value):
         system.surfaces[self.surface].R = 1/value if value != 0 else np.inf
