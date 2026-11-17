@@ -43,7 +43,8 @@ trace with as many rays as there are parameters, without aiming them again.
 
 Operands of `lens_optimization` with a method ``linearize(lin)`` returning
 the residuals and their Jacobian (`off_axis.field_wavefront()`,
-`lens_optimization.wavefront()`, `ray_errors()`) are differentiated
+`off_axis.zernike_wavefront()`, `lens_optimization.wavefront()`,
+`ray_errors()`) are differentiated
 analytically; other operands, parameters that change something the
 differential trace does not cover (wavelength, field, surfaces other than
 `raytrace.Surface`, Q-bfs, Q-con and Zernike surfaces and coordinate breaks)
