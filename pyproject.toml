@@ -23,7 +23,7 @@ hdf5 = ["h5py"]  # fdtd: stream large snapshot stacks to compressed HDF5 files
 tie = ["sympy"]
 notebooks = ["matplotlib", "jupyterlab", "ipywidgets"]
 docs = ["sphinx>=7", "furo", "numpydoc", "myst-nb", "sphinx-copybutton", "matplotlib"]  # matplotlib: plot modules
-test = ["pytest", "matplotlib", "sympy"]  # matplotlib: plot_tools, masks.mask_from_polygon; sympy: TIE.smoothed_deriv
+test = ["pytest", "pytest-xdist", "matplotlib", "sympy"]  # pytest-xdist: python -m pytest -n auto; matplotlib: plot_tools, masks.mask_from_polygon; sympy: TIE.smoothed_deriv
 
 [project.urls]
 Homepage = "https://github.com/aeberspaecher/pyoptics"

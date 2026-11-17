@@ -81,6 +81,7 @@ F. Pepe et al., "HARPS: ESO's coming planet searcher", The Messenger 110,
 from __future__ import division
 
 import numpy as np
+from scipy.signal import fftconvolve
 
 from pyoptics.ultrafast import prism_angles
 from pyoptics.utils import fwhm as _fwhm
@@ -447,7 +448,7 @@ def instrument_profile(delta, slit_angle, beam_width, wavelength):
         # overlap of each sample cell with the slit [-s/2, s/2]
         kernel = np.clip(np.minimum(k + dd/2, slit_angle/2) - np.maximum(k - dd/2, -slit_angle/2),
                          0, None)
-        psf = np.convolve(psf, kernel, mode="same")
+        psf = np.maximum(fftconvolve(psf, kernel, mode="same"), 0.0)  # no round-off below 0
     return psf/psf.max()
 
 

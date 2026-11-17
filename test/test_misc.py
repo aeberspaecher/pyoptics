@@ -188,3 +188,26 @@ def test_import_without_optional_dependencies():
             "import pyoptics, pyoptics.masks, pyoptics.ifta, pyoptics.TIE, "
             "pyoptics.polarization.mueller")
     subprocess.run([sys.executable, "-c", code], check=True)
+
+
+def test_set_threads():
+    from pyoptics import fft
+    from pyoptics.utils import set_threads
+    try:
+        import numba
+    except ImportError:
+        numba = None
+    # restore the state afterwards (one thread per process under xdist)
+    workers = fft.workers
+    nb_threads = numba.get_num_threads() if numba else None
+    try:
+        set_threads(1)
+        assert fft.workers == 1
+        if numba:
+            assert numba.get_num_threads() == 1
+        set_threads()
+        assert fft.workers == -1
+    finally:
+        fft.workers = workers
+        if numba:
+            numba.set_num_threads(nb_threads)

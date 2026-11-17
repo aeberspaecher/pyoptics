@@ -226,7 +226,9 @@ def ray_errors(fields=(0.0, 0.5, 0.75, 1.0), rings=(0.4, 0.7, 0.9, 1.0), spokes=
     Returns
     -------
     operand : callable
-        operand(system) returns the x and y errors of all rays / tolerance.
+        operand(system) returns the x and y errors of all rays / tolerance;
+        operand.linearize(lin) also their analytic Jacobian
+        (`ray_derivatives`).
     """
 
     px, py = _pupil_rings(rings, spokes)
@@ -238,6 +240,23 @@ def ray_errors(fields=(0.0, 0.5, 0.75, 1.0), rings=(0.4, 0.7, 0.9, 1.0), spokes=
             out.append(np.nan_to_num(e, nan=FAILED, posinf=FAILED, neginf=FAILED).ravel())
 
         return np.concatenate(out)
+
+    def linearize(lin):
+        from .ray_derivatives import clean
+
+        K = len(px) + 1
+        rd = lin.trace_fields(_fields(lin.system, fields), np.concatenate([[0.0], px]),
+                              np.concatenate([[0.0], py]))
+        r, J = [], []
+        for j in range(len(fields)):
+            sl = slice(j*K + 1, (j + 1)*K)
+            r.append(((rd.I[sl, :2] - rd.I[j*K, :2])/tolerance).ravel())
+            dI = (rd.dI[:, sl, :2] - rd.dI[:, j*K:j*K + 1, :2])/tolerance
+            J.append(dI.reshape(len(dI), -1).T)
+
+        return clean(np.concatenate(r), np.concatenate(J))
+
+    operand.linearize = linearize
 
     return operand
 
@@ -687,6 +706,34 @@ class LensOptimizer:
 
         return out
 
+    def jacobian(self, x=None):
+        """Jacobian of `residuals()`: analytic derivatives of the real ray
+        trace (`ray_derivatives`) for the operands that support them,
+        central differences for the others.
+
+        Parameters
+        ----------
+        x : array, optional
+            Variables (default: the current ones).
+
+        Returns
+        -------
+        (residuals, variables) array
+        """
+
+        from .ray_derivatives import Linearization
+
+        x = self.x if x is None else np.asarray(x, float)
+        steps = 1e-5*self._scales()
+        n_conf = 1 if self.configurations is None else len(self.configurations)
+        out = []
+        for c, w in zip(range(n_conf), self.configuration_weights):
+            lin = Linearization(lambda xx, c=c: self.configuration_systems(self.system_at(xx))[c],
+                                x, steps)
+            out += [w*lin.jacobian(op)[1] for op in self.operands]
+
+        return np.concatenate(out)
+
     def cost(self):
         """Half the sum of squares of the residuals of the current system."""
 
@@ -707,6 +754,8 @@ class LensOptimizer:
             Passed to scipy.optimize.least_squares (e.g. x_scale="jac"
             instead of the default scales: the median curvature and
             thickness, 100 wavelengths for the aspheric sags).
+            jac="analytic" uses `jacobian()` (analytic derivatives of the
+            real ray trace).
 
         Returns
         -------
@@ -721,6 +770,8 @@ class LensOptimizer:
             self.na_scale, self.field_scale = na_scale, field_scale
             options = dict(x_scale=self._scales(), max_nfev=max_nfev)
             options.update(kwargs)
+            if options.get("jac") == "analytic":
+                options["jac"] = self.jacobian
             r = least_squares(self.residuals, self.x, **options)
             self.system = self.system_at(r.x)
             log.append((na_scale, field_scale, r.cost, r.nfev))
@@ -759,10 +810,35 @@ class LensOptimizer:
 #     [A                  0  ] [mu] = [  b   ],
 #
 # solved in the null space of A (the KKT matrix itself is badly conditioned
-# when the operands have small tolerances).
+# when the operands have small tolerances). J^T J is never formed: the step
+# is the least squares solution of the stacked system
+#
+#     [sqrt(lambda D)]        [ 0]
+#     [J             ] dx  =  [-r],
+#
+# as in MINPACK (Moré 1978), whose condition number is that of J and not its
+# square (the damping rows on top, which keeps the step accurate for a large
+# lambda). The columns are first scaled by powers of two to norms near 1
+# (LAPACK's dgeequb), which is exact.
 # A step that lowers the merit function (plus a penalty on the constraint
 # violation) is taken and lambda shrinks, else lambda grows and the step is
 # solved again (Nielsen's damping update).
+
+
+def _pow2_scales(norms):
+    """Powers of two 2**-e with norms = m 2**e, 0.5 <= m < 1 (as LAPACK's
+    dgeequb): scaling by them is exact. Zero or non-finite norms get 1."""
+
+    norms = np.asarray(norms, float)
+    e = np.frexp(np.where(np.isfinite(norms) & (norms > 0), norms, 1.0))[1]
+
+    return np.ldexp(1.0, -np.clip(e, -1000, 1000))
+
+
+def _lstsq(M, rhs):
+    """Least squares solution (SVD, minimum norm if M is rank deficient)."""
+
+    return np.linalg.lstsq(M, rhs, rcond=None)[0]
 
 
 def _uncached(system):
@@ -1624,6 +1700,8 @@ def wavefront(fields=(0.0, 0.7, 1.0), wavelengths=None, rings=(0.4, 0.7, 0.9, 1.
     Returns
     -------
     operand : callable
+        With operand.linearize(lin) for the analytic Jacobian
+        (`ray_derivatives`).
     """
 
     px, py = _pupil_rings(rings, spokes)
@@ -1640,6 +1718,24 @@ def wavefront(fields=(0.0, 0.7, 1.0), wavelengths=None, rings=(0.4, 0.7, 0.9, 1.
                 out.append(_clean(W/tolerance))
 
         return np.concatenate(out)
+
+    def linearize(lin):
+        from .ray_derivatives import clean
+
+        K = len(px1)
+        r, J = [], []
+        for w in ([None] if wavelengths is None else wavelengths):
+            lw = lin if w is None else lin.mapped(lambda s, w=w: _at_wavelength(s, w))
+            s = lw.system
+            rd = lw.trace_fields(_fields(s, fields), px1, py1)
+            for j in range(len(fields)):
+                W, dW = lw.opd(rd, j*K, K)
+                r.append(W[1:]/s.wavelength/tolerance)
+                J.append(dW[:, 1:].T/s.wavelength/tolerance)
+
+        return clean(np.concatenate(r), np.concatenate(J))
+
+    operand.linearize = linearize
 
     return operand
 
@@ -2285,10 +2381,20 @@ class DampedLeastSquares:
         Weight of each operand (default 1).
     damping : number, optional
         Initial damping lambda (of every run()).
+    jac : {"2-point", "analytic"}, optional
+        Jacobian of the residuals: forward differences, or analytic
+        derivatives of the real ray trace (`ray_derivatives`, differential
+        ray tracing) for the operands that support them
+        (`off_axis.field_wavefront()`, `wavefront()`, `ray_errors()` and
+        operands with a ``linearize`` method), with central differences for
+        the other operands, the constraints and the variables that the
+        differential trace does not cover. Solves are differentiated with
+        the system (their paraxial effect by central differences). Not
+        with a `MultiConfiguration` (forward differences there).
     """
 
     def __init__(self, system, variables, operands, constraints=(), solves=(), weights=None,
-                 damping=1e-2):
+                 damping=1e-2, jac="2-point"):
         self.multi = isinstance(system, MultiConfiguration)
         self.variables = [self._variable(v) for v in variables]
         self.operands = [self._function(op, True) for op in operands]
@@ -2296,6 +2402,9 @@ class DampedLeastSquares:
         self.solves = [self._function(s, False) for s in solves]
         self.weights = np.ones(len(self.operands)) if weights is None else np.asarray(weights, float)
         self.damping = damping
+        if jac not in ("2-point", "analytic"):
+            raise ValueError("jac is '2-point' or 'analytic'.")
+        self.jac = jac
         self.system = self._solve(_uncached(system))
         self._scale = np.array([v.typical(self.system) for v in self.variables])
 
@@ -2427,8 +2536,9 @@ class DampedLeastSquares:
 
     def jacobian(self, system=None):
         """Jacobians of the residuals and of the constraint values with
-        respect to the variables (forward differences; each column is the
-        sensitivity of the operands to one variable).
+        respect to the variables (forward differences, or analytic with
+        jac="analytic"; each column is the sensitivity of the operands to
+        one variable).
 
         Parameters
         ----------
@@ -2444,9 +2554,40 @@ class DampedLeastSquares:
         """
 
         system = self.system if system is None else system
+        if self.jac == "analytic" and not self.multi and system is self.system:
+            return self._analytic_jacobian()
         r = self.residuals(system)
         g = self.constraint_values(system)[0]
         J, A = self._columns(self.variables, self._scale, system, r, g)
+
+        return J, A, r, g
+
+    def linearization(self):
+        """`ray_derivatives.Linearization` of the current system with respect
+        to the variables (solves included).
+
+        Returns
+        -------
+        ray_derivatives.Linearization
+        """
+
+        from .ray_derivatives import Linearization
+
+        return Linearization(self.system_at, self.x, 1e-5*self._scale, system=self.system)
+
+    def _analytic_jacobian(self):
+        lin = self.linearization()
+        rs, Js = [], []
+        for w, op in zip(self.weights, self.operands):
+            r, J = lin.jacobian(op)
+            rs.append(w*r)
+            Js.append(w*J)
+        _drop_cache(self.system)
+        r = np.concatenate(rs) if rs else np.zeros(0)
+        J = np.concatenate(Js) if Js else np.zeros((0, len(self.variables)))
+        g = self.constraint_values()[0]
+        A = (lin.finite_difference(lambda s: self.constraint_values(s)[0]) if len(g)
+             else np.zeros((0, len(self.variables))))
 
         return J, A, r, g
 
@@ -2545,35 +2686,53 @@ class DampedLeastSquares:
     def _step_unchecked(self, J, A, r, target, g, lam, active, bounds):
 
         D = self._scale
+        n = len(D)
         Js = J*D
-        H = Js.T @ Js
-        diag = np.diag(H).copy()
-        diag = np.maximum(diag, 1e-9*max(diag.max(initial=0.0), 1e-30) + 1e-30)
-        H = H + lam*np.diag(diag)
-        grad = Js.T @ r
-        free = np.ones(len(D), bool)
+        # Marquardt's damping diag(J^T J), from the column norms (J^T J
+        # itself is never formed: it squares the condition number)
+        norms = np.sqrt(np.sum(Js**2, axis=0))
+        dd = np.maximum(norms**2, 1e-9*max(np.max(norms**2, initial=0.0), 1e-30) + 1e-30)
+        free = np.ones(n, bool)
         free[bounds] = False
-        H = H[np.ix_(free, free)]
-        grad = grad[free]
-        if np.any(active):
-            As = (A*D)[np.ix_(active, free)]
+        n_active = int(np.sum(active))
+        if not np.isfinite(lam):
+            return np.zeros(n), np.zeros(n_active)  # the limit of infinite damping
+        # exact equilibration: powers of two that bring the column norms
+        # near 1 (they change no bit of the mantissas)
+        E = _pow2_scales(norms[free])
+        Jt = Js[:, free]*E
+        w = np.sqrt(lam)*(np.sqrt(dd[free])*E)  # damping rows, sqrt(lambda D)
+        if not (np.all(np.isfinite(Jt)) and np.all(np.isfinite(r))):
+            return np.full(n, np.nan), np.zeros(n_active)
+        if n_active:
+            At = (A*D)[np.ix_(active, free)]*E
             b = (target - g)[active]
             # null space method (better conditioned than the KKT matrix):
-            # dz = dz_p + Z y with As dz_p = b and As Z = 0
-            U, sv, Vt = np.linalg.svd(As)
+            # dt = dt_p + Z y with At dt_p = b and At Z = 0
+            U, sv, Vt = np.linalg.svd(At)
             rank = int(np.sum(sv > 1e-10*sv[0])) if len(sv) and sv[0] > 0 else 0
-            dz_p = Vt[:rank].T @ ((U[:, :rank].T @ b)/sv[:rank])
+            dt_p = Vt[:rank].T @ ((U[:, :rank].T @ b)/sv[:rank])
             Z = Vt[rank:].T
-            if Z.shape[1]:
-                y = np.linalg.solve(Z.T @ H @ Z, -Z.T @ (grad + H @ dz_p))
-                dz = dz_p + Z @ y
-            else:
-                dz = dz_p
-            mu = np.linalg.lstsq(As.T, -(grad + H @ dz), rcond=None)[0]
         else:
-            dz, mu = np.linalg.solve(H, -grad), np.zeros(0)
-        dx = np.zeros(len(D))
-        dx[free] = dz*D[free]
+            dt_p, Z = np.zeros(len(E)), np.eye(len(E))
+        dt = dt_p
+        if Z.shape[1]:
+            # min |r + Jt dt|^2 + |w dt|^2 over y, as the least squares
+            # problem of the stacked matrix [diag(w); Jt] (Moré 1978); the
+            # damping rows come first: they are the heavy rows for a large
+            # lambda, and below the others the step would lose
+            # sqrt(lambda) eps of its relative accuracy (Powell and Reid 1969)
+            M = np.vstack([w[:, None]*Z, Jt @ Z])
+            rhs = -np.concatenate([w*dt_p, r + Jt @ dt_p])
+            dt = dt_p + Z @ _lstsq(M, rhs)
+        if n_active:
+            # J^T r + (J^T J + lambda D) dt + A^T mu = 0 (same mu in every scaling)
+            grad = Jt.T @ (r + Jt @ dt) + w*(w*dt)
+            mu = _lstsq(At.T, -grad)
+        else:
+            mu = np.zeros(0)
+        dx = np.zeros(n)
+        dx[free] = dt*E*D[free]
 
         return dx, mu
 

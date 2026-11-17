@@ -186,6 +186,145 @@ def test_dls_reduces_to_gauss_newton_on_a_linear_problem():
     assert np.isclose(result.system.paraxial().efl, 80.0, rtol=1e-7)
 
 
+# --- the damped step: stacked least squares instead of the normal equations ---
+
+class _Numbers:
+    """A stand-in for a system: a vector of numbers."""
+
+    def __init__(self, x):
+        self.x = np.array(x, float)
+
+    def copy(self):
+        return _Numbers(self.x)
+
+
+class _Entry(lo.Variable):
+    def __init__(self, k):
+        super().__init__((None, None))
+        self.k = k
+
+    def get(self, system):
+        return system.x[self.k]
+
+    def set(self, system, value):
+        system.x[self.k] = value
+
+    def typical(self, system):
+        return 1.0
+
+
+def _step_with(J, r, damping, A=None, g=None, scale=None):
+    """The step of DampedLeastSquares for a given Jacobian (equality
+    constraints A dx = -g if given)."""
+
+    n = J.shape[1]
+    constraints = []
+    if A is not None:
+        constraints = [lo.Constraint(lambda s, k=k: 0.0, 0.0, 0.0, 1.0, "c{}".format(k))
+                       for k in range(len(A))]
+    opt = lo.DampedLeastSquares(_Numbers(np.zeros(n)), [_Entry(k) for k in range(n)],
+                                [lambda s: np.zeros(len(r))], constraints)
+    if scale is not None:
+        opt._scale = np.asarray(scale, float)
+    A = np.zeros((0, n)) if A is None else A
+    g = np.zeros(len(A)) if g is None else g
+    opt.jacobian = lambda system=None: (J, A, r, g)
+
+    return opt.step(damping)
+
+
+def _normal_equations_step(J, r, damping, A=None, g=None):
+    """The textbook step: (J^T J + lambda diag(J^T J)) dx = -J^T r, with
+    A dx = -g by Lagrange multipliers (the KKT system, solved directly)."""
+
+    H = J.T @ J
+    d = np.diag(H)
+    d = np.maximum(d, 1e-9*d.max() + 1e-30)
+    H = H + damping*np.diag(d)
+    if A is None:
+        return np.linalg.solve(H, -J.T @ r)
+    m = len(A)
+    K = np.block([[H, A.T], [A, np.zeros((m, m))]])
+
+    return np.linalg.solve(K, np.concatenate([-J.T @ r, -g]))[:J.shape[1]]
+
+
+def _random_jacobian(rng, m, n, condition, column_spread):
+    """m x n matrix with singular values from 1 to 1/condition, then
+    columns scaled from 1 to column_spread."""
+
+    U = np.linalg.qr(rng.normal(size=(m, n)))[0]
+    V = np.linalg.qr(rng.normal(size=(n, n)))[0]
+    s = np.logspace(0, -np.log10(condition), n)
+
+    return (U*s) @ V.T*np.logspace(0, np.log10(column_spread), n)
+
+
+def test_dls_step_unchanged_when_well_conditioned():
+    rng = np.random.default_rng(3)
+    for damping in (0.0, 1e-3, 1.0, 1e3):
+        for constrained in (False, True):
+            J = _random_jacobian(rng, 30, 5, 10.0, 100.0)
+            r = rng.normal(size=30)
+            A = rng.normal(size=(2, 5)) if constrained else None
+            g = rng.normal(size=2) if constrained else None
+            new = _step_with(J, r, damping, A, g)
+            old = _normal_equations_step(J, r, damping, A, g)
+            np.testing.assert_allclose(new, old, rtol=1e-10, atol=1e-12*np.abs(old).max())
+            if constrained:
+                np.testing.assert_allclose(A @ new, -g, atol=1e-12)
+
+
+def test_dls_step_accurate_when_ill_conditioned():
+    # column norms over five decades and nearly dependent columns: cond(J)
+    # ~ 1e12, cond(J^T J) ~ 1e24; the normal equations lose everything
+    # beyond 16 - 2*7 digits of the equilibrated problem, the stacked
+    # least squares solve only 16 - 7
+    rng = np.random.default_rng(4)
+    err_new, err_old = [], []
+    for _ in range(10):
+        J = _random_jacobian(rng, 40, 6, 1e7, 1e5)
+        x = rng.normal(size=6)/np.linalg.norm(J, axis=0)
+        r = -J @ x  # zero residual at x: the Gauss-Newton step is x
+        for step, err in ((_step_with(J, r, 0.0), err_new),
+                          (_normal_equations_step(J, r, 0.0), err_old)):
+            err.append(np.max(np.abs(step - x)/np.abs(x)))
+    assert np.median(err_new) < 1e-6
+    assert np.median(err_old) > 1e3*np.median(err_new)
+
+
+def test_dls_step_power_of_two_column_scaling_is_exact():
+    # scaling a column of J by 2**p (a variable in other units) changes no
+    # bit of the equilibrated problem: the step changes by exactly 2**-p
+    # (with damping, as long as the column norms stay above the floor of the
+    # damping, 1e-9 of the largest diag(J^T J))
+    rng = np.random.default_rng(5)
+    J = _random_jacobian(rng, 20, 4, 1e3, 1.0)
+    r = rng.normal(size=20)
+    A, g = rng.normal(size=(1, 4)), rng.normal(size=1)
+    for damping, p in ((0.0, 2.0**np.array([-30, 7, 0, 41])),
+                       (1e-2, 2.0**np.array([-6, 7, 0, 3]))):
+        for args in ((None, None), (A, g)):
+            a = _step_with(J, r, damping, *args)
+            b = _step_with(J*p, r, damping, *(None if args[0] is None else args[0]*p, args[1]))
+            assert np.array_equal(b*p, a)
+
+
+def test_dls_step_huge_and_infinite_damping():
+    # full relative accuracy for any lambda (the damping rows on top of the
+    # stacked matrix), the scaled steepest descent step -J^T r/(lambda
+    # diag(J^T J)) in the limit, and no step at all for infinite damping
+    rng = np.random.default_rng(6)
+    J, r = _random_jacobian(rng, 10, 3, 10.0, 1e4), rng.normal(size=10)
+    for damping in (1e8, 1e16, 1e40):
+        np.testing.assert_allclose(_step_with(J, r, damping),
+                                   _normal_equations_step(J, r, damping), rtol=1e-12)
+    dx = _step_with(J, r, 1e200)
+    expected = -(J.T @ r)/(1e200*np.sum(J**2, axis=0))
+    np.testing.assert_allclose(dx, expected, rtol=1e-12)
+    assert np.array_equal(_step_with(J, r, np.inf), np.zeros(3))
+
+
 def test_jacobian_columns_are_the_sensitivities():
     system = singlet(0.3)
     op = lo.seidel("SI")
