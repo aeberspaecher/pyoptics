@@ -209,6 +209,17 @@ def _fields(system, fields):
     return [f*system.max_field for f in fields]
 
 
+def _paraxial(system):
+    """`System.paraxial()` at the maximum field, cached for the operands and
+    constraints of one evaluation (dozens of clearances read it)."""
+
+    cache = system.__dict__.setdefault("_operand_cache", {})
+    if "paraxial" not in cache:
+        cache["paraxial"] = system.paraxial()
+
+    return cache["paraxial"]
+
+
 def _paraxial_linearize(operand):
     """Give an operand that traces no real rays (paraxial data, Seidel
     sums, thicknesses and sags) operand.linearize(lin): central differences
@@ -495,7 +506,7 @@ def paraxial_target(name, value, tolerance):
     """
 
     def operand(system):
-        return np.array([(getattr(system.paraxial(), name) - value)/tolerance])
+        return np.array([(getattr(_paraxial(system), name) - value)/tolerance])
 
     return _paraxial_linearize(operand)
 
@@ -538,7 +549,7 @@ def clearances(min_air=1.0, min_center=None, min_edge=3.0, margin=1.05, toleranc
     min_image = min_air if min_image_distance is None else min_image_distance
 
     def operand(system):
-        p = system.paraxial()
+        p = _paraxial(system)
         na_scale, field_scale = system.__dict__.get("_stage", (1.0, 1.0))
         rim = margin*(np.abs(p.marginal[:, 0])/na_scale + np.abs(p.chief[:, 0])/field_scale)
         n = system.n
@@ -1134,8 +1145,10 @@ def _length_scale(system):
 
 
 class Curvature(Variable):
-    """Vertex curvature c = 1/R of a surface (sensitivity:
-    `System.with_radius_change()`)."""
+    """Curvature 1/R of a surface (sensitivity:
+    `System.with_radius_change()`): the vertex curvature, of a Q-bfs or
+    Q-con surface the curvature of its base sphere (R), which is what
+    `set()` changes."""
 
     def __init__(self, surface, bounds=(None, None)):
         super().__init__(bounds)
@@ -1143,7 +1156,9 @@ class Curvature(Variable):
         self.name = "c{}".format(surface)
 
     def get(self, system):
-        return system.surfaces[self.surface].c
+        R = system.surfaces[self.surface].R
+
+        return 0.0 if np.isinf(R) else 1/R
 
     def set(self, system, value):
         system.surfaces[self.surface].R = 1/value if value != 0 else np.inf
@@ -2057,7 +2072,7 @@ def paraxial_value(name, field=None):
     Constraint)."""
 
     def f(system):
-        return getattr(system.paraxial(field), name)
+        return getattr(system.paraxial(field) if field is not None else _paraxial(system), name)
     f.__name__ = name
 
     return _paraxial_linearize(f)
@@ -2095,7 +2110,7 @@ def edge_thickness(surface, height=None, margin=1.05):
         S = system.surfaces
         a, b = S[surface], S[surface + 1]
         if height is None:
-            p = system.paraxial()
+            p = _paraxial(system)
             na_scale, field_scale = system.__dict__.get("_stage", (1.0, 1.0))
             rim = margin*(np.abs(p.marginal[:, 0])/na_scale + np.abs(p.chief[:, 0])/field_scale)
             r = max(rim[surface], rim[surface + 1])

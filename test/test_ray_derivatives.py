@@ -267,3 +267,17 @@ def test_lens_optimizer_analytic_jacobian():
     result = opt.run(max_nfev=30, jac="analytic")
     assert result.cost < opt.__class__(system, opt.operands, thicknesses=[1], object_distance=True,
                                        length=200.0, object_na=0.05).cost()
+
+
+def test_curvature_of_q_surfaces_is_that_of_the_base_sphere():
+    from pyoptics import qaspheres as qa
+
+    s1 = qa.QbfsSurface(3.0, 2.6, q=(0.05, 0.01), norm_radius=2.4, material=(1.58313, 59.39))
+    s = rt.System([s1, rt.Surface(-20.0, 2.0, n_after=1.0)], 0, 405e-6, entrance_pupil_radius=2.4)
+    op = lo.wavefront(fields=(0.0,), rings=(0.5, 1.0), spokes=1, tolerance=0.01)
+    dls = lo.DampedLeastSquares(s, [lo.Curvature(0), qa.QCoefficient(0, 0)], [op],
+                                solves=[lo.solve_paraxial_focus()])
+    # the variables reproduce the system, so that system_at() linearizes about it
+    assert np.allclose(op(dls.system_at(dls.x)), op(dls.system), atol=1e-9)
+    lin = dls.linearization()
+    assert np.all(rel_errors(op.linearize(lin)[1], lin.finite_difference(op)) < 1e-4)
