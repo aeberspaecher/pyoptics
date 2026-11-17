@@ -709,7 +709,12 @@ class ZernikeSurface(Surface):
 
     Coordinates: (x, y) are the coordinates in the local frame of the surface
     (after its decenter and tilt), the azimuth phi is counted from +x towards
-    +y and the polynomials are not truncated at r_norm. These are surface
+    +y and the polynomials are not truncated at r_norm. With
+    ``centre=(x0, y0)`` the Zernikes are centred on that point of the local
+    frame, Z_j((x - x0)/r_norm, (y - y0)/r_norm), while the base sag stays
+    centred on the vertex: a freeform departure over the off-axis footprint
+    of a mirror that is a segment of a rotationally symmetric parent
+    (`off_axis`, notebook 155, off-axis mirrors and nodal aberrations). These are surface
     coordinates, not pupil coordinates: a departure c_j on a surface in
     or next to the stop of a system in air adds about -(n' - n) c_j Z_j to the OPD
     of `System.opd()`/`System.zernike()` (n, n': indices in front of and behind it;
@@ -735,29 +740,53 @@ class ZernikeSurface(Surface):
         Normalization radius r_norm of the Zernikes.
     ordering : {"fringe", "noll", "standard"}, optional
         Index ordering and normalization of the Zernikes, see above.
+    centre : (x0, y0), optional
+        Centre of the Zernikes in the local frame (default: the vertex).
     """
 
     def __init__(self, R=np.inf, thickness=0.0, zernike=None, norm_radius=1.0,
-                 ordering="fringe", **kwargs):
+                 ordering="fringe", centre=(0.0, 0.0), **kwargs):
         super().__init__(R, thickness, **kwargs)
-        # a sorted tuple of pairs keeps the state hashable (System._state_key)
-        self.zernike = tuple(sorted((int(j), float(c)) for j, c in (zernike or {}).items()))
         self.norm_radius = float(norm_radius)
         ordering = ordering.lower()
         self.ordering = "noll" if ordering == "standard" else ordering
+        self.centre = (float(centre[0]), float(centre[1]))
+        self.set_zernike(zernike or {}, replace=True)
+
+    def set_zernike(self, coefficients, replace=False):
+        """Change Zernike coefficients (in place).
+
+        Parameters
+        ----------
+        coefficients : dict
+            {j: c_j}, Zernike index in `ordering` and coefficient.
+        replace : bool, optional
+            Replace all coefficients instead of updating them.
+        """
+
+        terms = {} if replace else dict(self.zernike)
+        terms.update({int(j): float(c) for j, c in coefficients.items()})
+        # a sorted tuple of pairs keeps the state hashable (System._state_key)
+        self.zernike = tuple(sorted(terms.items()))
         # (n, m, scale*c_j) of every term; raises for unknown orderings:
         self._terms = tuple((n, m, scale*c) for (n, m, scale), c in
                             ((zernike_indices(j, self.ordering), c) for j, c in self.zernike))
 
     def __repr__(self):
-        return "ZernikeSurface(R={}, thickness={}, zernike={}, norm_radius={}, ordering={!r})".format(
-            self.R, self.thickness, dict(self.zernike), self.norm_radius, self.ordering)
+        centre = ", centre={}".format(self.centre) if any(self.centre) else ""
+        return "ZernikeSurface(R={}, thickness={}, zernike={}, norm_radius={}, ordering={!r}{})".format(
+            self.R, self.thickness, dict(self.zernike), self.norm_radius, self.ordering, centre)
+
+    def _normalized(self, x, y):
+        x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+        x0, y0 = getattr(self, "centre", (0.0, 0.0))
+
+        return (x - x0)/self.norm_radius, (y - y0)/self.norm_radius
 
     def departure(self, x, y):
         """Zernike part of the sag at the points (x, y) of the local frame."""
 
-        x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
-        u, v = x/self.norm_radius, y/self.norm_radius
+        u, v = self._normalized(x, y)
         z = np.zeros(np.broadcast(u, v).shape)
         for n, m, c in self._terms:
             z = z + c*zernike_nm(n, m, u, v)
@@ -767,8 +796,7 @@ class ZernikeSurface(Surface):
     def departure_gradient(self, x, y):
         """Analytic (dz/dx, dz/dy) of the Zernike departure."""
 
-        x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
-        u, v = x/self.norm_radius, y/self.norm_radius
+        u, v = self._normalized(x, y)
         gx = np.zeros(np.broadcast(u, v).shape)
         gy = np.zeros_like(gx)
         for n, m, c in self._terms:
