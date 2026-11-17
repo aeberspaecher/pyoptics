@@ -43,11 +43,12 @@ trace with as many rays as there are parameters, without aiming them again.
 
 Operands of `lens_optimization` with a method ``linearize(lin)`` returning
 the residuals and their Jacobian (`off_axis.field_wavefront()`,
-`lens_optimization.wavefront()`, `ray_errors()`,
-`polychromatic_ray_errors()`, `spot_rms()`, `distortion()`, `ftheta()`,
-`image_telecentricity()`, `object_telecentricity()`) are differentiated
-analytically; paraxial operands (`seidel()`, `paraxial_target()`,
-`clearances()`...) by `Linearization.derivative()`; other operands, parameters that change something the
+`off_axis.zernike_wavefront()`, `lens_optimization.wavefront()`,
+`ray_errors()`, `polychromatic_ray_errors()`, `spot_rms()`, `distortion()`,
+`ftheta()`, `image_telecentricity()`, `object_telecentricity()`) are
+differentiated analytically; paraxial operands (`seidel()`,
+`paraxial_target()`, `clearances()`...) by `Linearization.derivative()`;
+other operands, parameters that change something the
 differential trace does not cover (wavelength, field, surfaces other than
 `raytrace.Surface`, Q-bfs, Q-con and Zernike surfaces and coordinate breaks)
 and constraints get central differences of `Linearization.jacobian()`.
@@ -55,33 +56,28 @@ Rays are traced without vignetting (clip=False), as by the operands.
 
 Which operands, constraints and variables are analytic
 ------------------------------------------------------
-=========================================  ====================================
-Operands of `lens_optimization`            Jacobian with ``jac="analytic"``
-=========================================  ====================================
-`ray_errors()`, `wavefront()`,             differential ray trace
-`polychromatic_ray_errors()`,
-`spot_rms()`, `off_axis.field_wavefront()`
-`distortion()`, `ftheta()`,                differential trace of the chief rays
-`image_telecentricity()`,                  (aimed or not)
-`object_telecentricity()`
-`seidel()`, `chromatic()`,                 small central differences on the
-`focal_shift()`, `paraxial_target()`,      systems of the linearization (no
-`clearances()`; constraints                rays: cheap)
-`paraxial_value()`, `center_thickness()`,
-`edge_thickness()`, `total_length()`,
-`glass_map_constraint()`
-anything else (own functions,              central differences of complete
-`off_axis.clearance_penalty()`,            evaluations (2V evaluations)
-`off_axis.focal_length()`, Constraint
-objects used as operands)
-=========================================  ====================================
+Operands and constraints of `lens_optimization` with ``jac="analytic"``:
+
+- **Differential ray trace:** `ray_errors()`, `wavefront()` (other
+  wavelengths through `Linearization.mapped()`),
+  `polychromatic_ray_errors()`, `spot_rms()`, `off_axis.field_wavefront()`,
+  `off_axis.zernike_wavefront()`.
+- **Differential trace of the chief rays** (aimed or not): `distortion()`,
+  `ftheta()`, `image_telecentricity()`, `object_telecentricity()`.
+- **Small central differences on the systems of the linearization** (no
+  rays, cheap): `seidel()`, `chromatic()`, `focal_shift()`,
+  `paraxial_target()`, `clearances()`; the constraints `paraxial_value()`,
+  `center_thickness()`, `edge_thickness()`, `total_length()`,
+  `glass_map_constraint()`.
+- **Central differences of complete evaluations** (2V evaluations):
+  everything else, e.g. own functions, `off_axis.clearance_penalty()`,
+  `off_axis.focal_length()` and Constraint objects used as operands.
 
 Variables (`lens_optimization`): `Curvature`, `Conic`, `Aspheric`,
 `QCoefficient`, `ZernikeTerm`, `Thickness`, `AirSpace`, `ObjectDistance`
 (finite objects), `Tilt`, `Decenter`, `ImageTilt` and the model glasses
 (`GlassIndex`, `GlassAbbe`, through the derivatives of the indices) are
-analytic, with the paraxial solves applied; `wavefront()` at other
-wavelengths goes through `Linearization.mapped()`. Parameters that change
+analytic, with the paraxial solves applied. Parameters that change
 the wavelength, the field or the object space index, and surfaces other
 than `raytrace.Surface`, Q-bfs, Q-con, Zernike surfaces and coordinate
 breaks (ideal lenses, gratings, diffractive surfaces, axicons, tabulated

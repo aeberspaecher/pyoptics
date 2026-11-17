@@ -2553,7 +2553,8 @@ class DampedLeastSquares:
         Jacobian of the residuals: forward differences, or analytic
         derivatives of the real ray trace (`ray_derivatives`, differential
         ray tracing) for the operands that support them
-        (`off_axis.field_wavefront()`, `wavefront()`, `ray_errors()`,
+        (`off_axis.field_wavefront()`, `off_axis.zernike_wavefront()`,
+        `wavefront()`, `ray_errors()`,
         `polychromatic_ray_errors()`, `spot_rms()`, the chief ray operands
         `distortion()`, `ftheta()`, `image_telecentricity()`,
         `object_telecentricity()` and operands with a ``linearize``

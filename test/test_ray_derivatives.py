@@ -281,3 +281,40 @@ def test_curvature_of_q_surfaces_is_that_of_the_base_sphere():
     assert np.allclose(op(dls.system_at(dls.x)), op(dls.system), atol=1e-9)
     lin = dls.linearization()
     assert np.all(rel_errors(op.linearize(lin)[1], lin.finite_difference(op)) < 1e-4)
+
+
+def test_zernike_wavefront_operand():
+    s = freeform_tma()
+    fields = np.radians([[0.0, 2.0], [1.0, 3.5]])
+    op = oa.zernike_wavefront(fields, terms=(4, 5, 7, 9), targets=[0.1, 0.0, 0.0, 0.0],
+                              tolerance=0.01)
+    dls = lo.DampedLeastSquares(s, TMA_VARIABLES, [op], solves=[lo.solve_paraxial_focus()])
+    lin = dls.linearization()
+    r, J = op.linearize(lin)
+    assert r.shape == (8,) and J.shape == (8, len(TMA_VARIABLES))
+    assert np.allclose(r, op(dls.system), rtol=1e-9, atol=1e-9)
+    assert np.all(rel_errors(J, lin.finite_difference(op)) < 1e-4)
+    # the coefficients are close to those of the grid fit of System.zernike()
+    c_grid = dls.system.zernike(tuple(fields[1]), n_terms=9, N=96)
+    c = r[4:]*0.01 + np.array([0.1, 0.0, 0.0, 0.0])
+    assert np.allclose(c, c_grid[[3, 4, 6, 8]], rtol=0, atol=2e-3*np.max(np.abs(c_grid[3:])))
+    # Noll ordering: RMS normalized defocus is the Fringe one / sqrt(3)
+    noll = oa.zernike_wavefront(fields, terms=(4,), ordering="noll", tolerance=1.0)
+    assert np.all(np.isfinite(noll(dls.system)))
+    with pytest.raises(ValueError):
+        oa.zernike_wavefront(fields, terms=(12,), n_fit=9)
+
+
+def test_zernike_wavefront_optimization():
+    # correct astigmatism and coma of a tilted mirror system with conics,
+    # Q-con terms and the Zernike tertiary, with the analytic Jacobian
+    s = freeform_tma()
+    fields = np.radians([[0.0, 2.0], [0.0, 4.0]])
+    op = oa.zernike_wavefront(fields, terms=(4, 5, 6, 7, 8, 9), tolerance=0.01)
+    variables = [lo.Conic(0), lo.Conic(1), qa.QCoefficient(0, 1), lo.ZernikeTerm(2, 5),
+                 lo.ZernikeTerm(2, 8)]
+    dls = lo.DampedLeastSquares(s, variables, [op], solves=[lo.solve_paraxial_focus()],
+                                jac="analytic")
+    before = dls.merit()
+    result = dls.run(max_iterations=8)
+    assert result.merit < 0.1*before

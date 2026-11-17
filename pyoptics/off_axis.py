@@ -28,8 +28,8 @@ a `centre` in the footprint (`freeform_mirrors()`); their coefficients,
 the tilts and decentres of the mirrors and the image plane tilt are
 variables of `lens_optimization.DampedLeastSquares`
 (`lens_optimization.ZernikeTerm`, `Tilt`, `Decenter`, `ImageTilt`), and
-`field_wavefront()`, `focal_length()` and `clearance_penalty()` are
-operands over a two-dimensional field.
+`field_wavefront()`, `zernike_wavefront()`, `focal_length()` and
+`clearance_penalty()` are operands over a two-dimensional field.
 
 Closed forms used for checks (Malacara, "Optical Shop Testing", ch. 18):
 
@@ -62,8 +62,10 @@ Functions:
   over a field grid; plot_full_field(): full-field displays of
   astigmatism, coma or RMS; draw_layout(): the meridional section with
   the mirrors drawn over their footprints only.
-- field_wavefront(), focal_length(), clearance_penalty(): operands for
-  `lens_optimization.DampedLeastSquares` over a two-dimensional field.
+- field_wavefront(), zernike_wavefront(), focal_length(),
+  clearance_penalty(): operands for `lens_optimization.DampedLeastSquares`
+  over a two-dimensional field (the two wavefront operands with analytic
+  Jacobians, see `ray_derivatives`).
 
 References
 ----------
@@ -958,6 +960,115 @@ def field_wavefront(fields, rings=(0.5, 0.85, 1.0), spokes=8, tolerance=0.05,
                 W, dW = W - tilt @ W, dW - tilt @ dW
             r.append(W/tolerance)
             J.append(dW/tolerance)
+
+        return clean(np.concatenate(r), np.concatenate(J))
+
+    operand.linearize = linearize
+
+    return operand
+
+
+def _zernike_basis(n_fit, ordering, px, py):
+    from .bases import zernike_indices, zernike_nm
+
+    cols = []
+    for j in range(1, n_fit + 1):
+        n, m, scale = zernike_indices(j, ordering)
+        cols.append(scale*zernike_nm(n, m, px, py))
+
+    return np.column_stack(cols)
+
+
+def zernike_wavefront(fields, terms=(4, 5, 6, 7, 8, 9), targets=0.0, tolerance=0.02,
+                      n_fit=None, ordering="fringe", rings=None, spokes=32):
+    """Operand: Zernike coefficients of the wavefront (waves) at fields,
+    against targets.
+
+    At each field the OPD of rays over the full pupil (relative to the
+    chief ray, as `field_wavefront()`) is fitted by least squares with the
+    Zernikes 1...n_fit of the normalized entrance pupil coordinates, and the
+    residuals are (c_j - target_j)/tolerance of the chosen terms. The
+    default rings sample the pupil about uniformly in area, so the
+    coefficients come close to those of `raytrace.System.zernike()` (fit on
+    a grid). With operand.linearize(lin) the Jacobian is analytic
+    (`ray_derivatives`): the fit is linear, so the derivatives of the
+    coefficients are the fit applied to those of the OPD.
+
+    Parameters
+    ----------
+    fields : sequence
+        Field points (numbers for y fields or (x, y) pairs, absolute, like
+        `raytrace.System.rays()`).
+    terms : sequence of int, optional
+        Zernike indices that enter the merit function (default: defocus,
+        astigmatism and coma in the Fringe ordering, Z4...Z9).
+    targets : number, sequence or (F, len(terms)) array, optional
+        Target coefficients in waves (per term, or per field and term).
+    tolerance : number or sequence, optional
+        In waves (per term or one for all).
+    n_fit : int, optional
+        Number of Zernikes fitted (default: the largest of terms, at least
+        9), so that the coefficients do not depend on which terms are
+        targeted.
+    ordering : {"fringe", "noll"}, optional
+        Zernike ordering and normalization (`bases.zernike_indices()`):
+        Fringe (peak 1, as `raytrace.System.zernike()`) or Noll (RMS 1).
+    rings : sequence, optional
+        Pupil radii of the rings (`pupil_rings()`); default 12 rings at the
+        centres of equal-width annuli.
+    spokes : int, optional
+        Points per unit radius on each ring.
+
+    Returns
+    -------
+    operand : callable
+        operand(system) returns (c_j - target_j)/tolerance, field by field
+        (the terms of one field together); a field with a failed ray gives
+        1e3 for all its terms.
+    """
+
+    terms = [int(j) for j in terms]
+    n_fit = max(max(terms), 9) if n_fit is None else int(n_fit)
+    if max(terms) > n_fit:
+        raise ValueError("n_fit must include all terms.")
+    if rings is None:
+        rings = (np.arange(12) + 0.5)/12
+    px, py = pupil_rings(rings, spokes, centre=True)
+    fit = np.linalg.pinv(_zernike_basis(n_fit, ordering, px, py))[np.array(terms) - 1]
+    F = len(fields)
+    targets = np.broadcast_to(np.asarray(targets, float), (F, len(terms)))
+    tol = np.broadcast_to(np.asarray(tolerance, float), (len(terms),))
+    fields = [tuple(f) if np.ndim(f) else f for f in fields]
+
+    def operand(system):
+        out = []
+        for f, t in zip(fields, targets):
+            b = system.trace(system.rays(f, px, py), clip=False)
+            chief = rt.RayBundle(b.points[:, :1], b.directions[:, :1], b.opl[:, :1],
+                                 b.valid[:1], b.n)
+            W = system._opd(b, chief)/system.wavelength
+            c = fit @ W if np.all(np.isfinite(W)) else np.full(len(terms), np.nan)
+            out.append(_clean((c - t)/tol))
+
+        return np.concatenate(out)
+
+    def linearize(lin):
+        # analytic Jacobian (ray_derivatives): the fit of the OPD derivatives
+        from .ray_derivatives import clean
+
+        system = lin.system
+        K = len(px)
+        rd = lin.trace_fields(fields, px, py)
+        r, J = [], []
+        for j, t in enumerate(targets):
+            W, dW = lin.opd(rd, j*K, K)
+            W, dW = W/system.wavelength, dW.T/system.wavelength
+            if np.all(np.isfinite(W)):
+                r.append((fit @ W - t)/tol)
+                J.append((fit @ dW)/tol[:, None])
+            else:
+                r.append(np.full(len(terms), np.nan))
+                J.append(np.zeros((len(terms), lin.n_parameters)))
 
         return clean(np.concatenate(r), np.concatenate(J))
 
