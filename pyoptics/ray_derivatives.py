@@ -104,6 +104,7 @@ P_last : (N, 3) array
 dI, dD, dd0, dP_last : (V, N, 3) arrays
     Their derivatives with respect to the V parameters.
 dopl : (V, N) array
+    Derivatives of the optical paths.
 """
 
 # attributes of a surface that are not its shape:

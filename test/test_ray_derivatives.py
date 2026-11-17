@@ -14,7 +14,6 @@ from pyoptics import lens_optimization as lo
 from pyoptics import off_axis as oa
 from pyoptics import qaspheres as qa
 from pyoptics import raytrace as rt
-from pyoptics.ray_derivatives import Linearization
 
 
 def freeform_tma():
