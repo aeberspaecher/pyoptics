@@ -16,6 +16,12 @@ Two optimizers:
   Lagrange multipliers; a small glass catalogue `GLASSES` with
   `nearest_glass()` and the glass map outline `GLASS_MAP`
   (`glass_map_constraint()`). Notebook 58 (lens optimization).
+  Several configurations of one lens (zoom positions, object distances,
+  wavelength bands) are optimized together with a `MultiConfiguration`
+  in place of the system: `Shared` and `ConfigVariable` variables
+  (`per_configuration()`), operands, solves and constraints in some or all
+  configurations (`in_configs()`), overrides with `configure()`. Notebook
+  153 (multi-configuration optimization).
 - `LensOptimizer`, described here, which uses scipy.
 
 A `LensOptimizer` varies curvatures and thicknesses of a system and
@@ -507,14 +513,29 @@ class LensOptimizer:
         Powers of r that vary on these surfaces (default r**4 and r**6).
         Internally the variables are the sags A_k r**k at the rim of the
         paraxial full field beam.
+    configurations : sequence of dict or callable, optional
+        Overrides of several configurations (see `configure()`: object
+        distances, wavelengths, fixed air spaces of a zoom...). The
+        residuals of all operands in all configurations make the merit
+        function; the variables are shared. Thicknesses that a
+        configuration overrides are no default variables.
+    configuration_weights : sequence, optional
+        Weight of each configuration (default 1).
     """
 
     def __init__(self, system, operands, curvatures=None, thicknesses=None, object_distance=False,
-                 length=None, solve=-1, object_na=None, aspheres=(), asphere_orders=(4, 6)):
+                 length=None, solve=-1, object_na=None, aspheres=(), asphere_orders=(4, 6),
+                 configurations=None, configuration_weights=None):
         self.system = system.copy()
         self.operands = list(operands)
+        self.configurations = None if configurations is None else list(configurations)
+        n_conf = 1 if configurations is None else len(self.configurations)
+        self.configuration_weights = (np.ones(n_conf) if configuration_weights is None
+                                      else np.asarray(configuration_weights, float))
         S = self.system.surfaces
         self.solve = solve % len(S)
+        overridden = {k % len(S) for o in (self.configurations or ()) if isinstance(o, dict)
+                      for k in o if isinstance(k, (int, np.integer))}
         if curvatures is None:
             n = self.system.n
             curvatures = [i for i, s in enumerate(S)
@@ -523,7 +544,8 @@ class LensOptimizer:
         if thicknesses is None:
             n = self.system.n
             thicknesses = [i for i in range(len(S))
-                           if self.system._is_gap(n[i + 1]) and i != self.solve]
+                           if self.system._is_gap(n[i + 1]) and i != self.solve
+                           and i not in overridden]
         self.curvatures = list(curvatures)
         self.thicknesses = list(thicknesses)
         self.vary_object_distance = object_distance
@@ -629,8 +651,39 @@ class LensOptimizer:
         """
 
         system = self.system_at(self.x if x is None else x)
+        out = []
         with np.errstate(all="ignore"):
-            return np.concatenate([np.atleast_1d(op(system)) for op in self.operands])
+            for w, s in zip(self.configuration_weights, self.configuration_systems(system)):
+                out += [w*np.atleast_1d(op(s)) for op in self.operands]
+
+        return np.concatenate(out)
+
+    def configuration_systems(self, system=None):
+        """The configurations of a system (default: the current one), with
+        the solves of the optimizer applied in each.
+
+        Parameters
+        ----------
+        system : raytrace.System, optional
+
+        Returns
+        -------
+        list of raytrace.System
+            [system] without configurations.
+        """
+
+        system = self.system if system is None else system
+        if self.configurations is None:
+            return [system]
+
+        out = []
+        for o in self.configurations:
+            s = self._apply(configure(system, o))
+            if isinstance(o, dict) and "max_field" in o:
+                s.max_field = o["max_field"]*self.field_scale
+            out.append(s)
+
+        return out
 
     def cost(self):
         """Half the sum of squares of the residuals of the current system."""
@@ -711,10 +764,11 @@ class LensOptimizer:
 
 
 def _uncached(system):
-    """Copy of a system without the operand cache."""
+    """Copy of a system (or of a `MultiConfiguration`) without the operand
+    cache."""
 
     other = system.copy()
-    other.__dict__.pop("_operand_cache", None)
+    _drop_cache(other)
 
     return other
 
@@ -1711,6 +1765,377 @@ def glass_map_constraint(surface, margin=0.0):
     return Constraint(f, upper=-margin, tolerance=0.1, name=f.__name__)
 
 
+# ---------------------------------------------------------------------------
+# Several configurations of one lens
+# ---------------------------------------------------------------------------
+#
+# A zoom lens is one prescription at several positions of its groups; a
+# camera lens focuses from infinity to a close object; a lens may have to
+# work in two wavelength bands with a refocus in between, or at several
+# temperatures. Classical programs call these configurations (Zemax's
+# multi-configuration editor, the "zoom positions" of CODE V): one merit
+# function over copies of the system that share most variables and differ
+# in a few overrides (the air spaces of the moving groups, the object
+# distance, the wavelengths, the aperture). `MultiConfiguration` holds the
+# copies; `DampedLeastSquares` accepts it in place of a system. Plain
+# variables then act on every configuration at once (`Shared`), plain
+# operands, solves and constraints are evaluated in every configuration and
+# concatenated (`in_configs()`); `ConfigVariable` and `per_configuration()`
+# vary a parameter in one configuration only (a zoom spacing), and
+# `in_configs(function, configs)` restricts an operand, a solve or a
+# constraint to some of them.
+
+
+def _drop_cache(system):
+    """Forget the cached traces of a system (or of every configuration)."""
+
+    system.__dict__.pop("_operand_cache", None)
+    for s in getattr(system, "configs", ()):
+        s.__dict__.pop("_operand_cache", None)
+
+
+def configure(system, overrides):
+    """Copy of a system with the overrides of one configuration.
+
+    Parameters
+    ----------
+    system : raytrace.System
+    overrides : dict or callable
+        A callable changes the copy in place (anything, e.g. the indices
+        at another temperature). A dict may hold:
+
+        - int i: the thickness behind surface i (-1: the image distance),
+        - "object_distance", "wavelength", "max_field" (field angle or
+          object height), "n_object",
+        - "entrance_pupil_radius": the semi diameter of the stop for this
+          paraxial entrance pupil radius,
+        - "stop_semi_diameter",
+        - "surfaces": {i: {attribute: value}} for anything else on a
+          surface (material, conic, semi_diameter, tilt...),
+        - "apply": a callable as above, called last.
+
+    Returns
+    -------
+    raytrace.System
+    """
+
+    s = _uncached(system)
+    if callable(overrides):
+        overrides(s)
+        return s
+    for key, value in overrides.items():
+        if isinstance(key, (int, np.integer)):
+            s.surfaces[key].thickness = value
+        elif key in ("object_distance", "wavelength", "max_field", "n_object"):
+            setattr(s, key, value)
+        elif key == "surfaces":
+            for i, attributes in value.items():
+                for name, v in attributes.items():
+                    setattr(s.surfaces[i], name, v)
+        elif key not in ("entrance_pupil_radius", "stop_semi_diameter", "apply"):
+            raise ValueError("Unknown override {!r}.".format(key))
+    if "stop_semi_diameter" in overrides:
+        s.surfaces[s.stop_index].semi_diameter = overrides["stop_semi_diameter"]
+    if "entrance_pupil_radius" in overrides:
+        solve_entrance_pupil(overrides["entrance_pupil_radius"])(s)
+    if "apply" in overrides:
+        overrides["apply"](s)
+
+    return s
+
+
+class MultiConfiguration:
+    """Several configurations of one lens (zoom positions, object
+    distances, wavelength bands, temperatures), optimized together by
+    `DampedLeastSquares`.
+
+    Parameters
+    ----------
+    systems : sequence of raytrace.System
+        One system per configuration (copied). They should have the same
+        surfaces; what differs between them is up to the caller (see
+        `from_overrides()` and `from_zoom()`).
+    weights : sequence, optional
+        Weight of each configuration in the merit function (multiplies the
+        residuals of the operands that are evaluated in it; default 1).
+    names : sequence of str, optional
+        Names of the configurations (for reports).
+    """
+
+    def __init__(self, systems, weights=None, names=None):
+        self.configs = [_uncached(s) for s in systems]
+        if not self.configs:
+            raise ValueError("Give at least one configuration.")
+        n = len(self.configs)
+        self.weights = np.ones(n) if weights is None else np.asarray(weights, float)
+        if len(self.weights) != n:
+            raise ValueError("One weight per configuration.")
+        self.names = (["config {}".format(k + 1) for k in range(n)] if names is None
+                      else list(names))
+
+    @classmethod
+    def from_overrides(cls, system, overrides, weights=None, names=None):
+        """Configurations of one system with overrides (see `configure()`).
+
+        Parameters
+        ----------
+        system : raytrace.System
+        overrides : sequence of dict or callable
+            One entry per configuration ({} for the system as it is).
+        weights, names : optional
+            As for the class.
+
+        Returns
+        -------
+        MultiConfiguration
+        """
+
+        return cls([configure(system, o) for o in overrides], weights, names)
+
+    @classmethod
+    def from_zoom(cls, zoom, positions=None, field_angle=None, weights=None):
+        """The positions of a `zoom.ZoomLens` as configurations.
+
+        Parameters
+        ----------
+        zoom : zoom.ZoomLens
+        positions : sequence, optional
+            Tabulated positions (int) or focal lengths (float, interpolated
+            spacings); default: all tabulated positions.
+        field_angle : number or sequence, optional
+            Maximum field angle per position (default: as in the zoom).
+        weights : sequence, optional
+
+        Returns
+        -------
+        MultiConfiguration
+            With the attribute ``zoom_gaps``, the surfaces whose
+            thicknesses change with the zoom position.
+        """
+
+        positions = list(range(len(zoom))) if positions is None else list(positions)
+        angles = np.broadcast_to(np.asarray(field_angle if field_angle is not None else np.nan,
+                                            float), (len(positions),))
+        systems = [zoom.system(p, field_angle=None if np.isnan(a) else a)
+                   for p, a in zip(positions, angles)]
+        names = ["f = {:.4g}".format(s.paraxial().efl) for s in systems]
+        mc = cls(systems, weights, names)
+        mc.zoom_gaps = sorted(zoom.variable)
+
+        return mc
+
+    def __len__(self):
+        return len(self.configs)
+
+    def __getitem__(self, k):
+        return self.configs[k]
+
+    def __iter__(self):
+        return iter(self.configs)
+
+    def copy(self):
+        other = copy.copy(self)
+        other.__dict__.pop("_operand_cache", None)
+        other.configs = [_uncached(s) for s in self.configs]
+        other.weights = self.weights.copy()
+        other.names = list(self.names)
+
+        return other
+
+    def __repr__(self):
+        return "MultiConfiguration({})".format(", ".join(self.names))
+
+    def thickness_table(self, surfaces):
+        """Thicknesses behind surfaces in every configuration.
+
+        Parameters
+        ----------
+        surfaces : sequence of int
+
+        Returns
+        -------
+        dict
+            {surface: array of thicknesses, one per configuration}.
+        """
+
+        return {i: np.array([s.surfaces[i].thickness for s in self.configs]) for i in surfaces}
+
+    def to_zoom(self, zoom, groups=None):
+        """A `zoom.ZoomLens` with the prescription of the first
+        configuration and the spacing table of all of them.
+
+        Parameters
+        ----------
+        zoom : zoom.ZoomLens
+            The zoom the configurations came from (its variable surfaces,
+            F-numbers and groups are kept; the focal lengths are those of the
+            configurations now).
+        groups : sequence, optional
+            Default: the groups of zoom.
+
+        Returns
+        -------
+        zoom.ZoomLens
+        """
+
+        from .zoom import ZoomLens
+
+        efl = [s.paraxial().efl for s in self.configs]
+
+        return ZoomLens(self.configs[0], self.thickness_table(sorted(zoom.variable)), efl,
+                        zoom.f_numbers, zoom.groups if groups is None else groups)
+
+
+class Shared(Variable):
+    """A variable with the same value in every configuration of a
+    `MultiConfiguration` (a curvature, a glass, a fixed air space). Plain
+    variables given to `DampedLeastSquares` with a `MultiConfiguration` are
+    wrapped in it.
+
+    Parameters
+    ----------
+    variable : Variable
+    """
+
+    def __init__(self, variable):
+        super().__init__(variable.bounds)
+        self.variable = variable
+        self.name = variable.name
+
+    def get(self, system):
+        return self.variable.get(system.configs[0])
+
+    def set(self, system, value):
+        for s in system.configs:
+            self.variable.set(s, value)
+
+    def typical(self, system):
+        return self.variable.typical(system.configs[0])
+
+    def perturbed(self, system, h):
+        other = copy.copy(system)
+        other.__dict__.pop("_operand_cache", None)
+        other.configs = [self.variable.perturbed(s, h) for s in system.configs]
+        _drop_cache(other)
+
+        return other
+
+
+class ConfigVariable(Variable):
+    """A variable of one configuration only (the air spaces of a zoom at
+    one position, the focus of one object distance).
+
+    Parameters
+    ----------
+    variable : Variable
+    config : int
+        Index of the configuration.
+    """
+
+    def __init__(self, variable, config):
+        super().__init__(variable.bounds)
+        self.variable = variable
+        self.config = config
+        self.name = "{}@{}".format(variable.name, config)
+
+    def get(self, system):
+        return self.variable.get(system.configs[self.config])
+
+    def set(self, system, value):
+        self.variable.set(system.configs[self.config], value)
+
+    def typical(self, system):
+        return self.variable.typical(system.configs[self.config])
+
+    def perturbed(self, system, h):
+        other = copy.copy(system)
+        other.__dict__.pop("_operand_cache", None)
+        k = self.config
+        other.configs = [self.variable.perturbed(s, h) if j == k else _uncached(s)
+                         for j, s in enumerate(system.configs)]
+
+        return other
+
+
+def per_configuration(variable, configs):
+    """One copy of a variable per configuration (`ConfigVariable`).
+
+    Parameters
+    ----------
+    variable : Variable
+    configs : int or sequence of int
+        Number of configurations (all of them) or their indices.
+
+    Returns
+    -------
+    list of ConfigVariable
+    """
+
+    configs = range(configs) if isinstance(configs, (int, np.integer)) else configs
+
+    return [ConfigVariable(copy.copy(variable), k) for k in configs]
+
+
+def _unwrap(variable):
+    while isinstance(variable, (Shared, ConfigVariable)):
+        variable = variable.variable
+
+    return variable
+
+
+class in_configs:
+    """An operand, solve or constraint function evaluated in some
+    configurations of a `MultiConfiguration`, the results concatenated.
+
+    Parameters
+    ----------
+    function : callable
+        function(system) for a single configuration.
+    configs : sequence of int, optional
+        Indices of the configurations (default: all).
+    weighted : bool, optional
+        Multiply the results by the weights of the configurations (as for
+        operands; `DampedLeastSquares` sets it: True for operands, False for
+        constraints).
+    """
+
+    def __init__(self, function, configs=None, weighted=True):
+        self.function = function
+        self.configs = None if configs is None else [int(k) for k in np.atleast_1d(configs)]
+        self.weighted = weighted
+        self.__name__ = getattr(function, "__name__", "function")
+
+    def which(self, system):
+        """Indices of the configurations it is evaluated in."""
+
+        return list(range(len(system.configs))) if self.configs is None else self.configs
+
+    def per_config(self, system):
+        """{config: result} (results of solves are None)."""
+
+        out = {}
+        for k in self.which(system):
+            v = self.function(system.configs[k])
+            if v is not None and self.weighted:
+                v = system.weights[k]*np.atleast_1d(np.asarray(v, float))
+            out[k] = v
+
+        return out
+
+    def __call__(self, system):
+        out = [v for v in self.per_config(system).values() if v is not None]
+        if not out:
+            return None
+
+        return np.concatenate([np.atleast_1d(np.asarray(v, float)) for v in out])
+
+    def with_weighting(self, weighted):
+        other = copy.copy(self)
+        other.weighted = weighted
+
+        return other
+
+
 # --- the optimizer -----------------------------------------------------------
 
 DLSResult = namedtuple("DLSResult", ["system", "x", "merit", "history", "success", "message",
@@ -1728,8 +2153,12 @@ class DampedLeastSquares:
 
     Parameters
     ----------
-    system : raytrace.System
-        Starting system (copied).
+    system : raytrace.System or MultiConfiguration
+        Starting system (copied). With a `MultiConfiguration`, plain
+        variables are `Shared` by all configurations, and plain operands,
+        solves and constraints are evaluated in every configuration
+        (`in_configs()`); per configuration variables are `ConfigVariable`
+        objects (`per_configuration()`).
     variables : sequence of Variable
     operands : sequence of callables
         Functions system -> residuals, already divided by their tolerance
@@ -1749,19 +2178,40 @@ class DampedLeastSquares:
 
     def __init__(self, system, variables, operands, constraints=(), solves=(), weights=None,
                  damping=1e-2):
-        self.variables = list(variables)
-        self.operands = list(operands)
-        self.constraints = list(constraints)
-        self.solves = list(solves)
+        self.multi = isinstance(system, MultiConfiguration)
+        self.variables = [self._variable(v) for v in variables]
+        self.operands = [self._function(op, True) for op in operands]
+        self.constraints = [self._constraint(c) for c in constraints]
+        self.solves = [self._function(s, False) for s in solves]
         self.weights = np.ones(len(self.operands)) if weights is None else np.asarray(weights, float)
         self.damping = damping
         self.system = self._solve(_uncached(system))
         self._scale = np.array([v.typical(self.system) for v in self.variables])
 
+    def _variable(self, v):
+        if self.multi and not isinstance(v, (Shared, ConfigVariable)):
+            return Shared(v)
+        return v
+
+    def _function(self, f, weighted):
+        if not self.multi:
+            return f
+        if isinstance(f, in_configs):
+            return f.with_weighting(weighted)
+        return in_configs(f, weighted=weighted)
+
+    def _constraint(self, c):
+        if not self.multi:
+            return c
+        other = copy.copy(c)
+        other.function = self._function(c.function, False)
+
+        return other
+
     def _solve(self, system):
         for s in self.solves:
             s(system)
-        system.__dict__.pop("_operand_cache", None)
+        _drop_cache(system)
 
         return system
 
@@ -1805,7 +2255,7 @@ class DampedLeastSquares:
         system = self.system if system is None else system
         with np.errstate(all="ignore"):
             r = [w*np.atleast_1d(op(system)) for w, op in zip(self.weights, self.operands)]
-        system.__dict__.pop("_operand_cache", None)
+        _drop_cache(system)
 
         return np.concatenate(r) if r else np.zeros(0)
 
@@ -1825,6 +2275,33 @@ class DampedLeastSquares:
         """Merit function: the sum of the squared residuals."""
 
         return float(np.sum(self.residuals(system)**2))
+
+    def merit_by_configuration(self, system=None):
+        """Share of each configuration in the merit function (with a
+        `MultiConfiguration`).
+
+        Parameters
+        ----------
+        system : MultiConfiguration, optional
+            Default: the current one.
+
+        Returns
+        -------
+        array
+            Sum of the squared weighted residuals per configuration.
+        """
+
+        system = self.system if system is None else system
+        if not self.multi:
+            return np.array([self.merit(system)])
+        out = np.zeros(len(system.configs))
+        with np.errstate(all="ignore"):
+            for w, op in zip(self.weights, self.operands):
+                for k, v in op.per_config(system).items():
+                    out[k] += np.sum((w*np.atleast_1d(v))**2)
+        _drop_cache(system)
+
+        return out
 
     def _constraint_info(self):
         lo, hi, tol, names = [], [], [], []
@@ -1919,6 +2396,7 @@ class DampedLeastSquares:
 
         if not isinstance(candidates, dict):
             candidates = dict(enumerate(candidates))
+        candidates = {k: [self._variable(v) for v in group] for k, group in candidates.items()}
         lam = self.damping if damping is None else damping
         J, A, r, g = self.jacobian() if jacobian is None else jacobian
         self._lo, self._hi, tol, _ = self._constraint_info()
@@ -2071,18 +2549,36 @@ class DampedLeastSquares:
                 target = np.clip(g, self._lo, self._hi)
                 if restore < 1.0:
                     target = g + restore*(target - g)
-                for _ in range(len(g) + 1):
-                    dx, mu = self._step(J, A, r, target, g, lam, active, at_bound)
-                    g_pred = g + A @ dx
-                    below = ~active & (g_pred < self._lo - 1e-3*tol)
-                    above = ~active & (g_pred > self._hi + 1e-3*tol)
-                    if not np.any(below | above):
+                # variables that the step would take beyond a bound go to the
+                # bound and stay there for this step, and the others are
+                # solved again with that change (a clipped step would break
+                # the linearized constraints)
+                fixed = at_bound.copy()
+                shift = np.zeros(len(x))
+                for _ in range(len(x) + 1):
+                    r_s, g_s = r + J @ shift, g + A @ shift
+                    for _ in range(len(g) + 1):
+                        dx, mu = self._step(J, A, r_s, target, g_s, lam, active, fixed)
+                        dx = dx + shift
+                        g_pred = g + A @ dx
+                        below = ~active & (g_pred < self._lo - 1e-3*tol)
+                        above = ~active & (g_pred > self._hi + 1e-3*tol)
+                        if not np.any(below | above):
+                            break
+                        target = np.where(below, self._lo, np.where(above, self._hi, target))
+                        active |= below | above
+                    clipped = np.array([v.clip(xi + d) for v, xi, d in zip(self.variables, x, dx)])
+                    hit = ~fixed & (clipped != x + dx)
+                    if not np.any(hit):
                         break
-                    target = np.where(below, self._lo, np.where(above, self._hi, target))
-                    active |= below | above
+                    fixed |= hit
+                    shift[hit] = clipped[hit] - x[hit]
                 x_new = np.array([v.clip(xi + d) for v, xi, d in zip(self.variables, x, dx)])
-                s_new = self.system_at(x_new)
-                phi_new = self.merit(s_new) + self._penalty(self.constraint_values(s_new)[1])
+                try:
+                    s_new = self.system_at(x_new)
+                    phi_new = self.merit(s_new) + self._penalty(self.constraint_values(s_new)[1])
+                except (ValueError, ArithmeticError, NotImplementedError, np.linalg.LinAlgError):
+                    phi_new = np.inf  # the solves or the paraxial trace fail: a step too far
                 if np.isfinite(phi_new) and phi_new < phi:
                     # gain ratio for Nielsen's update
                     Js = J @ dx
@@ -2141,11 +2637,14 @@ class DampedLeastSquares:
         names = names or ["operand {}".format(k + 1) for k in range(len(self.operands))]
         parts = [np.sum((w*np.atleast_1d(op(self.system)))**2)
                  for w, op in zip(self.weights, self.operands)]
-        self.system.__dict__.pop("_operand_cache", None)
+        _drop_cache(self.system)
         total = max(sum(parts), 1e-300)
         lines = ["merit function {:.6g}".format(sum(parts))]
         for n, p in zip(names, parts):
             lines.append("  {:28s} {:12.5g}  {:6.1f} %".format(n, p, 100*p/total))
+        if self.multi:
+            for n, p in zip(self.system.names, self.merit_by_configuration()):
+                lines.append("  {:28s} {:12.5g}  {:6.1f} %".format(n, p, 100*p/total))
         for c in self.constraints:
             v = c.values(self.system)
             ok = np.all(np.abs(c.violation(v)) <= 1e-3*c.tolerance)
@@ -2172,15 +2671,18 @@ class DampedLeastSquares:
             surface -> name of the chosen glass.
         """
 
-        surfaces = sorted({v.surface for v in self.variables
-                           if isinstance(v, (GlassIndex, GlassAbbe))})
+        surfaces = sorted({_unwrap(v).surface for v in self.variables
+                           if isinstance(_unwrap(v), (GlassIndex, GlassAbbe))})
+        systems = self.system.configs if self.multi else [self.system]
         chosen = {}
         for i in surfaces:
-            name, g = nearest_glass(*_model_glass(self.system.surfaces[i]), catalog)
-            self.system.surfaces[i].material = g
-            self.system.surfaces[i].label = name
+            name, g = nearest_glass(*_model_glass(systems[0].surfaces[i]), catalog)
+            for s in systems:
+                s.surfaces[i].material = g
+                s.surfaces[i].label = name
             chosen[i] = name
-        self.variables = [v for v in self.variables if not isinstance(v, (GlassIndex, GlassAbbe))]
+        self.variables = [v for v in self.variables
+                          if not isinstance(_unwrap(v), (GlassIndex, GlassAbbe))]
         self.constraints = [c for c in self.constraints
                             if not any(c.name == "glass_map{}".format(i) for i in surfaces)]
         self.system = self._solve(self.system)

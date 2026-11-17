@@ -386,6 +386,7 @@ def test_pancake_sketch():
                                  "orders")),
     (sketch.litho_stochastics_layout, ("shot_noise", "roughness", "contacts", "flare",
                                        "focus_blur")),
+    (sketch.multiconfig_layout, ("configurations", "jacobian", "overrides")),
 ])
 def test_3d_sensing_sketches(draw, kinds):
     for kind in kinds:

@@ -580,7 +580,15 @@ What each module does and how mature it is. Planned work is listed in
   (notebook 43, Delano diagrams, section 7); `ftheta()`, the F-theta law
   h = f*theta of scan lenses as an operand (notebook 149, scan lenses);
   `DiffractivePhase` and `diffractive()`, the phase terms of a diffractive
-  surface as variables (notebook 151, hybrid diffractive lenses)
+  surface as variables (notebook 151, hybrid diffractive lenses);
+  `MultiConfiguration`, several configurations of one lens (zoom positions,
+  object distances, wavelength bands, temperatures) optimized together:
+  `Shared` variables, `ConfigVariable` and `per_configuration()` for the
+  parameters of one configuration, `in_configs()` for operands, solves and
+  constraints in some configurations, weights per configuration,
+  `configure()` for overrides and `from_zoom()`/`to_zoom()` for
+  `zoom.ZoomLens`; `LensOptimizer(configurations=...)` with shared
+  variables (notebook 153, multi-configuration optimization)
 - `tolerancing`: Monte Carlo tolerancing, tested: tolerances (power in
   fringes, radius, thickness and air space, axial position of an element,
   image plane, index, Abbe number, element decentre, element tilt about a
@@ -616,7 +624,9 @@ What each module does and how mature it is. Planned work is listed in
   spacings, refocusing, group positions and focal lengths) and the Olympus
   4.7× compact zoom of US 7,583,450 with catalogue glasses
   (`olympus_zoom_us7583450()`, also with its inner focusing for near
-  objects) (notebook 127, zoom lenses)
+  objects) (notebook 127, zoom lenses); a zoom optimized over all its
+  positions at once with `lens_optimization.MultiConfiguration.from_zoom()`
+  (notebook 153, multi-configuration optimization)
 - `spectacles`: new, tested: spectacle lenses and presbyopia; Hofstetter's
   fits of Duane's amplitude of accommodation and the add for a reading
   distance, the add profile along the corridor, progressive surfaces by
