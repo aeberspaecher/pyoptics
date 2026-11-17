@@ -589,6 +589,18 @@ What each module does and how mature it is. Planned work is listed in
   `configure()` for overrides and `from_zoom()`/`to_zoom()` for
   `zoom.ZoomLens`; `LensOptimizer(configurations=...)` with shared
   variables (notebook 153, multi-configuration optimization)
+- `lens_landscape`: the merit function landscape beyond one local
+  minimum, tested on an analytic double well and on real lenses: random
+  starts that trace, damped least squares from each and clustering into
+  distinct minima with their basin sizes, `stationarity()` (gradient,
+  Hessian and Morse index by central differences), Newton's method onto
+  saddle points (`refine_stationary()`), a climbing image nudged elastic
+  band between two minima (`minimum_energy_path()`), Bociort's
+  saddle-point construction (`insert_null_lens()`, the curvatures at which
+  a null lens is stationary, `descend_from_saddle()`), and basin hopping
+  with a Metropolis rule on the logarithm of the merit function; local
+  runs count their merit function evaluations
+  (notebook 154, global optimization and saddle points)
 - `tolerancing`: Monte Carlo tolerancing, tested: tolerances (power in
   fringes, radius, thickness and air space, axial position of an element,
   image plane, index, Abbe number, element decentre, element tilt about a
