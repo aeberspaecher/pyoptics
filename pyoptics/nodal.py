@@ -32,7 +32,7 @@ module evaluates the sums in closed form (Thompson 2005):
   sum W222_j sigma_j and B222 = sum W222_j sigma_j^2. It vanishes at the
   two roots of the quadratic, the nodes a222 +- sqrt(a222^2 - b222^2)
   (a222 = A222/W222, b222^2 = B222/W222): binodal astigmatism.
-- Focus: Z4 = 1/2 (W220M |H|^2 - 2 A220M . H + B220M) + W040/2 (a tilted
+- Focus: Z4 = 1/2 (W220M ``|H|^2`` - 2 A220M . H + B220M) + W040/2 (a tilted
   and curved image surface), A220M = sum W220M_j sigma_j. On a fixed
   image plane the misaligned beam adds a focus linear in the field, from
   its tilt against the plane (`boresight_focus()`).
@@ -263,12 +263,12 @@ W040, W131, W222, W220M, W311 : sums over all surfaces (as for the centred
 A131 : sum W131_j sigma_j (complex), the constant coma is -A131/3 in Z7 + i Z8
 A222, B222 : sum W222_j sigma_j and sum W222_j sigma_j^2 (complex)
 A220M : sum W220M_j sigma_j (complex), the tilt of the medial image surface
-B220M : sum W220M_j |sigma_j|^2 (real), its shift
+B220M : sum W220M_j ``|sigma_j|^2`` (real), its shift
 sigma_sphere, sigma_asphere : field displacements of each surface
 W_sphere, W_asphere : (S, 5) per surface coefficients W040, W131, W222,
     W220M, W311 of the spherical and aspheric parts
 max_field : the field of H = 1
-distortion : (C1, C2, C3, C4) sums W311_j sigma_j, W311_j |sigma_j|^2,
+distortion : (C1, C2, C3, C4) sums W311_j sigma_j, W311_j ``|sigma_j|^2``,
     W311_j sigma_j^2, W311_j sigma_j^2 conj(sigma_j) of the distortion terms
 """
 
@@ -520,7 +520,7 @@ def fit_field(H, Z):
     """Fit the nodal field dependence to Zernikes over the field.
 
     Z7 + i Z8 = (W131 H - A131)/3, Z5 + i Z6 = (W222 H^2 - 2 A222 H + B222)/2
-    and Z4 = (W220M |H|^2 - 2 A220M.H + B220M)/2 + const.
+    and Z4 = (W220M ``|H|^2`` - 2 A220M.H + B220M)/2 + const.
 
     Parameters
     ----------
@@ -595,7 +595,7 @@ def freeform_field_zernikes(system, surface, H, n_terms=9, field=None, pupil_off
     """Field dependent Zernikes of the departure of a `raytrace.ZernikeSurface`
     (freeform nodal aberration theory, to first order in the departure).
 
-    At the field H the paraxial beam covers the disk of radius |y| (marginal
+    At the field H the paraxial beam covers the disk of radius ``|y|`` (marginal
     ray height) around y_bar H (chief ray height) on the surface, shifted by
     y times the pupil offset; the departure there, times (n - n') (signed
     indices), is the change of the OPD, fitted with Fringe Zernikes of the

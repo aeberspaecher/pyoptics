@@ -43,7 +43,7 @@ Closed forms used for checks (Malacara, "Optical Shop Testing", ch. 18):
   (`segment_zernikes()`): an off-axis paraboloid is an astigmatic (and
   comatic) cap, which is why it is hard to make.
 - Field points: a rotationally symmetric parent has aberrations that depend
-  only on |H|, so an arc of a ring around the axis (a ring field) sees the
+  only on ``|H|``, so an arc of a ring around the axis (a ring field) sees the
   same correction along its whole length.
 
 Functions:
@@ -750,7 +750,7 @@ def plot_full_field(ax, fields, values, kind="astigmatism", scale=None, unit=1.0
         Astigmatism: a line along the axis of the astigmatism, at the
         azimuth arg(Z5 + i Z6)/2 (the direction of the larger wavefront
         curvature, Z5 + i Z6 positive real along x), length proportional
-        to |Z5 + i Z6|. Coma: an arrow in the direction arg(Z7 + i Z8).
+        to ``|Z5 + i Z6|``. Coma: an arrow in the direction arg(Z7 + i Z8).
         RMS: circles with an area proportional to the value.
     scale : number, optional
         Length on the plot per unit of the value, for RMS the radius per
