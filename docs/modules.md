@@ -202,7 +202,7 @@ What each module does and how mature it is. Planned work is listed in
   (TIS of lens surfaces and mirrors), the flare level from the pattern
   density and a die map; `litho.focus_blur` averages images over laser
   bandwidth times axial colour (`litho.lens.axial_colour()`) and stage MSD
-  (notebook 152, litho stochastics, flare and focus blur); `litho.hopkins` computes transmission cross
+  (notebook 152, litho stochastics, flare and focus blur), with a secondary electron blur for EUV resists (`electron_blur`); `litho.euv` holds 13.5 nm optical constants, Mo/Si multilayer mirrors (reflectance, bandwidth, effective depth, graded coatings and Jones pupils), reflective masks at a chief ray angle through the reflected orders of `litho.rcwa` (shadowing, mask 3D phase, pattern shift), anamorphic and obscured pupils and a Schwarzschild mirror objective (notebooks 156, EUV multilayers and reflective masks, to 158, EUV stochastics and flare); `litho.hopkins` computes transmission cross
   coefficients (TCC) and their SOCS decomposition, equal to Abbe's method
   for thin masks and fast for many masks with the same optics; swing
   curves and BARC optimization (`litho.wafer`, absorbed energy exact

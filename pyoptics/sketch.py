@@ -11717,3 +11717,121 @@ def multiconfig_layout(ax, kind="configurations", title=None):
         _finish(ax, (-1.4, 10.4), (-1.35, 1.15), title)
     else:
         raise ValueError("kind must be 'configurations', 'jacobian' or 'overrides'")
+
+
+EUV_COLORS = {"mo": "#5a6f8f", "si": "#e8d7a8", "ru": "#b07a3a", "absorber": "#3a3a3a",
+              "substrate": "#c9c9c9", "light": "#7b4fb3", "reflected": "#2a7ab9",
+              "shadow": "#d6604d", "plane": "#1baf7a"}
+
+
+def euv_layout(ax, kind="multilayer", title=None):
+    """Sketches of EUV optics.
+
+    Used in notebooks 156 (EUV multilayers and reflective masks) and
+    157 (EUV projector and pupil).
+
+    Parameters
+    ----------
+    ax : matplotlib Axes
+    kind : {"multilayer", "mask", "anamorphic"}, optional
+        "multilayer": a Mo/Si stack with a Ru capping layer on a substrate;
+        an incident wave is reflected a little at every interface, and the
+        partial waves add up in phase when the period is half the
+        wavelength along the normal (Bragg). "mask": a reflective mask lit
+        at the chief ray angle of 6 degrees; the absorber casts shadows on
+        the multilayer, more for lines across the plane of incidence than
+        for lines along it, and the reflection seems to come from an
+        effective mirror plane inside the multilayer. "anamorphic": the
+        cones of illumination and imaging at the mask for NA 0.33 with 4x,
+        NA 0.55 with 4x (overlapping at 6 degrees) and NA 0.55 with 4x in x
+        and 8x in y (elliptical cones that fit at about 5.4 degrees), and
+        the field on the mask.
+    title : str, optional
+    """
+
+    mpatches = _patches()
+    C = EUV_COLORS
+
+    if kind == "multilayer":
+        w, h_mo, h_si = 7.0, 0.16, 0.24
+        y = 0.0
+        ax.add_patch(mpatches.Rectangle((0, -0.6), w, 0.6, facecolor=C["substrate"], edgecolor="0.4",
+                                        lw=0.8))
+        tops = []
+        for k in range(8):
+            ax.add_patch(mpatches.Rectangle((0, y), w, h_mo, facecolor=C["mo"], lw=0))
+            y += h_mo
+            ax.add_patch(mpatches.Rectangle((0, y), w, h_si, facecolor=C["si"], lw=0))
+            y += h_si
+            tops.append(y)
+        ax.add_patch(mpatches.Rectangle((0, y), w, 0.12, facecolor=C["ru"], lw=0))
+        y_top = y + 0.12
+        label(ax, -0.15, -0.3, "substrate\n(low expansion glass)", fontsize=8, ha="right")
+        label(ax, -0.15, 1.6, "40 pairs\nMo / Si,\nperiod d ≈ 6.9 nm", fontsize=8, ha="right")
+        label(ax, -0.15, y_top + 0.05, "Ru cap 2.5 nm", fontsize=8, ha="right", color=C["ru"])
+        # incident and partial reflected waves
+        z_hit = [1.6 + 0.35*k for k in range(6)]
+        for k, zh in enumerate(z_hit):
+            yy = y_top - 0.4*k
+            ax.plot([zh - 1.0, zh], [yy + 1.0*2.0, yy], color=C["light"], lw=1.0, alpha=0.9 if k == 0 else 0.45)
+            ax.plot([zh, zh + 1.0], [yy, yy + 1.0*2.0], color=C["reflected"], lw=2.0 - 0.25*k,
+                    alpha=0.9)
+        label(ax, 0.6, y_top + 2.3, "incident 13.5 nm", fontsize=8, color=C["light"])
+        label(ax, 3.9, y_top + 2.4, "partial reflections\nadd in phase:\n2 d cos θ ≈ λ", fontsize=8,
+              color=C["reflected"], ha="left")
+        arrow(ax, w + 0.25, tops[3] - h_si - h_mo, w + 0.25, tops[3], color="0.2", style="<|-|>")
+        label(ax, w + 0.4, tops[3] - 0.2, "d", fontsize=9, ha="left")
+        _finish(ax, (-3.2, 8.4), (-0.8, y_top + 2.9), title)
+
+    elif kind == "mask":
+        w = 9.0
+        ax.add_patch(mpatches.Rectangle((0, -1.4), w, 1.4, facecolor=C["si"], edgecolor="0.4", lw=0.8))
+        for k in range(6):
+            ax.plot([0, w], [-1.4 + 0.23*k, -1.4 + 0.23*k], color=C["mo"], lw=1.2)
+        z_eff = -0.75
+        ax.plot([0, w], [z_eff, z_eff], color=C["plane"], ls="--", lw=1.2)
+        label(ax, w + 0.1, z_eff, "effective\nmirror plane", fontsize=8, ha="left", color=C["plane"])
+        label(ax, w + 0.1, -1.25, "multilayer", fontsize=8, ha="left")
+        t_abs = 0.9
+        for x0 in (1.5, 5.0):
+            ax.add_patch(mpatches.Rectangle((x0, 0), 1.5, t_abs, facecolor=C["absorber"], lw=0))
+        label(ax, 2.25, t_abs + 0.25, "absorber\n(TaBN 60 nm)", fontsize=8)
+        a = np.radians(14.0)          # exaggerated chief ray angle
+        L = 3.4
+        for x0 in (3.6, 4.4, 7.4):
+            ax.plot([x0 - L*np.sin(a), x0], [L*np.cos(a), 0], color=C["light"], lw=1.0)
+            ax.plot([x0, x0 + L*np.sin(a)], [0, L*np.cos(a)], color=C["reflected"], lw=1.0)
+        # shadow behind the right edge of the first absorber
+        s = t_abs*np.tan(a)
+        ax.add_patch(mpatches.Polygon([(3.0, 0), (3.0 + s, 0), (3.0, t_abs)], closed=True,
+                                      facecolor=C["shadow"], alpha=0.5, lw=0))
+        ax.add_patch(mpatches.Polygon([(5.0, 0), (5.0 - s, 0), (5.0, t_abs)], closed=True,
+                                      facecolor=C["shadow"], alpha=0.5, lw=0))
+        label(ax, 4.0, -1.75, "shadowed: 2 t tan(CRA) per line", fontsize=8, color=C["shadow"])
+        ax.plot([4.4, 4.4], [0, 3.2], color="0.5", lw=0.6, ls=":")
+        label(ax, 4.0, 3.45, "CRA 6°", fontsize=8)
+        label(ax, 0.6, 3.0, "illumination", fontsize=8, color=C["light"])
+        label(ax, 8.4, 3.0, "to the\nprojector", fontsize=8, color=C["reflected"])
+        _finish(ax, (-0.4, 11.0), (-2.0, 3.8), title)
+
+    elif kind == "anamorphic":
+        t = np.linspace(0, 2*np.pi, 200)
+        cases = [("NA 0.33, 4x", 0.33/4, 0.33/4, 6.0, 0.0),
+                 ("NA 0.55, 4x", 0.55/4, 0.55/4, 6.0, 0.36),
+                 ("NA 0.55, 4x / 8x", 0.55/4, 0.55/8, 5.355, 0.72)]
+        for name, ax_x, ax_y, cra, x0 in cases:
+            c = np.sin(np.radians(cra))
+            ax.fill(x0 + ax_x*np.cos(t), c + ax_y*np.sin(t), color=C["reflected"], alpha=0.3)
+            ax.fill(x0 + ax_x*np.cos(t), -c + ax_y*np.sin(t), color=C["light"], alpha=0.3)
+            ax.plot(x0 + ax_x*np.cos(t), c + ax_y*np.sin(t), color=C["reflected"], lw=1.0)
+            ax.plot(x0 + ax_x*np.cos(t), -c + ax_y*np.sin(t), color=C["light"], lw=1.0)
+            ax.plot([x0], [0], "+", color="0.3")
+            label(ax, x0, 0.3, name, fontsize=9)
+            if ax_y > c:
+                label(ax, x0 + ax_x + 0.02, 0.0, "overlap", fontsize=8, color=C["shadow"], ha="left")
+        label(ax, -0.2, 0.105, "imaging", fontsize=8, color=C["reflected"], ha="right")
+        label(ax, -0.2, -0.105, "illumination", fontsize=8, color=C["light"], ha="right")
+        label(ax, 0.36, -0.3, "direction cosines at the mask (y: plane of incidence)", fontsize=8)
+        _finish(ax, (-0.45, 0.95), (-0.36, 0.36), title)
+    else:
+        raise ValueError("unknown kind {!r}".format(kind))

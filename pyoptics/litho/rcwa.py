@@ -33,7 +33,10 @@ TM and metallic gratings converge quickly. The modes of a layer vary as
 exp(+-i*gamma*z') with gamma**2 the eigenvalues of P Q (Im(gamma) >= 0),
 eigenvectors W (E) and V = Q W/gamma (h). The layers are stacked with the
 enhanced transmittance matrix method (Moharam et al., JOSA A 12, 1077
-(1995)), which is stable for thick and absorbing layers.
+(1995)), which is stable for thick and absorbing layers. Plane (uniform)
+layers below the last patterned one do not couple the orders and are
+stacked order by order with 2 x 2 blocks, so a multilayer of many layers
+under an absorber (the EUV mask blank of euv.ReflectiveMask) costs little.
 
 calibrate_boundary_layer() fits the boundary layer model of the thin and
 film masks (mask.BoundaryLayer) to the rigorous orders.
@@ -157,6 +160,55 @@ def _homogeneous(eps, Kx, Ky):
     return W, V, gamma, Kz
 
 
+def _homogeneous_blocks(eps, Kx, Ky):
+    """The V of _homogeneous() as 2 x 2 blocks per order, shape (B, N, 2, 2),
+    and K_z (B, N)."""
+
+    Kz = _sqrt_branch(eps - Kx**2 - Ky[:, None]**2)
+    ky = np.broadcast_to(Ky[:, None], Kx.shape)
+    V = np.stack([np.stack([-Kx*ky, Kx**2 - eps], axis=-1),
+                  np.stack([eps - ky**2, ky*Kx], axis=-1)], axis=-2)/Kz[..., None, None]
+
+    return V, Kz
+
+
+def _blocks_to_full(F):
+    """(B, N, 2, 2) blocks to the (B, 2N, 2N) matrix on (E_x of all orders,
+    E_y of all orders)."""
+
+    B, N = F.shape[:2]
+    out = np.zeros((B, 2*N, 2*N), dtype=complex)
+    d = np.arange(N)
+    for i in range(2):
+        for j in range(2):
+            out[:, i*N + d, j*N + d] = F[:, :, i, j]
+
+    return out
+
+
+def _uniform_run(layers, eps_out, Kx, Ky, k0, steps):
+    """Enhanced transmittance recursion through uniform layers on the exit
+    medium, order by order (the orders do not couple). Appends the block
+    steps a^-1 X to steps and returns f, g as full matrices."""
+
+    B, N = Kx.shape
+    V_out, _ = _homogeneous_blocks(eps_out, Kx, Ky)
+    f = np.broadcast_to(np.eye(2, dtype=complex), (B, N, 2, 2))
+    g = V_out
+    for layer in reversed(layers):
+        V, Kz = _homogeneous_blocks(layer.background**2, Kx, Ky)
+        X = np.exp(1j*Kz*k0*layer.thickness)[..., None, None]  # same for E_x and E_y
+        Vg = np.linalg.solve(V, g)
+        a, b = (f + Vg)/2, (f - Vg)/2
+        a_inv_X = np.linalg.inv(a)*X
+        XbaX = X*(b @ a_inv_X)
+        f = np.eye(2) + XbaX
+        g = V - V @ XbaX
+        steps.append(("block", a_inv_X))
+
+    return _blocks_to_full(f), _blocks_to_full(g)
+
+
 def _layer_modes(layer, period, m_all, Kx, Ky, factorization):
     """W, V, gamma of a lamellar layer (batched).
 
@@ -273,10 +325,20 @@ def rcwa(period, layers, wavelength, k_x=0.0, k_y=0.0, n_in=1.0, n_out=1.0, n_or
     W_I, V_I, _, Kz_in = _homogeneous(complex(n_in)**2, Kx, Ky)
     _, V_II, _, Kz_out = _homogeneous(complex(n_out)**2, Kx, Ky)
 
-    # enhanced transmittance matrices from the exit side up
-    f, g = np.broadcast_to(np.eye(2*N, dtype=complex), (B, 2*N, 2*N)), V_II
+    # enhanced transmittance matrices from the exit side up. Uniform layers
+    # at the bottom of the stack (e.g. the multilayer of an EUV mask) do not
+    # couple the orders: they are done order by order with 2 x 2 blocks.
+    layers = list(layers)
+    n_uniform = 0
+    while n_uniform < len(layers) and layers[len(layers) - 1 - n_uniform].is_uniform:
+        n_uniform += 1
     steps = []
-    for layer in reversed(list(layers)):
+    if n_uniform:
+        f, g = _uniform_run(layers[len(layers) - n_uniform:], complex(n_out)**2, Kx, Ky, k0, steps)
+        layers = layers[:len(layers) - n_uniform]
+    else:
+        f, g = np.broadcast_to(np.eye(2*N, dtype=complex), (B, 2*N, 2*N)), V_II
+    for layer in reversed(layers):
         W, V, gamma = _layer_modes(layer, period, m_all, Kx, Ky, factorization)
         X = np.exp(1j*gamma*k0*layer.thickness)  # (B, 2N), |X| <= 1
         Wf, Vg = np.linalg.solve(W, f), np.linalg.solve(V, g)
@@ -285,7 +347,7 @@ def rcwa(period, layers, wavelength, k_x=0.0, k_y=0.0, n_in=1.0, n_out=1.0, n_or
         XbaX = X[:, :, None]*(b @ a_inv_X)
         f = W + W @ XbaX
         g = V - V @ XbaX
-        steps.append(a_inv_X)
+        steps.append(("full", a_inv_X))
 
     # top: e_inc + W_I r = f T_1, h_inc - V_I r = g T_1, for unit E_x and E_y of order 0
     i0 = n_orders
@@ -297,8 +359,12 @@ def rcwa(period, layers, wavelength, k_x=0.0, k_y=0.0, n_in=1.0, n_out=1.0, n_or
                         np.concatenate([V_I, g], axis=2)], axis=1)
     sol = np.linalg.solve(A, np.concatenate([e_inc, h_inc], axis=1))
     r, T = sol[:, :2*N], sol[:, 2*N:]
-    for a_inv_X in reversed(steps):  # T_{l+1} = a_l^-1 X_l T_l, from the top layer down
-        T = a_inv_X @ T
+    for kind, a_inv_X in reversed(steps):  # T_{l+1} = a_l^-1 X_l T_l, from the top layer down
+        if kind == "full":
+            T = a_inv_X @ T
+        else:  # per order: (B, N, 2, 2) blocks acting on (E_x, E_y) of each order
+            Tb = T.reshape(B, 2, N, 2).transpose(0, 2, 1, 3)
+            T = (a_inv_X @ Tb).transpose(0, 2, 1, 3).reshape(B, 2*N, 2)
 
     def jones(F):  # (B, 2N, 2) -> (B, N, 2, 2)
         return F.reshape(B, 2, N, 2).transpose(0, 2, 1, 3)

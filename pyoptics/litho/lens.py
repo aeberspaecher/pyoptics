@@ -362,9 +362,9 @@ def _surface_coatings(system, coating):
     from ..coatings import Coating
     from ..raytrace import CoordinateBreak
 
-    if any(s.mirror for s in system.surfaces):
-        raise NotImplementedError("polarization ray tracing of mirrors (use System.trace_polarization)")
-    # the layers sit on the side of the lower index (air):
+    # mirrors keep their own coatings (Surface(coating=...), multilayers of
+    # EUV optics) or reflect perfectly; the layers of the coating argument
+    # sit on the side of the lower index (air) of the refracting surfaces:
     n = system.n
     coatings = {}
     for i, s in enumerate(system.surfaces):
@@ -399,7 +399,8 @@ def lens_jones_pupil(system, field=(0.0, 0.0), N=32, NA=None, coating=None, bire
     Parameters
     ----------
     system : pyoptics.raytrace.System
-        Finite conjugate projection lens without mirrors.
+        Finite conjugate projection lens; mirrors reflect with their own
+        coatings (e.g. EUV multilayers, notebook 157, EUV projector and pupil).
     field : pair, optional
         Image field point (units of the system).
     N : int, optional
@@ -502,7 +503,8 @@ def lens_telecentricity(system, field=(0.0, 0.0), N=48, fill=None, coating=None,
     Parameters
     ----------
     system : pyoptics.raytrace.System
-        Finite conjugate projection lens without mirrors.
+        Finite conjugate projection lens; mirrors reflect with their own
+        coatings (e.g. EUV multilayers, notebook 157, EUV projector and pupil).
     field : pair, optional
         Image field point (units of the system).
     N : int, optional
@@ -603,7 +605,8 @@ def lens_apodization(system, field=(0.0, 0.0), N=48, coating=None, birefringent=
     Parameters
     ----------
     system : pyoptics.raytrace.System
-        Finite conjugate projection lens without mirrors.
+        Finite conjugate projection lens; mirrors reflect with their own
+        coatings (e.g. EUV multilayers, notebook 157, EUV projector and pupil).
     field : pair, optional
         Image field point (units of the system).
     N : int, optional

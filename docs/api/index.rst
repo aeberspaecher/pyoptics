@@ -122,6 +122,7 @@ Lithography
    pyoptics.litho.hopkins
    pyoptics.litho.resist
    pyoptics.litho.rcwa
+   pyoptics.litho.euv
    pyoptics.litho.jones_pupil
    pyoptics.litho.source_opt
    pyoptics.litho.opc
