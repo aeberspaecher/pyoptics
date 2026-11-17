@@ -91,7 +91,8 @@ from .raytrace import Surface, _norm
 
 __all__ = ["qbfs", "qbfs_series", "qcon", "qcon_series", "sag_qbfs", "sag_qcon",
            "QbfsSurface", "QconSurface", "best_fit_sphere", "fit_qbfs", "fit_qcon",
-           "even_asphere_sag", "rms_slope", "QCoefficient"]
+           "even_asphere_sag", "rms_slope", "QCoefficient", "q2d", "Q2DSurface",
+           "Q2DCoefficient"]
 
 
 def _x_to_t(x):
@@ -658,6 +659,286 @@ def rms_slope(sag, norm_radius, c_bfs=None, n=2000):
     return np.sqrt(np.mean(dD**2))
 
 
+
+# ---------------------------------------------------------------------------
+# Q2D freeforms
+# ---------------------------------------------------------------------------
+
+@lru_cache(maxsize=None)
+def _q2d_coefficients(m, n_terms):
+    """Chebyshev coefficients (in t = 2 x - 1) of the radial polynomials
+    P_0^m ... P_{n-1}^m of the azimuthal order m >= 1, shape (n_terms,
+    n_terms): the terms u**m P_n^m(u**2) cos(m phi) are orthonormal in the
+    gradient with the weight of Q-bfs (see `q2d()`)."""
+
+    N = 4*(n_terms + m) + 16
+    u = np.cos(np.pi*(np.arange(N) + 0.5)/N)
+    x = u**2
+
+    def parts(coef):
+        # S = u^m P(x): dS/du = m u^(m-1) P + 2 u^(m+1) P'(x); S/u = u^(m-1) P
+        P = C.chebval(_x_to_t(x), coef)
+        dP = 2*C.chebval(_x_to_t(x), C.chebder(coef)) if len(coef) > 1 else 0.0*P
+        return m*u**(m - 1)*P + 2*u**(m + 1)*dP, m*u**(m - 1)*P
+
+    def inner(a, b):
+        # (1/pi) int_0^1 [S_a' S_b' + m^2 S_a S_b/u^2] du/sqrt(1 - u^2)
+        da, sa = parts(a)
+        db, sb = parts(b)
+        return 0.5*np.mean(da*db + sa*sb)
+
+    rows = []
+    for k in range(n_terms):
+        v = np.zeros(n_terms)
+        v[k] = 1.0
+        for _ in range(2):
+            for r in rows:
+                v = v - inner(v, r)*r
+        v = v/np.sqrt(inner(v, v))
+        if C.chebval(1.0, v) < 0:  # sign: positive at the rim
+            v = -v
+        rows.append(v)
+
+    return np.array(rows)
+
+
+def q2d(m, n, x):
+    """Radial polynomial Q_n^m(x) of the Q2D freeform terms at x = u**2.
+
+    For m = 0 it is Forbes' Q-bfs polynomial (the term is u**2 (1 - u**2)
+    Q_n^bfs(u**2)); for m >= 1 the terms u**m Q_n^m(u**2) cos(m phi) and
+    u**m Q_n^m(u**2) sin(m phi) are built here by Gram-Schmidt
+    orthonormalization so that, like the Q-bfs terms, their gradients are
+    orthonormal in ::
+
+        <f, g> = (1/pi**2) int int grad f . grad g du dphi/sqrt(1 - u**2),
+
+    which for m = 0 is the Q-bfs inner product. The sum of the squared
+    coefficients is then the mean square slope of the whole departure
+    (times r_norm**2), as in Forbes' Q2D freeform description (Forbes 2012);
+    his published m >= 1 polynomials come from a recurrence and may differ
+    from these in normalization.
+
+    Parameters
+    ----------
+    m : int
+        Azimuthal order.
+    n : int
+        Radial order (degree in x).
+    x : array_like
+        Squared normalized radius u**2.
+
+    Returns
+    -------
+    Q : array
+    """
+
+    if m == 0:
+        return qbfs(n, x)
+
+    return C.chebval(_x_to_t(x), _q2d_coefficients(m, n + 1)[n])
+
+
+class Q2DSurface(Surface):
+    """Q2D freeform: a best fit sphere plus a slope-orthonormal departure
+    with azimuthal terms (Forbes 2012) ::
+
+        z = c_bfs r**2/(1 + sqrt(1 - c_bfs**2 r**2)) + D(u, phi)/sqrt(1 - c_bfs**2 r**2),
+        D = u**2 (1 - u**2) sum_n a_n^0 Q_n^0(u**2)
+            + sum_{m>=1} u**m sum_n [a_n^m cos(m phi) + b_n^m sin(m phi)] Q_n^m(u**2),
+
+    with u = r/r_norm, the azimuth phi counted from +x towards +y in the
+    local frame of the surface, and the polynomials of `q2d()`. The m = 0
+    terms are those of `QbfsSurface`; m = 1 holds tilt and coma-like
+    terms, m = 2 astigmatism-like ones (a cylinder departure), m = 3
+    trefoil, and so on. The paraxial data use the vertex curvature of the
+    rotationally symmetric part (as for `QbfsSurface`); the other terms only
+    enter the real ray trace, which is done with NumPy (Newton steps on the
+    full sag).
+
+    Parameters
+    ----------
+    R : number
+        Radius of the base sphere.
+    thickness : number
+    cos, sin : dict, optional
+        {(m, n): coefficient} of the cos(m phi) and sin(m phi) terms, in
+        length units (m = 0 only in cos).
+    norm_radius : number
+        Normalization radius r_norm.
+    **kwargs
+        Passed on to `raytrace.Surface` (no conic or aspheric terms).
+    """
+
+    _base_conic = 0.0
+
+    def __init__(self, R=np.inf, thickness=0.0, cos=None, sin=None, norm_radius=1.0, **kwargs):
+        if kwargs.get("conic") or kwargs.get("aspheric"):
+            raise ValueError("A Q2D surface has no conic or aspheric terms.")
+        super().__init__(R, thickness, **kwargs)
+        self.norm_radius = float(norm_radius)
+        self.cos = tuple(sorted(((int(m), int(n)), float(v)) for (m, n), v in (cos or {}).items()))
+        self.sin = tuple(sorted(((int(m), int(n)), float(v)) for (m, n), v in (sin or {}).items()
+                                if m > 0))
+
+    def __repr__(self):
+        return "Q2DSurface(R={}, thickness={}, cos={}, sin={}, norm_radius={})".format(
+            self.R, self.thickness, dict(self.cos), dict(self.sin), self.norm_radius)
+
+    def set_term(self, kind, m, n, value):
+        """Set one coefficient (in place); kind is "cos" or "sin"."""
+
+        terms = dict(getattr(self, kind))
+        terms[(int(m), int(n))] = float(value)
+        setattr(self, kind, tuple(sorted(terms.items())))
+
+    def get_term(self, kind, m, n):
+        """One coefficient (0 if absent)."""
+
+        return dict(getattr(self, kind)).get((int(m), int(n)), 0.0)
+
+    @property
+    def c_bfs(self):
+        """Curvature of the base sphere."""
+
+        return 0.0 if np.isinf(self.R) else 1.0/self.R
+
+    def _axial(self):
+        return [self.get_term("cos", 0, n) for n in range(1 + max(
+            [n for (m, n), _ in self.cos if m == 0], default=-1))]
+
+    @property
+    def c(self):
+        """Vertex curvature of the rotationally symmetric part."""
+
+        q = self._axial()
+        s0 = C.chebval(-1.0, qbfs_series(q)) if q else 0.0
+        return self.c_bfs + 2*s0/self.norm_radius**2
+
+    def fourth_order_departure(self):
+        """r**4 term of the rotationally symmetric part (Seidel sums)."""
+
+        return QbfsSurface(self.R, 0.0, self._axial(), self.norm_radius).fourth_order_departure()
+
+    def abcd_matrix(self, n1, n2, sigma):
+        """Unfolded ABCD matrix with the vertex curvature."""
+
+        return _QSurface.abcd_matrix(self, n1, n2, sigma)
+
+    def _groups(self):
+        """{(kind, m): Chebyshev series of the radial polynomial}."""
+
+        out = {}
+        for kind in ("cos", "sin"):
+            by_m = {}
+            for (m, n), v in getattr(self, kind):
+                by_m.setdefault(m, {})[n] = v
+            for m, terms in by_m.items():
+                a = np.zeros(max(terms) + 1)
+                for n, v in terms.items():
+                    a[n] = v
+                out[kind, m] = qbfs_series(a) if m == 0 else a @ _q2d_coefficients(m, len(a))
+        return out
+
+    def _departure_and_gradient(self, x, y):
+        """D and its gradient (dD/dx, dD/dy) in the local frame."""
+
+        rn = self.norm_radius
+        w = (np.asarray(x, float) + 1j*np.asarray(y, float))/rn
+        X = np.abs(w)**2
+        t = _x_to_t(X)
+        D = np.zeros(w.shape)
+        Dx, Dy = np.zeros(w.shape), np.zeros(w.shape)
+        for (kind, m), coef in self._groups().items():
+            P = C.chebval(t, coef)
+            dP = 2*C.chebval(t, C.chebder(coef)) if len(coef) > 1 else 0.0*P   # dP/dX
+            if m == 0:
+                # X (1 - X) P(X)
+                f = X*(1 - X)*P
+                df = (1 - 2*X)*P + X*(1 - X)*dP
+                D = D + f
+                Dx, Dy = Dx + df*2*w.real/rn, Dy + df*2*w.imag/rn
+                continue
+            wm = w**m
+            wm1 = m*w**(m - 1)
+            if kind == "cos":
+                A, Ax, Ay = wm.real, wm1.real, -wm1.imag
+            else:
+                A, Ax, Ay = wm.imag, wm1.imag, wm1.real
+            D = D + P*A
+            Dx = Dx + dP*2*w.real/rn*A + P*Ax/rn
+            Dy = Dy + dP*2*w.imag/rn*A + P*Ay/rn
+
+        return D, Dx, Dy
+
+    def departure(self, x, y):
+        """Normal departure D(x, y) from the base sphere (before the
+        division by the square root)."""
+
+        return self._departure_and_gradient(x, y)[0]
+
+    def sag_xy(self, x, y):
+        """Sag z(x, y)."""
+
+        x, y = np.asarray(x, float), np.asarray(y, float)
+        r2 = x**2 + y**2
+        cb = self.c_bfs
+        with np.errstate(invalid="ignore"):
+            root = np.sqrt(1 - cb**2*r2)
+        return _sphere(cb, 0.0, r2) + self.departure(x, y)/root
+
+    def sag(self, r2):
+        """Sag of the rotationally symmetric part (base sphere and m = 0
+        terms) at r2 (used for drawings and paraxial checks)."""
+
+        return QbfsSurface(self.R, 0.0, self._axial(), self.norm_radius).sag(r2)
+
+    def _gradient(self, x, y):
+        cb = self.c_bfs
+        r2 = x**2 + y**2
+        with np.errstate(invalid="ignore"):
+            root = np.sqrt(1 - cb**2*r2)
+        D, Dx, Dy = self._departure_and_gradient(x, y)
+        s = cb/root                       # (dz_sphere/dr)/r
+        k = D*cb**2/root**3
+        return x*s + Dx/root + k*x, y*s + Dy/root + k*y
+
+    def intersect(self, P, d):
+        """Distance along the rays to the surface: from the base sphere by
+        Newton steps on the full sag."""
+
+        t = Surface(self.R).intersect(P, d)
+        t = np.where(np.isfinite(t), t, -P[:, 2]/d[:, 2])
+        for _ in range(60):
+            Q = P + t[:, None]*d
+            gx, gy = self._gradient(Q[:, 0], Q[:, 1])
+            G = Q[:, 2] - self.sag_xy(Q[:, 0], Q[:, 1])
+            dG = d[:, 2] - gx*d[:, 0] - gy*d[:, 1]
+            with np.errstate(invalid="ignore", divide="ignore"):
+                step = G/dG
+            t = t - step
+            with np.errstate(invalid="ignore"):
+                if np.all(~np.isfinite(step) | (np.abs(step) < 1e-14*(1 + np.abs(t)))):
+                    break
+        Q = P + t[:, None]*d
+
+        return np.where(np.isfinite(self.sag_xy(Q[:, 0], Q[:, 1])), t, np.nan)
+
+    def normal(self, Q):
+        """Unit normals (pointing into +z) at the points Q relative to the vertex."""
+
+        gx, gy = self._gradient(Q[:, 0], Q[:, 1])
+        N = np.stack([-gx, -gy, np.ones(len(Q))], axis=-1)
+
+        return N/_norm(N)[:, None]
+
+    def rms_slope(self):
+        """sqrt(sum of all squared coefficients)/r_norm (radians)."""
+
+        v = [c for _, c in self.cos] + [c for _, c in self.sin]
+        return np.sqrt(np.sum(np.square(v)))/self.norm_radius
+
+
 try:
     from .lens_optimization import Variable as _Variable
 except ImportError:  # pragma: no cover
@@ -698,6 +979,43 @@ class QCoefficient(_Variable):
         q = self._coefficients(system)
         q[self.m] = value
         system.surfaces[self.surface].q = tuple(q)
+
+    def typical(self, system):
+        """Typical change: 100 wavelengths."""
+
+        return 100*system.wavelength
+
+
+class Q2DCoefficient(_Variable):
+    """Coefficient a_n^m (kind "cos") or b_n^m (kind "sin") of a
+    `Q2DSurface`, a variable of `lens_optimization.DampedLeastSquares`.
+
+    Parameters
+    ----------
+    surface : int
+        Index of the surface.
+    m, n : int
+        Azimuthal and radial order.
+    kind : {"cos", "sin"}, optional
+    bounds : (lower, upper), optional
+    """
+
+    def __init__(self, surface, m, n, kind="cos", bounds=(None, None)):
+        super().__init__(bounds)
+        if kind not in ("cos", "sin") or (kind == "sin" and m == 0):
+            raise ValueError("kind is 'cos' or 'sin' (sin needs m > 0).")
+        self.surface, self.m, self.n, self.kind = surface, m, n, kind
+        self.name = "{}{}_{}_{}".format("a" if kind == "cos" else "b", m, n, surface)
+
+    def get(self, system):
+        """Value of the coefficient."""
+
+        return system.surfaces[self.surface].get_term(self.kind, self.m, self.n)
+
+    def set(self, system, value):
+        """Set the coefficient (in place)."""
+
+        system.surfaces[self.surface].set_term(self.kind, self.m, self.n, value)
 
     def typical(self, system):
         """Typical change: 100 wavelengths."""
