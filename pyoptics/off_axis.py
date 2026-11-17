@@ -693,7 +693,7 @@ names : labels of the obstacles
 
 
 def beam_clearance(system, fields, rim=0.0, image=True, rings=(0.5, 0.8, 1.0), spokes=16,
-                   behind=1e4):
+                   behind=1e4, sag_margin=20.0):
     """Does the light clear the mirrors? Distances of each beam from each
     mirror it passes.
 
@@ -701,8 +701,11 @@ def beam_clearance(system, fields, rim=0.0, image=True, rings=(0.5, 0.8, 1.0), s
     incoming beam is extended to `behind` in front of its start). A beam
     is blocked by an obstacle if it crosses the obstacle's surface (its
     parent, in the local frame) inside the footprint of that obstacle grown
-    by `rim` (a mechanical rim or margin). The beams that arrive at or
-    leave an obstacle are not checked against it.
+    by `rim` (a mechanical rim or margin), within `sag_margin` of the sags
+    of the footprint (a strongly curved parent, e.g. a sphere, also has a
+    far side, where a beam may cross it without coming near the mirror).
+    The beams that arrive at or leave an obstacle are not checked against
+    it.
 
     Parameters
     ----------
@@ -718,6 +721,9 @@ def beam_clearance(system, fields, rim=0.0, image=True, rings=(0.5, 0.8, 1.0), s
         Pupil sampling.
     behind : number, optional
         Length by which the incoming beam is extended backwards.
+    sag_margin : number, optional
+        Thickness (length units) added in front of and behind the sags of
+        the footprint: crossings of the parent outside count as misses.
 
     Returns
     -------
@@ -738,10 +744,16 @@ def beam_clearance(system, fields, rim=0.0, image=True, rings=(0.5, 0.8, 1.0), s
     B = np.zeros_like(D)
     img_frame = system.frames()[1]
     for a, j in enumerate(obstacles):
+        z_lo, z_hi = -np.inf, np.inf
         if j < n_s:
             o, R = system.frames()[0][j]
             surf = system.surfaces[j]
             hull = fp[j].hull
+            # the mirror occupies only the sags of its footprint: a crossing of
+            # the far side of the parent (a sphere closes on itself) is no hit
+            zl = ((P[j + 1].reshape(-1, 3) - o) @ R)[:, 2]
+            zl = zl[np.isfinite(zl)]
+            z_lo, z_hi = zl.min() - sag_margin, zl.max() + sag_margin
         else:
             o, R = img_frame
             surf = rt.Surface()
@@ -766,7 +778,10 @@ def beam_clearance(system, fields, rim=0.0, image=True, rings=(0.5, 0.8, 1.0), s
                     t = surf.intersect(Pl, dl)
                 else:
                     t = -Pl[:, 2]/dl[:, 2]
-            cross = np.isfinite(t) & (t > 1e-9*L) & (t < L*(1 - 1e-9))
+            with np.errstate(invalid="ignore"):
+                cross = np.isfinite(t) & (t > 1e-9*L) & (t < L*(1 - 1e-9))
+                zc = Pl[:, 2] + t*dl[:, 2]
+                cross &= (zc > z_lo) & (zc < z_hi)
             if not np.any(cross):
                 continue
             Q = Pl[cross, :2] + t[cross, None]*dl[cross, :2]

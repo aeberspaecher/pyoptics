@@ -2938,7 +2938,17 @@ class System:
         a_s = self.surfaces[self.stop_index].semi_diameter
         sign = np.sign(self._ep_matrix()[0]) if self.infinite_object else 1.0
         tx, ty = sign*px*a_s, sign*py*a_s
+        a0, b0 = np.asarray(a, float), np.asarray(b, float)
         a, b, done = self._newton_aim(field, a, b, tx, ty, iterations=6)
+        # a solution far from the paraxial guess (more than twice the spread
+        # of the guesses over the pupil away) passes the stop on a folded
+        # path: aim it by continuation instead
+        spread = np.max(np.hypot(a0 - np.mean(a0), b0 - np.mean(b0)), initial=0.0)
+        if not self.infinite_object:
+            spread = max(spread, abs(self._object_slopes()[0]))
+        if spread > 0:
+            with np.errstate(invalid="ignore"):
+                done = done & (np.hypot(a - a0, b - b0) <= 2*spread)
         if np.all(done):
             return a, b
         a, b = a.copy(), b.copy()
