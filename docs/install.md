@@ -74,7 +74,8 @@ example `".[plot,test]"`:
 - `tie`: sympy and matplotlib, for the TIE module
 - `notebooks`: matplotlib, JupyterLab and ipywidgets, for running the example
   notebooks (including the interactive one)
-- `test`: pytest (and matplotlib, which some modules import), for running the tests
+- `test`: pytest and pytest-xdist (and matplotlib, which some modules import),
+  for running the tests
 - `docs`: Sphinx and its extensions, for building this documentation
 
 Use `python -m pip install -e .` if you want no extras at all.
@@ -84,8 +85,8 @@ Use `python -m pip install -e .` if you want no extras at all.
     python -c "import pyoptics.wpm; print('pyoptics works')"
 
 If it prints `pyoptics works`, you are done. With the `test` extra you can
-also run the test suite with `python -m pytest test`; it takes about ten
-seconds.
+also run the test suite with `python -m pytest -n auto test`, which runs it
+in parallel on all cores (a few minutes on four cores).
 
 When you are finished, leave the venv with `deactivate`.
 

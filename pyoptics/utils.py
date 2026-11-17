@@ -809,3 +809,51 @@ def fwhm(x, y, outermost=False):
     xr = np.interp(half, [y[right + 1], y[right]], [x[right + 1], x[right]])
 
     return xr - xl
+
+
+def set_threads(n=None):
+    """Threads per process for the parallel parts of pyoptics.
+
+    Sets the threads of the FFTs (`pyoptics.fft.workers`), of the compiled
+    numba kernels (ray trace, illumination, FDTD) and, if threadpoolctl is
+    installed, of the BLAS/LAPACK library behind NumPy and SciPy. By default
+    each of them uses all CPU cores, which is fastest for a single process;
+    when several processes run pyoptics side by side (a process pool,
+    pytest-xdist, notebooks run in parallel), their threads compete for the
+    same cores and everything slows down, often by factors of 10 or more.
+    Call set_threads(1) in each process then.
+
+    The BLAS threads can only be limited through threadpoolctl at run time;
+    without it, set OMP_NUM_THREADS / OPENBLAS_NUM_THREADS before NumPy is
+    imported.
+
+    Parameters
+    ----------
+    n : int or None, optional
+        Threads per process; None restores the defaults of the FFTs and of
+        numba (all cores) and leaves the BLAS threads as they are.
+
+    Returns
+    -------
+    blas_limited : bool
+        Whether the BLAS threads could be set (threadpoolctl available).
+    """
+
+    from . import fft as _fft
+
+    _fft.workers = -1 if n is None else max(1, int(n))
+    try:
+        import numba
+    except ImportError:
+        pass
+    else:
+        numba.set_num_threads(numba.config.NUMBA_NUM_THREADS if n is None
+                              else min(max(1, int(n)), numba.config.NUMBA_NUM_THREADS))
+    try:
+        from threadpoolctl import threadpool_limits
+    except ImportError:
+        return False
+    if n is not None:
+        threadpool_limits(max(1, int(n)))
+
+    return True

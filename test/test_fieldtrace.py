@@ -4,6 +4,7 @@ import pytest
 from pyoptics import fieldtrace as ft
 from pyoptics import analytic_phase as ap
 from pyoptics.propagators import rayleigh_sommerfeld_I_TF
+from pyoptics.fft import czt
 
 
 WL = 633e-6
@@ -163,8 +164,11 @@ def test_farfield_one_dimensional_against_angular_spectrum():
     xs = np.linspace(-1.25*r, 1.25*r, 2001)
     us = np.exp(-(np.abs(xs)/r)**10)
     kx = np.linspace(-0.9999*K, 0.9999*K, 400001)
-    U = np.concatenate([np.exp(-1j*np.outer(kx[i:i + 20000], xs))@us
-                        for i in range(0, len(kx), 20000)])*(xs[1] - xs[0])
+    # U(kx) = sum_l us[l] exp(-i kx xs[l]) dx on the uniform kx grid: a
+    # zoomed DFT, by the chirp-z transform
+    dx, dk = xs[1] - xs[0], kx[1] - kx[0]
+    U = czt(us*np.exp(-1j*kx[0]*xs), M=len(kx), w=np.exp(-1j*dk*dx))
+    U *= np.exp(-1j*(kx - kx[0])*xs[0])*dx
     kz = np.sqrt(K**2 - kx**2)
     peak = None
     for X in (0.0, 1.0, 2.0):

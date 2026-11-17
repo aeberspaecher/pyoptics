@@ -27,7 +27,7 @@ jobs:
       - name: Install pyoptics with test extras
         run: python -m pip install -e ".[test${{ matrix.extras }}]"
       - name: Run tests
-        run: python -m pytest -v test
+        run: python -m pytest -v -n auto test
 
   lint:
     runs-on: ubuntu-latest

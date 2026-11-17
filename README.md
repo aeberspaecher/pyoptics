@@ -75,7 +75,7 @@ Optional extras can be combined, for example `".[plot,fast,test]"`:
 | `hdf5` | h5py | streaming large FDTD snapshot stacks to compressed HDF5 files |
 | `tie` | sympy | the TIE module |
 | `notebooks` | matplotlib, JupyterLab, ipywidgets | running the example notebooks |
-| `test` | pytest, matplotlib, sympy | running the test suite |
+| `test` | pytest, pytest-xdist, matplotlib, sympy | running the test suite |
 | `docs` | Sphinx and extensions | building the documentation |
 
 The [installation guide](https://aeberspaecher.github.io/pyoptics/install.html)
@@ -187,10 +187,15 @@ read it before comparing results with a textbook.
 
 ```bash
 python -m pip install -e ".[test]"
-python -m pytest test
+python -m pytest -n auto test
 ```
 
-The test suite (more than 2000 tests) takes several minutes. After editing `pyoptics/wpm.pyx`,
+The test suite (more than 2000 tests) takes a few minutes on four cores with
+`-n auto` (pytest-xdist). Each test process then uses a single thread, see
+`test/conftest.py`: by default the FFTs, the numba kernels and BLAS each use
+all cores, which is fastest for one process but slows parallel processes
+down many times over. Use `pyoptics.utils.set_threads(1)` in your own
+process pools for the same reason. After editing `pyoptics/wpm.pyx`,
 run the install command again to recompile the extension. Docstrings follow
 the NumPy style; the documentation is built with Sphinx from `docs/`:
 

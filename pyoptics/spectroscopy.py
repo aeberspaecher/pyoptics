@@ -98,6 +98,7 @@ from numpy import pi
 from scipy.signal import fftconvolve
 from scipy.special import wofz
 
+from .fft import czt
 from .radiometry import H, C, K_B
 
 AMU = 1.66053906660e-27  # kg
@@ -211,7 +212,8 @@ def kramers_kronig(nu, kappa):
     n(nu) - n_inf = (2/pi) P int_0^inf nu' kappa(nu')/(nu'^2 - nu^2) dnu',
     evaluated with Maclaurin's method (Ohta and Ishida): on a uniform grid
     the sum runs over the points of the other parity, which avoids the
-    pole. kappa must be negligible outside the grid.
+    pole. The sums are evaluated as FFT convolutions, O(N log N). kappa must
+    be negligible outside the grid.
 
     Parameters
     ----------
@@ -227,12 +229,20 @@ def kramers_kronig(nu, kappa):
 
     nu = np.asarray(nu, dtype=float)
     kappa = np.asarray(kappa, dtype=float)
+    N = len(nu)
     h = nu[1] - nu[0]
-    idx = np.arange(len(nu))
-    dn = np.empty(len(nu))
-    for i in range(len(nu)):
-        j = idx[(idx % 2) != (i % 2)]
-        dn[i] = (4*h/pi)*np.sum(nu[j]*kappa[j]/(nu[j]**2 - nu[i]**2))
+    # nu_j/(nu_j**2 - nu_i**2) = (1/(nu_j - nu_i) + 1/(nu_j + nu_i))/2 with
+    # j - i (and so j + i) odd: a convolution with g1[j - i] = 1/((j - i) h)
+    # and a correlation with g2[i + j] = 1/(2 nu_0 + (i + j) h), both by FFT
+    k = np.arange(-(N - 1), N)
+    odd = k % 2 != 0
+    g1 = np.zeros(len(k))
+    g1[odd] = 1/(k[odd]*h)
+    m = np.arange(2*N - 1)
+    g2 = np.where(m % 2 != 0, 1/(2*nu[0] + m*h), 0.0)
+    T1 = fftconvolve(kappa, g1[::-1], mode="valid")  # sum_j kappa_j g1[j - i]
+    T2 = fftconvolve(g2, kappa[::-1])[N - 1:2*N - 1]  # sum_j kappa_j g2[i + j]
+    dn = (2*h/pi)*(T1 + T2)
 
     return dn
 
@@ -461,11 +471,24 @@ def interferogram(x, nu, spectrum, phase=None):
     Returns
     -------
     I : array
+
+    Notes
+    -----
+    For equidistant x (any shape whose flattened values are equally spaced)
+    the sum is a zoomed DFT, evaluated with the chirp-z transform
+    `fft.czt()` in O((N_x + N_nu) log(N_x + N_nu)) instead of N_x*N_nu
+    cosines; other x are summed directly.
     """
 
     x = np.asarray(x, dtype=float)
     nu = np.asarray(nu, dtype=float)
     dnu = nu[1] - nu[0]
+    if x.size*nu.size > 2**18 and _equidistant(x.ravel()) and _equidistant(nu):
+        # uniform x and nu: a zoomed DFT, evaluated by the chirp-z transform
+        x0, dx = x.ravel()[0], x.ravel()[1] - x.ravel()[0]
+        c = np.asarray(spectrum, dtype=float)*(1.0 if phase is None else np.exp(1j*np.asarray(phase)))
+        X = czt(c, M=x.size, w=np.exp(2j*pi*dx*dnu), a=np.exp(-2j*pi*x0*dnu))
+        return (np.real(X*np.exp(2j*pi*x.ravel()*nu[0]))*dnu).reshape(x.shape)
     ph = 0.0 if phase is None else np.asarray(phase)[None, :]
     out = np.empty(x.shape)
     for s in range(0, x.size, 2048):
@@ -474,6 +497,16 @@ def interferogram(x, nu, spectrum, phase=None):
                                          axis=1)*dnu
 
     return out
+
+
+def _equidistant(v):
+    """Whether v (1d, at least two points) is equally spaced."""
+
+    if v.ndim != 1 or len(v) < 2:
+        return False
+    step = (v[-1] - v[0])/(len(v) - 1)
+
+    return step != 0 and np.allclose(np.diff(v), step, rtol=1E-9, atol=0.0)
 
 
 def fts_spectrum(x, I, kind="boxcar", n_fft=None):

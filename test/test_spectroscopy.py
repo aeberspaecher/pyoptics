@@ -91,6 +91,33 @@ def test_instrument_line_shape_widths(kind, factor):
     assert np.isclose(spc.fwhm(nu, ils), factor/(2*L), rtol=0.01)
 
 
+def test_interferogram_chirp_z_matches_direct_sum():
+    # uniform x: chirp-z transform; the same points out of order: direct sum
+    rng = np.random.default_rng(3)
+    nu = np.linspace(500.0, 900.0, 801)
+    S, phi = rng.random(801), rng.random(801)
+    x = np.linspace(-0.02, 0.03, 1001)
+    perm = rng.permutation(len(x))
+    for phase in (None, phi):
+        fast = spc.interferogram(x, nu, S, phase)
+        direct = spc.interferogram(x[perm], nu, S, phase)
+        assert np.allclose(fast[perm], direct, rtol=0, atol=1e-9*np.max(np.abs(direct)))
+
+
+def test_kramers_kronig_matches_the_maclaurin_sum():
+    # the FFT evaluation against the explicit sum over the other parity
+    rng = np.random.default_rng(4)
+    nu = 0.3 + 0.01*np.arange(301)
+    kappa = rng.random(301)
+    dn = spc.kramers_kronig(nu, kappa)
+    h = nu[1] - nu[0]
+    idx = np.arange(len(nu))
+    for i in (0, 1, 150, 299, 300):
+        j = idx[idx % 2 != i % 2]
+        ref = (4*h/np.pi)*np.sum(nu[j]*kappa[j]/(nu[j]**2 - nu[i]**2))
+        assert dn[i] == pytest.approx(ref, rel=1e-10, abs=1e-12)
+
+
 def test_fts_recovers_lines():
     nu = np.linspace(0, 4000, 40001)
     S = spc.gaussian(nu, 1000.0, 2.0) + 0.5*spc.gaussian(nu, 2500.0, 2.0)
