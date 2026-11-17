@@ -206,6 +206,7 @@ Sequential and polarization ray tracing, from rays to waves, glass catalogues, l
 - {doc}`notebooks/149_scan_lenses`
 - {doc}`151 Hybrid diffractive lenses <notebooks/151_hybrid_diffractive_lenses>`
 - {doc}`153 Multi-configuration optimization <notebooks/153_multiconfig_optimization>`
+- {doc}`154 Global optimization and saddle points <notebooks/154_global_optimization_saddle_points>`
 
 ```{toctree}
 :hidden:
@@ -232,6 +233,7 @@ notebooks/129_progressive_lenses
 notebooks/149_scan_lenses
 notebooks/151_hybrid_diffractive_lenses
 notebooks/153_multiconfig_optimization
+notebooks/154_global_optimization_saddle_points
 ```
 
 ## Interferometry, holography and wavefront sensing
