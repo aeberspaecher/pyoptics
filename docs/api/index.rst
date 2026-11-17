@@ -95,6 +95,7 @@ Imaging and ray tracing
    pyoptics.lightfield
    pyoptics.delano
    pyoptics.lens_optimization
+   pyoptics.ray_derivatives
    pyoptics.lens_landscape
    pyoptics.off_axis
    pyoptics.nodal

@@ -226,7 +226,9 @@ def ray_errors(fields=(0.0, 0.5, 0.75, 1.0), rings=(0.4, 0.7, 0.9, 1.0), spokes=
     Returns
     -------
     operand : callable
-        operand(system) returns the x and y errors of all rays / tolerance.
+        operand(system) returns the x and y errors of all rays / tolerance;
+        operand.linearize(lin) also their analytic Jacobian
+        (`ray_derivatives`).
     """
 
     px, py = _pupil_rings(rings, spokes)
@@ -238,6 +240,23 @@ def ray_errors(fields=(0.0, 0.5, 0.75, 1.0), rings=(0.4, 0.7, 0.9, 1.0), spokes=
             out.append(np.nan_to_num(e, nan=FAILED, posinf=FAILED, neginf=FAILED).ravel())
 
         return np.concatenate(out)
+
+    def linearize(lin):
+        from .ray_derivatives import clean
+
+        K = len(px) + 1
+        rd = lin.trace_fields(_fields(lin.system, fields), np.concatenate([[0.0], px]),
+                              np.concatenate([[0.0], py]))
+        r, J = [], []
+        for j in range(len(fields)):
+            sl = slice(j*K + 1, (j + 1)*K)
+            r.append(((rd.I[sl, :2] - rd.I[j*K, :2])/tolerance).ravel())
+            dI = (rd.dI[:, sl, :2] - rd.dI[:, j*K:j*K + 1, :2])/tolerance
+            J.append(dI.reshape(len(dI), -1).T)
+
+        return clean(np.concatenate(r), np.concatenate(J))
+
+    operand.linearize = linearize
 
     return operand
 
@@ -687,6 +706,34 @@ class LensOptimizer:
 
         return out
 
+    def jacobian(self, x=None):
+        """Jacobian of `residuals()`: analytic derivatives of the real ray
+        trace (`ray_derivatives`) for the operands that support them,
+        central differences for the others.
+
+        Parameters
+        ----------
+        x : array, optional
+            Variables (default: the current ones).
+
+        Returns
+        -------
+        (residuals, variables) array
+        """
+
+        from .ray_derivatives import Linearization
+
+        x = self.x if x is None else np.asarray(x, float)
+        steps = 1e-5*self._scales()
+        n_conf = 1 if self.configurations is None else len(self.configurations)
+        out = []
+        for c, w in zip(range(n_conf), self.configuration_weights):
+            lin = Linearization(lambda xx, c=c: self.configuration_systems(self.system_at(xx))[c],
+                                x, steps)
+            out += [w*lin.jacobian(op)[1] for op in self.operands]
+
+        return np.concatenate(out)
+
     def cost(self):
         """Half the sum of squares of the residuals of the current system."""
 
@@ -707,6 +754,8 @@ class LensOptimizer:
             Passed to scipy.optimize.least_squares (e.g. x_scale="jac"
             instead of the default scales: the median curvature and
             thickness, 100 wavelengths for the aspheric sags).
+            jac="analytic" uses `jacobian()` (analytic derivatives of the
+            real ray trace).
 
         Returns
         -------
@@ -721,6 +770,8 @@ class LensOptimizer:
             self.na_scale, self.field_scale = na_scale, field_scale
             options = dict(x_scale=self._scales(), max_nfev=max_nfev)
             options.update(kwargs)
+            if options.get("jac") == "analytic":
+                options["jac"] = self.jacobian
             r = least_squares(self.residuals, self.x, **options)
             self.system = self.system_at(r.x)
             log.append((na_scale, field_scale, r.cost, r.nfev))
@@ -1649,6 +1700,8 @@ def wavefront(fields=(0.0, 0.7, 1.0), wavelengths=None, rings=(0.4, 0.7, 0.9, 1.
     Returns
     -------
     operand : callable
+        With operand.linearize(lin) for the analytic Jacobian
+        (`ray_derivatives`).
     """
 
     px, py = _pupil_rings(rings, spokes)
@@ -1665,6 +1718,24 @@ def wavefront(fields=(0.0, 0.7, 1.0), wavelengths=None, rings=(0.4, 0.7, 0.9, 1.
                 out.append(_clean(W/tolerance))
 
         return np.concatenate(out)
+
+    def linearize(lin):
+        from .ray_derivatives import clean
+
+        K = len(px1)
+        r, J = [], []
+        for w in ([None] if wavelengths is None else wavelengths):
+            lw = lin if w is None else lin.mapped(lambda s, w=w: _at_wavelength(s, w))
+            s = lw.system
+            rd = lw.trace_fields(_fields(s, fields), px1, py1)
+            for j in range(len(fields)):
+                W, dW = lw.opd(rd, j*K, K)
+                r.append(W[1:]/s.wavelength/tolerance)
+                J.append(dW[:, 1:].T/s.wavelength/tolerance)
+
+        return clean(np.concatenate(r), np.concatenate(J))
+
+    operand.linearize = linearize
 
     return operand
 
@@ -2310,10 +2381,20 @@ class DampedLeastSquares:
         Weight of each operand (default 1).
     damping : number, optional
         Initial damping lambda (of every run()).
+    jac : {"2-point", "analytic"}, optional
+        Jacobian of the residuals: forward differences, or analytic
+        derivatives of the real ray trace (`ray_derivatives`, differential
+        ray tracing) for the operands that support them
+        (`off_axis.field_wavefront()`, `wavefront()`, `ray_errors()` and
+        operands with a ``linearize`` method), with central differences for
+        the other operands, the constraints and the variables that the
+        differential trace does not cover. Solves are differentiated with
+        the system (their paraxial effect by central differences). Not
+        with a `MultiConfiguration` (forward differences there).
     """
 
     def __init__(self, system, variables, operands, constraints=(), solves=(), weights=None,
-                 damping=1e-2):
+                 damping=1e-2, jac="2-point"):
         self.multi = isinstance(system, MultiConfiguration)
         self.variables = [self._variable(v) for v in variables]
         self.operands = [self._function(op, True) for op in operands]
@@ -2321,6 +2402,9 @@ class DampedLeastSquares:
         self.solves = [self._function(s, False) for s in solves]
         self.weights = np.ones(len(self.operands)) if weights is None else np.asarray(weights, float)
         self.damping = damping
+        if jac not in ("2-point", "analytic"):
+            raise ValueError("jac is '2-point' or 'analytic'.")
+        self.jac = jac
         self.system = self._solve(_uncached(system))
         self._scale = np.array([v.typical(self.system) for v in self.variables])
 
@@ -2452,8 +2536,9 @@ class DampedLeastSquares:
 
     def jacobian(self, system=None):
         """Jacobians of the residuals and of the constraint values with
-        respect to the variables (forward differences; each column is the
-        sensitivity of the operands to one variable).
+        respect to the variables (forward differences, or analytic with
+        jac="analytic"; each column is the sensitivity of the operands to
+        one variable).
 
         Parameters
         ----------
@@ -2469,9 +2554,40 @@ class DampedLeastSquares:
         """
 
         system = self.system if system is None else system
+        if self.jac == "analytic" and not self.multi and system is self.system:
+            return self._analytic_jacobian()
         r = self.residuals(system)
         g = self.constraint_values(system)[0]
         J, A = self._columns(self.variables, self._scale, system, r, g)
+
+        return J, A, r, g
+
+    def linearization(self):
+        """`ray_derivatives.Linearization` of the current system with respect
+        to the variables (solves included).
+
+        Returns
+        -------
+        ray_derivatives.Linearization
+        """
+
+        from .ray_derivatives import Linearization
+
+        return Linearization(self.system_at, self.x, 1e-5*self._scale, system=self.system)
+
+    def _analytic_jacobian(self):
+        lin = self.linearization()
+        rs, Js = [], []
+        for w, op in zip(self.weights, self.operands):
+            r, J = lin.jacobian(op)
+            rs.append(w*r)
+            Js.append(w*J)
+        _drop_cache(self.system)
+        r = np.concatenate(rs) if rs else np.zeros(0)
+        J = np.concatenate(Js) if Js else np.zeros((0, len(self.variables)))
+        g = self.constraint_values()[0]
+        A = (lin.finite_difference(lambda s: self.constraint_values(s)[0]) if len(g)
+             else np.zeros((0, len(self.variables))))
 
         return J, A, r, g
 
