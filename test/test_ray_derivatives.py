@@ -3,7 +3,7 @@
 
 """Test the analytic derivatives of real ray traces (differential ray
 tracing) against central differences of complete traces: mirror systems
-with Q-con and Zernike surfaces, tilts and decentres, refracting lenses with
+with Q-con, Q2D and Zernike surfaces, tilts and decentres, refracting lenses with
 model glasses and aspheres, aimed and unaimed rays, solves, the operands
 with analytic Jacobians and the optimizers' jac="analytic"."""
 
@@ -92,6 +92,71 @@ def test_mirror_trace_derivatives(aim, focus):
                        f(dls.system), rtol=0, atol=1e-9)
     err = rel_errors(stacked(rd), lin.finite_difference(f))
     assert np.all(err < 1e-5), dict(zip([v.name for v in TMA_VARIABLES], err))
+
+
+def q2d_tma():
+    """Cook TMA with a Q2D secondary (vertex-centred) and a Q-con tertiary
+    with a Q2D departure centred off axis."""
+
+    s = oa.cook_tma()
+    S = s.surfaces
+    S[1] = qa.Q2DSurface(R=S[1].R, thickness=S[1].thickness, cos={(0, 0): 2e-4, (2, 0): 3e-4},
+                         sin={(1, 1): 1e-4}, norm_radius=60.0, mirror=True,
+                         semi_diameter=S[1].semi_diameter)
+    S[2] = qa.QconQ2DSurface(R=S[2].R, thickness=S[2].thickness, conic=S[2].conic,
+                             q=(5e-4,), norm_radius=100.0, cos={(2, 0): 4e-4, (3, 0): 2e-4},
+                             sin={(1, 1): 3e-4}, freeform_radius=40.0, centre=(5.0, -20.0),
+                             mirror=True, semi_diameter=S[2].semi_diameter)
+
+    return s
+
+
+Q2D_VARIABLES = [lo.Curvature(1), qa.Q2DCoefficient(1, 0, 1), qa.Q2DCoefficient(1, 2, 0),
+                 qa.Q2DCoefficient(1, 1, 1, "sin"), lo.Curvature(2), lo.Conic(2),
+                 qa.QCoefficient(2, 0), qa.Q2DCoefficient(2, 2, 0),
+                 qa.Q2DCoefficient(2, 2, 1), qa.Q2DCoefficient(2, 1, 1, "sin"),
+                 qa.Q2DCoefficient(2, 3, 0), lo.Thickness(1), lo.Tilt(2, 0)]
+
+
+@pytest.mark.parametrize("aim", [True, False])
+def test_q2d_trace_derivatives(aim):
+    s = q2d_tma()
+    s.ray_aiming = aim
+    dls = lo.DampedLeastSquares(s, Q2D_VARIABLES, [], solves=[lo.solve_paraxial_focus()])
+    lin = dls.linearization()
+    assert not np.any(lin.unsupported)
+    field = (np.radians(0.5), np.radians(3.0))
+    px, py = oa.pupil_rings((0.5, 1.0), 8)
+    rd = lin.trace(field, px, py)
+    f = image_rays(field, px, py)
+    assert np.allclose(np.concatenate([rd.I.ravel(), rd.D.ravel(), rd.opl, rd.d0.ravel()]),
+                       f(dls.system), rtol=0, atol=1e-9)
+    err = rel_errors(stacked(rd), lin.finite_difference(f))
+    assert np.all(err < 1e-5), dict(zip([v.name for v in Q2D_VARIABLES], err))
+
+
+def test_qcon_q2d_surface():
+    """Without Q2D terms it is the Q-con surface; the departure is centred
+    on `centre`, its gradient matches differences and rays hit the sag."""
+
+    base = qa.QconSurface(R=-500.0, conic=-0.8, q=(2e-3, -1e-3), norm_radius=80.0)
+    plain = qa.QconQ2DSurface(R=-500.0, conic=-0.8, q=(2e-3, -1e-3), norm_radius=80.0)
+    x, y = np.random.default_rng(1).uniform(-60, 60, (2, 50))
+    assert np.allclose(plain.sag_xy(x, y), base.sag(x**2 + y**2), rtol=0, atol=1e-14)
+    s = qa.QconQ2DSurface(R=-500.0, conic=-0.8, q=(2e-3, -1e-3), norm_radius=80.0,
+                          cos={(0, 1): 1e-3, (2, 0): 2e-3, (3, 1): -1e-3},
+                          sin={(1, 1): 5e-4}, freeform_radius=30.0, centre=(10.0, 40.0))
+    patch = qa.Q2DSurface(R=np.inf, cos=dict(s.cos), sin=dict(s.sin), norm_radius=30.0)
+    assert np.allclose(s.departure_xy(x + 10, y + 40), patch.sag_xy(x, y), rtol=0, atol=1e-14)
+    h = 1e-6
+    gx, gy = s._gradient(x, y)
+    assert np.allclose(gx, (s.sag_xy(x + h, y) - s.sag_xy(x - h, y))/(2*h), atol=1e-8)
+    assert np.allclose(gy, (s.sag_xy(x, y + h) - s.sag_xy(x, y - h))/(2*h), atol=1e-8)
+    P = np.stack([x, y, np.full_like(x, -10.0)], axis=1)
+    d = np.tile([0.05, -0.02, 1.0], (len(x), 1))
+    d = d/np.linalg.norm(d, axis=1)[:, None]
+    Q = P + s.intersect(P, d)[:, None]*d
+    assert np.allclose(Q[:, 2], s.sag_xy(Q[:, 0], Q[:, 1]), rtol=0, atol=1e-11)
 
 
 @pytest.mark.parametrize("object_distance", [np.inf, 400.0])

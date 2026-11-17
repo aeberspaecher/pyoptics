@@ -50,7 +50,7 @@ differentiated analytically; paraxial operands (`seidel()`,
 `paraxial_target()`, `clearances()`...) by `Linearization.derivative()`;
 other operands, parameters that change something the
 differential trace does not cover (wavelength, field, surfaces other than
-`raytrace.Surface`, Q-bfs, Q-con and Zernike surfaces and coordinate breaks)
+`raytrace.Surface`, Q-bfs, Q-con, Q2D and Zernike surfaces (also `QconQ2DSurface`) and coordinate breaks)
 and constraints get central differences of `Linearization.jacobian()`.
 Rays are traced without vignetting (clip=False), as by the operands.
 
@@ -191,9 +191,10 @@ _SYSTEM_OK = {"object_distance", "image_decenter", "image_tilt", "background"}
 
 
 def _shape_types():
-    from .qaspheres import QbfsSurface, QconSurface
+    from .qaspheres import QbfsSurface, QconSurface, Q2DSurface, QconQ2DSurface
 
-    return (rt.Surface, QbfsSurface, QconSurface, rt.ZernikeSurface)
+    return (rt.Surface, QbfsSurface, QconSurface, rt.ZernikeSurface, Q2DSurface,
+            QconQ2DSurface)
 
 
 def _differs(a, b):
@@ -215,7 +216,7 @@ def _public(obj):
 def _sag_gradient(s, x, y):
     """Sag z and gradient (z_x, z_y) of a surface at local points."""
 
-    if isinstance(s, rt.ZernikeSurface):
+    if hasattr(s, "sag_xy"):  # Zernike and Q2D freeforms
         zx, zy = s._gradient(x, y)
         return s.sag_xy(x, y), zx, zy
     r2 = x**2 + y**2
@@ -230,13 +231,23 @@ def _hessian(s, x, y, scale):
     the Zernike departure from central differences of its analytic
     gradient."""
 
+    if hasattr(s, "sag_xy") and not hasattr(s, "departure_gradient"):
+        # Q2DSurface: central differences of the analytic full gradient
+        h = 1e-5*scale
+        gxp, gyp = s._gradient(x + h, y)
+        gxm, gym = s._gradient(x - h, y)
+        zxx, zxy = (gxp - gxm)/(2*h), (gyp - gym)/(2*h)
+        gxp, gyp = s._gradient(x, y + h)
+        gxm, gym = s._gradient(x, y - h)
+        return zxx, zxy, (gyp - gym)/(2*h)
     r2 = x**2 + y**2
     h2 = 1e-5*scale**2
     sr = s._slope_over_r(r2)
     ds = (s._slope_over_r(r2 + h2) - s._slope_over_r(r2 - h2))/(2*h2)
     zxx, zxy, zyy = sr + 2*x**2*ds, 2*x*y*ds, sr + 2*y**2*ds
-    if isinstance(s, rt.ZernikeSurface) and s.zernike:
-        h = 1e-5*s.norm_radius
+    if hasattr(s, "departure_gradient") and (getattr(s, "zernike", ())
+                                             or getattr(s, "cos", ()) or getattr(s, "sin", ())):
+        h = 1e-5*getattr(s, "freeform_radius", s.norm_radius)
         gxp, gyp = s.departure_gradient(x + h, y)
         gxm, gym = s.departure_gradient(x - h, y)
         zxx = zxx + (gxp - gxm)/(2*h)

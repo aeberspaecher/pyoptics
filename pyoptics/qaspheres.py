@@ -80,6 +80,7 @@ forms).
 """
 
 from functools import lru_cache
+from types import SimpleNamespace
 
 import numpy as np
 from numpy.polynomial import chebyshev as C
@@ -90,7 +91,7 @@ from .raytrace import Surface, _norm
 
 
 __all__ = ["qbfs", "qbfs_series", "qcon", "qcon_series", "sag_qbfs", "sag_qcon",
-           "QbfsSurface", "QconSurface", "best_fit_sphere", "fit_qbfs", "fit_qcon",
+           "QbfsSurface", "QconSurface", "QconQ2DSurface", "best_fit_sphere", "fit_qbfs", "fit_qcon",
            "even_asphere_sag", "rms_slope", "QCoefficient", "q2d", "Q2DSurface",
            "Q2DCoefficient"]
 
@@ -937,6 +938,124 @@ class Q2DSurface(Surface):
 
         v = [c for _, c in self.cos] + [c for _, c in self.sin]
         return np.sqrt(np.sum(np.square(v)))/self.norm_radius
+
+
+class QconQ2DSurface(QconSurface):
+    """Q-con asphere with a Q2D freeform departure centred off axis: an
+    off-axis mirror segment of a rotationally symmetric parent with a
+    freeform correction over its footprint ::
+
+        z(x, y) = z_Qcon(x**2 + y**2) + D((x - x0)/r_f, (y - y0)/r_f),
+
+    with the Q-con sag of `QconSurface` about the vertex and the Q2D
+    departure D of `Q2DSurface` (same coefficients, polynomials and
+    azimuth convention) centred on the point (x0, y0) of the local frame
+    with its own normalization radius r_f, usually the footprint centre
+    and radius (`off_axis.freeform_mirrors`). D is added to the sag as it
+    is: it is not divided by the square root of the base sphere, since the
+    base is not a sphere about (x0, y0). The paraxial data and the Seidel
+    sums use the Q-con part; the departure only enters the real ray trace.
+
+    Parameters
+    ----------
+    R, thickness, q, norm_radius, conic : optional
+        As for `QconSurface` (norm_radius is that of the Q-con terms).
+    cos, sin : dict, optional
+        {(m, n): coefficient} of the Q2D terms, as for `Q2DSurface`.
+    freeform_radius : number, optional
+        Normalization radius r_f of the Q2D terms.
+    centre : (x0, y0), optional
+        Centre of the Q2D terms in the local frame.
+    **kwargs
+        Passed on to `raytrace.Surface`.
+    """
+
+    def __init__(self, R=np.inf, thickness=0.0, q=(), norm_radius=1.0, conic=0.0,
+                 cos=None, sin=None, freeform_radius=1.0, centre=(0.0, 0.0), **kwargs):
+        super().__init__(R, thickness, q, norm_radius, conic, **kwargs)
+        self.freeform_radius = float(freeform_radius)
+        self.centre = (float(centre[0]), float(centre[1]))
+        self.cos = tuple(sorted(((int(m), int(n)), float(v)) for (m, n), v in (cos or {}).items()))
+        self.sin = tuple(sorted(((int(m), int(n)), float(v)) for (m, n), v in (sin or {}).items()
+                                if m > 0))
+
+    def __repr__(self):
+        return ("QconQ2DSurface(R={}, thickness={}, conic={}, q={}, norm_radius={}, cos={}, "
+                "sin={}, freeform_radius={}, centre={})").format(
+            self.R, self.thickness, self.conic, self.q, self.norm_radius, dict(self.cos),
+            dict(self.sin), self.freeform_radius, self.centre)
+
+    set_term = Q2DSurface.set_term
+    get_term = Q2DSurface.get_term
+    _groups = Q2DSurface._groups
+
+    def departure_gradient(self, x, y):
+        """Analytic (dD/dx, dD/dy) of the Q2D departure."""
+
+        return self._departure(x, y)[1:]
+
+    def _departure(self, x, y):
+        x0, y0 = self.centre
+
+        # the Q2D departure with its own normalization radius:
+        patch = SimpleNamespace(norm_radius=self.freeform_radius, _groups=self._groups)
+
+        return Q2DSurface._departure_and_gradient(
+            patch, np.asarray(x, float) - x0, np.asarray(y, float) - y0)
+
+    def departure_xy(self, x, y):
+        """Q2D part of the sag at the points (x, y) of the local frame."""
+
+        return self._departure(x, y)[0]
+
+    def sag_xy(self, x, y):
+        """Sag z(x, y), Q-con sag plus the Q2D departure."""
+
+        x, y = np.asarray(x, float), np.asarray(y, float)
+        return self.sag(x**2 + y**2) + self.departure_xy(x, y)
+
+    def _gradient(self, x, y):
+        s = self._slope_over_r(x**2 + y**2)
+        _, gx, gy = self._departure(x, y)
+
+        return x*s + gx, y*s + gy
+
+    def intersect(self, P, d):
+        """Distance along the rays to the surface: from the Q-con surface by
+        Newton steps on the full sag."""
+
+        t = super().intersect(P, d)
+        if not (self.cos or self.sin):
+            return t
+        t = np.where(np.isfinite(t), t, -P[:, 2]/d[:, 2])
+        for _ in range(60):
+            Q = P + t[:, None]*d
+            gx, gy = self._gradient(Q[:, 0], Q[:, 1])
+            G = Q[:, 2] - self.sag_xy(Q[:, 0], Q[:, 1])
+            dG = d[:, 2] - gx*d[:, 0] - gy*d[:, 1]
+            with np.errstate(invalid="ignore", divide="ignore"):
+                step = G/dG
+            t = t - step
+            with np.errstate(invalid="ignore"):
+                if np.all(~np.isfinite(step) | (np.abs(step) < 1e-14*(1 + np.abs(t)))):
+                    break
+        Q = P + t[:, None]*d
+
+        return np.where(np.isfinite(self.sag_xy(Q[:, 0], Q[:, 1])), t, np.nan)
+
+    def normal(self, Q):
+        """Unit normals (pointing into +z) at the points Q relative to the vertex."""
+
+        gx, gy = self._gradient(Q[:, 0], Q[:, 1])
+        N = np.stack([-gx, -gy, np.ones(len(Q))], axis=-1)
+
+        return N/_norm(N)[:, None]
+
+    def rms_slope(self):
+        """sqrt(sum of the squared Q2D coefficients)/r_f (radians)."""
+
+        v = [c for _, c in self.cos] + [c for _, c in self.sin]
+        return np.sqrt(np.sum(np.square(v)))/self.freeform_radius
 
 
 try:
