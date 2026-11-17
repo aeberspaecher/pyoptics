@@ -209,6 +209,40 @@ def _fields(system, fields):
     return [f*system.max_field for f in fields]
 
 
+def _paraxial_linearize(operand):
+    """Give an operand that traces no real rays (paraxial data, Seidel
+    sums, thicknesses and sags) operand.linearize(lin): central differences
+    with the small steps of the linearization, on the systems that it has
+    built anyway (`ray_derivatives.Linearization.derivative()`)."""
+
+    operand.linearize = lambda lin: _small_differences(operand, lin)
+
+    return operand
+
+
+def _small_differences(f, lin):
+    """Residuals f(system) and their central differences on the systems of
+    the linearization (small steps: for functions without real rays)."""
+
+    r = np.atleast_1d(np.asarray(f(lin.system), float))
+
+    return r, lin.derivative(f).reshape(lin.n_parameters, len(r)).T
+
+
+def _linearized_chief(lin, fields, aim):
+    """RayDerivatives of the chief rays at the (absolute) fields: the
+    system's chief rays, or with aim the real chief rays through the centre
+    of the stop (as `_aimed_chief()`)."""
+
+    return lin.trace_fields(fields, 0.0, 0.0, aim=True if aim else None)
+
+
+def _slope(D, dD):
+    """y/z slopes of directions D (N, 3) and their derivatives (V, N)."""
+
+    return D[:, 1]/D[:, 2], (dD[:, :, 1]*D[:, 2] - D[:, 1]*dD[:, :, 2])/D[:, 2]**2
+
+
 def ray_errors(fields=(0.0, 0.5, 0.75, 1.0), rings=(0.4, 0.7, 0.9, 1.0), spokes=6,
                tolerance=1e-4):
     """Transverse ray aberrations relative to the chief ray.
@@ -292,6 +326,16 @@ def distortion(magnification, fields=(0.5, 0.75, 1.0), tolerance=1e-5, aim=False
 
         return np.nan_to_num(np.array(out), nan=FAILED)
 
+    def linearize(lin):
+        from .ray_derivatives import clean
+
+        f = _fields(lin.system, fields)
+        rd = _linearized_chief(lin, f, aim)
+
+        return clean((rd.I[:, 1] - magnification*np.array(f))/tolerance, rd.dI[:, :, 1].T/tolerance)
+
+    operand.linearize = linearize
+
     return operand
 
 
@@ -329,6 +373,21 @@ def ftheta(efl=None, fields=(0.3, 0.5, 0.7, 0.85, 1.0), tolerance=1e-3, aim=Fals
 
         return np.nan_to_num((h - f*th)/tolerance, nan=FAILED)
 
+    def linearize(lin):
+        from .ray_derivatives import clean
+
+        th = np.array(_fields(lin.system, fields))
+        rd = _linearized_chief(lin, list(th), aim)
+        if efl is None:
+            f, df = lin.system.paraxial().efl, lin.derivative(lambda s: s.paraxial().efl)
+        else:
+            f, df = efl, np.zeros(lin.n_parameters)
+        J = (rd.dI[:, :, 1] - df[:, None]*th[None, :]).T/tolerance
+
+        return clean((rd.I[:, 1] - f*th)/tolerance, J)
+
+    operand.linearize = linearize
+
     return operand
 
 
@@ -359,6 +418,16 @@ def image_telecentricity(fields=(0.5, 0.75, 1.0), tolerance=1e-3, aim=False):
         out = D[:, 1]/D[:, 2]/tolerance
 
         return np.nan_to_num(np.array(out), nan=FAILED)
+
+    def linearize(lin):
+        from .ray_derivatives import clean
+
+        rd = _linearized_chief(lin, _fields(lin.system, fields), aim)
+        v, dv = _slope(rd.D, rd.dD)
+
+        return clean(v/tolerance, dv.T/tolerance)
+
+    operand.linearize = linearize
 
     return operand
 
@@ -392,6 +461,18 @@ def object_telecentricity(tolerance=1e-4, aim=False, fields=(0.5, 0.75, 1.0)):
 
         return np.array([u_c*system.max_field/tolerance])
 
+    def linearize(lin):
+        from .ray_derivatives import clean
+
+        if not aim:
+            return _small_differences(operand, lin)
+        rd = _linearized_chief(lin, _fields(lin.system, fields), True)
+        v, dv = _slope(rd.d0, rd.dd0)
+
+        return clean(v/tolerance, dv.T/tolerance)
+
+    operand.linearize = linearize
+
     return operand
 
 
@@ -416,7 +497,7 @@ def paraxial_target(name, value, tolerance):
     def operand(system):
         return np.array([(getattr(system.paraxial(), name) - value)/tolerance])
 
-    return operand
+    return _paraxial_linearize(operand)
 
 
 def clearances(min_air=1.0, min_center=None, min_edge=3.0, margin=1.05, tolerance=0.01,
@@ -486,7 +567,7 @@ def clearances(min_air=1.0, min_center=None, min_edge=3.0, margin=1.05, toleranc
 
         return np.maximum(0.0, out)/tolerance
 
-    return operand
+    return _paraxial_linearize(operand)
 
 
 def _max_radius(surface):
@@ -1581,6 +1662,24 @@ def _clean(e):
     return np.nan_to_num(e, nan=FAILED, posinf=FAILED, neginf=FAILED)
 
 
+def _linearized_rays_at(lin, fields, wavelengths, px, py):
+    """`_rays_at()` with derivatives: (wavelength, field, I, dI) of the rays
+    (chief ray first) at each combination, dI of shape (V, rays, 3), from
+    one differential trace per wavelength."""
+
+    px1, py1 = np.concatenate([[0.0], px]), np.concatenate([[0.0], py])
+    K = len(px1)
+    out = []
+    for w in ([None] if wavelengths is None else wavelengths):
+        lw = lin if w is None else lin.mapped(lambda s, w=w: _at_wavelength(s, w))
+        rd = lw.trace_fields(_fields(lw.system, fields), px1, py1)
+        for j, f in enumerate(fields):
+            sl = slice(j*K, (j + 1)*K)
+            out.append((w, f, rd.I[sl], rd.dI[:, sl]))
+
+    return out
+
+
 def polychromatic_ray_errors(wavelengths, fields=(0.0, 0.7, 1.0), rings=(0.4, 0.7, 0.9, 1.0),
                              spokes=6, tolerance=1e-3, weights=None):
     """Transverse ray errors at several wavelengths, relative to the chief
@@ -1602,6 +1701,9 @@ def polychromatic_ray_errors(wavelengths, fields=(0.0, 0.7, 1.0), rings=(0.4, 0.
     Returns
     -------
     operand : callable
+        operand(system) returns the x and y errors / tolerance;
+        operand.linearize(lin) also their analytic Jacobian
+        (`ray_derivatives`).
     """
 
     px, py = _pupil_rings(rings, spokes)
@@ -1616,6 +1718,23 @@ def polychromatic_ray_errors(wavelengths, fields=(0.0, 0.7, 1.0), rings=(0.4, 0.
                 out.append(_clean(e).ravel())
 
         return np.concatenate(out)
+
+    def linearize(lin):
+        from .ray_derivatives import clean
+
+        chief = {f: (I[0, :2], dI[:, 0, :2])
+                 for _, f, I, dI in _linearized_rays_at(lin, fields, None, np.zeros(0), np.zeros(0))}
+        r, J = [], []
+        for k, w in enumerate(wavelengths):
+            for _, f, I, dI in _linearized_rays_at(lin, fields, [w], px, py):
+                c, dc = chief[f]
+                r.append(weights[k]*((I[1:, :2] - c)/tolerance).ravel())
+                d = weights[k]*(dI[:, 1:, :2] - dc[:, None, :])/tolerance
+                J.append(d.reshape(len(d), -1).T)
+
+        return clean(np.concatenate(r), np.concatenate(J))
+
+    operand.linearize = linearize
 
     return operand
 
@@ -1647,6 +1766,9 @@ def spot_rms(fields=(0.0, 0.7, 1.0), wavelengths=None, rings=(0.4, 0.7, 0.9, 1.0
     Returns
     -------
     operand : callable
+        operand(system) returns the RMS radii / tolerance;
+        operand.linearize(lin) also their analytic Jacobian
+        (`ray_derivatives`).
     """
 
     px, py = _pupil_rings(rings, spokes)
@@ -1676,6 +1798,34 @@ def spot_rms(fields=(0.0, 0.7, 1.0), wavelengths=None, rings=(0.4, 0.7, 0.9, 1.0
             out.append(np.sqrt(w @ np.sum((P - ref)**2, axis=1)/w.sum())/tolerance)
 
         return _clean(np.array(out))
+
+    def linearize(lin):
+        chief = {f: (I[0, :2], dI[:, 0, :2])
+                 for _, f, I, dI in _linearized_rays_at(lin, fields, None, np.zeros(0), np.zeros(0))}
+        hits = {f: [] for f in fields}
+        for _, f, I, dI in _linearized_rays_at(lin, fields, wavelengths, px, py):
+            hits[f].append((I[1:, :2], dI[:, 1:, :2]))
+        out, J = [], []
+        for f in fields:
+            P = np.concatenate([h[0] for h in hits[f]])
+            dP = np.concatenate([h[1] for h in hits[f]], axis=1)
+            w = np.tile(w_ray, len(hits[f]))
+            if not (np.all(np.isfinite(P)) and np.all(np.isfinite(dP))):
+                out.append(FAILED)
+                J.append(np.zeros(lin.n_parameters))
+                continue
+            if about == "centroid":
+                ref, dref = (w @ P)/w.sum(), np.einsum("i,vij->vj", w, dP)/w.sum()
+            else:
+                ref, dref = chief[f]
+            D, dD = P - ref, dP - dref[:, None, :]
+            rms = np.sqrt(w @ np.sum(D**2, axis=1)/w.sum())
+            out.append(rms/tolerance)
+            J.append(np.einsum("i,ij,vij->v", w, D, dD)/(w.sum()*max(rms, 1e-300)*tolerance))
+
+        return _clean(np.array(out)), np.array(J)
+
+    operand.linearize = linearize
 
     return operand
 
@@ -1785,7 +1935,7 @@ def seidel(term, value=0.0, tolerance=0.01, surfaces=None, field=None):
 
         return np.array([(v - value)/tolerance])
 
-    return operand
+    return _paraxial_linearize(operand)
 
 
 def chromatic(kind, d_wavelength, value=0.0, tolerance=1e-3, field=None):
@@ -1813,7 +1963,7 @@ def chromatic(kind, d_wavelength, value=0.0, tolerance=1e-3, field=None):
 
         return np.array([(getattr(c, kind) - value)/tolerance])
 
-    return operand
+    return _paraxial_linearize(operand)
 
 
 def focal_shift(wavelength_a, wavelength_b, value=0.0, tolerance=1e-3):
@@ -1839,7 +1989,7 @@ def focal_shift(wavelength_a, wavelength_b, value=0.0, tolerance=1e-3):
 
         return np.array([(za - zb - value)/tolerance])
 
-    return operand
+    return _paraxial_linearize(operand)
 
 
 # --- constraints -----------------------------------------------------------
@@ -1910,9 +2060,10 @@ def paraxial_value(name, field=None):
         return getattr(system.paraxial(field), name)
     f.__name__ = name
 
-    return f
+    return _paraxial_linearize(f)
 
 
+@_paraxial_linearize
 def total_length(system):
     """First vertex to image plane (absolute thicknesses)."""
 
@@ -1926,7 +2077,7 @@ def center_thickness(surface):
         return system.surfaces[surface].thickness
     f.__name__ = "t{}".format(surface)
 
-    return f
+    return _paraxial_linearize(f)
 
 
 def edge_thickness(surface, height=None, margin=1.05):
@@ -1958,7 +2109,7 @@ def edge_thickness(surface, height=None, margin=1.05):
         return edge - max(0.0, r - 0.999*r_max)
     f.__name__ = "edge{}".format(surface)
 
-    return f
+    return _paraxial_linearize(f)
 
 
 def glass_map_constraint(surface, margin=0.0):
@@ -1969,7 +2120,7 @@ def glass_map_constraint(surface, margin=0.0):
         return glass_map_distance(*_model_glass(system.surfaces[surface]))
     f.__name__ = "glass_map{}".format(surface)
 
-    return Constraint(f, upper=-margin, tolerance=0.1, name=f.__name__)
+    return Constraint(_paraxial_linearize(f), upper=-margin, tolerance=0.1, name=f.__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -2385,10 +2536,18 @@ class DampedLeastSquares:
         Jacobian of the residuals: forward differences, or analytic
         derivatives of the real ray trace (`ray_derivatives`, differential
         ray tracing) for the operands that support them
-        (`off_axis.field_wavefront()`, `wavefront()`, `ray_errors()` and
-        operands with a ``linearize`` method), with central differences for
-        the other operands, the constraints and the variables that the
-        differential trace does not cover. Solves are differentiated with
+        (`off_axis.field_wavefront()`, `wavefront()`, `ray_errors()`,
+        `polychromatic_ray_errors()`, `spot_rms()`, the chief ray operands
+        `distortion()`, `ftheta()`, `image_telecentricity()`,
+        `object_telecentricity()` and operands with a ``linearize``
+        method). Operands and constraints without real rays (`seidel()`,
+        `chromatic()`, `focal_shift()`, `paraxial_target()`,
+        `clearances()`, `paraxial_value()`, `center_thickness()`,
+        `edge_thickness()`, `total_length()`, `glass_map_constraint()`)
+        get central differences on the systems that the linearization
+        builds anyway; other operands, constraints and the variables that
+        the differential trace does not cover get central differences of
+        complete evaluations. Solves are differentiated with
         the system (their paraxial effect by central differences). Not
         with a `MultiConfiguration` (forward differences there).
     """
@@ -2586,8 +2745,9 @@ class DampedLeastSquares:
         r = np.concatenate(rs) if rs else np.zeros(0)
         J = np.concatenate(Js) if Js else np.zeros((0, len(self.variables)))
         g = self.constraint_values()[0]
-        A = (lin.finite_difference(lambda s: self.constraint_values(s)[0]) if len(g)
-             else np.zeros((0, len(self.variables))))
+        A = [c.function.linearize(lin)[1] if hasattr(c.function, "linearize")
+             else lin.finite_difference(c.values) for c in self.constraints]
+        A = np.concatenate(A) if A else np.zeros((0, len(self.variables)))
 
         return J, A, r, g
 
