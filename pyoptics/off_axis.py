@@ -1115,6 +1115,24 @@ def focal_length(efl, centre=(0.0, 0.0), delta=1e-3, tolerance=0.1, axes=(0, 1))
 
         return _clean(out)
 
+    def linearize(lin):
+        from .ray_derivatives import clean
+
+        r, J = [], []
+        for k in axes:
+            e = np.zeros(2)
+            e[k] = delta
+            c = np.asarray(centre, float)
+            rd = lin.trace_fields([tuple(c - e), tuple(c + e)], 0.0, 0.0)
+            t = np.tan(centre[k] + delta) - np.tan(centre[k] - delta)
+            d, dd = rd.I[1, k] - rd.I[0, k], rd.dI[:, 1, k] - rd.dI[:, 0, k]
+            r.append((abs(d)/t - efl)/tolerance)
+            J.append(np.sign(d)*dd/t/tolerance)
+
+        return clean(np.array(r), np.array(J))
+
+    operand.linearize = linearize
+
     return operand
 
 
@@ -1148,5 +1166,22 @@ def clearance_penalty(fields, minimum=5.0, tolerance=1.0, rim=0.0, image=True,
         d = c.distance.ravel()
 
         return _clean(np.maximum(0.0, minimum - np.where(np.isfinite(d), d, 1e9))/tolerance)
+
+    def linearize(lin):
+        # without a beam closer than minimum, the penalties are zero in a
+        # neighbourhood of the system and so is their Jacobian; else
+        # differences (NotImplementedError)
+        try:
+            c = beam_clearance(lin.system, fields, rim=rim, image=image, rings=rings, spokes=spokes)
+        except (ValueError, IndexError):
+            raise NotImplementedError
+        d = c.distance.ravel()
+        d = np.where(np.isfinite(d), d, 1e9)
+        if np.any(np.isnan(c.distance)) or np.any(d <= minimum):
+            raise NotImplementedError
+
+        return np.zeros(len(d)), np.zeros((len(d), lin.n_parameters))
+
+    operand.linearize = linearize
 
     return operand

@@ -318,3 +318,38 @@ def test_zernike_wavefront_optimization():
     before = dls.merit()
     result = dls.run(max_iterations=8)
     assert result.merit < 0.1*before
+
+
+def test_off_axis_operands_constraint_penalties_and_forward_differences():
+    deg = np.pi/180
+    s = oa.cook_tma(600.0, 4.0, 4*deg, prescription=(-2/3, 0.2, -1/3, 4/9), aperture_offset=-2.0)
+    F = oa.rectangular_field((0, 3*deg), (1.5*deg, 0.5*deg), (3, 3))
+    variables = [lo.Curvature(0), lo.Conic(0), lo.Curvature(1), lo.Thickness(1), lo.Conic(2)]
+    focal = oa.focal_length(600.0, centre=(0.0, 3*deg), tolerance=0.1)
+    clear = oa.clearance_penalty(F, minimum=5.0)
+    tight = oa.clearance_penalty(F, minimum=1e3)  # violated: differences
+    penalty = lo.Constraint(lo.paraxial_value("efl"), upper=590.0, tolerance=0.1)
+    dls = lo.DampedLeastSquares(s, variables, [focal, clear, tight, penalty])
+    lin = dls.linearization()
+    r, J = focal.linearize(lin)
+    assert np.allclose(r, focal(dls.system), rtol=1e-8, atol=1e-8)
+    Jfd = lin.finite_difference(focal)
+    assert np.max(np.abs(J - Jfd)) < 1e-5*np.max(np.abs(Jfd))
+    r, J = clear.linearize(lin)
+    assert np.all(r == 0) and np.all(J == 0) and np.all(clear(dls.system) == 0)
+    assert np.allclose(lin.finite_difference(clear), 0.0)
+    with pytest.raises(NotImplementedError):
+        tight.linearize(lin)
+    r, J = penalty.linearize(lin)
+    assert r[0] > 0 and np.allclose(r, penalty(dls.system))
+    assert np.all(rel_errors(J, lin.finite_difference(penalty)) < 1e-4)
+    # the fallback of operands without linearize: forward differences on the systems at x + h
+    r, J = lin.jacobian(lambda system: focal(system))
+    Ja = focal.linearize(lin)[1]
+    assert np.max(np.abs(J - Ja)) < 1e-4*np.max(np.abs(Ja))
+    # analytic and forward difference Jacobians of a whole problem agree
+    dls = lo.DampedLeastSquares(s, variables, [focal, clear, penalty])
+    J1 = dls.jacobian()[0]
+    dls.jac = "analytic"
+    J2 = dls.jacobian()[0]
+    assert np.max(np.abs(J1 - J2)) < 1e-3*np.max(np.abs(J1))

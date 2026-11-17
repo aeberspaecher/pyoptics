@@ -2065,6 +2065,18 @@ class Constraint:
     def __call__(self, system):
         return self.violation(self.values(system))/self.tolerance
 
+    def linearize(self, lin):
+        """The constraint as a penalty operand, with the Jacobian of its
+        function (if it has a ``linearize``) where it is violated."""
+
+        if not hasattr(self.function, "linearize"):
+            raise NotImplementedError
+        v, J = self.function.linearize(lin)
+        v = np.nan_to_num(np.atleast_1d(np.asarray(v, float)), nan=1/FAILED)
+        active = self.violation(v) != 0
+
+        return self.violation(v)/self.tolerance, np.where(active[:, None], J, 0.0)/self.tolerance
+
     def __repr__(self):
         return "Constraint({}, lower={}, upper={})".format(self.name, self.lower, self.upper)
 
@@ -2563,9 +2575,10 @@ class DampedLeastSquares:
         `clearances()`, `paraxial_value()`, `center_thickness()`,
         `edge_thickness()`, `total_length()`, `glass_map_constraint()`)
         get central differences on the systems that the linearization
-        builds anyway; other operands, constraints and the variables that
-        the differential trace does not cover get central differences of
-        complete evaluations. Solves are differentiated with
+        builds anyway; other operands and constraints get forward
+        differences, the variables that the differential trace does not
+        cover central differences, of complete evaluations (see
+        `ray_derivatives` for the full list). Solves are differentiated with
         the system (their paraxial effect by central differences). Not
         with a `MultiConfiguration` (forward differences there). Faster
         for many variables and ray traced operands, slower for small or
@@ -2767,7 +2780,7 @@ class DampedLeastSquares:
         J = np.concatenate(Js) if Js else np.zeros((0, len(self.variables)))
         g = self.constraint_values()[0]
         A = [c.function.linearize(lin)[1] if hasattr(c.function, "linearize")
-             else lin.finite_difference(c.values) for c in self.constraints]
+             else lin.forward_difference(c.values) for c in self.constraints]
         A = np.concatenate(A) if A else np.zeros((0, len(self.variables)))
 
         return J, A, r, g
