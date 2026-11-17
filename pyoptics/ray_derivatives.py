@@ -44,12 +44,82 @@ trace with as many rays as there are parameters, without aiming them again.
 Operands of `lens_optimization` with a method ``linearize(lin)`` returning
 the residuals and their Jacobian (`off_axis.field_wavefront()`,
 `off_axis.zernike_wavefront()`, `lens_optimization.wavefront()`,
-`ray_errors()`) are differentiated
-analytically; other operands, parameters that change something the
+`ray_errors()`, `polychromatic_ray_errors()`, `spot_rms()`, `distortion()`,
+`ftheta()`, `image_telecentricity()`, `object_telecentricity()`) are
+differentiated analytically; paraxial operands (`seidel()`,
+`paraxial_target()`, `clearances()`...) by `Linearization.derivative()`;
+other operands, parameters that change something the
 differential trace does not cover (wavelength, field, surfaces other than
 `raytrace.Surface`, Q-bfs, Q-con and Zernike surfaces and coordinate breaks)
 and constraints get central differences of `Linearization.jacobian()`.
 Rays are traced without vignetting (clip=False), as by the operands.
+
+Which operands, constraints and variables are analytic
+------------------------------------------------------
+Operands and constraints of `lens_optimization` with ``jac="analytic"``:
+
+- **Differential ray trace:** `ray_errors()`, `wavefront()` (other
+  wavelengths through `Linearization.mapped()`),
+  `polychromatic_ray_errors()`, `spot_rms()`, `off_axis.field_wavefront()`,
+  `off_axis.zernike_wavefront()`.
+- **Differential trace of the chief rays** (aimed or not): `distortion()`,
+  `ftheta()`, `image_telecentricity()`, `object_telecentricity()`.
+- **Small central differences on the systems of the linearization** (no
+  rays, cheap): `seidel()`, `chromatic()`, `focal_shift()`,
+  `paraxial_target()`, `clearances()`; the constraints `paraxial_value()`,
+  `center_thickness()`, `edge_thickness()`, `total_length()`,
+  `glass_map_constraint()`.
+- **Central differences of complete evaluations** (2V evaluations):
+  everything else, e.g. own functions, `off_axis.clearance_penalty()`,
+  `off_axis.focal_length()` and Constraint objects used as operands.
+
+Variables (`lens_optimization`): `Curvature`, `Conic`, `Aspheric`,
+`QCoefficient`, `ZernikeTerm`, `Thickness`, `AirSpace`, `ObjectDistance`
+(finite objects), `Tilt`, `Decenter`, `ImageTilt` and the model glasses
+(`GlassIndex`, `GlassAbbe`, through the derivatives of the indices) are
+analytic, with the paraxial solves applied. Parameters that change
+the wavelength, the field or the object space index, and surfaces other
+than `raytrace.Surface`, Q-bfs, Q-con, Zernike surfaces and coordinate
+breaks (ideal lenses, gratings, diffractive surfaces, axicons, tabulated
+surfaces), get central differences column by column
+(`Linearization.unsupported` lists them). Rays are traced without
+vignetting (clip=False).
+
+When analytic Jacobians pay off
+-------------------------------
+``jac="analytic"`` (`lens_optimization.DampedLeastSquares`,
+`LensOptimizer.run()`) gives the same steps as differences, more
+accurately; whether it is faster depends on the problem. A linearization
+first builds the systems at x +- h for every variable (2V copies with the
+solves, no rays), then traces the rays once with V derivatives each. A
+forward difference Jacobian traces all operands V times. So:
+
+- **Use it** for many variables (about 20 and more) and operands that trace
+  many real rays and have a ``linearize`` method (`ray_errors()`,
+  `wavefront()`, `polychromatic_ray_errors()`, `spot_rms()`,
+  `off_axis.field_wavefront()`, the chief ray operands). Examples: the
+  KrF lens of notebook 43 (Delano diagrams) with 96 variables and 308 residuals:
+  1.3 s instead of 17 s per Jacobian (`LensOptimizer`), 1.5 s instead of
+  12 s (`DampedLeastSquares` with 82 clearance constraints); the six mirror
+  EUV projector: 0.85 s instead of 20 s.
+- **Keep differences** ("2-point", the default) for small problems (fewer
+  than about 10 variables: the 2V systems of the linearization cost as much
+  as the V traces they save; notebooks 58 (lens optimization) and 154
+  (global optimization and saddle points)), for merit functions without real
+  rays (Seidel sums and other paraxial data: nothing to trace, the
+  analytic mode takes central differences, twice the work), and when an
+  expensive operand has no ``linearize`` (it is differentiated by central
+  differences, twice the cost of forward differences; e.g. the
+  clearance operand `off_axis.clearance_penalty()` in
+  notebook 155 (off-axis mirrors and nodal aberrations): 16 s instead of
+  4 s per Jacobian).
+- Not with a `lens_optimization.MultiConfiguration` (forward differences).
+- Parameters that the differential trace does not cover (see above) are
+  differentiated column by column, so a few of them cost little.
+- The more accurate Jacobian can change the path of an optimization: in
+  ill conditioned problems the analytic run may go further (notebook 149
+  (scan lenses): merit 494 instead of 561) or stop elsewhere. For a check of
+  an operand's ``linearize``, compare with `Linearization.finite_difference()`.
 
 Own operands use `Linearization.trace()`, which returns a `RayDerivatives`
 with the image plane points and directions, the optical paths and the
