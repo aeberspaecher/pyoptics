@@ -850,9 +850,18 @@ class Q2DSurface(Surface):
         t = _x_to_t(X)
         D = np.zeros(w.shape)
         Dx, Dy = np.zeros(w.shape), np.zeros(w.shape)
-        for (kind, m), coef in self._groups().items():
-            P = C.chebval(t, coef)
-            dP = 2*C.chebval(t, C.chebder(coef)) if len(coef) > 1 else 0.0*P   # dP/dX
+        groups = self._groups()
+        if not groups:
+            return D, Dx, Dy
+        # one Chebyshev Vandermonde matrix for all groups, powers of w by recurrence
+        T = C.chebvander(t, max(len(c) for c in groups.values()) - 1)
+        powers = [np.ones(w.shape, complex)]
+        for _ in range(max(m for _, m in groups)):
+            powers.append(powers[-1]*w)
+        for (kind, m), coef in groups.items():
+            P = T[..., :len(coef)] @ coef
+            dP = (2*(T[..., :len(coef) - 1] @ C.chebder(coef)) if len(coef) > 1
+                  else np.zeros(w.shape))   # dP/dX
             if m == 0:
                 # X (1 - X) P(X)
                 f = X*(1 - X)*P
@@ -860,8 +869,8 @@ class Q2DSurface(Surface):
                 D = D + f
                 Dx, Dy = Dx + df*2*w.real/rn, Dy + df*2*w.imag/rn
                 continue
-            wm = w**m
-            wm1 = m*w**(m - 1)
+            wm = powers[m]
+            wm1 = m*powers[m - 1]
             if kind == "cos":
                 A, Ax, Ay = wm.real, wm1.real, -wm1.imag
             else:
@@ -895,6 +904,12 @@ class Q2DSurface(Surface):
         return QbfsSurface(self.R, 0.0, self._axial(), self.norm_radius).sag(r2)
 
     def _gradient(self, x, y):
+        return self._sag_and_gradient(x, y)[1:]
+
+    def _sag_and_gradient(self, x, y):
+        """Sag and its gradient from one evaluation of the polynomials."""
+
+        x, y = np.asarray(x, float), np.asarray(y, float)
         cb = self.c_bfs
         r2 = x**2 + y**2
         with np.errstate(invalid="ignore"):
@@ -902,7 +917,7 @@ class Q2DSurface(Surface):
         D, Dx, Dy = self._departure_and_gradient(x, y)
         s = cb/root                       # (dz_sphere/dr)/r
         k = D*cb**2/root**3
-        return x*s + Dx/root + k*x, y*s + Dy/root + k*y
+        return _sphere(cb, 0.0, r2) + D/root, x*s + Dx/root + k*x, y*s + Dy/root + k*y
 
     def intersect(self, P, d):
         """Distance along the rays to the surface: from the base sphere by
@@ -912,8 +927,8 @@ class Q2DSurface(Surface):
         t = np.where(np.isfinite(t), t, -P[:, 2]/d[:, 2])
         for _ in range(60):
             Q = P + t[:, None]*d
-            gx, gy = self._gradient(Q[:, 0], Q[:, 1])
-            G = Q[:, 2] - self.sag_xy(Q[:, 0], Q[:, 1])
+            z, gx, gy = self._sag_and_gradient(Q[:, 0], Q[:, 1])
+            G = Q[:, 2] - z
             dG = d[:, 2] - gx*d[:, 0] - gy*d[:, 1]
             with np.errstate(invalid="ignore", divide="ignore"):
                 step = G/dG
@@ -1015,10 +1030,17 @@ class QconQ2DSurface(QconSurface):
         return self.sag(x**2 + y**2) + self.departure_xy(x, y)
 
     def _gradient(self, x, y):
-        s = self._slope_over_r(x**2 + y**2)
-        _, gx, gy = self._departure(x, y)
+        return self._sag_and_gradient(x, y)[1:]
 
-        return x*s + gx, y*s + gy
+    def _sag_and_gradient(self, x, y):
+        """Sag and its gradient from one evaluation of the polynomials."""
+
+        x, y = np.asarray(x, float), np.asarray(y, float)
+        r2 = x**2 + y**2
+        s = self._slope_over_r(r2)
+        D, gx, gy = self._departure(x, y)
+
+        return self.sag(r2) + D, x*s + gx, y*s + gy
 
     def intersect(self, P, d):
         """Distance along the rays to the surface: from the Q-con surface by
@@ -1030,8 +1052,8 @@ class QconQ2DSurface(QconSurface):
         t = np.where(np.isfinite(t), t, -P[:, 2]/d[:, 2])
         for _ in range(60):
             Q = P + t[:, None]*d
-            gx, gy = self._gradient(Q[:, 0], Q[:, 1])
-            G = Q[:, 2] - self.sag_xy(Q[:, 0], Q[:, 1])
+            z, gx, gy = self._sag_and_gradient(Q[:, 0], Q[:, 1])
+            G = Q[:, 2] - z
             dG = d[:, 2] - gx*d[:, 0] - gy*d[:, 1]
             with np.errstate(invalid="ignore", divide="ignore"):
                 step = G/dG

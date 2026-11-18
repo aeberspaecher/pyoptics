@@ -12,6 +12,8 @@ Two optimizers:
   with `zernike_terms()`, `Tilt`, `Decenter` and `ImageTilt` of off-axis
   systems (notebook 155, off-axis mirrors and nodal aberrations), model glasses
   `GlassIndex`/`GlassAbbe` with `glass()`), solves (`solve_paraxial_focus()`, `solve_entrance_pupil()`,
+  `solve_object_na()`, `solve_real_na()` with `real_na()` and
+  `paraxial_na_for_real_na()`,
   `solve_curvature_for_efl()`), operands (the factories below plus
   `polychromatic_ray_errors()`, `spot_rms()`, `wavefront()`, `seidel()`,
   `chromatic()`, `focal_shift()`) and `Constraint` objects held with
@@ -1639,6 +1641,122 @@ def solve_object_na(na):
         system.surfaces[system.stop_index].semi_diameter = abs(ys[system.stop_index])
 
     return solve
+
+
+def real_na(system, field, spokes=64):
+    """Real image side NA at a field point: ``n'*sin`` of the angle between
+    the rim rays and the chief ray at the image, averaged over the rim of
+    the pupil.
+
+    Off-axis and freeform systems have pupil aberrations, so this differs
+    from the paraxial NA (notebook 162, six-mirror EUV projector: about 11 %
+    lower); the stop rim is reached with ray aiming (`System.ray_aiming`).
+
+    Parameters
+    ----------
+    system : raytrace.System
+    field : number or pair
+        Field point, as `System.rays()`.
+    spokes : int, optional
+        Rays on the rim.
+
+    Returns
+    -------
+    float
+    """
+
+    phi = 2*np.pi*np.arange(spokes)/spokes
+    px = np.concatenate([[0.0], np.cos(phi)])
+    py = np.concatenate([[0.0], np.sin(phi)])
+    D = system._image_hits(system.trace(system.rays(field, px, py), clip=False))[1]
+    s = np.linalg.norm(np.cross(D[1:], D[0]), axis=1)
+
+    return float(abs(system.n[-1])*np.mean(s[np.isfinite(s)]))
+
+
+def solve_real_na(na, field, spokes=32, iterations=8, tol=1e-7):
+    """Solve: semi diameter of the stop for a real image side NA (see
+    `real_na()`) at a field point, by secant steps from the current semi
+    diameter.
+
+    Every call traces a few rim fans, so inside an optimizer (which calls
+    the solves at every evaluation, and with ``jac="analytic"`` once more
+    per variable) it costs much more than `solve_object_na()`. The cheap
+    way is to use the paraxial solve and to re-calibrate its target from
+    time to time with `paraxial_na_for_real_na()`.
+
+    Parameters
+    ----------
+    na : float
+        Target real NA.
+    field : number or pair
+        Field point.
+    spokes : int, optional
+        Rays on the rim.
+    iterations : int, optional
+        Largest number of secant steps.
+    tol : float, optional
+        Tolerance of the NA.
+
+    Returns
+    -------
+    callable
+    """
+
+    def solve(system):
+        stop = system.surfaces[system.stop_index]
+        r0 = stop.semi_diameter
+        f0 = real_na(system, field, spokes) - na
+        # first step: NA proportional to the stop size
+        r1 = r0*na/(f0 + na)
+        for _ in range(iterations):
+            stop.semi_diameter = r1
+            f1 = real_na(system, field, spokes) - na
+            if not np.isfinite(f1):
+                stop.semi_diameter = r0
+                return
+            if abs(f1) < tol or f1 == f0:
+                return
+            r0, f0, r1 = r1, f1, r1 - f1*(r1 - r0)/(f1 - f0)
+
+    return solve
+
+
+def object_na(system):
+    """Paraxial object side NA ``n*|u|`` of the marginal ray to the rim of
+    the stop (finite objects; the quantity `solve_object_na()` sets)."""
+
+    ys, _ = system._paraxial_trace(system.object_distance, 1.0)
+
+    return system.n_object*system.surfaces[system.stop_index].semi_diameter/abs(ys[system.stop_index])
+
+
+def paraxial_na_for_real_na(system, na, field, spokes=32):
+    """Object side paraxial NA (the target of `solve_object_na()`) that
+    gives a real image side NA `na` at a field point for the system as it
+    is now. Re-calibrated from time to time, it lets an optimizer use the
+    cheap paraxial solve while the real NA follows the target.
+
+    Parameters
+    ----------
+    system : raytrace.System
+        Left unchanged.
+    na : float
+        Target real image side NA.
+    field : number or pair
+        Field point.
+    spokes : int, optional
+        Rays on the rim.
+
+    Returns
+    -------
+    float
+    """
+
+    s = system.copy()
+    solve_real_na(na, field, spokes)(s)
+
+    return object_na(s)
 
 
 def solve_curvature_for_efl(surface, efl):

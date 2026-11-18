@@ -225,6 +225,13 @@ def _frame(origin, R, decenter=(0.0, 0.0), tilt=(0.0, 0.0, 0.0)):
     return origin, R @ rotation(*tilt)
 
 
+class _SharedCache(dict):
+    """A dict that copies of its owner share (deepcopy returns it)."""
+
+    def __deepcopy__(self, memo):
+        return self
+
+
 def _field_xy(field):
     """(x, y) components of a scalar (y) or pair field."""
 
@@ -1863,7 +1870,17 @@ class System:
 
     The surfaces are copied, later changes to the Surface objects passed in
     do not affect the system.
+
+    Aimed rays are cached (shared by the copies of a system) and returned
+    again for the same field, pupil points and state of the system. With
+    ``aim_warm_start = True`` (an attribute, default False) the cached rays
+    of a changed system are also the start of Newton's method, which saves
+    most of the aiming in an optimizer; the aimed rays then depend on the
+    history at the level of the convergence tolerance, which finite
+    differences with very small steps can resolve.
     """
+
+    aim_warm_start = False
 
     def __init__(self, surfaces, stop_index, wavelength, object_distance=np.inf, field_angle=0.0,
                  object_height=0.0, n_object=1.0, units="mm", entrance_pupil_radius=None,
@@ -2927,19 +2944,51 @@ class System:
 
         The surface frames and indices are computed once for all traces."""
 
+        # aimed rays of the same field and pupil points: returned again for
+        # the same state of the system; with aim_warm_start also the start
+        # of Newton's method for a changed system (an optimizer aims the
+        # same rays of slightly changed systems over and over). The cache
+        # is shared by the copies of the system.
+        cache = self.__dict__.get("_aim_cache")
+        if cache is None:
+            cache = self.__dict__["_aim_cache"] = _SharedCache()
+        key = (tuple(float(v) for v in _field_xy(field)), px.tobytes(), py.tobytes())
+        state = self._state_key()
+        entry = cache.get(key)
+        if entry is not None and entry[0] == state:
+            return entry[1].copy(), entry[2].copy()
         self._constants = None
         self._constants = self.frames(), self.n, self._pupils()[0]
         try:
-            return self._aim_rays(field, a, b, px, py)
+            warm = entry[1:] if entry is not None and self.aim_warm_start else None
+            a, b = self._aim_rays(field, a, b, px, py, warm)
         finally:
             self._constants = None
+        if len(cache) >= 256:
+            cache.pop(next(iter(cache)))
+        cache.pop(key, None)
+        cache[key] = (state, a.copy(), b.copy())
 
-    def _aim_rays(self, field, a, b, px, py):
+        return a, b
+
+    def _aim_rays(self, field, a, b, px, py, warm=None):
         a_s = self.surfaces[self.stop_index].semi_diameter
         sign = np.sign(self._ep_matrix()[0]) if self.infinite_object else 1.0
         tx, ty = sign*px*a_s, sign*py*a_s
         a0, b0 = np.asarray(a, float), np.asarray(b, float)
-        a, b, done = self._newton_aim(field, a, b, tx, ty, iterations=6)
+        if warm is not None:
+            # from the aimed rays of a nearby system; where they fail, from the paraxial guess
+            a_w, b_w = (np.where(np.isfinite(w), w, g) for w, g in zip(warm, (a0, b0)))
+            a, b, done = self._newton_aim(field, a_w, b_w, tx, ty, iterations=6, polish=True)
+            if not np.all(done):
+                a_p, b_p, done_p = self._newton_aim(field, a0[~done], b0[~done], tx[~done], ty[~done],
+                                                    iterations=6)
+                a, b = a.copy(), b.copy()
+                a[~done], b[~done] = a_p, b_p
+                done = done.copy()
+                done[~done] = done_p
+        else:
+            a, b, done = self._newton_aim(field, a, b, tx, ty, iterations=6)
         # a solution far from the paraxial guess (more than twice the spread
         # of the guesses over the pupil away) passes the stop on a folded
         # path: aim it by continuation instead
@@ -3045,7 +3094,7 @@ class System:
 
         return a_n, b_n
 
-    def _newton_aim(self, field, a, b, tx, ty, iterations=30):
+    def _newton_aim(self, field, a, b, tx, ty, iterations=30, polish=False):
         """Newton's method for the stop hits (tx, ty); also returns which
         rays converged. Rays that converged (or failed) drop out of the
         iteration; the finite difference rays are traced together with the
@@ -3074,7 +3123,9 @@ class System:
             res = np.hypot(rx, ry)
             hit[active] = res < 1e-9*scale
             # converged, or no finite residual: done iterating
-            stop = ~np.isfinite(rx + ry) | (res < 1e-13*scale)
+            # (polish: at least one step, from a start that is already close,
+            # so that the result is as accurate as from a far start)
+            stop = ~np.isfinite(rx + ry) | ((res < 1e-13*scale) & (it > 0 or not polish))
             if last:
                 break
             h1x, h1y, h2x, h2y = h_x[n:2*n], h_y[n:2*n], h_x[2*n:], h_y[2*n:]

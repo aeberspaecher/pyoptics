@@ -384,6 +384,24 @@ def test_dls_length_and_object_na_solves():
     assert np.isclose(p.na*abs(p.magnification), 0.05, rtol=1e-6)
 
 
+def test_real_na_solve_and_paraxial_calibration():
+    from pyoptics.litho import euv
+    # off-axis ring field: the real NA at the slit centre is ~8 % below the paraxial NA
+    system = euv.six_mirror_projector(freeform=False)
+    field = (0.0, 120.0)
+    assert lo.real_na(system, field) < 0.95*system.paraxial().na
+    assert np.isclose(lo.object_na(system), 0.25*0.25, rtol=1e-6)
+    solved = system.copy()
+    lo.solve_real_na(0.25, field)(solved)
+    assert abs(lo.real_na(solved, field) - 0.25) < 1e-6
+    # the calibrated paraxial target gives the same stop
+    na_obj = lo.paraxial_na_for_real_na(system, 0.25, field)
+    paraxial = system.copy()
+    lo.solve_object_na(na_obj)(paraxial)
+    assert np.isclose(paraxial.surfaces[paraxial.stop_index].semi_diameter,
+                      solved.surfaces[solved.stop_index].semi_diameter, rtol=1e-9)
+
+
 def test_paraxial_focus_solve_in_front_of_a_cover_glass():
     surfaces = [rt.Surface(50.0, 5.0, n_after=N_GLASS), rt.Surface(-50.0, 30.0, n_after=1.0),
                 rt.Surface(np.inf, 0.17, n_after=1.523), rt.Surface(np.inf, 0.0, n_after=1.0)]
