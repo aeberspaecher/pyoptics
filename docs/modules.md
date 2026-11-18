@@ -489,6 +489,20 @@ What each module does and how mature it is. Planned work is listed in
   (`trace_pixel()`); checked against sinc and diffraction MTFs, the
   folding of frequencies, the carrier positions, the tensor walk-off and
   the paraxial pupil image (notebook 93, the sensor)
+- `restoration`: new, tested: image restoration with measured or computed
+  PSFs; model R, G, B sensitivities (`cfa_sensitivity()`), pixel
+  integrated PSFs of a traced lens at sensor points with the lateral
+  colour as a shift (`psf_samples()`, `field_for_image_point()`) and
+  their channel sums (`channel_psfs()`); space variant blur as a sum of
+  convolutions of weighted images, with interpolated or low rank
+  (eigen-PSF) kernels, forward and adjoint, and an unknown margin
+  (`SpaceVariantBlur`); Wiener filtering, blending of per node
+  restorations, Richardson–Lucy with background and mask, TV
+  deconvolution with the cross-channel prior by a Condat–Vu primal-dual
+  solver, an unrolled half-quadratic splitting with a Haar denoiser, dead
+  leaves and Siemens star scenes; checked against direct convolution,
+  adjoint identities, noiseless inversion and an ideal lens
+  (notebook 160, image restoration and PSF deconvolution)
 - `lightfield`: new, tested: the light field (plenoptic) camera; a thin
   main lens, a microlens array in its image plane and a sensor matched to
   the grid of microlens images (`plenoptic_camera()`, `pixel_pitch()`), raw
