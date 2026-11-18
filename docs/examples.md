@@ -420,8 +420,9 @@ notebooks/72_twinkling_stars_adaptive_optics
 The optics of cameras: the out-of-focus image of a lens (bokeh), the
 star its iris makes of a bright light (sunstars), the ghosts its
 surfaces make of it (flare), what the sensor does to the image,
-what is sharp (depth of field and tilt-shift), and how a light field
-camera focuses after the exposure.
+what is sharp (depth of field and tilt-shift), how a light field
+camera focuses after the exposure, and how much of the blur of a phone
+lens deconvolution can undo.
 
 - {doc}`notebooks/90_bokeh`
 - {doc}`notebooks/91_sunstars`
@@ -429,6 +430,8 @@ camera focuses after the exposure.
 - {doc}`notebooks/93_sensor`
 - {doc}`notebooks/94_tilt_shift_depth_of_field`
 - {doc}`notebooks/95_light_field_camera`
+- {doc}`160 Image restoration and PSF deconvolution <notebooks/160_image_restoration_deconvolution>`
+- {doc}`161 Distortion, lateral colour and lens shading correction <notebooks/161_distortion_shading_correction>`
 
 ```{toctree}
 :hidden:
@@ -440,6 +443,8 @@ notebooks/92_flare_ghosts
 notebooks/93_sensor
 notebooks/94_tilt_shift_depth_of_field
 notebooks/95_light_field_camera
+notebooks/160_image_restoration_deconvolution
+notebooks/161_distortion_shading_correction
 ```
 
 ## Astronomy
