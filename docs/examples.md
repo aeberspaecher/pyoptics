@@ -431,6 +431,7 @@ lens deconvolution can undo.
 - {doc}`notebooks/94_tilt_shift_depth_of_field`
 - {doc}`notebooks/95_light_field_camera`
 - {doc}`160 Image restoration and PSF deconvolution <notebooks/160_image_restoration_deconvolution>`
+- {doc}`161 Distortion, lateral colour and lens shading correction <notebooks/161_distortion_shading_correction>`
 
 ```{toctree}
 :hidden:
@@ -443,6 +444,7 @@ notebooks/93_sensor
 notebooks/94_tilt_shift_depth_of_field
 notebooks/95_light_field_camera
 notebooks/160_image_restoration_deconvolution
+notebooks/161_distortion_shading_correction
 ```
 
 ## Astronomy

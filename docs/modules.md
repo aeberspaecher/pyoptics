@@ -503,6 +503,20 @@ What each module does and how mature it is. Planned work is listed in
   leaves and Siemens star scenes; checked against direct convolution,
   adjoint identities, noiseless inversion and an ideal lens
   (notebook 160, image restoration and PSF deconvolution)
+- `lens_correction`: new, tested: distortion, lateral colour and lens
+  shading of a traced camera lens and their correction; chief ray image
+  heights against f tan θ per wavelength and per colour channel
+  (`radial_mapping()`, `channel_heights()`), the Brown–Conrady radial
+  model and its fit (`fit_brown_radial()`), inverse warp maps and spline
+  resampling (`warp_coordinates()`, `remap()`); chief ray angles, the
+  pixel acceptance with microlens shift, the angle shift of an IR cut
+  interference filter over the cone of light and the channel shading
+  that results (`chief_ray_angles()`, `pixel_efficiency()`,
+  `ir_cut_transmission()`, `channel_shading()`), radial maps and ISP gain
+  tables with bilinear interpolation (`gain_table()`,
+  `apply_gain_table()`); checked against an ideal lens (rectilinear,
+  cos⁴), a known radial distortion and the filter edge formula
+  (notebook 161, distortion, lateral colour and lens shading correction)
 - `lightfield`: new, tested: the light field (plenoptic) camera; a thin
   main lens, a microlens array in its image plane and a sensor matched to
   the grid of microlens images (`plenoptic_camera()`, `pixel_pitch()`), raw
