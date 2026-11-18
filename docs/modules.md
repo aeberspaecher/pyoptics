@@ -615,8 +615,9 @@ What each module does and how mature it is. Planned work is listed in
   parameters of one configuration, `in_configs()` for operands, solves and
   constraints in some configurations, weights per configuration,
   `configure()` for overrides and `from_zoom()`/`to_zoom()` for
-  `zoom.ZoomLens`; `LensOptimizer(configurations=...)` with shared
-  variables (notebook 153, multi-configuration optimization)
+  `zoom.ZoomLens`; analytic Jacobians with `jac="analytic"`, each
+  configuration linearized on its own; `LensOptimizer(configurations=...)`
+  with shared variables (notebook 153, multi-configuration optimization)
 - `lens_landscape`: the merit function landscape beyond one local
   minimum, tested on an analytic double well and on real lenses: random
   starts that trace, damped least squares from each and clustering into
@@ -696,8 +697,11 @@ What each module does and how mature it is. Planned work is listed in
   (chief ray angle, distortion against f tan theta, lateral colour,
   element and air thicknesses sampled from the axis to the rim of the
   real beam), real ray clear apertures, a refit of Q-bfs surfaces as even
-  aspheres and the five element f/1.8 design of
-  notebook 159 (phone camera lens with Forbes Q polynomials)
+  aspheres, `close_focus()` (the whole lens moved to focus on a near
+  object) and the five element f/1.8 design of
+  notebook 159 (phone camera lens with Forbes Q polynomials), for infinity
+  and 100 mm (`DESIGN`) and the earlier one for infinity only
+  (`DESIGN_INFINITY`)
 - `zoom`: new, tested: mechanically compensated zoom lenses; thin lens
   conjugates, the two-group zoom (spacing and back focus for a focal
   length), the four-group zoom with variator and compensator (afocal or
