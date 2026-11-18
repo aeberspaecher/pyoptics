@@ -92,6 +92,8 @@ Imaging and ray tracing
    pyoptics.freeform
    pyoptics.photography
    pyoptics.sensor
+   pyoptics.restoration
+   pyoptics.lens_correction
    pyoptics.lightfield
    pyoptics.delano
    pyoptics.lens_optimization
@@ -103,6 +105,7 @@ Imaging and ray tracing
    pyoptics.tolerancing
    pyoptics.glasses
    pyoptics.qaspheres
+   pyoptics.phone_lens
    pyoptics.zoom
    pyoptics.spectacles
 

@@ -208,6 +208,7 @@ Sequential and polarization ray tracing, from rays to waves, glass catalogues, l
 - {doc}`153 Multi-configuration optimization <notebooks/153_multiconfig_optimization>`
 - {doc}`154 Global optimization and saddle points <notebooks/154_global_optimization_saddle_points>`
 - {doc}`155 Off-axis mirrors and nodal aberrations <notebooks/155_off_axis_mirrors_nodal_aberrations>`
+- {doc}`159 Phone camera lens with Forbes Q polynomials <notebooks/159_phone_camera_lens_forbes_q>`
 
 ```{toctree}
 :hidden:
@@ -236,6 +237,7 @@ notebooks/151_hybrid_diffractive_lenses
 notebooks/153_multiconfig_optimization
 notebooks/154_global_optimization_saddle_points
 notebooks/155_off_axis_mirrors_nodal_aberrations
+notebooks/159_phone_camera_lens_forbes_q
 ```
 
 ## Interferometry, holography and wavefront sensing
@@ -337,7 +339,7 @@ Projection lithography from the mask to the resist: imaging models, mask models,
 - {doc}`156 EUV multilayers and reflective masks <notebooks/156_euv_multilayers_reflective_masks>`
 - {doc}`157 EUV projector and pupil <notebooks/157_euv_projector_pupil>`
 - {doc}`158 EUV stochastics and flare <notebooks/158_euv_stochastics_flare>`
-- {doc}`159 Six-mirror EUV projector <notebooks/159_six_mirror_euv_projector>`
+- {doc}`162 Six-mirror EUV projector <notebooks/162_six_mirror_euv_projector>`
 
 ```{toctree}
 :hidden:
@@ -366,7 +368,7 @@ notebooks/152_litho_stochastics_flare_focus_blur
 notebooks/156_euv_multilayers_reflective_masks
 notebooks/157_euv_projector_pupil
 notebooks/158_euv_stochastics_flare
-notebooks/159_six_mirror_euv_projector
+notebooks/162_six_mirror_euv_projector
 ```
 
 ## Illumination optics
@@ -420,8 +422,9 @@ notebooks/72_twinkling_stars_adaptive_optics
 The optics of cameras: the out-of-focus image of a lens (bokeh), the
 star its iris makes of a bright light (sunstars), the ghosts its
 surfaces make of it (flare), what the sensor does to the image,
-what is sharp (depth of field and tilt-shift), and how a light field
-camera focuses after the exposure.
+what is sharp (depth of field and tilt-shift), how a light field
+camera focuses after the exposure, and how much of the blur of a phone
+lens deconvolution can undo.
 
 - {doc}`notebooks/90_bokeh`
 - {doc}`notebooks/91_sunstars`
@@ -429,6 +432,8 @@ camera focuses after the exposure.
 - {doc}`notebooks/93_sensor`
 - {doc}`notebooks/94_tilt_shift_depth_of_field`
 - {doc}`notebooks/95_light_field_camera`
+- {doc}`160 Image restoration and PSF deconvolution <notebooks/160_image_restoration_deconvolution>`
+- {doc}`161 Distortion, lateral colour and lens shading correction <notebooks/161_distortion_shading_correction>`
 
 ```{toctree}
 :hidden:
@@ -440,6 +445,8 @@ notebooks/92_flare_ghosts
 notebooks/93_sensor
 notebooks/94_tilt_shift_depth_of_field
 notebooks/95_light_field_camera
+notebooks/160_image_restoration_deconvolution
+notebooks/161_distortion_shading_correction
 ```
 
 ## Astronomy

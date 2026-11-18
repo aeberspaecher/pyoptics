@@ -3441,10 +3441,13 @@ class System:
         Returns
         -------
         rms : number
-            RMS OPD in waves.
+            RMS OPD in waves; NaN if no ray reaches the image (e.g. all
+            rays miss a surface).
         """
 
         W = self._valid_opd(field, N, remove_tilt)
+        if W.size == 0:
+            return np.nan
 
         return np.sqrt(np.mean((W - W.mean())**2))
 
@@ -3467,9 +3470,12 @@ class System:
         Returns
         -------
         strehl : number
+            NaN if no ray reaches the image.
         """
 
         W = self._valid_opd(field, N, remove_tilt)
+        if W.size == 0:
+            return np.nan
 
         return np.abs(np.mean(np.exp(2j*pi*W)))**2
 
@@ -4537,157 +4543,281 @@ def zeiss_zoom_axicon(zoom=0.0, axicon_gap=0.0, wavelength=KRF_REMA_WAVELENGTH_N
     return System(surfaces, 0, wavelength, object_distance=35.0, object_height=source_radius)
 
 
-# 20 element KrF lens with 5 aspheres, laid out in the y-ybar diagram
-# (pyoptics.delano) and corrected with pyoptics.lens_optimization (notebook
-# 43): surface, radius, thickness to the next surface, medium behind ("S":
-# fused silica, "A": air), paraxial beam radius |y| + |ybar| at full field
-# (the stop: its semi diameter), all in mm; surface 31 is the stop. Aspheric
+# KrF lenses of notebook 43 (Delano diagrams), corrected with
+# pyoptics.lens_optimization from the layout drawn in the y-ybar diagram
+# (pyoptics.delano, "delano") and from Caldwell's lens ("caldwell"), with 5
+# or 10 aspheres: surface, radius, thickness to the next surface, medium
+# behind ("S": fused silica, "A": air), clear semi diameter (the real ray
+# footprints of the full field and NA, rounded up to 0.1 mm; the stop: its
+# semi diameter), all in mm; the index of the stop surface; aspheric
 # coefficients (r**4, r**6, r**8) by surface number.
-_DELANO_KRF = """
- 1    -145.293737748    9.999660750 S   59.5416
- 2    -231.263135020    0.998709914 A   62.0590
- 3     163.606163193   19.862085680 S   62.3020
- 4     536.829871586    0.997849056 A   62.9567
- 5     167.150542788   29.055376880 S   63.0658
- 6    -410.180435975    0.999180290 A   61.4770
- 7     310.145559260   19.185488153 S   61.3185
- 8    -854.307063467   25.860270715 A   58.0219
- 9    -173.602375139    9.998778726 S   50.4264
-10     108.181594831   32.727055277 A   49.4583
-11     -98.109256140    9.998708381 S   52.2853
-12     190.034554955   45.901981778 A   54.6538
-13    -272.119696590   25.913821399 S   77.7666
-14    -157.661026401    1.000588059 A   88.9130
-15     701.199067415   42.580717707 S   89.2753
-16    -222.514847317    0.999590858 A   97.6702
-17     283.673992620   42.099857254 S   97.7444
-18    -415.203533610    0.999357828 A   94.9271
-19     225.509658623   32.093343963 S   94.7101
-20    4592.691774192   29.282069289 A   85.5466
-21   -1145.302511182    9.999512010 S   73.2126
-22     445.227253917   13.332832867 A   70.6357
-23    -453.028610504    9.999056436 S   66.5284
-24     141.505581461   45.734959590 A   64.9812
-25     -99.175495035    9.999334338 S   64.9837
-26     473.249449397   15.592520275 A   67.1923
-27    -364.947743884   17.309077924 S   73.5127
-28     509.438168498    2.402786442 A   79.3393
-29     640.354160803   48.199514500 S   80.7495
-30    -190.580664527    0.998940172 A   97.4559
-31               inf   13.816226270 A   97.7185
-32    1476.179600408   75.864814120 S  104.0422
-33    -245.183900228    2.968449654 A  125.2601
-34     433.771808061   46.860268617 S  125.7414
-35    -552.527330590   17.363758662 A  126.2003
-36     216.505826577   74.889710321 S  124.4406
-37   -6360.313139331    0.999373261 A  104.9013
-38     139.746050230   57.016250242 S  104.4997
-39     762.668134118    9.983458536 A   74.9369
-40    -607.357932817  108.081479291 S   67.6276
-41    -412.968333712    8.034930082 A   19.2230
-"""
-_DELANO_KRF_ASPHERES = {
-    4: (1.366506180e-10, 9.315486383e-14, -2.704880130e-17),
-    11: (-1.656162344e-09, 1.269104213e-12, 1.720898203e-16),
-    20: (1.458372814e-10, -1.582289009e-13, 8.231195446e-18),
-    29: (6.257934362e-11, 2.046876081e-13, -6.053607985e-18),
-    39: (1.295033694e-09, -9.681036151e-13, -1.166000468e-17),
+_DELANO_KRF = {
+    ("delano", 10): dict(stop=30, object_distance=31.649475821, table="""
+ 1    -127.720511528   10.000000000 S   57.7
+ 2     496.353795842    1.807394093 A   64.9
+ 3     135.491022331   37.210086818 S   75.3
+ 4    -264.893761336    3.444415454 A   75.6
+ 5     435.141404715   49.219530486 S   76.8
+ 6    -239.874789509    1.795257319 A   76.8
+ 7     113.282718904   42.697713792 S   68.7
+ 8    -491.939853617    7.203348735 A   62.8
+ 9    -401.381376662   10.088550749 S   57.2
+10      89.191779061   44.709832367 A   47.0
+11    -100.291244273   10.000000000 S   42.0
+12     122.624915660   22.549770528 A   45.2
+13    -108.339793237   10.000000000 S   46.8
+14     347.454081818   25.631353077 A   56.5
+15    -401.608611752   31.128122515 S   69.3
+16    -153.462594871    1.000000000 A   76.9
+17    2837.486390511   64.365791489 S   89.5
+18    -182.002829063    1.000000000 A   99.2
+19     619.975262434   30.391960163 S  104.0
+20   -1178.401514577    1.000000000 A  104.4
+21     426.713033320   32.915431558 S  104.6
+22   -2625.770614536   17.967399262 A  103.1
+23    -401.910149555   10.000000000 S  102.2
+24    -810.920644824   13.940989186 A  102.1
+25    -322.038625242   10.000000000 S  101.9
+26     246.493193562   38.232727624 A  105.2
+27   -1427.097260833   36.387125500 S  109.4
+28    -243.403701266    1.000000000 A  113.1
+29     649.209121891   24.035445138 S  120.2
+30  -14303.788715514    1.000000000 A  120.5
+31               inf   99.241870709 A 120.512532848
+32     539.215558956   45.605649112 S  140.0
+33    -781.235275776   11.090037091 A  140.3
+34     248.507616518   50.986749376 S  135.8
+35    1892.155332490    2.849945441 A  131.9
+36     180.926597259   41.662468257 S  117.1
+37     497.064726564    3.807987810 A  111.4
+38     133.281652824   31.061006105 S   92.3
+39     274.323558015   17.604800519 A   85.8
+40   -2686.232715711   11.034749162 S   83.9
+41  -15414.352511717   62.683014745 A   77.4
+""", aspheres={
+        1: (6.874361521e-08, -2.630125746e-12, -4.478282546e-17),
+        2: (-6.083370492e-08, 4.731369590e-12, -2.836716805e-16),
+        4: (2.010638866e-07, 2.370906424e-12, 2.489124863e-16),
+        6: (-2.740404410e-08, 2.284855276e-12, -3.012868727e-16),
+        11: (-8.699232181e-07, -3.593269969e-11, -1.509172670e-14),
+        12: (-3.759108282e-07, 2.318091925e-11, 2.245640123e-15),
+        16: (-9.166419513e-08, 7.639638879e-13, -1.724184356e-16),
+        20: (4.136295851e-08, -2.138292568e-12, 8.259509736e-18),
+        29: (7.092269482e-09, 1.036359427e-14, 1.902846063e-18),
+        39: (1.187879874e-08, 1.327096930e-13, 1.353866543e-18)}),
+    ("caldwell", 10): dict(stop=29, object_distance=30.000000000, table="""
+ 1     -94.418991781   16.148324496 S   56.8
+ 2    -115.701158367    1.000000000 A   62.0
+ 3     120.963301548   43.529118351 S   70.2
+ 4    -175.115458395    1.000000000 A   69.0
+ 5     150.220899767   19.708620169 S   62.5
+ 6      79.686932467    7.411007887 A   53.6
+ 7     105.569528167   12.693032422 S   53.5
+ 8      98.035981081   33.951461775 A   51.3
+ 9    -305.155617041   10.338081712 S   47.8
+10     277.808554075   38.305218538 A   46.6
+11     -65.429742826   10.000000000 S   46.4
+12     216.935679957   42.245950596 A   57.6
+13    -259.072066103   31.618061481 S   75.7
+14    -157.695964373    1.191183327 A   86.1
+15    -617.169559177   31.888917711 S   96.9
+16    -215.178425866    1.000000000 A  102.5
+17     748.244901869   40.870462222 S  115.1
+18    -342.690120277    1.000000000 A  117.0
+19     367.650657716   66.230048525 S  119.9
+20    -284.634500932    1.208191089 A  118.3
+21     294.814374801   33.237699162 S  104.1
+22     486.475494850   33.665571168 A   95.9
+23    -683.883836540   10.000000000 S   88.1
+24     148.829115695   38.820434988 A   79.7
+25    -680.068366917   14.152139768 S   79.5
+26    -751.607903087   24.275122445 A   80.0
+27    -163.261182433   10.070236708 S   79.9
+28     420.051890599   19.338520078 A   86.9
+29   -1428.258426408   34.661908290 S   89.5
+30    -212.731744967   52.566059348 A 94.382251322
+31    1705.721095707   53.043596517 S  127.4
+32    -259.624787421    1.000000000 A  130.5
+33     399.183739266   47.739266876 S  134.6
+34    -780.545077862    1.000000000 A  133.6
+35     196.303590001   44.931334358 S  122.2
+36     757.968230124    1.000000000 A  117.7
+37     122.128637062   38.227779756 S   97.0
+38     227.006333392    1.224103737 A   90.6
+39      66.035189620   14.045874059 S   63.1
+40      52.520291699   62.787403901 A   51.3
+41     120.604806432   12.475874848 S   29.8
+42     307.723927029   10.399393693 A   24.0
+""", aspheres={
+        1: (3.363598181e-07, -3.705176416e-11, 3.610490259e-15),
+        2: (3.127048405e-07, -3.869709563e-11, 2.465766146e-15),
+        4: (2.094878327e-07, -1.826540594e-12, -1.663165282e-16),
+        8: (-4.564671758e-07, 1.580113140e-11, -6.198106411e-15),
+        11: (-1.032735310e-09, 6.573857566e-13, -7.561377496e-16),
+        20: (1.453706667e-08, -1.459843977e-13, 3.188817310e-18),
+        29: (-2.101770892e-08, 5.370885846e-13, -7.676841227e-19),
+        38: (-1.425339004e-08, 9.443930335e-13, 2.648902248e-18),
+        41: (3.792155836e-07, 4.490450495e-11, -4.199090921e-15),
+        42: (3.499946707e-07, -1.022989352e-10, -3.746297993e-14)}),
+    ("delano", 5): dict(stop=30, object_distance=29.085731065, table="""
+ 1    -116.218464394    9.770996664 S   57.0
+ 2    -547.007123115    1.601436205 A   63.4
+ 3    -473.797442302   31.485325113 S   63.8
+ 4    -133.624525224    0.276593803 A   69.0
+ 5     139.140897937   48.418291361 S   76.4
+ 6    -314.692306121    0.377357529 A   74.6
+ 7     131.151985942   42.243234689 S   66.1
+ 8    -602.353685512    8.447364068 A   57.5
+ 9    -194.009555851    9.500959003 S   54.9
+10      65.152260822   46.466696607 A   44.7
+11    -126.783372278    9.136840113 S   44.7
+12     178.487154960   26.576584892 A   47.7
+13    -192.302740526    9.628928792 S   52.4
+14     506.523991861   34.556742003 A   59.3
+15    -332.584498476   36.321356102 S   74.3
+16    -162.205718824    0.791694373 A   84.6
+17    2929.212588659   67.702002965 S   96.2
+18    -187.109816320    0.635041973 A  105.1
+19     688.610157317   32.089375723 S  108.2
+20   -1155.424649135    0.757465058 A  108.1
+21     397.809574088   34.606222988 S  106.6
+22   -3633.391742271   19.545679875 A  103.9
+23    -389.307774640    9.713964261 S  102.2
+24    -868.062061598   15.624485436 A  101.3
+25    -320.024538080    9.688198401 S  100.6
+26     241.135254655   40.644732570 A  101.6
+27   -1572.649568366   38.755487229 S  105.9
+28    -269.147931885    0.611619469 A  110.0
+29     712.632048463   24.051686282 S  113.6
+30   -5211.171572149    0.579983127 A  113.8
+31               inf   97.441330046 A 113.725525124
+32     504.685070366   45.153584081 S  130.3
+33    -701.710662322    9.539034214 A  130.3
+34     242.240276139   51.279479889 S  125.1
+35    2647.712152221    0.800284266 A  120.2
+36     181.107959280   45.147018268 S  107.7
+37     505.766602514    0.736383437 A   98.3
+38     124.118573012   37.600832451 S   83.0
+39     216.909643219   14.639748118 A   69.9
+40    4153.996846758    9.818685058 S   66.4
+41    1980.464538588   48.151542435 A   60.8
+""", aspheres={
+        4: (1.125751860e-09, 8.220988874e-14, -5.862952812e-18),
+        11: (-4.580441971e-10, 3.868771173e-13, -5.063230964e-16),
+        20: (3.136809808e-10, -1.858503599e-13, -1.089603560e-17),
+        29: (-2.804974055e-10, 6.689732659e-14, 1.967402039e-18),
+        39: (7.539916355e-09, -2.588298240e-13, 8.464808171e-17)}),
+    ("caldwell", 5): dict(stop=29, object_distance=29.785132981, table="""
+ 1    -113.536304955   15.754350517 S   57.0
+ 2    -117.886530841    0.823684923 A   61.2
+ 3     120.885849881   39.811339883 S   67.3
+ 4    -555.003439666    0.899712029 A   65.4
+ 5     127.207049738   18.734978398 S   60.5
+ 6     115.619803866    2.756963455 A   54.6
+ 7     125.747475498    9.990064101 S   54.3
+ 8      90.911748207   32.147197106 A   50.1
+ 9    -243.332479821    9.877884235 S   48.0
+10     594.792737994   36.909156958 A   47.3
+11     -71.507124892    9.789313174 S   46.9
+12     186.636036387   45.110089103 A   56.1
+13    -238.011005418   35.614420585 S   73.8
+14    -145.917492212    0.932788949 A   85.1
+15    -477.561826125   33.942924469 S   94.4
+16    -217.364100927    0.918832256 A  101.5
+17    1260.701919530   42.256045859 S  111.5
+18    -372.563439850    0.907357104 A  114.9
+19     409.604481916   67.092060215 S  118.6
+20    -278.738464611    0.951515189 A  117.7
+21     243.480786022   33.498405768 S  101.6
+22     617.713658967   33.279625547 A   94.8
+23    -365.775508805    9.920196956 S   87.1
+24     145.548341427   40.042201421 A   78.3
+25   -1436.544166437   15.557705594 S   78.4
+26    -507.255886010   25.609849106 A   78.6
+27    -147.590690139    9.916361426 S   78.2
+28     385.859654760   17.077057344 A   85.4
+29   -1255.080735063   33.071539080 S   87.3
+30    -218.667135685   54.891206232 A 91.757081312
+31    1374.984487376   54.248714546 S  125.1
+32    -268.183303912    0.945906186 A  128.6
+33     379.900003197   48.230029723 S  132.8
+34    -735.537341065    0.916140097 A  131.8
+35     198.522763908   49.052290958 S  120.2
+36     764.428319658    0.893501690 A  113.7
+37     125.103357658   47.937807954 S   94.9
+38     209.042351876    0.882450788 A   80.4
+39      64.865644916   18.118407606 S   59.6
+40      51.246473868   51.194133753 A   47.3
+41     100.113672347   11.997109626 S   26.8
+42     205.558339795    7.713547109 A   20.9
+""", aspheres={
+        4: (2.337774323e-09, 7.219595406e-13, -1.354523617e-17),
+        11: (-5.876521755e-09, 3.416306171e-12, -1.207499712e-15),
+        20: (8.622378813e-11, -6.223268568e-14, 5.345356508e-18),
+        29: (-1.140873939e-09, 2.716287629e-13, 1.396376798e-17),
+        38: (1.770983261e-09, 1.184454461e-13, 4.059084881e-17)}),
 }
 
-# the same lens corrected without aspheres (notebook 43, Delano diagrams)
-_DELANO_KRF_SPHERICAL = """
- 1    -106.395492871     9.995303680 S  59.5646
- 2   -2818.408379695     6.355490278 A  62.5919
- 3    -384.063737467    29.136850368 S  65.4236
- 4    -128.797687908     0.989746289 A  75.7031
- 5     410.596327570    32.545455240 S  75.9340
- 6    -250.572144712     0.986218452 A  78.9402
- 7     110.258009196    52.934135596 S  78.9197
- 8    -635.896375907    24.429301257 A  65.4186
- 9    -259.384753743     9.987435794 S  54.7425
-10      81.013388653    40.181953403 A  52.5593
-11     -95.774087547     9.988645960 S  52.5632
-12     154.398610723    54.037831889 A  54.4115
-13    -468.591215892    31.672783989 S  79.1754
-14    -159.678839744     0.998371434 A  90.6018
-15    1202.037974759    51.864472078 S  90.8571
-16    -161.116632218     0.993219039 A  98.3282
-17     393.764214410    31.426925027 S  98.2359
-18    -696.219280558     0.992282432 A  93.6562
-19     214.702958686    29.009710227 S  93.3703
-20    1030.316337601    12.036155987 A  83.5756
-21    -531.145667432     9.994245669 S  77.9421
-22    3334.141979929     9.657248739 A  75.3353
-23    -408.849229518     9.994340131 S  71.6466
-24     123.382617114    49.902068475 A  69.7062
-25    -120.163641310     9.995844554 S  69.4242
-26     650.870054375    17.443323659 A  71.3332
-27    -381.387777905    22.716774129 S  77.3299
-28     506.915438884     3.767985952 A  84.0598
-29     824.291665984    47.588832185 S  86.0612
-30    -198.869915748     0.982042129 A 101.1447
-31               inf     0.996349333 A 101.3603
-32     615.953325336    60.656977779 S 101.7662
-33    -228.443572463     8.878904317 A 114.7702
-34     389.745973985    36.703158046 S 115.3736
-35   -1139.418478747    12.725615615 A 113.3655
-36     163.843065450   127.404051980 S 111.6716
-37   -2930.736676531     1.139090695 A  71.1617
-38     102.262623475    29.957506376 S  70.6014
-39     237.734170412    13.864966317 A  53.8600
-40    -265.465092588    56.298697651 S  43.7696
-41    -188.937701986     8.783629710 A  19.7353
-"""
 
+def delano_krf_lens(wavelength=248.3e-6, start="delano", aspheres=10):
+    """All fused silica KrF projection lens of 20 (or 21) elements, NA 0.7,
+    4x, 1 m, with 10 (or 5) aspheres.
 
-def delano_krf_lens(wavelength=248.3e-6, spherical=False):
-    """20 element all fused silica KrF projection lens with 5 aspheres,
-    NA 0.7, 4x, 1 m.
+    Designed in notebook 43 (Delano diagrams). Magnification -0.25, image
+    side NA 0.7 (the real marginal ray on axis, not the paraxial one), image
+    field radius 13.6 mm (a 26 x 8 mm slit), object to image 1000 mm, at
+    least 30 mm in front of the reticle and 8 mm working distance, an air
+    space of at least 40 mm for the NA stop. Real KrF lenses of NA 0.7 have
+    about 30 elements: an example of a first order layout and its
+    correction, not a production design.
 
-    Designed in notebook 43 (Delano diagrams) ("Delano diagrams"): first order layout in the
-    y-ybar diagram (`delano.refine()`: two waists, Petzval sum zero,
-    telecentric on both sides), thick singlets (`delano.thicken()`) and real
-    ray correction (`lens_optimization.LensOptimizer`, aperture and field
-    opened in stages, r**4 to r**8 aspheres on 5 surfaces spread from the
-    reticle to the wafer, centre and edge thicknesses of at least 10 mm).
-    Magnification -0.25, image side NA 0.7, image field radius 13.6 mm (a
-    26 x 8 mm slit), object to image 1000 mm, image side working distance
-    8 mm. Corrected to about 0.1 to 0.25 waves RMS over the field (not quite
-    diffraction limited, the Marechal limit is 0.07 waves), distortion of the
-    real chief ray below 20 nm, telecentric to 1.5 mrad on the reticle side
-    and 0.3 mrad on the wafer side. Real KrF lenses of NA 0.7 have about 30
-    elements; and the last element, a 108 mm thick block in front of the
-    wafer, would not be built like this: an example of a first order layout
-    and its correction, not a production design.
+    The correction: `lens_optimization.LensOptimizer` with analytic
+    Jacobians, the aperture and the field opened in stages, r**4 to r**8
+    aspheres on 5 surfaces spread from the reticle to the wafer, the
+    clearances as penalties, the paraxial NA raised until the real NA is
+    0.7, and a last phase on the wavefront (aspheres=5); then 5 more
+    aspheres where `DampedLeastSquares.predicted_gain()` ranks them highest,
+    and `DampedLeastSquares` with the clearances as constraints, checked at
+    the real rim of the beam (aspheres=10).
 
     Parameters
     ----------
     wavelength : number, optional
         Vacuum wavelength in mm (default: KrF, 248.3 nm, the design
         wavelength). Fused silica after Malitson.
-    spherical : bool, optional
-        The same 20 elements corrected without aspheres in the same way
-        (about 0.4 to 0.55 waves RMS), the starting point for the choice
-        of the aspheric surfaces in notebook 43 (Delano diagrams).
+    start : {"delano", "caldwell"}, optional
+        The starting design. "delano": the 20 thick singlets of the layout
+        drawn in the y-ybar diagram; with 10 aspheres corrected to 0.03 to
+        0.08 waves RMS over the field, distortion below 30 nm, telecentric
+        to 1.1 mrad on the reticle side and 0.3 mrad on the wafer side; with
+        5 aspheres 0.22 to 0.64 waves. "caldwell": Caldwell's corrected 21
+        element lens of NA 0.56 (`caldwell_krf_lens()`), opened to the field
+        and NA of the specification: with 10 aspheres 0.01 to 0.05 waves,
+        distortion below 20 nm, 0.7 and 0.3 mrad; with 5 aspheres 0.11 to
+        0.24 waves. The Marechal limit is 0.07 waves.
+    aspheres : {10, 5}, optional
+        The final design (10) or the one before the second set of aspheres
+        (5), whose clearances were penalties and are not held exactly.
 
     Returns
     -------
     System
-        Lengths in mm, maximum field object_height = 54.4 mm. Only the stop
-        has a semi diameter.
+        Lengths in mm, maximum field object_height = 54.4 mm. All surfaces
+        have the clear semi diameter of the real ray footprints of the full
+        field and NA.
     """
 
-    stop = 30
+    if (start, aspheres) not in _DELANO_KRF:
+        raise ValueError(f"(start, aspheres) is one of {sorted(_DELANO_KRF)}.")
+    design = _DELANO_KRF[start, aspheres]
     surfaces = []
-    data = _DELANO_KRF_SPHERICAL if spherical else _DELANO_KRF
-    aspheres = {} if spherical else _DELANO_KRF_ASPHERES
-    for i, line in enumerate(data.strip().splitlines()):
+    for line in design["table"].strip().splitlines():
         number, R, t, medium, sd = line.split()
         surfaces.append(Surface(float(R), float(t),
                                 material=fused_silica if medium == "S" else None,
                                 n_after=None if medium == "S" else 1.0,
-                                aspheric=aspheres.get(int(number), ()),
-                                semi_diameter=float(sd) if i == stop else None, label=number))
+                                aspheric=design["aspheres"].get(int(number), ()),
+                                semi_diameter=float(sd), label=number))
 
-    return System(surfaces, stop, wavelength,
-                  object_distance=29.986058139 if spherical else 29.998254434, object_height=54.4)
+    return System(surfaces, design["stop"], wavelength, object_distance=design["object_distance"],
+                  object_height=54.4)

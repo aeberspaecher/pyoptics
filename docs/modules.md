@@ -202,7 +202,7 @@ What each module does and how mature it is. Planned work is listed in
   (TIS of lens surfaces and mirrors), the flare level from the pattern
   density and a die map; `litho.focus_blur` averages images over laser
   bandwidth times axial colour (`litho.lens.axial_colour()`) and stage MSD
-  (notebook 152, litho stochastics, flare and focus blur), with a secondary electron blur for EUV resists (`electron_blur`); `litho.euv` holds 13.5 nm optical constants, Mo/Si multilayer mirrors (reflectance, bandwidth, effective depth, graded coatings and Jones pupils), reflective masks at a chief ray angle through the reflected orders of `litho.rcwa` (shadowing, mask 3D phase, pattern shift), anamorphic and obscured pupils, a Schwarzschild mirror objective (notebooks 156, EUV multilayers and reflective masks, to 158, EUV stochastics and flare) and a six-mirror NA 0.33 ring field projector designed from the y-ybar diagram (`six_mirror_projector()`, notebook 159, six-mirror EUV projector); `litho.hopkins` computes transmission cross
+  (notebook 152, litho stochastics, flare and focus blur), with a secondary electron blur for EUV resists (`electron_blur`); `litho.euv` holds 13.5 nm optical constants, Mo/Si multilayer mirrors (reflectance, bandwidth, effective depth, graded coatings and Jones pupils), reflective masks at a chief ray angle through the reflected orders of `litho.rcwa` (shadowing, mask 3D phase, pattern shift), anamorphic and obscured pupils, a Schwarzschild mirror objective (notebooks 156, EUV multilayers and reflective masks, to 158, EUV stochastics and flare) and a six-mirror NA 0.33 ring field projector designed from the y-ybar diagram (`six_mirror_projector()`, notebook 162, six-mirror EUV projector); `litho.hopkins` computes transmission cross
   coefficients (TCC) and their SOCS decomposition, equal to Abbe's method
   for thin masks and fast for many masks with the same optics; swing
   curves and BARC optimization (`litho.wafer`, absorbed energy exact
@@ -489,6 +489,34 @@ What each module does and how mature it is. Planned work is listed in
   (`trace_pixel()`); checked against sinc and diffraction MTFs, the
   folding of frequencies, the carrier positions, the tensor walk-off and
   the paraxial pupil image (notebook 93, the sensor)
+- `restoration`: new, tested: image restoration with measured or computed
+  PSFs; model R, G, B sensitivities (`cfa_sensitivity()`), pixel
+  integrated PSFs of a traced lens at sensor points with the lateral
+  colour as a shift (`psf_samples()`, `field_for_image_point()`) and
+  their channel sums (`channel_psfs()`); space variant blur as a sum of
+  convolutions of weighted images, with interpolated or low rank
+  (eigen-PSF) kernels, forward and adjoint, and an unknown margin
+  (`SpaceVariantBlur`); Wiener filtering, blending of per node
+  restorations, Richardson–Lucy with background and mask, TV
+  deconvolution with the cross-channel prior by a Condat–Vu primal-dual
+  solver, an unrolled half-quadratic splitting with a Haar denoiser, dead
+  leaves and Siemens star scenes; checked against direct convolution,
+  adjoint identities, noiseless inversion and an ideal lens
+  (notebook 160, image restoration and PSF deconvolution)
+- `lens_correction`: new, tested: distortion, lateral colour and lens
+  shading of a traced camera lens and their correction; chief ray image
+  heights against f tan θ per wavelength and per colour channel
+  (`radial_mapping()`, `channel_heights()`), the Brown–Conrady radial
+  model and its fit (`fit_brown_radial()`), inverse warp maps and spline
+  resampling (`warp_coordinates()`, `remap()`); chief ray angles, the
+  pixel acceptance with microlens shift, the angle shift of an IR cut
+  interference filter over the cone of light and the channel shading
+  that results (`chief_ray_angles()`, `pixel_efficiency()`,
+  `ir_cut_transmission()`, `channel_shading()`), radial maps and ISP gain
+  tables with bilinear interpolation (`gain_table()`,
+  `apply_gain_table()`); checked against an ideal lens (rectilinear,
+  cos⁴), a known radial distortion and the filter edge formula
+  (notebook 161, distortion, lateral colour and lens shading correction)
 - `lightfield`: new, tested: the light field (plenoptic) camera; a thin
   main lens, a microlens array in its image plane and a sensor matched to
   the grid of microlens images (`plenoptic_camera()`, `pixel_pitch()`), raw
@@ -560,7 +588,7 @@ What each module does and how mature it is. Planned work is listed in
   with signed indices: the Petzval sum of surfaces (`surface_petzval_sum()`),
   the folded vertex positions, the clearance between beams and mirrors and
   the folded meridional section drawn from the polygon (`vertex_z`,
-  `clearance()`, `draw_folded()`; notebook 159, six-mirror EUV projector)
+  `clearance()`, `draw_folded()`; notebook 162, six-mirror EUV projector)
 - `lens_optimization`: damped least squares lens optimization, tested
   (singlet bending for minimum spherical aberration, aspheres, solves):
   curvatures, thicknesses, object distance and even aspheric terms as
@@ -591,8 +619,9 @@ What each module does and how mature it is. Planned work is listed in
   parameters of one configuration, `in_configs()` for operands, solves and
   constraints in some configurations, weights per configuration,
   `configure()` for overrides and `from_zoom()`/`to_zoom()` for
-  `zoom.ZoomLens`; `LensOptimizer(configurations=...)` with shared
-  variables (notebook 153, multi-configuration optimization)
+  `zoom.ZoomLens`; analytic Jacobians with `jac="analytic"`, each
+  configuration linearized on its own; `LensOptimizer(configurations=...)`
+  with shared variables (notebook 153, multi-configuration optimization)
 - `lens_landscape`: the merit function landscape beyond one local
   minimum, tested on an analytic double well and on real lenses: random
   starts that trace, damped least squares from each and clustering into
@@ -615,7 +644,7 @@ What each module does and how mature it is. Planned work is listed in
   clearance of every beam around every mirror and the detector
   (`footprints()`, `beam_clearance()`), the pupil proximity of every
   surface from the footprints of the single field points, along and
-  across an off-axis field (`pupil_proximity()`, notebook 159, six-mirror
+  across an off-axis field (`pupil_proximity()`, notebook 162, six-mirror
   EUV projector), mirrors with Zernike freeform
   departures centred on their footprints (`freeform_mirrors()`),
   Zernikes and RMS over a field grid, full-field displays and layouts
@@ -663,7 +692,23 @@ What each module does and how mature it is. Planned work is listed in
   measure and `QCoefficient`, a variable for
   `lens_optimization.DampedLeastSquares`; checked against Forbes' closed
   forms, numerical slopes and even aspheres
-  (notebook 128, Forbes Q aspheres)
+  (notebook 128, Forbes Q aspheres); `Q2DSurface` and `Q2DCoefficient`
+  extend Q-bfs to freeforms with azimuthal terms u^m Q_n^m(u^2) cos/sin(m
+  phi) whose gradients are orthonormal in the Q-bfs weight (Forbes 2012),
+  checked for orthonormality, against Q-bfs for m = 0 and against
+  numerical gradients
+  (notebook 159, phone camera lens with Forbes Q polynomials)
+- `phone_lens`: new, tested: smartphone camera lenses; model glasses of
+  the optical plastics (cyclo-olefin polymers and polycarbonate or
+  polyester flints), operands and constraint functions for the sensor
+  (chief ray angle, distortion against f tan theta, lateral colour,
+  element and air thicknesses sampled from the axis to the rim of the
+  real beam), real ray clear apertures, a refit of Q-bfs surfaces as even
+  aspheres, `close_focus()` (the whole lens moved to focus on a near
+  object) and the five element f/1.8 design of
+  notebook 159 (phone camera lens with Forbes Q polynomials), for infinity
+  and 100 mm (`DESIGN`) and the earlier one for infinity only
+  (`DESIGN_INFINITY`)
 - `zoom`: new, tested: mechanically compensated zoom lenses; thin lens
   conjugates, the two-group zoom (spacing and back focus for a focal
   length), the four-group zoom with variator and compensator (afocal or

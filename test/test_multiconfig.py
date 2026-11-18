@@ -246,3 +246,25 @@ def test_a_variable_at_its_bound_keeps_the_constraints():
     s = result.system
     assert s.surfaces[0].thickness == 5.0
     assert abs(s.paraxial().efl - 100.0) < 0.05  # to first order
+
+
+def test_analytic_jacobian_of_several_configurations():
+    # shared curvatures and a focus per configuration: the analytic Jacobian
+    # agrees with forward differences, also with weights and an operand in
+    # one configuration only
+    mc = lo.MultiConfiguration.from_overrides(doublet(), [{}, {"object_distance": 2000.0}],
+                                              weights=[1.0, 2.0])
+    V = lo.curvatures(mc[0]) + lo.per_configuration(lo.Thickness(2), 2)
+    ops = [lo.wavefront(fields=(0.0, 1.0), wavelengths=(F_LINE, C_LINE), tolerance=0.05),
+           lo.in_configs(lo.ray_errors(fields=(0.0, 0.7), tolerance=1e-3), [1])]
+    J = {}
+    for jac in ("2-point", "analytic"):
+        opt = lo.DampedLeastSquares(mc, V, ops, jac=jac)
+        J[jac], _, r, _ = opt.jacobian()
+    assert np.allclose(r, opt.residuals())
+    scale = np.abs(J["2-point"]).max(axis=0)
+    assert np.allclose(J["analytic"]/scale, J["2-point"]/scale, atol=2e-4)
+    # the focus of one configuration does not act on the other
+    n0 = len(ops[0](mc[0]))
+    assert np.all(J["analytic"][:n0, -1] == 0) and np.any(J["analytic"][:n0, -2] != 0)
+    assert np.all(J["analytic"][n0:, -2] == 0) and np.any(J["analytic"][n0:, -1] != 0)
