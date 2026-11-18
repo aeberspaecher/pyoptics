@@ -2949,6 +2949,7 @@ class System:
         if spread > 0:
             with np.errstate(invalid="ignore"):
                 done = done & (np.hypot(a - a0, b - b0) <= 2*spread)
+        done = done & ~self._aim_outliers(a, b, tx, ty, done, a_s)
         if np.all(done):
             return a, b
         a, b = a.copy(), b.copy()
@@ -2994,6 +2995,31 @@ class System:
             lost = lost[~ring]
 
         return a, b
+
+    @staticmethod
+    def _aim_outliers(a, b, tx, ty, done, a_s):
+        """Rays whose launch parameters leave the smooth map from stop hits
+        to launch parameters of the others: a folded path that reaches the
+        stop point through another part of a surface in front of it, close
+        enough to the paraxial guess to pass the spread test. The map is a
+        least squares cubic over the converged rays (twice, without the
+        outliers of the first fit); a ray is an outlier when it is more than
+        20 times the median residual and 1e-6 off."""
+
+        out = np.zeros(len(a), bool)
+        idx = np.flatnonzero(done & np.isfinite(a + b))
+        if len(idx) < 30:
+            return out
+        u, v = tx[idx]/a_s, ty[idx]/a_s
+        M = np.stack([u**i*v**j for i in range(4) for j in range(4 - i)], axis=-1)
+        keep = np.ones(len(idx), bool)
+        for _ in range(2):
+            coef = np.linalg.lstsq(M[keep], np.stack([a[idx], b[idx]], -1)[keep], rcond=None)[0]
+            res = np.hypot(*(M @ coef - np.stack([a[idx], b[idx]], -1)).T)
+            keep = res <= max(20*np.median(res[keep]), 1e-6)
+        out[idx[~keep]] = True
+
+        return out
 
     def _continue_aim(self, field, a, b, tx0, ty0, tx1, ty1, s0, s1, depth=0):
         """Aim from the solutions (a, b) for the stop hits t0 + s0*(t1 - t0)
