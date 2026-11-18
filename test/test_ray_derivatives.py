@@ -137,6 +137,63 @@ def test_polychromatic_wavefront_jacobian():
     assert np.all(rel_errors(J, lin.finite_difference(op)) < 1e-4)
 
 
+@pytest.mark.parametrize("object_distance", [np.inf, 200.0])
+def test_polychromatic_ray_error_and_spot_jacobians(object_distance):
+    from pyoptics.ray_derivatives import Linearization
+
+    s = doublet(object_distance)
+    F, C = 0.48613e-3, 0.65627e-3
+    ops = [lo.polychromatic_ray_errors((F, 0.5876e-3, C), fields=(0.0, 0.7, 1.0), weights=(0.5, 1.0, 0.7)),
+           lo.spot_rms(fields=(0.0, 1.0)),
+           lo.spot_rms(fields=(0.0, 1.0), wavelengths=(F, C)),
+           lo.spot_rms(fields=(0.3, 1.0), wavelengths=(F, C), about="chief")]
+    dls = lo.DampedLeastSquares(s, doublet_variables(s), ops, solves=[lo.solve_paraxial_focus()])
+    # the RMS spot radius is strongly nonlinear in the aspheric terms: small difference steps
+    lin = Linearization(dls.system_at, dls.x, 1e-5*dls._scale, fd_steps=1e-6*dls._scale)
+    for op in ops:
+        r, J = op.linearize(lin)
+        assert np.allclose(r, op(dls.system), rtol=1e-9, atol=1e-9)
+        assert np.all(rel_errors(J, lin.finite_difference(op)) < 1e-4)
+
+
+@pytest.mark.parametrize("aim", [False, True])
+def test_chief_ray_and_paraxial_operand_jacobians(aim):
+    from pyoptics.ray_derivatives import Linearization
+
+    def errors(J, Jfd):  # relative to the largest entry of the operand's Jacobian
+        return np.max(np.abs(J - Jfd))/np.max(np.abs(Jfd))
+
+    s = doublet(200.0)
+    s.surfaces[1].thickness = 4.0  # stop inside the lens: aimed and paraxial chief rays differ
+    s.surfaces[1].semi_diameter = 8.0
+    s.stop_index = 1
+    s = s.at_paraxial_focus()
+    rays = [lo.distortion(-0.5, fields=(0.5, 1.0), aim=aim),
+            lo.image_telecentricity(fields=(0.5, 1.0), aim=aim),
+            lo.object_telecentricity(fields=(0.5, 1.0), aim=aim)]
+    paraxial = [lo.paraxial_target("magnification", -0.5, 1e-3),
+                lo.clearances(min_center=4.5, min_edge=1.0),
+                lo.seidel("W040"), lo.chromatic("axial", 0.1e-3),
+                lo.focal_shift(0.48613e-3, 0.65627e-3)]
+    dls = lo.DampedLeastSquares(s, doublet_variables(s), rays + paraxial,
+                                solves=[lo.solve_paraxial_focus()])
+    lin = dls.linearization()
+    # paraxial data have no noise: small difference steps
+    lin_small = Linearization(dls.system_at, dls.x, 1e-5*dls._scale, fd_steps=1e-5*dls._scale)
+    for ops, tol in ((rays, 1e-5), (paraxial, 1e-6)):
+        for op in ops:
+            r, J = op.linearize(lin)
+            assert np.allclose(r, op(dls.system), rtol=1e-8, atol=1e-8)
+            assert errors(J, (lin if ops is rays else lin_small).finite_difference(op)) < tol
+    s = rt.System(doublet().surfaces, 0, 0.5e-3, field_angle=np.deg2rad(5.0)).at_paraxial_focus()
+    op = lo.ftheta(fields=(0.5, 1.0), aim=aim)
+    dls = lo.DampedLeastSquares(s, doublet_variables(s), [op])
+    lin = dls.linearization()
+    r, J = op.linearize(lin)
+    assert np.allclose(r, op(dls.system), rtol=1e-8, atol=1e-8)
+    assert errors(J, lin.finite_difference(op)) < 1e-5
+
+
 class Wavelength(lo.Variable):
     name = "wavelength"
 
@@ -210,3 +267,89 @@ def test_lens_optimizer_analytic_jacobian():
     result = opt.run(max_nfev=30, jac="analytic")
     assert result.cost < opt.__class__(system, opt.operands, thicknesses=[1], object_distance=True,
                                        length=200.0, object_na=0.05).cost()
+
+
+def test_curvature_of_q_surfaces_is_that_of_the_base_sphere():
+    from pyoptics import qaspheres as qa
+
+    s1 = qa.QbfsSurface(3.0, 2.6, q=(0.05, 0.01), norm_radius=2.4, material=(1.58313, 59.39))
+    s = rt.System([s1, rt.Surface(-20.0, 2.0, n_after=1.0)], 0, 405e-6, entrance_pupil_radius=2.4)
+    op = lo.wavefront(fields=(0.0,), rings=(0.5, 1.0), spokes=1, tolerance=0.01)
+    dls = lo.DampedLeastSquares(s, [lo.Curvature(0), qa.QCoefficient(0, 0)], [op],
+                                solves=[lo.solve_paraxial_focus()])
+    # the variables reproduce the system, so that system_at() linearizes about it
+    assert np.allclose(op(dls.system_at(dls.x)), op(dls.system), atol=1e-9)
+    lin = dls.linearization()
+    assert np.all(rel_errors(op.linearize(lin)[1], lin.finite_difference(op)) < 1e-4)
+
+
+def test_zernike_wavefront_operand():
+    s = freeform_tma()
+    fields = np.radians([[0.0, 2.0], [1.0, 3.5]])
+    op = oa.zernike_wavefront(fields, terms=(4, 5, 7, 9), targets=[0.1, 0.0, 0.0, 0.0],
+                              tolerance=0.01)
+    dls = lo.DampedLeastSquares(s, TMA_VARIABLES, [op], solves=[lo.solve_paraxial_focus()])
+    lin = dls.linearization()
+    r, J = op.linearize(lin)
+    assert r.shape == (8,) and J.shape == (8, len(TMA_VARIABLES))
+    assert np.allclose(r, op(dls.system), rtol=1e-9, atol=1e-9)
+    assert np.all(rel_errors(J, lin.finite_difference(op)) < 1e-4)
+    # the coefficients are close to those of the grid fit of System.zernike()
+    c_grid = dls.system.zernike(tuple(fields[1]), n_terms=9, N=96)
+    c = r[4:]*0.01 + np.array([0.1, 0.0, 0.0, 0.0])
+    assert np.allclose(c, c_grid[[3, 4, 6, 8]], rtol=0, atol=2e-3*np.max(np.abs(c_grid[3:])))
+    # Noll ordering: RMS normalized defocus is the Fringe one / sqrt(3)
+    noll = oa.zernike_wavefront(fields, terms=(4,), ordering="noll", tolerance=1.0)
+    assert np.all(np.isfinite(noll(dls.system)))
+    with pytest.raises(ValueError):
+        oa.zernike_wavefront(fields, terms=(12,), n_fit=9)
+
+
+def test_zernike_wavefront_optimization():
+    # correct astigmatism and coma of a tilted mirror system with conics,
+    # Q-con terms and the Zernike tertiary, with the analytic Jacobian
+    s = freeform_tma()
+    fields = np.radians([[0.0, 2.0], [0.0, 4.0]])
+    op = oa.zernike_wavefront(fields, terms=(4, 5, 6, 7, 8, 9), tolerance=0.01)
+    variables = [lo.Conic(0), lo.Conic(1), qa.QCoefficient(0, 1), lo.ZernikeTerm(2, 5),
+                 lo.ZernikeTerm(2, 8)]
+    dls = lo.DampedLeastSquares(s, variables, [op], solves=[lo.solve_paraxial_focus()],
+                                jac="analytic")
+    before = dls.merit()
+    result = dls.run(max_iterations=8)
+    assert result.merit < 0.1*before
+
+
+def test_off_axis_operands_constraint_penalties_and_forward_differences():
+    deg = np.pi/180
+    s = oa.cook_tma(600.0, 4.0, 4*deg, prescription=(-2/3, 0.2, -1/3, 4/9), aperture_offset=-2.0)
+    F = oa.rectangular_field((0, 3*deg), (1.5*deg, 0.5*deg), (3, 3))
+    variables = [lo.Curvature(0), lo.Conic(0), lo.Curvature(1), lo.Thickness(1), lo.Conic(2)]
+    focal = oa.focal_length(600.0, centre=(0.0, 3*deg), tolerance=0.1)
+    clear = oa.clearance_penalty(F, minimum=5.0)
+    tight = oa.clearance_penalty(F, minimum=1e3)  # violated: differences
+    penalty = lo.Constraint(lo.paraxial_value("efl"), upper=590.0, tolerance=0.1)
+    dls = lo.DampedLeastSquares(s, variables, [focal, clear, tight, penalty])
+    lin = dls.linearization()
+    r, J = focal.linearize(lin)
+    assert np.allclose(r, focal(dls.system), rtol=1e-8, atol=1e-8)
+    Jfd = lin.finite_difference(focal)
+    assert np.max(np.abs(J - Jfd)) < 1e-5*np.max(np.abs(Jfd))
+    r, J = clear.linearize(lin)
+    assert np.all(r == 0) and np.all(J == 0) and np.all(clear(dls.system) == 0)
+    assert np.allclose(lin.finite_difference(clear), 0.0)
+    with pytest.raises(NotImplementedError):
+        tight.linearize(lin)
+    r, J = penalty.linearize(lin)
+    assert r[0] > 0 and np.allclose(r, penalty(dls.system))
+    assert np.all(rel_errors(J, lin.finite_difference(penalty)) < 1e-4)
+    # the fallback of operands without linearize: forward differences on the systems at x + h
+    r, J = lin.jacobian(lambda system: focal(system))
+    Ja = focal.linearize(lin)[1]
+    assert np.max(np.abs(J - Ja)) < 1e-4*np.max(np.abs(Ja))
+    # analytic and forward difference Jacobians of a whole problem agree
+    dls = lo.DampedLeastSquares(s, variables, [focal, clear, penalty])
+    J1 = dls.jacobian()[0]
+    dls.jac = "analytic"
+    J2 = dls.jacobian()[0]
+    assert np.max(np.abs(J1 - J2)) < 1e-3*np.max(np.abs(J1))
