@@ -153,6 +153,12 @@ def test_psf_samples_of_a_paraxial_lens():
     assert np.allclose(p[0, 0], p[0, 0][::-1, ::-1], atol=1e-6)
     f = rs.field_for_image_point(s, 0.2, 0.3)
     assert np.allclose(rs.chief_ray_point(s, f), (0.2, 0.3), atol=1e-8)
+    # a finite object: the image is inverted
+    s.object_distance = 20.0
+    s.max_field = 4.0
+    f = rs.field_for_image_point(s, 0.2, 0.3)
+    assert f[0] < 0 and f[1] < 0
+    assert np.allclose(rs.chief_ray_point(s, f), (0.2, 0.3), atol=1e-8)
 
 
 def test_dead_leaves_and_star():

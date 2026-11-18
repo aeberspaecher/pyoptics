@@ -192,7 +192,10 @@ def field_for_image_point(system, x, y, tol=1e-9):
         return np.zeros(2)
     a = np.linspace(0, 1.05*system.max_field, 41)
     h = np.array([chief_ray_point(system, (0.0, ai))[1] for ai in a])
-    a0 = np.interp(r, h, a)
+    ok = np.isfinite(h)
+    a, h = a[ok], h[ok]
+    sign = 1.0 if h[-1] > 0 else -1.0     # -1: a real, inverted image of a finite object
+    a0 = sign*np.interp(r, sign*h, a)
     f = np.array([a0*x/r, a0*y/r])
     eps = 1e-6*max(system.max_field, 1e-12)
     for _ in range(20):
