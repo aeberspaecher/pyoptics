@@ -66,9 +66,9 @@ Functions:
   astigmatism, coma or RMS; draw_layout(): the meridional section with
   the mirrors drawn over their footprints only.
 - field_wavefront(), zernike_wavefront(), focal_length(),
-  clearance_penalty(): operands for `lens_optimization.DampedLeastSquares`
-  over a two-dimensional field (the two wavefront operands with analytic
-  Jacobians, see `ray_derivatives`).
+  chief_ray_errors(), clearance_penalty(): operands for `lens_optimization.DampedLeastSquares`
+  over a two-dimensional field (the wavefront and chief ray operands with
+  analytic Jacobians, see `ray_derivatives`).
 
 References
 ----------
@@ -106,7 +106,7 @@ __all__ = ["rectangular_field", "ring_field", "OffAxisConic", "off_axis_conic", 
            "freeform_mirrors", "Footprint", "footprints", "PupilProximity", "pupil_proximity",
            "Clearance", "beam_clearance",
            "field_zernikes", "field_rms", "plot_full_field", "draw_layout", "field_wavefront",
-           "focal_length", "clearance_penalty", "pupil_rings"]
+           "focal_length", "chief_ray_errors", "clearance_penalty", "pupil_rings"]
 
 
 # --- fields -----------------------------------------------------------------
@@ -1228,6 +1228,83 @@ def focal_length(efl, centre=(0.0, 0.0), delta=1e-3, tolerance=0.1, axes=(0, 1))
             d, dd = rd.I[1, k] - rd.I[0, k], rd.dI[:, 1, k] - rd.dI[:, 0, k]
             r.append((abs(d)/t - efl)/tolerance)
             J.append(np.sign(d)*dd/t/tolerance)
+
+        return clean(np.array(r), np.array(J))
+
+    operand.linearize = linearize
+
+    return operand
+
+
+def chief_ray_errors(fields, magnification, cra=0.0, tol_distortion=1e-3,
+                     tol_telecentricity=1e-3, tol_cra=1e-3):
+    """Operand: distortion and telecentricity at the image and the chief
+    ray angle at the object, for two-dimensional fields of a finite
+    conjugate system (a projector).
+
+    For every field point the real chief ray (aimed at the centre of the
+    stop) gives five residuals: the two components of its image point
+    minus magnification times the object point (distortion), the two
+    slopes D_x/D_z, D_y/D_z at the image (telecentricity), and its radial
+    slope at the object minus tan(cra) times r/r_mean (an object side
+    chief ray angle that grows with the field radius r like that of a
+    pupil at a finite distance; for a narrow ring field it is cra at
+    every point). With cra = 0 the object side is telecentric.
+
+    Parameters
+    ----------
+    fields : (F, 2) array
+        Object points (absolute).
+    magnification : number
+    cra : number, optional
+        Chief ray angle at the mean field radius (radians).
+    tol_distortion, tol_telecentricity, tol_cra : numbers, optional
+        Tolerances (length units, slopes).
+
+    Returns
+    -------
+    operand : callable
+        operand(system) returns the 5 F residuals; operand.linearize(lin)
+        also their analytic Jacobian (`ray_derivatives`).
+    """
+
+    fields = np.asarray(fields, float)
+    r0 = np.mean(np.hypot(*fields.T))
+    t_cra = np.tan(cra)
+
+    def rows(f, I, D, d0):
+        r = np.hypot(*f)
+        radial = (d0[:2] @ f)/r/d0[2] if r > 0 else 0.0
+        return [(I[0] - magnification*f[0])/tol_distortion, (I[1] - magnification*f[1])/tol_distortion,
+                D[0]/D[2]/tol_telecentricity, D[1]/D[2]/tol_telecentricity,
+                (radial - t_cra*r/r0)/tol_cra]
+
+    def operand(system):
+        out = []
+        for f in fields:
+            rays = system.rays(tuple(f), 0.0, 0.0)
+            d0 = np.reshape(rays.directions, (-1, 3))[0]
+            I, D = (v[0] for v in system._image_hits(system.trace(rays, clip=False)))
+            out += rows(f, I, D, d0)
+
+        return _clean(out)
+
+    def linearize(lin):
+        from .ray_derivatives import clean
+
+        rd = lin.trace_fields([tuple(f) for f in fields], 0.0, 0.0)
+        r, J = [], []
+        for j, f in enumerate(fields):
+            I, D, d0 = rd.I[j], rd.D[j], rd.d0[j]
+            dI, dD, dd0 = rd.dI[:, j], rd.dD[:, j], rd.dd0[:, j]
+            rr = np.hypot(*f)
+            r += rows(f, I, D, d0)
+            d_radial = (((dd0[:, :2] @ f)/d0[2] - (d0[:2] @ f)*dd0[:, 2]/d0[2]**2)/rr if rr > 0
+                        else np.zeros(len(dI)))
+            J += [dI[:, 0]/tol_distortion, dI[:, 1]/tol_distortion,
+                  (dD[:, 0]/D[2] - D[0]*dD[:, 2]/D[2]**2)/tol_telecentricity,
+                  (dD[:, 1]/D[2] - D[1]*dD[:, 2]/D[2]**2)/tol_telecentricity,
+                  d_radial/tol_cra]
 
         return clean(np.array(r), np.array(J))
 

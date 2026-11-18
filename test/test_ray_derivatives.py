@@ -418,3 +418,23 @@ def test_off_axis_operands_constraint_penalties_and_forward_differences():
     dls.jac = "analytic"
     J2 = dls.jacobian()[0]
     assert np.max(np.abs(J1 - J2)) < 1e-3*np.max(np.abs(J1))
+
+
+def test_chief_ray_errors_jacobian():
+    """Distortion, telecentricity and object side chief ray angle of a
+    finite conjugate mirror system: analytic Jacobian against differences."""
+
+    from pyoptics.litho import euv
+
+    s = euv.six_mirror_projector(freeform=False)
+    fields = oa.ring_field(120.0, np.arcsin(13/30), width=6.0, n_arc=3, n_radial=2)
+    op = oa.chief_ray_errors(fields, 0.25, np.radians(6.0), 1e-4, 2e-4, 2e-4)
+    variables = ([lo.Curvature(i) for i in (0, 3)] + [lo.Conic(2), qa.QCoefficient(4, 1)]
+                 + [lo.Thickness(i) for i in (1, 4)])
+    dls = lo.DampedLeastSquares(s, variables, [op], solves=[lo.solve_object_na(0.25*0.25)])
+    lin = dls.linearization()
+    r, J = op.linearize(lin)
+    assert r.shape == (5*len(fields),)
+    assert np.allclose(r, op(dls.system), rtol=1e-9, atol=1e-6)
+    err = rel_errors(J, lin.finite_difference(op))
+    assert np.all(err < 1e-4), err
