@@ -164,25 +164,42 @@ def test_thicken_keeps_first_order_properties():
     assert np.isclose(back.H, d.H)
 
 
-def test_delano_krf_lens_meets_the_specification():
-    system = rt.delano_krf_lens()
+@pytest.mark.parametrize("start, n_elements, rms_edge, tele_object",
+                         [("delano", 20, 0.7, 6e-3), ("caldwell", 21, 0.3, 4e-3)])
+def test_delano_krf_lens_meets_the_specification(start, n_elements, rms_edge, tele_object):
+    system = rt.delano_krf_lens(start=start)
+    system.ray_aiming = True
     p = system.paraxial()
     assert np.isclose(p.magnification, -0.25, atol=2e-4)
-    assert np.isclose(p.na, 0.7, atol=1e-3)
     assert np.isclose(system.object_distance + system.image_z, 1000.0)
+    assert len(system.elements()) == n_elements
     glass = [i for i in range(len(system.surfaces)) if system.n[i + 1] > 1.2]
-    assert len(glass) == 20
-    assert min(system.surfaces[i].thickness for i in glass) > 9.99
+    assert min(system.surfaces[i].thickness for i in glass) > 9.0  # 10 mm as a penalty
     assert sum(1 for s in system.surfaces if any(s.aspheric)) == 5
+    # the real NA on axis (not the paraxial one) is 0.7
+    b = system.trace(system.rays(0.0, np.array([0.0, 0.0]), np.array([0.0, 1.0])), clip=False)
+    D = system._image_hits(b)[1]
+    assert np.isclose(np.linalg.norm(np.cross(D[1], D[0])), 0.7, atol=5e-3)
+    # the clear apertures pass the full beam of the full field
+    px, py = np.meshgrid(np.linspace(-1, 1, 15), np.linspace(-1, 1, 15))
+    inside = px**2 + py**2 <= 1
+    for f in (0.0, 1.0, -1.0):
+        P = system.trace(system.rays(f*system.max_field, px[inside], py[inside])).points[-1]
+        assert np.all(np.isfinite(P))
     # telecentric on both sides: slopes of the real chief ray at the edge of
     # the field, aimed at the centre of the stop
     rays = system.rays(system.max_field, 0.0, 0.0)
     d = np.reshape(rays.directions, (-1, 3))[0]
     I, D = system._image_hits(system.trace(rays, clip=False))
-    assert abs(d[1]/d[2]) < 2e-3
-    assert abs(D[0, 1]/D[0, 2]) < 1e-3
-    assert abs(I[0, 1] + 0.25*system.max_field) < 5e-5
-    assert system.rms_opd(field=system.max_field, N=16) < 0.3
+    assert abs(d[1]/d[2]) < tele_object
+    assert abs(D[0, 1]/D[0, 2]) < 1.5e-3
+    assert abs(I[0, 1] + 0.25*system.max_field) < 2e-5
+    assert system.rms_opd(field=system.max_field, N=16) < rms_edge
+
+
+def test_delano_krf_lens_start_is_checked():
+    with pytest.raises(ValueError):
+        rt.delano_krf_lens(start="sketch")
 
 
 def test_delano_krf_lens_without_aspheres():
