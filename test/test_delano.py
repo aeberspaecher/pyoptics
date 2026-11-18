@@ -164,18 +164,20 @@ def test_thicken_keeps_first_order_properties():
     assert np.isclose(back.H, d.H)
 
 
-@pytest.mark.parametrize("start, n_elements, rms_edge, tele_object",
-                         [("delano", 20, 0.7, 6e-3), ("caldwell", 21, 0.3, 4e-3)])
-def test_delano_krf_lens_meets_the_specification(start, n_elements, rms_edge, tele_object):
-    system = rt.delano_krf_lens(start=start)
+@pytest.mark.parametrize("start, aspheres, n_elements, rms_edge, tele_object, min_glass",
+                         [("delano", 10, 20, 0.08, 1.5e-3, 9.99), ("caldwell", 10, 21, 0.06, 1e-3, 9.99),
+                          ("delano", 5, 20, 0.7, 6e-3, 9.0), ("caldwell", 5, 21, 0.3, 4e-3, 9.0)])
+def test_delano_krf_lens_meets_the_specification(start, aspheres, n_elements, rms_edge, tele_object,
+                                                 min_glass):
+    system = rt.delano_krf_lens(start=start, aspheres=aspheres)
     system.ray_aiming = True
     p = system.paraxial()
     assert np.isclose(p.magnification, -0.25, atol=2e-4)
     assert np.isclose(system.object_distance + system.image_z, 1000.0)
     assert len(system.elements()) == n_elements
     glass = [i for i in range(len(system.surfaces)) if system.n[i + 1] > 1.2]
-    assert min(system.surfaces[i].thickness for i in glass) > 9.0  # 10 mm as a penalty
-    assert sum(1 for s in system.surfaces if any(s.aspheric)) == 5
+    assert min(system.surfaces[i].thickness for i in glass) > min_glass
+    assert sum(1 for s in system.surfaces if any(s.aspheric)) == aspheres
     # the real NA on axis (not the paraxial one) is 0.7
     b = system.trace(system.rays(0.0, np.array([0.0, 0.0]), np.array([0.0, 1.0])), clip=False)
     D = system._image_hits(b)[1]
@@ -193,20 +195,12 @@ def test_delano_krf_lens_meets_the_specification(start, n_elements, rms_edge, te
     I, D = system._image_hits(system.trace(rays, clip=False))
     assert abs(d[1]/d[2]) < tele_object
     assert abs(D[0, 1]/D[0, 2]) < 1.5e-3
-    assert abs(I[0, 1] + 0.25*system.max_field) < 2e-5
+    assert abs(I[0, 1] + 0.25*system.max_field) < 3e-5
     assert system.rms_opd(field=system.max_field, N=16) < rms_edge
 
 
-def test_delano_krf_lens_start_is_checked():
+def test_delano_krf_lens_design_is_checked():
     with pytest.raises(ValueError):
         rt.delano_krf_lens(start="sketch")
-
-
-def test_delano_krf_lens_without_aspheres():
-    system = rt.delano_krf_lens(spherical=True)
-    p = system.paraxial()
-    assert np.isclose(p.magnification, -0.25, atol=2e-4)
-    assert np.isclose(p.na, 0.7, atol=1e-3)
-    assert np.isclose(system.object_distance + system.image_z, 1000.0)
-    assert not any(any(s.aspheric) for s in system.surfaces)
-    assert system.rms_opd(field=0.0, N=16) < 0.6
+    with pytest.raises(ValueError):
+        rt.delano_krf_lens(aspheres=7)

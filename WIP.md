@@ -124,7 +124,9 @@
   `lens_apodization`, notebook 41, telecentricity across the slit)
 * Lens design: Delano (y-ybar) diagrams (`delano`), a least squares lens
   optimizer (`lens_optimization`), first order layout and correction of a
-  20 element KrF lens with 5 aspheres (`raytrace.delano_krf_lens`, notebook 43, Delano diagrams)
+  20 element KrF lens of real NA 0.7 with 10 aspheres, from the layout and
+  from Caldwell's lens, asphere placement by predicted gain, the axial
+  position of the NA stop (`raytrace.delano_krf_lens`, notebook 43, Delano diagrams)
 * Lens design: classical damped least squares optimizer with variables
   (curvatures, thicknesses, conics, aspheres, model glasses), solves,
   operands (ray errors, spots, wavefront, Seidel, colour) and Lagrange
