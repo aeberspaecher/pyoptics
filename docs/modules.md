@@ -587,8 +587,9 @@ What each module does and how mature it is. Planned work is listed in
   parameters of one configuration, `in_configs()` for operands, solves and
   constraints in some configurations, weights per configuration,
   `configure()` for overrides and `from_zoom()`/`to_zoom()` for
-  `zoom.ZoomLens`; `LensOptimizer(configurations=...)` with shared
-  variables (notebook 153, multi-configuration optimization)
+  `zoom.ZoomLens`; analytic Jacobians with `jac="analytic"`, each
+  configuration linearized on its own; `LensOptimizer(configurations=...)`
+  with shared variables (notebook 153, multi-configuration optimization)
 - `lens_landscape`: the merit function landscape beyond one local
   minimum, tested on an analytic double well and on real lenses: random
   starts that trace, damped least squares from each and clustering into
@@ -656,7 +657,23 @@ What each module does and how mature it is. Planned work is listed in
   measure and `QCoefficient`, a variable for
   `lens_optimization.DampedLeastSquares`; checked against Forbes' closed
   forms, numerical slopes and even aspheres
-  (notebook 128, Forbes Q aspheres)
+  (notebook 128, Forbes Q aspheres); `Q2DSurface` and `Q2DCoefficient`
+  extend Q-bfs to freeforms with azimuthal terms u^m Q_n^m(u^2) cos/sin(m
+  phi) whose gradients are orthonormal in the Q-bfs weight (Forbes 2012),
+  checked for orthonormality, against Q-bfs for m = 0 and against
+  numerical gradients
+  (notebook 159, phone camera lens with Forbes Q polynomials)
+- `phone_lens`: new, tested: smartphone camera lenses; model glasses of
+  the optical plastics (cyclo-olefin polymers and polycarbonate or
+  polyester flints), operands and constraint functions for the sensor
+  (chief ray angle, distortion against f tan theta, lateral colour,
+  element and air thicknesses sampled from the axis to the rim of the
+  real beam), real ray clear apertures, a refit of Q-bfs surfaces as even
+  aspheres, `close_focus()` (the whole lens moved to focus on a near
+  object) and the five element f/1.8 design of
+  notebook 159 (phone camera lens with Forbes Q polynomials), for infinity
+  and 100 mm (`DESIGN`) and the earlier one for infinity only
+  (`DESIGN_INFINITY`)
 - `zoom`: new, tested: mechanically compensated zoom lenses; thin lens
   conjugates, the two-group zoom (spacing and back focus for a focal
   length), the four-group zoom with variator and compensator (afocal or

@@ -304,9 +304,13 @@ class Linearization:
         parameters without analytic derivatives (complete traces carry the
         noise of the ray aiming and the rounding of long optical paths, so
         larger steps; default 100 steps).
+    analyse : bool, optional
+        Find what each parameter changes (default). False for a container
+        of systems (a `lens_optimization.MultiConfiguration`), whose
+        systems are linearized with `mapped()`.
     """
 
-    def __init__(self, system_at, x, steps, system=None, fd_steps=None):
+    def __init__(self, system_at, x, steps, system=None, fd_steps=None, analyse=True):
         self.x = np.asarray(x, float)
         self.h = np.broadcast_to(np.asarray(steps, float), self.x.shape).copy()
         self.h_fd = (100*self.h if fd_steps is None
@@ -316,7 +320,8 @@ class Linearization:
         self.plus, self.minus = self._perturbed(self.h)
         self._fd = None
         self._cache = {}
-        self._analyse()
+        if analyse:
+            self._analyse()
 
     def _perturbed(self, steps):
         plus, minus = [], []

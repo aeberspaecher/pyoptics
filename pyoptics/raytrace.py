@@ -3405,10 +3405,13 @@ class System:
         Returns
         -------
         rms : number
-            RMS OPD in waves.
+            RMS OPD in waves; NaN if no ray reaches the image (e.g. all
+            rays miss a surface).
         """
 
         W = self._valid_opd(field, N, remove_tilt)
+        if W.size == 0:
+            return np.nan
 
         return np.sqrt(np.mean((W - W.mean())**2))
 
@@ -3431,9 +3434,12 @@ class System:
         Returns
         -------
         strehl : number
+            NaN if no ray reaches the image.
         """
 
         W = self._valid_opd(field, N, remove_tilt)
+        if W.size == 0:
+            return np.nan
 
         return np.abs(np.mean(np.exp(2j*pi*W)))**2
 
