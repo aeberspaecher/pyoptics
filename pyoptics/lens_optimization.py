@@ -2579,8 +2579,8 @@ class DampedLeastSquares:
         differences, the variables that the differential trace does not
         cover central differences, of complete evaluations (see
         `ray_derivatives` for the full list). Solves are differentiated with
-        the system (their paraxial effect by central differences). With
-        a `MultiConfiguration`, each configuration is linearized on its own
+        the system (their paraxial effect by central differences). With a
+        `MultiConfiguration`, each configuration is linearized on its own
         (the columns of variables of other configurations are zero). Faster
         for many variables and ray traced operands, slower for small or
         paraxial problems: see "When analytic Jacobians pay off" in
