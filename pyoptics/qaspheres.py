@@ -63,6 +63,10 @@ coefficients; `best_fit_sphere()` gives Forbes' sphere through vertex and
 rim. `QCoefficient` is a `lens_optimization.Variable` for the damped least
 squares optimizer.
 
+Rays are intersected with the surfaces by Newton steps on the full sag, in
+a compiled per-ray loop if numba is installed (`use_numba`, default True;
+False: NumPy).
+
 References
 ----------
 G. W. Forbes, "Shape specification for axially symmetric optical
@@ -86,8 +90,33 @@ import numpy as np
 from numpy.polynomial import chebyshev as C
 from scipy.special import eval_jacobi
 
-from . import abcd
+from . import abcd, _qaspheres_numba
 from .raytrace import Surface, _norm
+
+
+# Newton intersections with the compiled kernel if numba is installed
+# (pip install pyoptics[fast]); False: always NumPy.
+use_numba = True
+
+
+def _compiled():
+    return use_numba and _qaspheres_numba.available
+
+
+def _kernel_series(a):
+    a = np.asarray(a, float)
+    return _qaspheres_numba.series(a) if len(a) else (np.zeros(1), 0, np.zeros(1))
+
+
+def _kernel_groups(surface):
+    """Packed Q2D groups of a surface, cached on it by its coefficients."""
+
+    key = (surface.cos, surface.sin)
+    cached = surface.__dict__.get("_packed_groups")
+    if cached is None or cached[0] != key:
+        cached = (key, _qaspheres_numba.pack_groups(surface._groups()))
+        surface.__dict__["_packed_groups"] = cached
+    return cached[1]
 
 
 __all__ = ["qbfs", "qbfs_series", "qcon", "qcon_series", "sag_qbfs", "sag_qcon",
@@ -288,6 +317,14 @@ class _QSurface(Surface):
 
         base = Surface(self.R, conic=self._base_conic)
         t = base.intersect(P, d)
+        if _compiled():
+            K = _qaspheres_numba
+            if isinstance(self, QconSurface):
+                radial, c, series = K.QCON, self.c, qcon_series(self.q) if self.q else ()
+            else:
+                radial, c, series = K.QBFS, self.c_bfs, qbfs_series(self.q) if self.q else ()
+            return K.intersect(P, d, t, radial, c, getattr(self, "conic", 0.0), self.norm_radius**2,
+                               _kernel_series(series), tol=1e-15)
         t = np.where(np.isfinite(t), t, -P[:, 2]/d[:, 2])
         prev = np.full(len(t), np.inf)
         for _ in range(60):
@@ -924,6 +961,10 @@ class Q2DSurface(Surface):
         Newton steps on the full sag."""
 
         t = Surface(self.R).intersect(P, d)
+        if _compiled():
+            K = _qaspheres_numba
+            return K.intersect(P, d, t, K.SPHERE, self.c_bfs, 0.0, 1.0, _kernel_series(()),
+                               K.OVER_ROOT, self.norm_radius, (0.0, 0.0), _kernel_groups(self))
         t = np.where(np.isfinite(t), t, -P[:, 2]/d[:, 2])
         for _ in range(60):
             Q = P + t[:, None]*d
@@ -1046,6 +1087,13 @@ class QconQ2DSurface(QconSurface):
         """Distance along the rays to the surface: from the Q-con surface by
         Newton steps on the full sag."""
 
+        if _compiled():
+            K = _qaspheres_numba
+            t = Surface(self.R, conic=self.conic).intersect(P, d)
+            return K.intersect(P, d, t, K.QCON, self.c, self.conic, self.norm_radius**2,
+                               _kernel_series(qcon_series(self.q) if self.q else ()),
+                               K.ADDED if (self.cos or self.sin) else K.NONE,
+                               self.freeform_radius, self.centre, _kernel_groups(self))
         t = super().intersect(P, d)
         if not (self.cos or self.sin):
             return t

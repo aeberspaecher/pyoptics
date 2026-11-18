@@ -172,3 +172,31 @@ def test_q2d_surface_traces_on_its_sag():
     assert v.name == "a2_0_0"
     with pytest.raises(ValueError):
         qa.Q2DCoefficient(0, 0, 1, "sin")
+
+
+@pytest.mark.skipif(not qa._qaspheres_numba.available, reason="needs numba")
+def test_compiled_intersections_match_numpy(monkeypatch):
+    rng = np.random.default_rng(3)
+    surfaces = [
+        qa.QbfsSurface(-80.0, q=(0.02, -0.01, 0.004), norm_radius=12.0),
+        qa.QconSurface(-80.0, q=(0.02, -0.01, 0.004), norm_radius=12.0, conic=-0.6),
+        qa.Q2DSurface(-80.0, cos={(0, 0): 0.01, (2, 1): 0.004, (3, 0): -0.003},
+                      sin={(1, 1): 0.002}, norm_radius=12.0),
+        qa.QconQ2DSurface(-80.0, q=(0.01, 0.003), norm_radius=12.0, conic=-0.4,
+                          cos={(2, 0): 0.003, (1, 2): 0.001}, sin={(3, 1): -0.002},
+                          freeform_radius=5.0, centre=(1.0, 4.0)),
+    ]
+    N = 500
+    P = np.stack([rng.uniform(-8, 8, N), rng.uniform(-8, 8, N), np.full(N, -20.0)], axis=-1)
+    d = np.stack([rng.normal(0, 0.05, N), rng.normal(0, 0.05, N), np.ones(N)], axis=-1)
+    d /= np.linalg.norm(d, axis=1)[:, None]
+    for s in surfaces:
+        t_compiled = s.intersect(P, d)
+        monkeypatch.setattr(qa, "use_numba", False)
+        t_numpy = s.intersect(P, d)
+        monkeypatch.setattr(qa, "use_numba", True)
+        assert np.all(np.isfinite(t_compiled))
+        assert np.allclose(t_compiled, t_numpy, rtol=0, atol=1e-11)
+        Q = P + t_compiled[:, None]*d
+        z = s.sag_xy(Q[:, 0], Q[:, 1]) if hasattr(s, "sag_xy") else s.sag(Q[:, 0]**2 + Q[:, 1]**2)
+        assert np.max(np.abs(Q[:, 2] - z)) < 1e-11
