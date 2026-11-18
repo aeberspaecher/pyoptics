@@ -55,3 +55,17 @@ def test_monomial_refit_keeps_the_surface():
     r = np.linspace(0, 1.1, 20)
     for i in (0, 4):
         assert np.allclose(m.surfaces[i].sag(r**2), s.surfaces[i].sag(r**2), atol=2e-4)
+
+
+def test_close_focus_moves_the_lens_by_about_the_paraxial_shift():
+    lens = pl.phone_lens()
+    near, dz = pl.close_focus(lens)
+    assert near.object_distance == pl.CLOSE_DISTANCE
+    assert np.isclose(near.max_field, pl.CLOSE_DISTANCE*np.tan(lens.max_field))
+    assert np.isclose(dz, pl.EFL**2/(pl.CLOSE_DISTANCE - pl.EFL), atol=0.015)
+    # designed for both distances: as sharp at 100 mm as at infinity
+    for f in (0.0, 0.5, 1.0):
+        assert near.rms_opd(f*near.max_field, N=24) < 0.35
+    # the earlier design for infinity only is not
+    old, _ = pl.close_focus(pl.phone_lens(pl.DESIGN_INFINITY))
+    assert old.rms_opd(0.5*old.max_field, N=24) > 0.5

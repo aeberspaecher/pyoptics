@@ -30,7 +30,10 @@ This module holds what notebook 159
   zones of strongly aspheric elements that the paraxial edge thickness
   misses); `clear_apertures()` gives the real ray semi apertures.
 - `phone_lens()`: the five element f/1.8 design of the notebook as Q-bfs
-  surfaces (or, with ``basis="monomial"``, refit as even aspheres).
+  surfaces, optimized for infinity and 100 mm together (`DESIGN`), or
+  the earlier design for infinity only (`DESIGN_INFINITY`);
+  `close_focus()` focuses it on a near object by moving the whole lens,
+  and `to_monomials()` refits it as even aspheres.
 
 Lengths in mm, angles in radians unless the name says degrees.
 """
@@ -43,7 +46,8 @@ from . import raytrace as rt
 
 __all__ = ["PLASTICS", "IR_FILTER", "WAVELENGTHS", "distortion", "chief_ray_angle",
            "lateral_colour", "clear_apertures", "min_thickness", "phone_lens",
-           "lens_surfaces", "to_monomials"]
+           "lens_surfaces", "to_monomials", "close_focus", "DESIGN", "DESIGN_INFINITY",
+           "CLOSE_DISTANCE"]
 
 # Nominal (n_d, V_d) of the two families of optical plastics
 PLASTICS = {
@@ -199,12 +203,13 @@ def min_thickness(surfaces, rims, n=24):
     return f
 
 
-# The design of notebook 159 (phone camera lens with Forbes Q polynomials):
+# The designs of notebook 159 (phone camera lens with Forbes Q polynomials):
 # f = 4 mm, f/1.8, image height 3 mm (36.9 degrees half field), stop on the
 # first surface. Per lens surface: radius of the best fit sphere, thickness
 # behind it, normalization radius and Q-bfs coefficients a_0... [mm]; the
-# material behind it.
-_DESIGN = (
+# material behind it. DESIGN_INFINITY was optimized for an object at
+# infinity only.
+DESIGN_INFINITY = (
     (1.736534522, 0.6942330612, 1.15, (-0.0349623726, 0.0110453317, -0.0076436966, 0.00789869534, -0.00833045177, 0.00547031863, -0.00368482575, 0.00178887284),
      PLASTICS["COP"]),
     (-49.23207608, 0.1006915118, 1.15, (-0.0290756888, 0.00576805075, -0.0259554759, 0.0227734083, -0.0160440975, 0.00808290163, -0.00300552421, 0.000535078087),
@@ -229,7 +234,38 @@ _DESIGN = (
     (np.inf, 0.2607692031, None, (), None),
 )
 
+# DESIGN: the same lens polished for infinity and CLOSE_DISTANCE together
+# (the lens moves away from the sensor to focus), with the 0.25 field and
+# the rim of the pupil in the merit function, then scaled to f = 4 mm
+DESIGN = (
+    (1.720561561, 0.7151745559, 1.13966, (-0.0326262404, 0.0100703086, -0.0071887661, 0.00698539425, -0.00626441728, 0.00424570176, -0.00264269341, 0.00115303403),
+     PLASTICS["COP"]),
+    (-58.88288659, 0.08761089169, 1.13966, (-0.0284925789, 0.00423975617, -0.0261254535, 0.0228728302, -0.0149107948, 0.00777497483, -0.00315128969, 0.00115053628),
+     None),
+    (25.60962836, 0.2584854215, 1.13966, (0.109080316, -0.0138096232, -0.00736224852, 0.00454548178, 0.00325409109, -0.0045194506, 0.00399016644, -0.00171318445),
+     PLASTICS["OKP"]),
+    (2.021896785, 0.2337943809, 1.13966, (-0.0518125549, 0.0305352633, -0.00411048808, -0.00143435503, 0.00737664824, -0.00636104699, 0.00408689199, -0.00155581673),
+     None),
+    (5.050235378, 0.5088007266, 1.23876, (-0.0235852617, -0.0419020101, 0.037552894, -0.0122606681, 0.00522692942, -0.00300910875, 0.0018657832, -0.000648675992),
+     PLASTICS["COP"]),
+    (13.23339309, 0.5252913813, 1.38741, (-0.156434242, -0.0113481432, 0.0140081704, 0.0228251481, -0.0288076887, 0.0179739605, -0.00641753465, 0.00118260644),
+     None),
+    (-6.741304053, 1.322054702, 1.53606, (0.25575852, -0.000231542028, -0.007190131, -0.00936115628, 0.0213983554, -0.015413216, 0.0052920794, -0.000795634776),
+     PLASTICS["COP"]),
+    (-2.071202526, 0.02990891101, 1.88291, (-0.635528712, 0.316878199, -0.0589802246, 0.0710208728, 0.137193116, -0.000161400136, 0.038158519, 0.0216989704, -0.00366433478, 0.0109029714),
+     None),
+    (-2.752369269, 0.7989547558, 2.18021, (-0.743478281, 0.234880656, 0.172045885, 0.105919872, 0.0776782636, 0.124222383, 0.0321175276, 0.0515034953, -0.0136943896, 0.0110664761),
+     PLASTICS["COP"]),
+    (-30.41609402, 0.2828857551, 2.87392, (2.37208625, -0.37274503, 0.331699139, 0.00709260119, 0.0999626531, 0.0411817733, 0.00205793971, 0.0245387904, -0.0246557794, -0.0350149549),
+     None),
+    (np.inf, 0.2086278244, None, (),
+     IR_FILTER),
+    (np.inf, 0.2807424575, None, (),
+     None),
+)
+
 EFL, F_NUMBER, IMAGE_HEIGHT = 4.0, 1.8, 3.0
+CLOSE_DISTANCE = 100.0
 LENS_SURFACES = tuple(range(10))
 
 
@@ -248,7 +284,7 @@ def phone_lens(design=None, wavelength=WAVELENGTHS[1]):
     ----------
     design : sequence, optional
         Prescription rows (R_bfs, thickness, norm_radius, q, material); the
-        default is the stored design.
+        default is `DESIGN`.
     wavelength : number, optional
 
     Returns
@@ -256,7 +292,7 @@ def phone_lens(design=None, wavelength=WAVELENGTHS[1]):
     raytrace.System
     """
 
-    rows = _DESIGN if design is None else design
+    rows = DESIGN if design is None else design
     S = []
     for R, t, rn, q, mat in rows:
         kw = dict(n_after=1.0) if mat is None else dict(material=mat)
@@ -267,6 +303,47 @@ def phone_lens(design=None, wavelength=WAVELENGTHS[1]):
 
     return rt.System(S, 0, wavelength, field_angle=np.arctan(IMAGE_HEIGHT/EFL),
                      entrance_pupil_radius=EFL/F_NUMBER/2)
+
+
+def close_focus(system, distance=CLOSE_DISTANCE, shifts=np.linspace(0.0, 0.3, 61)):
+    """The lens focused on an object at a finite distance by moving it as
+    a whole away from the sensor (as the voice coil motor of a phone
+    camera does).
+
+    The object height is ``distance*tan(field angle)``, so that the image
+    height stays about the same; the shift of the lens is the one of
+    `shifts` with the smallest mean rms wavefront at 0, 0.5 and 0.85 field.
+
+    Parameters
+    ----------
+    system : raytrace.System
+        Focused at infinity (`phone_lens()`).
+    distance : number, optional
+        From the object to the first vertex [mm].
+    shifts : array, optional
+        Lens shifts to try [mm].
+
+    Returns
+    -------
+    system : raytrace.System
+    shift : float
+        How far the lens moved [mm] (the paraxial estimate is
+        f**2/(distance - f)).
+    """
+
+    s = system.copy()
+    s.object_distance = distance
+    s.max_field = distance*np.tan(system.max_field)
+    best = None
+    for dz in shifts:
+        t = s.copy()
+        t.surfaces[-1].thickness = system.surfaces[-1].thickness + dz
+        with np.errstate(all="ignore"):
+            w = np.mean([t.rms_opd(f*t.max_field, N=24) for f in (0.0, 0.5, 0.85)])
+        if np.isfinite(w) and (best is None or w < best[0]):
+            best = (w, dz, t)
+
+    return best[2], float(best[1])
 
 
 def to_monomials(system, orders=(4, 6, 8, 10, 12, 14, 16), surfaces=LENS_SURFACES, rims=None):
