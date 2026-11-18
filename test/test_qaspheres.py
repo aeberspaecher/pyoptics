@@ -200,3 +200,23 @@ def test_compiled_intersections_match_numpy(monkeypatch):
         Q = P + t_compiled[:, None]*d
         z = s.sag_xy(Q[:, 0], Q[:, 1]) if hasattr(s, "sag_xy") else s.sag(Q[:, 0]**2 + Q[:, 1]**2)
         assert np.max(np.abs(Q[:, 2] - z)) < 1e-11
+
+
+def test_q2d_hessians_are_analytic():
+    rng = np.random.default_rng(0)
+    x, y = rng.uniform(-6, 6, 100), rng.uniform(-6, 6, 100)
+    h = 1e-5
+    q2d = qa.Q2DSurface(-80.0, cos={(0, 0): 0.01, (0, 2): 0.002, (2, 1): 0.004, (3, 0): -0.003},
+                        sin={(1, 1): 0.002, (2, 2): 0.001, (5, 0): 0.002}, norm_radius=8.0)
+    hybrid = qa.QconQ2DSurface(-80.0, q=(0.01, 0.003), norm_radius=12.0, conic=-0.4,
+                               cos={(2, 0): 0.003, (1, 2): 0.001, (0, 1): 0.002}, sin={(3, 1): -0.002},
+                               freeform_radius=5.0, centre=(1.0, 4.0))
+    for H, gradient in ((q2d.sag_hessian, q2d._gradient),
+                        (hybrid.departure_hessian, hybrid.departure_gradient)):
+        gx1, gy1 = gradient(x + h, y)
+        gx0, gy0 = gradient(x - h, y)
+        gx3, gy3 = gradient(x, y + h)
+        gx2, gy2 = gradient(x, y - h)
+        reference = ((gx1 - gx0)/(2*h), (gy1 - gy0)/(2*h), (gy3 - gy2)/(2*h))
+        for a, b in zip(H(x, y), reference):
+            assert np.allclose(a, b, rtol=0, atol=1e-9)
