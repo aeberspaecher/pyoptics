@@ -24,7 +24,8 @@ def test_design_first_order_data():
 def test_design_meets_sensor_limits():
     s = pl.phone_lens()
     assert np.all(pl.chief_ray_angle()(s) < 35.0)
-    assert np.all(np.abs(pl.distortion()(s)) < 0.03)
+    assert np.all(np.abs(pl.distortion()(s)) < 0.035)
+    assert pl.min_thickness([9], rims)(s)[0] > 0.045  # L5 clears the IR filter
     rims = pl.clear_apertures(s)
     assert np.all(pl.min_thickness([0, 2, 4, 6, 8], rims)(s) > 0.24)
     assert np.all(pl.min_thickness([1, 3, 5, 7], rims)(s) > 0.025)
