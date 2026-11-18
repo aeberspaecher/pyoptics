@@ -83,6 +83,7 @@ optical elements and systems - Part 12: Aspheric surfaces" (includes the Q
 forms).
 """
 
+import copy
 from functools import lru_cache
 from types import SimpleNamespace
 
@@ -302,7 +303,22 @@ def even_asphere_sag(r, c, K=0.0, aspheric=()):
     return Surface(1/c if c else np.inf, conic=K, aspheric=aspheric).sag(np.asarray(r, float)**2)
 
 
-class _QSurface(Surface):
+class _SharedCoefficients:
+    """Copies share the coefficient tuples (immutable) and the packed
+    kernel data instead of copying them item by item: optimizers copy
+    systems for every perturbed variable."""
+
+    _shared = ("q", "cos", "sin", "centre", "_packed_groups")
+
+    def __deepcopy__(self, memo):
+        other = self.__class__.__new__(self.__class__)
+        memo[id(self)] = other
+        for k, v in self.__dict__.items():
+            other.__dict__[k] = v if k in self._shared else copy.deepcopy(v, memo)
+        return other
+
+
+class _QSurface(_SharedCoefficients, Surface):
     """Common part of the Q surfaces: Newton intersection on the full sag."""
 
     def _series(self):
@@ -777,7 +793,7 @@ def q2d(m, n, x):
     return C.chebval(_x_to_t(x), _q2d_coefficients(m, n + 1)[n])
 
 
-class Q2DSurface(Surface):
+class Q2DSurface(_SharedCoefficients, Surface):
     """Q2D freeform: a best fit sphere plus a slope-orthonormal departure
     with azimuthal terms (Forbes 2012) ::
 
@@ -918,6 +934,69 @@ class Q2DSurface(Surface):
 
         return D, Dx, Dy
 
+    def _departure_hessian(self, x, y):
+        """Second derivatives (D_xx, D_xy, D_yy) of D in the local frame."""
+
+        rn = self.norm_radius
+        w = (np.asarray(x, float) + 1j*np.asarray(y, float))/rn
+        u, v = w.real, w.imag
+        X = np.abs(w)**2
+        t = _x_to_t(X)
+        Huu, Huv, Hvv = np.zeros(w.shape), np.zeros(w.shape), np.zeros(w.shape)
+        groups = self._groups()
+        if not groups:
+            return Huu, Huv, Hvv
+        T = C.chebvander(t, max(len(c) for c in groups.values()) - 1)
+        powers = [np.ones(w.shape, complex)]
+        for _ in range(max(m for _, m in groups)):
+            powers.append(powers[-1]*w)
+        zero = np.zeros(w.shape)
+        Xu, Xv = 2*u, 2*v
+        for (kind, m), coef in groups.items():
+            n = len(coef)
+            P = T[..., :n] @ coef
+            dP = 2*(T[..., :n - 1] @ C.chebder(coef)) if n > 1 else zero        # dP/dX
+            d2P = 4*(T[..., :n - 2] @ C.chebder(coef, 2)) if n > 2 else zero    # d2P/dX2
+            if m == 0:
+                f1 = (1 - 2*X)*P + X*(1 - X)*dP
+                f2 = -2*P + 2*(1 - 2*X)*dP + X*(1 - X)*d2P
+                Huu = Huu + f2*Xu**2 + 2*f1
+                Huv = Huv + f2*Xu*Xv
+                Hvv = Hvv + f2*Xv**2 + 2*f1
+                continue
+            W0, W1 = powers[m], m*powers[m - 1]
+            W2 = m*(m - 1)*powers[m - 2] if m > 1 else zero.astype(complex)
+            if kind == "cos":
+                A, Au, Av, Auu, Auv = W0.real, W1.real, -W1.imag, W2.real, -W2.imag
+            else:
+                A, Au, Av, Auu, Auv = W0.imag, W1.imag, W1.real, W2.imag, W2.real
+            Huu = Huu + d2P*Xu**2*A + 2*dP*A + 2*dP*Xu*Au + P*Auu
+            Huv = Huv + d2P*Xu*Xv*A + dP*(Xu*Av + Xv*Au) + P*Auv
+            Hvv = Hvv + d2P*Xv**2*A + 2*dP*A + 2*dP*Xv*Av - P*Auu
+
+        return Huu/rn**2, Huv/rn**2, Hvv/rn**2
+
+    def sag_hessian(self, x, y):
+        """Second derivatives (z_xx, z_xy, z_yy) of the sag, analytic."""
+
+        x, y = np.asarray(x, float), np.asarray(y, float)
+        cb = self.c_bfs
+        with np.errstate(invalid="ignore"):
+            rho = 1/np.sqrt(1 - cb**2*(x**2 + y**2))
+        D, Dx, Dy = self._departure_and_gradient(x, y)
+        Dxx, Dxy, Dyy = self._departure_hessian(x, y)
+        # sphere: (dz/dr)/r = cb rho, its derivative in r**2 cb**3 rho**3/2
+        sr, ds = cb*rho, cb**3*rho**3/2
+        # 1/root: rho_x = cb^2 x rho^3, rho_xx = cb^2 rho^3 + 3 cb^4 x^2 rho^5
+        rx, ry = cb**2*x*rho**3, cb**2*y*rho**3
+        rxx = cb**2*rho**3 + 3*cb**4*x**2*rho**5
+        rxy = 3*cb**4*x*y*rho**5
+        ryy = cb**2*rho**3 + 3*cb**4*y**2*rho**5
+        zxx = sr + 2*x**2*ds + Dxx*rho + 2*Dx*rx + D*rxx
+        zxy = 2*x*y*ds + Dxy*rho + Dx*ry + Dy*rx + D*rxy
+        zyy = sr + 2*y**2*ds + Dyy*rho + 2*Dy*ry + D*ryy
+        return zxx, zxy, zyy
+
     def departure(self, x, y):
         """Normal departure D(x, y) from the base sphere (before the
         division by the square root)."""
@@ -1057,6 +1136,15 @@ class QconQ2DSurface(QconSurface):
         patch = SimpleNamespace(norm_radius=self.freeform_radius, _groups=self._groups)
 
         return Q2DSurface._departure_and_gradient(
+            patch, np.asarray(x, float) - x0, np.asarray(y, float) - y0)
+
+    def departure_hessian(self, x, y):
+        """Analytic second derivatives (D_xx, D_xy, D_yy) of the Q2D departure."""
+
+        x0, y0 = self.centre
+        patch = SimpleNamespace(norm_radius=self.freeform_radius, _groups=self._groups)
+
+        return Q2DSurface._departure_hessian(
             patch, np.asarray(x, float) - x0, np.asarray(y, float) - y0)
 
     def departure_xy(self, x, y):

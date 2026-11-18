@@ -228,11 +228,14 @@ def _sag_gradient(s, x, y):
 def _hessian(s, x, y, scale):
     """Second derivatives (z_xx, z_xy, z_yy) of the sag: rotationally
     symmetric part from a central difference of the slope over r in r**2,
-    the Zernike departure from central differences of its analytic
-    gradient."""
+    the Q2D parts analytic, the Zernike departure from central differences
+    of its analytic gradient."""
 
+    if hasattr(s, "sag_hessian"):
+        # Q2DSurface: analytic
+        return s.sag_hessian(x, y)
     if hasattr(s, "sag_xy") and not hasattr(s, "departure_gradient"):
-        # Q2DSurface: central differences of the analytic full gradient
+        # central differences of the analytic full gradient
         h = 1e-5*scale
         gxp, gyp = s._gradient(x + h, y)
         gxm, gym = s._gradient(x - h, y)
@@ -245,8 +248,12 @@ def _hessian(s, x, y, scale):
     sr = s._slope_over_r(r2)
     ds = (s._slope_over_r(r2 + h2) - s._slope_over_r(r2 - h2))/(2*h2)
     zxx, zxy, zyy = sr + 2*x**2*ds, 2*x*y*ds, sr + 2*y**2*ds
-    if hasattr(s, "departure_gradient") and (getattr(s, "zernike", ())
-                                             or getattr(s, "cos", ()) or getattr(s, "sin", ())):
+    if hasattr(s, "departure_hessian") and (getattr(s, "cos", ()) or getattr(s, "sin", ())):
+        # Q-con + Q2D: analytic Hessian of the departure
+        Dxx, Dxy, Dyy = s.departure_hessian(x, y)
+        zxx, zxy, zyy = zxx + Dxx, zxy + Dxy, zyy + Dyy
+    elif hasattr(s, "departure_gradient") and (getattr(s, "zernike", ())
+                                               or getattr(s, "cos", ()) or getattr(s, "sin", ())):
         h = 1e-5*getattr(s, "freeform_radius", s.norm_radius)
         gxp, gyp = s.departure_gradient(x + h, y)
         gxm, gym = s.departure_gradient(x - h, y)
